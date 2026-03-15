@@ -29,10 +29,10 @@ async function runMigrations(): Promise<void> {
         `SELECT version FROM schema_migrations WHERE version = $1`,
         [version]
       );
-      if (alreadyApplied.rowCount > 0) {
+      if ((alreadyApplied.rowCount ?? 0) > 0) {
         continue;
       }
-
+    
       const sql = await fs.readFile(path.join(migrationsDir, file), "utf8");
       await client.query(sql);
       await client.query(`INSERT INTO schema_migrations(version) VALUES ($1)`, [version]);

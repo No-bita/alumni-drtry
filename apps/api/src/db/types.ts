@@ -1,6 +1,8 @@
-import type { QueryResult } from "pg";
+import type { QueryResult, QueryResultRow } from "pg";
 
 export interface DbExecutor {
-  query<T = unknown>(text: string, params?: unknown[]): Promise<QueryResult<T>>;
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    params?: unknown[]
+  ): Promise<QueryResult<T>>;
 }
-
