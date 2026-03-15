@@ -1,0 +1,99 @@
+/* Design tokens — IIT BHU Alumni Platform */
+
+:root {
+  /* Colors */
+  --brick: #8b3a2a;
+  --brick-light: #c4703a;
+  --ochre: #c4955a;
+  --ochre-light: #e8c99a;
+  --cream: #f2ede4;
+  --cream-dark: #e8e0d4;
+  --ink: #1c1410;
+  --ink-muted: #6b5e54;
+  --ink-faint: #a89a90;
+  --surface: #ffffff;
+  --rule: rgba(28, 20, 16, 0.1);
+  --olive: #3d5a2e;
+
+  /* Semantic */
+  --color-page-bg: var(--cream);
+  --color-nav-bg: var(--ink);
+  --color-cta-bg: var(--ink);
+  --color-cta-hover: var(--brick);
+  --color-intentcast-bar: var(--brick);
+  --color-chip-active-bg: var(--brick);
+  --color-prefill-bg: rgba(196, 149, 90, 0.08);
+  --color-prefill-border: rgba(196, 149, 90, 0.3);
+  --color-progress-fill: var(--brick);
+  --color-step-done-bg: #3d5a2e;
+  --badge-open-bg: #e8f5ee;
+  --badge-open-text: #1a6b3c;
+  --badge-hiring-bg: #fff0e6;
+  --badge-hiring-text: #993c1d;
+  --badge-research-bg: #eef0ff;
+  --badge-research-text: #3c3489;
+
+  /* Typography — font families */
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+
+  /* Type scale */
+  --text-page-headline: clamp(48px, 6vw, 80px);
+  --text-section-headline: 36px;
+  --text-card-headline: 28px;
+  --text-subheadline: 20px;
+  --text-body: 15px;
+  --text-ui-label: 10px;
+  --text-ui-body: 13px;
+  --text-small-note: 11px;
+  --text-stat: 26px;
+  --lh-page-headline: 1.05;
+  --lh-section-headline: 1.1;
+  --lh-card-headline: 1.2;
+  --lh-subheadline: 1.3;
+  --lh-body: 1.75;
+  --lh-ui: 1.6;
+  --lh-small: 1.5;
+  --ls-label: 0.16em;
+  --ls-ui: 0.06em;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-md-lg: 16px;
+  --space-lg: 24px;
+  --space-lg-xl: 32px;
+  --space-xl: 40px;
+  --space-xl-2: 48px;
+  --page-x: 2.5rem;
+
+  /* Radii */
+  --radius-card: 4px;
+  --radius-input: 2px;
+  --radius-chip: 2px;
+
+  /* Borders */
+  --border-default: 0.5px solid var(--rule);
+  --border-featured: 2px solid var(--rule);
+  --nav-border: 0.5px solid rgba(242, 237, 228, 0.08);
+
+  /* Nav */
+  --nav-height: 61px;
+
+  /* Progress bar */
+  --progress-height: 2px;
+
+  /* Step tabs */
+  --step-dot-size: 20px;
+
+  /* Avatar sizes */
+  --avatar-lg: 80px;
+  --avatar-md: 44px;
+  --avatar-sm: 38px;
+
+  /* Motion */
+  --ease-out: 0.2s ease;
+  --ease-reveal: 0.3s ease;
+  --ease-progress: 0.4s ease;
+}

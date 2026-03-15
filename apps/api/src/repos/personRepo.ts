@@ -1,0 +1,395 @@
+import type { DbExecutor } from "../db/types.js";
+
+export interface PersonRow {
+  id: string;
+  institutional_email: string;
+  role: "alumni" | "admin";
+  full_name: string | null;
+  department_code: string | null;
+  department_name: string | null;
+  department_id: string | null;
+  degree_id: string | null;
+  batch_year: number | null;
+  personal_email: string | null;
+  bio: string | null;
+  skills_text: string | null;
+  is_searchable: boolean;
+  profile_completed_at: Date | null;
+  suspended_at: Date | null;
+  deleted_at: Date | null;
+  joining_year: number | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface UpsertPersonInput {
+  institutionalEmail: string;
+  departmentCode: string | null;
+  departmentName: string | null;
+  joiningYear: number | null;
+}
+
+export interface VocabularyValueRow {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface PersonProfileView {
+  id: string;
+  institutionalEmail: string;
+  role: "alumni" | "admin";
+  fullName: string | null;
+  departmentCode: string | null;
+  departmentName: string | null;
+  parsedDepartmentCode: string | null;
+  parsedDepartmentName: string | null;
+  batchYear: number | null;
+  parsedJoiningYear: number | null;
+  degreeCode: string | null;
+  degreeName: string | null;
+  personalEmail: string | null;
+  bio: string | null;
+  skillsText: string | null;
+  isSearchable: boolean;
+  profileCompletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface PersonProfileRow {
+  id: string;
+  institutional_email: string;
+  role: "alumni" | "admin";
+  full_name: string | null;
+  department_code: string | null;
+  department_name: string | null;
+  joining_year: number | null;
+  batch_year: number | null;
+  personal_email: string | null;
+  bio: string | null;
+  skills_text: string | null;
+  is_searchable: boolean;
+  profile_completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  department_vocab_code: string | null;
+  department_vocab_name: string | null;
+  degree_vocab_code: string | null;
+  degree_vocab_name: string | null;
+}
+
+export interface UpdateProfileInput {
+  personId: string;
+  fullName: string | null;
+  departmentId: string | null;
+  degreeId: string | null;
+  batchYear: number | null;
+  personalEmail: string | null;
+  bio: string | null;
+  skillsText: string | null;
+  isSearchable: boolean;
+  profileCompletedAt: Date | null;
+}
+
+export interface PersonProfileIds {
+  departmentId: string | null;
+  degreeId: string | null;
+}
+
+export class PersonRepo {
+  constructor(private readonly db: DbExecutor) {}
+
+  async upsertByInstitutionalEmail(input: UpsertPersonInput): Promise<PersonRow> {
+    const result = await this.db.query<PersonRow>(
+      `
+      INSERT INTO people (institutional_email, department_code, department_name, joining_year)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (institutional_email)
+      DO UPDATE SET
+        department_code = COALESCE(people.department_code, EXCLUDED.department_code),
+        department_name = COALESCE(people.department_name, EXCLUDED.department_name),
+        joining_year = COALESCE(people.joining_year, EXCLUDED.joining_year),
+        updated_at = now()
+      RETURNING *
+      `,
+      [input.institutionalEmail, input.departmentCode, input.departmentName, input.joiningYear]
+    );
+    return result.rows[0]!;
+  }
+
+  async findById(personId: string): Promise<PersonRow | null> {
+    const result = await this.db.query<PersonRow>(`SELECT * FROM people WHERE id = $1`, [personId]);
+    return result.rows[0] ?? null;
+  }
+
+  async findDepartmentByCode(code: string): Promise<VocabularyValueRow | null> {
+    const result = await this.db.query<VocabularyValueRow>(
+      `
+      SELECT id, code, name
+      FROM departments
+      WHERE code = lower($1)
+        AND is_active = TRUE
+      LIMIT 1
+      `,
+      [code]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findDegreeByCode(code: string): Promise<VocabularyValueRow | null> {
+    const result = await this.db.query<VocabularyValueRow>(
+      `
+      SELECT id, code, name
+      FROM degrees
+      WHERE code = lower($1)
+        AND is_active = TRUE
+      LIMIT 1
+      `,
+      [code]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findProfileById(personId: string): Promise<PersonProfileView | null> {
+    const result = await this.db.query<PersonProfileRow>(
+      `
+      SELECT
+        p.id,
+        p.institutional_email,
+        p.role,
+        p.full_name,
+        p.department_code,
+        p.department_name,
+        p.joining_year,
+        p.batch_year,
+        p.personal_email,
+        p.bio,
+        p.skills_text,
+        p.is_searchable,
+        p.profile_completed_at,
+        p.created_at,
+        p.updated_at,
+        d.code AS department_vocab_code,
+        d.name AS department_vocab_name,
+        g.code AS degree_vocab_code,
+        g.name AS degree_vocab_name
+      FROM people p
+      LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN degrees g ON g.id = p.degree_id
+      WHERE p.id = $1
+      LIMIT 1
+      `,
+      [personId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+    return {
+      id: row.id,
+      institutionalEmail: row.institutional_email,
+      role: row.role,
+      fullName: row.full_name,
+      departmentCode: row.department_vocab_code,
+      departmentName: row.department_vocab_name,
+      parsedDepartmentCode: row.department_code,
+      parsedDepartmentName: row.department_name,
+      batchYear: row.batch_year,
+      parsedJoiningYear: row.joining_year,
+      degreeCode: row.degree_vocab_code,
+      degreeName: row.degree_vocab_name,
+      personalEmail: row.personal_email,
+      bio: row.bio,
+      skillsText: row.skills_text,
+      isSearchable: row.is_searchable,
+      profileCompletedAt: row.profile_completed_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  async findProfileIdsById(personId: string): Promise<PersonProfileIds | null> {
+    const result = await this.db.query<{ department_id: string | null; degree_id: string | null }>(
+      `
+      SELECT department_id, degree_id
+      FROM people
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [personId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+    return {
+      departmentId: row.department_id,
+      degreeId: row.degree_id
+    };
+  }
+
+  async updateAdminFields(
+    personId: string,
+    updates: { role?: "alumni" | "admin"; suspendedAt?: Date | null }
+  ): Promise<PersonRow | null> {
+    const updatesList: string[] = [];
+    const params: unknown[] = [personId];
+    let idx = 2;
+
+    if (updates.role !== undefined) {
+      updatesList.push(`role = $${idx}`);
+      params.push(updates.role);
+      idx++;
+    }
+    if (updates.suspendedAt !== undefined) {
+      updatesList.push(`suspended_at = $${idx}`);
+      params.push(updates.suspendedAt);
+      idx++;
+    }
+
+    if (updatesList.length === 0) {
+      return this.findById(personId);
+    }
+
+    const result = await this.db.query<PersonRow>(
+      `
+      UPDATE people
+      SET ${updatesList.join(", ")}, updated_at = now()
+      WHERE id = $1
+      RETURNING *
+      `,
+      params
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async softDelete(personId: string): Promise<PersonRow | null> {
+    const result = await this.db.query<PersonRow>(
+      `
+      UPDATE people
+      SET deleted_at = now(), updated_at = now()
+      WHERE id = $1
+        AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [personId]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findDuplicates(): Promise<
+    { fullName: string; batchYear: number | null; personIds: string[]; count: number }[]
+  > {
+    const result = await this.db.query<{
+      full_name: string;
+      batch_year: number | null;
+      person_ids: string[];
+      cnt: number;
+    }>(
+      `
+      SELECT
+        COALESCE(full_name, '') AS full_name,
+        COALESCE(batch_year, joining_year) AS batch_year,
+        array_agg(id ORDER BY created_at) AS person_ids,
+        count(*)::int AS cnt
+      FROM people
+      WHERE deleted_at IS NULL
+        AND full_name IS NOT NULL
+        AND trim(full_name) <> ''
+      GROUP BY
+        lower(trim(full_name)),
+        COALESCE(batch_year, joining_year)
+      HAVING count(*) > 1
+      ORDER BY cnt DESC, full_name ASC
+      `
+    );
+    return result.rows.map((r) => ({
+      fullName: r.full_name,
+      batchYear: r.batch_year,
+      personIds: r.person_ids,
+      count: r.cnt
+    }));
+  }
+
+  async updateProfile(input: UpdateProfileInput): Promise<PersonProfileView> {
+    const result = await this.db.query<PersonProfileRow>(
+      `
+      UPDATE people
+      SET
+        full_name = $2,
+        department_id = $3,
+        degree_id = $4,
+        batch_year = $5,
+        personal_email = $6,
+        bio = $7,
+        skills_text = $8,
+        is_searchable = $9,
+        profile_completed_at = $10
+      WHERE id = $1
+      RETURNING
+        id,
+        institutional_email,
+        role,
+        full_name,
+        department_code,
+        department_name,
+        joining_year,
+        batch_year,
+        personal_email,
+        bio,
+        skills_text,
+        is_searchable,
+        profile_completed_at,
+        created_at,
+        updated_at,
+        (
+          SELECT d.code FROM departments d WHERE d.id = people.department_id
+        ) AS department_vocab_code,
+        (
+          SELECT d.name FROM departments d WHERE d.id = people.department_id
+        ) AS department_vocab_name,
+        (
+          SELECT g.code FROM degrees g WHERE g.id = people.degree_id
+        ) AS degree_vocab_code,
+        (
+          SELECT g.name FROM degrees g WHERE g.id = people.degree_id
+        ) AS degree_vocab_name
+      `,
+      [
+        input.personId,
+        input.fullName,
+        input.departmentId,
+        input.degreeId,
+        input.batchYear,
+        input.personalEmail,
+        input.bio,
+        input.skillsText,
+        input.isSearchable,
+        input.profileCompletedAt
+      ]
+    );
+    const row = result.rows[0]!;
+    return {
+      id: row.id,
+      institutionalEmail: row.institutional_email,
+      role: row.role,
+      fullName: row.full_name,
+      departmentCode: row.department_vocab_code,
+      departmentName: row.department_vocab_name,
+      parsedDepartmentCode: row.department_code,
+      parsedDepartmentName: row.department_name,
+      batchYear: row.batch_year,
+      parsedJoiningYear: row.joining_year,
+      degreeCode: row.degree_vocab_code,
+      degreeName: row.degree_vocab_name,
+      personalEmail: row.personal_email,
+      bio: row.bio,
+      skillsText: row.skills_text,
+      isSearchable: row.is_searchable,
+      profileCompletedAt: row.profile_completed_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+}

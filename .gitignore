@@ -1,0 +1,18 @@
+# Dependencies and build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment and secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Logs and OS
+*.log
+.DS_Store
+
+# IDE (optional; uncomment if you want these ignored)
+# .vscode/
+# .idea/

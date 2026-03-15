@@ -1,0 +1,149 @@
+/* Base styles — reset and typography */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  background: var(--color-page-bg);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Display — Playfair */
+h1, h2, h3, .headline, .section-headline, .card-headline, .subheadline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--ink);
+}
+
+h1, .page-headline {
+  font-size: var(--text-page-headline);
+  line-height: var(--lh-page-headline);
+  margin: 0 0 var(--space-md);
+}
+
+h2, .section-headline {
+  font-size: var(--text-section-headline);
+  line-height: var(--lh-section-headline);
+  margin: 0 0 var(--space-sm);
+}
+
+h3, .card-headline {
+  font-size: var(--text-card-headline);
+  line-height: var(--lh-card-headline);
+  margin: 0 0 var(--space-xs);
+}
+
+.subheadline {
+  font-size: var(--text-subheadline);
+  line-height: var(--lh-subheadline);
+}
+
+.italic-accent {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ochre-light);
+}
+
+/* Body — DM Sans */
+p, .body-text {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  margin: 0 0 var(--space-md);
+}
+
+.ui-label {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.ui-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.small-note {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 11px;
+  line-height: var(--lh-small);
+  color: var(--ink-faint);
+}
+
+.stat-number {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-stat);
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* Eyebrow */
+.eyebrow {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ochre);
+}
+
+.eyebrow-light {
+  color: var(--ink-faint);
+}
+
+/* Links */
+a {
+  color: var(--ochre);
+  text-decoration: none;
+  transition: color var(--ease-out);
+}
+
+a:hover {
+  color: var(--brick-light);
+}
+
+/* Focus — no box shadow, border only */
+:focus-visible {
+  outline: none;
+  border-color: var(--brick);
+}
+
+/* Selection */
+::selection {
+  background: rgba(139, 58, 42, 0.15);
+  color: var(--ink);
+}
