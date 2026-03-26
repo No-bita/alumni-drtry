@@ -15,24 +15,29 @@ export function Login() {
     setError(null);
     if (!email.trim()) return;
     setLoading(true);
-    const { error: err, retryAfterSeconds } = await api.post("/v1/auth/start", { institutionalEmail: email.trim() });
-    setLoading(false);
-    if (err) {
-      let msg = err.message ?? err.code;
-      if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
-        const mins = Math.ceil(retryAfterSeconds / 60);
-        msg += ` Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`;
+    try {
+      const { error: err, retryAfterSeconds } = await api.post("/v1/auth/start", {
+        institutionalEmail: email.trim(),
+      });
+      if (err) {
+        let msg = err.message ?? err.code;
+        if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
+          const mins = Math.ceil(retryAfterSeconds / 60);
+          msg += ` Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`;
+        }
+        setError(msg);
+        return;
       }
-      setError(msg);
-      return;
+      setSent(true);
+    } finally {
+      setLoading(false);
     }
-    setSent(true);
   };
 
   if (sent) {
     return (
       <>
-        <Nav />
+        <Nav hideSignInLink />
         <div
           style={{
             maxWidth: 420,
@@ -43,10 +48,10 @@ export function Login() {
         >
           <p className="eyebrow" style={{ marginBottom: 8 }}>Check your inbox</p>
           <h2 className="section-headline" style={{ marginBottom: 16 }}>
-            We sent a sign-in link to <strong>{email}</strong>
+            We sent a link to <strong>{email}</strong>
           </h2>
           <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-            Click the link in that email to sign in. It may take a minute to arrive.
+            Open the link in that email to continue. It may take a minute to arrive.
           </p>
           <Button
             variant="back"
@@ -62,7 +67,7 @@ export function Login() {
 
   return (
     <>
-      <Nav />
+      <Nav hideSignInLink />
       <div
         style={{
           maxWidth: 420,
@@ -70,7 +75,6 @@ export function Login() {
           padding: "0 var(--page-x)",
         }}
       >
-        <p className="eyebrow" style={{ marginBottom: 8 }}>Sign in</p>
         <h2 className="section-headline" style={{ marginBottom: 16 }}>
           Use your <span className="italic-accent">@iitbhu.ac.in</span> or @itbhu.ac.in email
         </h2>
@@ -90,7 +94,7 @@ export function Login() {
             </p>
           )}
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? "Sending…" : "Send sign-in link"}
+            {loading ? "Sending…" : "Send magic link"}
           </Button>
         </form>
         <p className="small-note" style={{ marginTop: 16 }}>

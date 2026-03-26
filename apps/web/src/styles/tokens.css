@@ -1,4 +1,12 @@
-/* Design tokens — IIT BHU Alumni Platform */
+/* Design tokens — IIT BHU Alumni Platform
+ *
+ * Rebrand without touching every page:
+ * 1. This file — palette (:root colors) + semantic --color-* (nav, CTA, page bg).
+ * 2. base.css — typography scale / .section-headline if you change sizes globally.
+ * 3. components.css — only if you need different button/nav structure.
+ * 4. index.html — Google Fonts link if you swap --font-display / --font-body.
+ * Pages mostly use var(--*) and shared classes; inline styles are mostly layout.
+ */
 
 :root {
   /* Colors */

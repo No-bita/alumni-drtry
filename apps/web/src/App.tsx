@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { api, type MeProfileResponse } from "./api/client";
@@ -92,6 +93,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      <Analytics />
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>

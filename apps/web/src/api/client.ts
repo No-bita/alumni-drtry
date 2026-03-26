@@ -7,14 +7,25 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number }> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+  } catch {
+    return {
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          "Could not reach the API. Start the backend (apps/api on port 4000) and use the Vite dev server with VITE_API_URL unset, or set VITE_API_URL to your deployed API.",
+      },
+    };
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const retryAfter = res.headers.get("retry-after");

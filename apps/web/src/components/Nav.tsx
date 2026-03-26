@@ -4,9 +4,11 @@ import { Button } from "./Button";
 
 type NavProps = {
   right?: React.ReactNode;
+  /** Hide the default “Sign in” link when unauthenticated (e.g. on /login). */
+  hideSignInLink?: boolean;
 };
 
-export function Nav({ right }: NavProps) {
+export function Nav({ right, hideSignInLink }: NavProps) {
   const auth = useAuth();
   const navigate = useNavigate();
 
@@ -30,6 +32,8 @@ export function Nav({ right }: NavProps) {
               Sign out
             </Button>
           </>
+        ) : hideSignInLink ? (
+          right ?? null
         ) : (
           right ?? (
             <Link to="/login" style={{ color: "var(--cream)", fontSize: 13, textDecoration: "none" }}>
