@@ -19,7 +19,7 @@ npm run build
 npm run preview   # serve dist/
 ```
 
-For production, set `VITE_API_URL` to your API origin (e.g. `https://api.example.com`) so requests go to the correct host.
+For **Vercel**, `vercel.json` can rewrite `/v1/*` to your hosted API so the browser stays same-origin (leave `VITE_API_URL` unset). Alternatively set `VITE_API_URL` to the API origin and configure API `CORS_ORIGIN` to your frontend.
 
 ## Design
 

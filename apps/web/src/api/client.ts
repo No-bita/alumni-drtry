@@ -22,7 +22,7 @@ async function request<T>(
       error: {
         code: "NETWORK_ERROR",
         message:
-          "Could not reach the API. Local: run apps/api (port 4000) and keep VITE_API_URL empty so Vite proxies /v1. Vercel/production: set VITE_API_URL to your API origin (https only, no path e.g. not …/healthz), redeploy, and set API CORS_ORIGIN to this site.",
+          "Could not reach the API. Local: run apps/api on port 4000 with VITE_API_URL unset (Vite proxies /v1). Deployed: ensure /v1 reaches your API (Vercel rewrites or VITE_API_URL + CORS).",
       },
     };
   }
