@@ -22,14 +22,33 @@ const optionalStringSchema = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
+/** Railway/UI often paste `myapp.vercel.app`, quoted values, or stray spaces — normalize before z.string().url(). */
+function preprocessOptionalHttpOrigin(v: unknown): string | undefined {
+  if (typeof v !== "string") {
+    return undefined;
+  }
+  let t = v.trim();
+  if (t === "") {
+    return undefined;
+  }
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    t = t.slice(1, -1).trim();
+  }
+  if (t === "") {
+    return undefined;
+  }
+  if (!/^https?:\/\//i.test(t)) {
+    t = `https://${t}`;
+  }
+  t = t.replace(/\/+$/, "");
+  return t;
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   APP_BASE_URL: z.string().url(),
-  MAGIC_LINK_BASE_URL: z.preprocess(
-    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().url().optional()
-  ),
+  MAGIC_LINK_BASE_URL: z.preprocess(preprocessOptionalHttpOrigin, z.string().url().optional()),
   DATABASE_URL: z.string().min(1),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
