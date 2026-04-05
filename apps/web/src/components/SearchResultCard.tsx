@@ -13,7 +13,13 @@ export function SearchResultCard({ profile, style }: SearchResultCardProps) {
       ? `${profile.headlineRoleTitle} at ${profile.headlineOrganizationName}`
       : profile.headlineRoleTitle ?? "—";
   const batch = (profile.batchYear ?? profile.parsedJoiningYear) ? String(profile.batchYear ?? profile.parsedJoiningYear) : "—";
-  const dept = profile.departmentName ?? profile.departmentCode ?? "—";
+  const dept =
+    profile.departmentName ??
+    profile.parsedDepartmentName ??
+    profile.departmentCode ??
+    profile.parsedDepartmentCode ??
+    "—";
+  const degree = profile.degreeName ?? profile.degreeCode;
 
   return (
     <Link
@@ -31,9 +37,15 @@ export function SearchResultCard({ profile, style }: SearchResultCardProps) {
             <p className="ui-body" style={{ margin: 0, color: "var(--ink-muted)", fontSize: 13 }}>
               {roleLabel}
             </p>
-            <span className="small-note">{batch} · {dept}</span>
+            <span className="small-note">
+              {batch} · {dept}
+              {degree ? ` · ${degree}` : ""}
+            </span>
           </div>
         </div>
+        {/* {profile.bio?.trim() ? (
+          <p className="card-search__bio">{profile.bio.trim()}</p>
+        ) : null} */}
       </div>
       <div className="card-search__bottom">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

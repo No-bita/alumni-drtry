@@ -16,6 +16,19 @@ const respondContactRequestSchema = z.object({
 });
 
 export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
+  app.get("/v1/contact-requests/inbox", { preHandler: app.authenticate }, async (request, reply) => {
+    const requests = await app.contactRequestService.listInboxForRecipient(request.actor.personId);
+    return reply.code(200).send({
+      requests: requests.map((r) => ({
+        id: r.id,
+        senderPersonId: r.senderPersonId,
+        senderFullName: r.senderFullName,
+        message: r.message,
+        createdAt: r.createdAt.toISOString()
+      }))
+    });
+  });
+
   app.post("/v1/contact-requests", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = createContactRequestSchema.safeParse(request.body);
     if (!parsed.success) {

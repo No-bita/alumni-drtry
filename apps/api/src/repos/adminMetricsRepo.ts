@@ -21,7 +21,7 @@ export class AdminMetricsRepo {
         SELECT
           count(*)::text AS total,
           count(*) FILTER (WHERE profile_completed_at IS NOT NULL)::text AS completed,
-          count(*) FILTER (WHERE is_searchable = TRUE)::text AS searchable
+          count(*) FILTER (WHERE suspended_at IS NULL)::text AS searchable
         FROM people
         WHERE deleted_at IS NULL
         `

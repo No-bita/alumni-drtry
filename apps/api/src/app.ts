@@ -9,16 +9,20 @@ import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
 import { authRoutes } from "./routes/authRoutes.js";
+import { connectionThreadRoutes } from "./routes/connectionThreadRoutes.js";
 import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
 import { meRoutes } from "./routes/meRoutes.js";
+import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { orgRoutes } from "./routes/orgRoutes.js";
 import { AuthService } from "./services/authService.js";
+import { ConnectionThreadService } from "./services/connectionThreadService.js";
 import { ContactRequestService } from "./services/contactRequestService.js";
 import { DiscoveryService } from "./services/discoveryService.js";
 import { ConsoleEmailSender, ResendEmailSender, type EmailSender } from "./services/emailSender.js";
 import { IntentcastService } from "./services/intentcastService.js";
+import { NotificationService } from "./services/notificationService.js";
 import { LinkService } from "./services/linkService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
@@ -61,8 +65,10 @@ export async function createApp() {
   const linkService = new LinkService(pool);
   const organizationService = new OrganizationService(pool);
   const discoveryService = new DiscoveryService(pool);
-  const intentcastService = new IntentcastService(pool);
+  const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
+  const connectionThreadService = new ConnectionThreadService(pool, emailSender);
+  const notificationService = new NotificationService(pool);
   const adminPeopleService = new AdminPeopleService(pool);
   const adminMetricsService = new AdminMetricsService(pool);
   app.decorate("authService", authService);
@@ -73,25 +79,38 @@ export async function createApp() {
   app.decorate("discoveryService", discoveryService);
   app.decorate("intentcastService", intentcastService);
   app.decorate("contactRequestService", contactRequestService);
+  app.decorate("connectionThreadService", connectionThreadService);
+  app.decorate("notificationService", notificationService);
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
-    if (!token) {
-      throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
+    if (typeof token === "string" && token.length > 0) {
+      const actor = await app.authService.getActorFromSessionToken(token);
+      if (actor) {
+        request.actor = actor;
+        return;
+      }
     }
 
-    const actor = await app.authService.getActorFromSessionToken(token);
-    if (!actor) {
-      throw new AppError(401, "AUTH_UNAUTHORIZED", "Invalid or expired session.");
+    if (
+      env.AUTH_BYPASS_SUPER_ADMIN &&
+      env.AUTH_BYPASS_SUPER_ADMIN_EMAIL &&
+      env.NODE_ENV !== "production"
+    ) {
+      const actor = await app.authService.getActorByInstitutionalEmail(env.AUTH_BYPASS_SUPER_ADMIN_EMAIL);
+      if (actor && actor.role === "super_admin") {
+        request.actor = actor;
+        return;
+      }
     }
 
-    request.actor = actor;
+    throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
   });
 
   app.decorate("requireAdmin", async (request, _reply) => {
-    if (request.actor.role !== "admin") {
+    if (request.actor.role !== "admin" && request.actor.role !== "super_admin") {
       throw new AppError(403, "AUTH_FORBIDDEN", "Admin access required.");
     }
   });
@@ -101,6 +120,8 @@ export async function createApp() {
   await app.register(discoveryRoutes);
   await app.register(intentcastRoutes);
   await app.register(contactRequestRoutes);
+  await app.register(connectionThreadRoutes);
+  await app.register(notificationRoutes);
   await app.register(orgRoutes);
   await app.register(adminOrgRoutes);
   await app.register(adminPeopleRoutes);

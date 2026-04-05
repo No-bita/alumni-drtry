@@ -4,6 +4,8 @@ type AvatarProps = {
   name: string;
   size?: AvatarSize;
   className?: string;
+  /** Softer pastel backgrounds (e.g. home directory cards). */
+  tone?: "default" | "pastel";
 };
 
 const COLORS = [
@@ -13,12 +15,25 @@ const COLORS = [
   "rgba(139, 58, 42, 0.3)",
 ];
 
+const PASTEL_COLORS = [
+  "#e8d4d4", // muted red
+  "#c5e0dc", // teal
+  "#c8d4eb", // blue
+  "#d8cfe8", // purple
+  "#d4e8c9", // green
+  "#ebe4c8", // warm yellow
+];
+
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
   if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    const a = parts[0]![0] ?? "?";
+    const b = parts[parts.length - 1]![0] ?? "?";
+    return (a + b).toUpperCase();
   }
-  return name.slice(0, 2).toUpperCase();
+  const w = parts[0]!;
+  return w.length >= 2 ? w.slice(0, 2).toUpperCase() : w.toUpperCase();
 }
 
 function hash(s: string): number {
@@ -27,10 +42,11 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-export function Avatar({ name, size = "md", className = "" }: AvatarProps) {
+export function Avatar({ name, size = "md", className = "", tone = "default" }: AvatarProps) {
   const initials = getInitials(name || "?");
-  const colorIndex = hash(name || "0") % COLORS.length;
-  const bg = COLORS[colorIndex];
+  const palette = tone === "pastel" ? PASTEL_COLORS : COLORS;
+  const colorIndex = hash(name || "0") % palette.length;
+  const bg = palette[colorIndex];
   return (
     <div
       className={`avatar avatar--${size} ${className}`.trim()}

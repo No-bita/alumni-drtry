@@ -26,11 +26,22 @@ export interface ContactRequestDeclinedEmailPayload {
   recipientName: string;
 }
 
+export interface IntentcastResponseReceivedEmailPayload {
+  to: string;
+  authorName: string;
+  responderName: string;
+  postContent: string;
+  responseMessage: string;
+}
+
 export interface EmailSender {
   sendAuthEmail(payload: AuthEmailPayload): Promise<void>;
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
   sendContactRequestAcceptedEmail(payload: ContactRequestAcceptedEmailPayload): Promise<void>;
   sendContactRequestDeclinedEmail(payload: ContactRequestDeclinedEmailPayload): Promise<void>;
+  sendIntentcastResponseReceivedEmail(
+    payload: IntentcastResponseReceivedEmailPayload
+  ): Promise<void>;
 }
 
 export class ConsoleEmailSender implements EmailSender {
@@ -56,6 +67,14 @@ export class ConsoleEmailSender implements EmailSender {
   async sendContactRequestDeclinedEmail(payload: ContactRequestDeclinedEmailPayload): Promise<void> {
     process.stdout.write(
       `[mail] to=${payload.to} type=contact_request_declined sender="${payload.senderName}" recipient="${payload.recipientName}"\n`
+    );
+  }
+
+  async sendIntentcastResponseReceivedEmail(
+    payload: IntentcastResponseReceivedEmailPayload
+  ): Promise<void> {
+    process.stdout.write(
+      `[mail] to=${payload.to} type=intentcast_response_received author="${payload.authorName}" responder="${payload.responderName}" post="${payload.postContent}" response="${payload.responseMessage}"\n`
     );
   }
 }
@@ -155,6 +174,31 @@ export class ResendEmailSender implements EmailSender {
     const html = [
       `<p>Hi ${payload.senderName},</p>`,
       `<p><strong>${payload.recipientName}</strong> declined your connection request.</p>`
+    ].join("");
+    await this.sendEmail(payload.to, subject, text, html);
+  }
+
+  async sendIntentcastResponseReceivedEmail(
+    payload: IntentcastResponseReceivedEmailPayload
+  ): Promise<void> {
+    const subject = `New response to your bulletin post on ${this.options.brandName}`;
+    const text = [
+      `Hi ${payload.authorName},`,
+      "",
+      `${payload.responderName} responded to your bulletin post:`,
+      `"${payload.postContent}"`,
+      "",
+      `Response: "${payload.responseMessage}"`,
+      "",
+      "Open your alumni dashboard to continue the conversation."
+    ].join("\n");
+    const html = [
+      `<p>Hi ${payload.authorName},</p>`,
+      `<p><strong>${payload.responderName}</strong> responded to your bulletin post:</p>`,
+      `<blockquote>${payload.postContent}</blockquote>`,
+      `<p>Response:</p>`,
+      `<blockquote>${payload.responseMessage}</blockquote>`,
+      "<p>Open your alumni dashboard to continue the conversation.</p>"
     ].join("");
     await this.sendEmail(payload.to, subject, text, html);
   }

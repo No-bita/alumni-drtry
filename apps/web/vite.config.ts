@@ -1,9 +1,63 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+/**
+ * Vendor chunk strategy: stable, long-cacheable groups so app/route code can ship often
+ * without invalidating React, router, fonts, or analytics.
+ */
+function manualChunks(id: string): string | undefined {
+  if (!id.includes("node_modules")) {
+    return undefined;
+  }
+
+  // React + reconciler deps (tightly coupled; update together)
+  if (
+    id.includes("node_modules/react-dom") ||
+    id.includes("node_modules/react/") ||
+    id.endsWith("/node_modules/react") ||
+    id.includes("node_modules/scheduler")
+  ) {
+    return "vendor-react";
+  }
+
+  if (id.includes("node_modules/react-router")) {
+    return "vendor-router";
+  }
+
+  if (id.includes("node_modules/@tanstack/")) {
+    return "vendor-tanstack";
+  }
+
+  // All font packages (variable + static) — large, change rarely
+  if (
+    id.includes("node_modules/@fontsource-variable/") ||
+    id.includes("node_modules/@fontsource/")
+  ) {
+    return "vendor-fonts";
+  }
+
+  if (id.includes("node_modules/@vercel/analytics")) {
+    return "vendor-analytics";
+  }
+
+  // Any other transitive dependency
+  return "vendor-misc";
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks,
+        // Readable chunk names in analyze output; content hash still in filename
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash][extname]",
+      },
+    },
+  },
   server: {
     proxy: {
       "/v1": {

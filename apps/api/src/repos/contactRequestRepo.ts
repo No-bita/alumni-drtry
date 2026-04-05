@@ -61,6 +61,50 @@ export interface CreateContactRequestInput {
   forwardedToInstitutionalEmail: string;
 }
 
+/** Pending row for recipient inbox (GET /v1/contact-requests/inbox). */
+export interface ContactRequestInboxItemView {
+  id: string;
+  senderPersonId: string;
+  senderFullName: string | null;
+  message: string;
+  createdAt: Date;
+}
+
+interface ContactRequestInboxRow {
+  id: string;
+  sender_person_id: string;
+  sender_full_name: string | null;
+  message: string;
+  created_at: Date;
+}
+
+/** Resolved outgoing requests (sender notifications: accept/decline). */
+export interface ContactRequestOutgoingResolvedView {
+  id: string;
+  status: "accepted" | "declined";
+  recipientPersonId: string;
+  recipientFullName: string | null;
+  respondedAt: Date;
+}
+
+interface ContactRequestOutgoingResolvedRow {
+  id: string;
+  status: ContactRequestStatus;
+  recipient_person_id: string;
+  recipient_full_name: string | null;
+  responded_at: Date;
+}
+
+function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView {
+  return {
+    id: row.id,
+    senderPersonId: row.sender_person_id,
+    senderFullName: row.sender_full_name,
+    message: row.message,
+    createdAt: row.created_at
+  };
+}
+
 function mapContactRequest(row: ContactRequestRow): ContactRequestView {
   return {
     id: row.id,
@@ -101,6 +145,20 @@ function mapContactRequestWithPeople(
 export class ContactRequestRepo {
   constructor(private readonly db: DbExecutor) {}
 
+  /** Count rows created by sender in the last `windowMinutes` (for abuse limits). */
+  async countOutgoingCreatedInWindow(senderPersonId: string, windowMinutes: number): Promise<number> {
+    const result = await this.db.query<{ c: string }>(
+      `
+      SELECT COUNT(*)::text AS c
+      FROM contact_requests
+      WHERE sender_person_id = $1
+        AND created_at >= now() - ($2::int * interval '1 minute')
+      `,
+      [senderPersonId, windowMinutes]
+    );
+    return Number.parseInt(result.rows[0]?.c ?? "0", 10);
+  }
+
   async create(input: CreateContactRequestInput): Promise<ContactRequestView> {
     const result = await this.db.query<ContactRequestRow>(
       `
@@ -118,6 +176,84 @@ export class ContactRequestRepo {
       ]
     );
     return mapContactRequest(result.rows[0]!);
+  }
+
+  async listPendingIncomingForRecipient(recipientPersonId: string): Promise<ContactRequestInboxItemView[]> {
+    const result = await this.db.query<ContactRequestInboxRow>(
+      `
+      SELECT
+        c.id,
+        c.sender_person_id,
+        s.full_name AS sender_full_name,
+        c.message,
+        c.created_at
+      FROM contact_requests c
+      JOIN people s ON s.id = c.sender_person_id
+      WHERE c.recipient_person_id = $1
+        AND c.status = 'pending'
+      ORDER BY c.created_at DESC
+      `,
+      [recipientPersonId]
+    );
+    return result.rows.map(mapInboxItem);
+  }
+
+  async countPendingIncomingForRecipient(recipientPersonId: string): Promise<number> {
+    const result = await this.db.query<{ c: string }>(
+      `
+      SELECT COUNT(*)::text AS c
+      FROM contact_requests
+      WHERE recipient_person_id = $1
+        AND status = 'pending'
+      `,
+      [recipientPersonId]
+    );
+    return Number.parseInt(result.rows[0]?.c ?? "0", 10);
+  }
+
+  async countResolvedOutgoingForSender(senderPersonId: string): Promise<number> {
+    const result = await this.db.query<{ c: string }>(
+      `
+      SELECT COUNT(*)::text AS c
+      FROM contact_requests
+      WHERE sender_person_id = $1
+        AND status IN ('accepted', 'declined')
+        AND responded_at IS NOT NULL
+      `,
+      [senderPersonId]
+    );
+    return Number.parseInt(result.rows[0]?.c ?? "0", 10);
+  }
+
+  async listResolvedOutgoingForSender(
+    senderPersonId: string,
+    limit: number
+  ): Promise<ContactRequestOutgoingResolvedView[]> {
+    const result = await this.db.query<ContactRequestOutgoingResolvedRow>(
+      `
+      SELECT
+        c.id,
+        c.status,
+        c.recipient_person_id,
+        r.full_name AS recipient_full_name,
+        c.responded_at
+      FROM contact_requests c
+      JOIN people r ON r.id = c.recipient_person_id
+      WHERE c.sender_person_id = $1
+        AND c.status IN ('accepted', 'declined')
+        AND c.responded_at IS NOT NULL
+      ORDER BY c.responded_at DESC, c.id DESC
+      LIMIT $2
+      `,
+      [senderPersonId, limit]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      status: row.status as "accepted" | "declined",
+      recipientPersonId: row.recipient_person_id,
+      recipientFullName: row.recipient_full_name,
+      respondedAt: row.responded_at
+    }));
   }
 
   async deleteById(contactRequestId: string): Promise<void> {

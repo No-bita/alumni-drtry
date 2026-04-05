@@ -1,5 +1,7 @@
 # Production Readiness
 
+**Pre-launch checklist:** see [`production-shipping-checklist.md`](./production-shipping-checklist.md) (env, migrations, abuse limits, web, ops).
+
 | Item | Status | Notes |
 |------|--------|------|
 | **Error monitoring** | Done | Sentry wired — fires on unhandled errors only — silent in test |
@@ -10,7 +12,7 @@
 | **Input validation** | Done | Fastify schema validation on all endpoints |
 | **Session security** | Done | `Secure: true` and `SameSite: Strict` when `NODE_ENV=production`; relaxed in dev |
 | **Secret management** | Done | All secrets in env vars — `.env.example` documents them |
-| **CORS** | Pending | Lock to real frontend domain before beta |
+| **CORS** | Done | Production rejects `CORS_ORIGIN=*` or empty; set real origin(s) in API env |
 | **Dependency audit** | Done | `npm audit` run — see below |
 | **N+1 query check** | Done | Search endpoint uses 2 queries total — no N+1 |
 
@@ -49,3 +51,7 @@ cd apps/api && npm audit
 2. **AdminMetricsService.logSearch()** — **1 query**: one `INSERT` into `search_log`.
 
 **Total: 2 queries** regardless of result size. No N+1. Safe for production traffic.
+
+**Directory contract & runbook:** `docs/directory-search.md` (query params, viewer exclusion, eligibility, pagination, index notes).
+
+**Adoption / volume:** use `GET /v1/admin/metrics` → `searchVolume` (total rows in `search_log`) as a coarse signal; pair with DB or APM latency if search becomes hot.

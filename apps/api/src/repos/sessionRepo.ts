@@ -24,7 +24,7 @@ export interface CreateSessionInput {
 
 export interface SessionWithPersonRow extends SessionRow {
   institutional_email: string;
-  role: "alumni" | "admin";
+  role: "alumni" | "admin" | "super_admin";
   department_code: string | null;
   department_name: string | null;
   joining_year: number | null;
@@ -54,7 +54,7 @@ export class SessionRepo {
     return result.rows[0]!;
   }
 
-  async findActiveByHash(sessionHash: string): Promise<SessionWithPersonRow | null> {
+  async findActiveByHash(sessionHash: string, hardCapHours: number): Promise<SessionWithPersonRow | null> {
     const result = await this.db.query<SessionWithPersonRow>(
       `
       SELECT s.*, p.institutional_email, p.role, p.department_code, p.department_name, p.joining_year
@@ -63,9 +63,10 @@ export class SessionRepo {
       WHERE s.session_hash = $1
         AND s.revoked_at IS NULL
         AND s.expires_at > now()
+        AND s.created_at + ($2::double precision * interval '1 hour') > now()
       LIMIT 1
       `,
-      [sessionHash]
+      [sessionHash, hardCapHours]
     );
     return result.rows[0] ?? null;
   }
@@ -94,7 +95,32 @@ export class SessionRepo {
     );
   }
 
-  async touch(sessionId: string): Promise<void> {
-    await this.db.query(`UPDATE sessions SET last_seen_at = now() WHERE id = $1`, [sessionId]);
+  /**
+   * Extends sliding `expires_at` (capped at created_at + hardCapHours) and updates `last_seen_at`,
+   * but only if last_seen_at is at least `throttleSeconds` ago — reduces write load on hot paths.
+   */
+  async touchSlidingThrottled(input: {
+    sessionId: string;
+    throttleSeconds: number;
+    slidingHours: number;
+    hardCapHours: number;
+  }): Promise<void> {
+    await this.db.query(
+      `
+      UPDATE sessions s
+      SET
+        last_seen_at = now(),
+        expires_at = LEAST(
+          now() + ($3::double precision * interval '1 hour'),
+          s.created_at + ($4::double precision * interval '1 hour')
+        )
+      WHERE s.id = $1
+        AND s.revoked_at IS NULL
+        AND s.expires_at > now()
+        AND s.created_at + ($4::double precision * interval '1 hour') > now()
+        AND s.last_seen_at <= now() - ($2::double precision * interval '1 second')
+      `,
+      [input.sessionId, input.throttleSeconds, input.slidingHours, input.hardCapHours]
+    );
   }
 }

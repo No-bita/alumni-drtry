@@ -1,0 +1,64 @@
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { assertApiGet } from "../lib/assertApiGet";
+import { queryKeys } from "../lib/queryKeys";
+import type { ConnectionThreadsListResponse } from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
+
+function previewSnippet(text: string, max = 72): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+export function ConnectionThreadsList() {
+  const auth = useAuth();
+  const threadsQuery = useQuery({
+    queryKey: queryKeys.connectionThreads.list(),
+    queryFn: ({ signal }) => assertApiGet<ConnectionThreadsListResponse>("/v1/connection-threads", signal),
+    enabled: auth.status === "authenticated",
+    select: (r) => r.threads.filter((t) => t.status === "open"),
+  });
+
+  const myId = auth.status === "authenticated" ? auth.person.personId : null;
+
+  if (threadsQuery.isPending || !myId) {
+    return null;
+  }
+
+  if (threadsQuery.isError || threadsQuery.data.length === 0) {
+    return null;
+  }
+
+  const threads = threadsQuery.data;
+
+  return (
+    <section className="home-dashboard__inbox" aria-labelledby="home-threads-heading">
+      <div className="home-dashboard__inbox-panel">
+        <header className="home-dashboard__inbox-header">
+          <h2 id="home-threads-heading" className="home-dashboard__inbox-title">
+            Conversations
+          </h2>
+          <p className="home-dashboard__inbox-caption">Open connection threads</p>
+        </header>
+        <ul className="home-dashboard__thread-list">
+          {threads.map((t) => {
+            const name = t.counterpartyFullName?.trim() || "Alumni";
+            const mine = t.lastMessageAuthorPersonId === myId;
+            return (
+              <li key={t.id}>
+                <Link to={`/connections/${t.id}`} className="home-dashboard__thread-row">
+                  <span className="home-dashboard__thread-name">{name}</span>
+                  <span className="home-dashboard__thread-preview">
+                    {mine ? "You: " : ""}
+                    {previewSnippet(t.lastMessageBody)}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}

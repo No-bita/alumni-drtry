@@ -9,11 +9,15 @@ const patchProfileSchema = z
   .object({
     fullName: z.string().trim().min(1).max(120).optional(),
     departmentCode: z.string().trim().min(2).max(16).regex(/^[a-zA-Z0-9]+$/).optional(),
-    batchYear: z.number().int().min(1960).max(currentYear).optional(),
+    batchYear: z.union([z.number().int().min(1960).max(currentYear), z.null()]).optional(),
     degreeCode: z.string().trim().min(2).max(24).regex(/^[a-zA-Z0-9_]+$/).nullable().optional(),
     personalEmail: z.string().trim().email().nullable().optional(),
     bio: z.string().max(3000).nullable().optional(),
-    skillsText: z.string().max(1000).nullable().optional()
+    mobilePhone: z.string().trim().max(40).nullable().optional(),
+    residenceCountry: z.string().trim().max(120).nullable().optional(),
+    residenceCity: z.string().trim().max(120).nullable().optional(),
+    markMinimumProfileComplete: z.literal(true).optional(),
+    markOnboardingComplete: z.literal(true).optional()
   })
   .superRefine((value, ctx) => {
     if (Object.keys(value).length === 0) {

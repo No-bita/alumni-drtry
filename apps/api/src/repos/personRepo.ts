@@ -1,9 +1,13 @@
 import type { DbExecutor } from "../db/types.js";
 
+export type PersonRole = "alumni" | "admin" | "super_admin";
+
 export interface PersonRow {
   id: string;
   institutional_email: string;
-  role: "alumni" | "admin";
+  role: PersonRole;
+  /** True for e2e test accounts (see `isTestInstitutionalEmail`). */
+  is_test_user: boolean;
   full_name: string | null;
   department_code: string | null;
   department_name: string | null;
@@ -13,11 +17,14 @@ export interface PersonRow {
   personal_email: string | null;
   bio: string | null;
   skills_text: string | null;
-  is_searchable: boolean;
+  residence_country: string | null;
+  residence_city: string | null;
   profile_completed_at: Date | null;
   suspended_at: Date | null;
   deleted_at: Date | null;
   joining_year: number | null;
+  /** Successful OTP/magic-link logins (incremented in auth verify). */
+  app_login_count: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -27,6 +34,8 @@ export interface UpsertPersonInput {
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
+  /** When true, row is flagged for pre-prod cleanup (`people.is_test_user`). */
+  isTestUser: boolean;
 }
 
 export interface VocabularyValueRow {
@@ -38,7 +47,7 @@ export interface VocabularyValueRow {
 export interface PersonProfileView {
   id: string;
   institutionalEmail: string;
-  role: "alumni" | "admin";
+  role: PersonRole;
   fullName: string | null;
   departmentCode: string | null;
   departmentName: string | null;
@@ -50,9 +59,12 @@ export interface PersonProfileView {
   degreeName: string | null;
   personalEmail: string | null;
   bio: string | null;
-  skillsText: string | null;
-  isSearchable: boolean;
+  mobilePhone: string | null;
+  residenceCountry: string | null;
+  residenceCity: string | null;
   profileCompletedAt: Date | null;
+  onboardingCompletedAt: Date | null;
+  appLoginCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,7 +72,7 @@ export interface PersonProfileView {
 interface PersonProfileRow {
   id: string;
   institutional_email: string;
-  role: "alumni" | "admin";
+  role: PersonRole;
   full_name: string | null;
   department_code: string | null;
   department_name: string | null;
@@ -68,9 +80,12 @@ interface PersonProfileRow {
   batch_year: number | null;
   personal_email: string | null;
   bio: string | null;
-  skills_text: string | null;
-  is_searchable: boolean;
+  mobile_phone: string | null;
+  residence_country: string | null;
+  residence_city: string | null;
   profile_completed_at: Date | null;
+  onboarding_completed_at: Date | null;
+  app_login_count: number;
   created_at: Date;
   updated_at: Date;
   department_vocab_code: string | null;
@@ -87,9 +102,11 @@ export interface UpdateProfileInput {
   batchYear: number | null;
   personalEmail: string | null;
   bio: string | null;
-  skillsText: string | null;
-  isSearchable: boolean;
+  mobilePhone: string | null;
+  residenceCountry: string | null;
+  residenceCity: string | null;
   profileCompletedAt: Date | null;
+  onboardingCompletedAt: Date | null;
 }
 
 export interface PersonProfileIds {
@@ -103,23 +120,78 @@ export class PersonRepo {
   async upsertByInstitutionalEmail(input: UpsertPersonInput): Promise<PersonRow> {
     const result = await this.db.query<PersonRow>(
       `
-      INSERT INTO people (institutional_email, department_code, department_name, joining_year)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO people (institutional_email, department_code, department_name, joining_year, is_test_user)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (institutional_email)
       DO UPDATE SET
         department_code = COALESCE(people.department_code, EXCLUDED.department_code),
         department_name = COALESCE(people.department_name, EXCLUDED.department_name),
         joining_year = COALESCE(people.joining_year, EXCLUDED.joining_year),
+        is_test_user = people.is_test_user OR EXCLUDED.is_test_user,
         updated_at = now()
       RETURNING *
       `,
-      [input.institutionalEmail, input.departmentCode, input.departmentName, input.joiningYear]
+      [
+        input.institutionalEmail,
+        input.departmentCode,
+        input.departmentName,
+        input.joiningYear,
+        input.isTestUser
+      ]
     );
     return result.rows[0]!;
   }
 
+  /** Called inside auth verify transaction after upsert; counts each successful login. */
+  async incrementAppLoginCount(personId: string): Promise<number> {
+    const result = await this.db.query<{ app_login_count: number }>(
+      `
+      UPDATE people
+      SET app_login_count = app_login_count + 1
+      WHERE id = $1
+      RETURNING app_login_count
+      `,
+      [personId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error(`incrementAppLoginCount: person not found: ${personId}`);
+    }
+    return row.app_login_count;
+  }
+
   async findById(personId: string): Promise<PersonRow | null> {
     const result = await this.db.query<PersonRow>(`SELECT * FROM people WHERE id = $1`, [personId]);
+    return result.rows[0] ?? null;
+  }
+
+  /** Minimal row for auth bypass / actor resolution (active accounts only). */
+  async findActorByInstitutionalEmail(normalizedEmail: string): Promise<{
+    id: string;
+    institutional_email: string;
+    role: PersonRole;
+    department_code: string | null;
+    department_name: string | null;
+    joining_year: number | null;
+  } | null> {
+    const result = await this.db.query<{
+      id: string;
+      institutional_email: string;
+      role: PersonRole;
+      department_code: string | null;
+      department_name: string | null;
+      joining_year: number | null;
+    }>(
+      `
+      SELECT id, institutional_email, role, department_code, department_name, joining_year
+      FROM people
+      WHERE institutional_email = $1
+        AND deleted_at IS NULL
+        AND suspended_at IS NULL
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
     return result.rows[0] ?? null;
   }
 
@@ -165,9 +237,12 @@ export class PersonRepo {
         p.batch_year,
         p.personal_email,
         p.bio,
-        p.skills_text,
-        p.is_searchable,
+        p.mobile_phone,
+        p.residence_country,
+        p.residence_city,
         p.profile_completed_at,
+        p.onboarding_completed_at,
+        p.app_login_count,
         p.created_at,
         p.updated_at,
         d.code AS department_vocab_code,
@@ -201,9 +276,12 @@ export class PersonRepo {
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,
       bio: row.bio,
-      skillsText: row.skills_text,
-      isSearchable: row.is_searchable,
+      mobilePhone: row.mobile_phone,
+      residenceCountry: row.residence_country,
+      residenceCity: row.residence_city,
       profileCompletedAt: row.profile_completed_at,
+      onboardingCompletedAt: row.onboarding_completed_at,
+      appLoginCount: row.app_login_count,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -323,9 +401,11 @@ export class PersonRepo {
         batch_year = $5,
         personal_email = $6,
         bio = $7,
-        skills_text = $8,
-        is_searchable = $9,
-        profile_completed_at = $10
+        mobile_phone = $8,
+        profile_completed_at = $9,
+        onboarding_completed_at = $10,
+        residence_country = $11,
+        residence_city = $12
       WHERE id = $1
       RETURNING
         id,
@@ -338,9 +418,12 @@ export class PersonRepo {
         batch_year,
         personal_email,
         bio,
-        skills_text,
-        is_searchable,
+        mobile_phone,
+        residence_country,
+        residence_city,
         profile_completed_at,
+        onboarding_completed_at,
+        app_login_count,
         created_at,
         updated_at,
         (
@@ -364,9 +447,11 @@ export class PersonRepo {
         input.batchYear,
         input.personalEmail,
         input.bio,
-        input.skillsText,
-        input.isSearchable,
-        input.profileCompletedAt
+        input.mobilePhone,
+        input.profileCompletedAt,
+        input.onboardingCompletedAt,
+        input.residenceCountry,
+        input.residenceCity
       ]
     );
     const row = result.rows[0]!;
@@ -385,9 +470,12 @@ export class PersonRepo {
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,
       bio: row.bio,
-      skillsText: row.skills_text,
-      isSearchable: row.is_searchable,
+      mobilePhone: row.mobile_phone,
+      residenceCountry: row.residence_country,
+      residenceCity: row.residence_city,
       profileCompletedAt: row.profile_completed_at,
+      onboardingCompletedAt: row.onboarding_completed_at,
+      appLoginCount: row.app_login_count,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

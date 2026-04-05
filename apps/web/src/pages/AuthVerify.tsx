@@ -1,53 +1,76 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../api/client";
+import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
+import { queryKeys } from "../lib/queryKeys";
 
 export function AuthVerify() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { refetch } = useAuth();
-  const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
-  const verifyStarted = useRef(false);
+  const refetchRef = useRef(refetch);
+  useLayoutEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  const { challengeId, magicLinkToken } = useMemo(() => {
+    return {
+      challengeId: searchParams.get("challengeId"),
+      magicLinkToken: searchParams.get("magicLinkToken"),
+    };
+  }, [searchParams]);
+
+  const canVerify = Boolean(challengeId && magicLinkToken);
+  const [sessionRefetchFailed, setSessionRefetchFailed] = useState(false);
+
+  const verifyQuery = useQuery({
+    queryKey: queryKeys.auth.magicLinkVerify(challengeId ?? "", magicLinkToken ?? ""),
+    queryFn: async ({ signal }) => {
+      const verifyUrl = `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId!)}&magicLinkToken=${encodeURIComponent(magicLinkToken!)}`;
+      const res = await api.get(verifyUrl, { signal });
+      if (res.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+      if (res.error) {
+        throw new Error(res.error.message ?? res.error.code ?? "Verify failed.");
+      }
+      return true;
+    },
+    enabled: canVerify,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+  });
 
   useEffect(() => {
-    const challengeId = searchParams.get("challengeId");
-    const magicLinkToken = searchParams.get("magicLinkToken");
-
-    if (!challengeId || !magicLinkToken) {
-      setStatus("error");
-      return;
-    }
-
-    if (verifyStarted.current) return;
-    verifyStarted.current = true;
-
-    let cancelled = false;
-    api
-      .get(
-        `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`
-      )
-      .then(async ({ error }) => {
-        if (cancelled) return;
-        if (error) {
-          setStatus("error");
-          return;
-        }
-        setStatus("success");
-        await refetch();
-        if (cancelled) return;
-        const { data: profileData } = await api.get<{ profile?: { profileCompletedAt?: string | null } }>("/v1/me/profile");
-        if (!cancelled) {
-          navigate(profileData?.profile?.profileCompletedAt ? "/search" : "/onboarding", { replace: true });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [searchParams, navigate, refetch]);
+    if (!verifyQuery.isSuccess) return;
+    setSessionRefetchFailed(false);
+    void (async () => {
+      const snap = await refetchRef.current();
+      if (!snap) {
+        setSessionRefetchFailed(true);
+        return;
+      }
+      const { person, profile: p } = snap;
+      if (superAdminSkipsAlumniJourney(person)) {
+        navigate("/home", { replace: true });
+        return;
+      }
+      if (!p) {
+        navigate("/home", { replace: true });
+        return;
+      }
+      if (p.onboardingCompletedAt) {
+        navigate("/home", { replace: true });
+        return;
+      }
+      navigate(canAccessOnboardingFlow(p, person) ? "/onboarding" : "/home", { replace: true });
+    })();
+  }, [verifyQuery.isSuccess, navigate]);
 
   return (
     <>
@@ -60,12 +83,12 @@ export function AuthVerify() {
           textAlign: "center",
         }}
       >
-        {status === "verifying" && (
+        {canVerify && !verifyQuery.isError && !sessionRefetchFailed && (verifyQuery.isPending || verifyQuery.isSuccess) ? (
           <p className="body-text" style={{ color: "var(--ink-muted)" }}>
             Signing you in…
           </p>
-        )}
-        {status === "error" && (
+        ) : null}
+        {(!canVerify || verifyQuery.isError || sessionRefetchFailed) && (
           <>
             <p className="section-headline" style={{ marginBottom: 8 }}>
               Link invalid or expired

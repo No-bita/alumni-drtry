@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   prefilled?: boolean;
@@ -14,7 +14,8 @@ export function Input({
   className = "",
   ...props
 }: InputProps) {
-  const inputId = id ?? `input-${Math.random().toString(36).slice(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
   return (
     <div className={className}>
       {label && (
@@ -41,7 +42,8 @@ type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 };
 
 export function Textarea({ label, id, className = "", ...props }: TextareaProps) {
-  const inputId = id ?? `textarea-${Math.random().toString(36).slice(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
   return (
     <div className={className}>
       {label && (

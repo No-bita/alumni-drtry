@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { isTestInstitutionalEmail } from "../lib/testUser.js";
 import { env } from "../config/env.js";
 import { generateOpaqueToken, generateOtp, hashSecret, verifySecret } from "../lib/crypto.js";
 import { isInstitutionalEmailAllowed, normalizeEmail, parseAllowedDomains } from "../lib/domainAllowlist.js";
@@ -8,6 +9,10 @@ import { AuthChallengeRepo } from "../repos/authChallengeRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
 import type { EmailSender } from "./emailSender.js";
+import {
+  exchangeGoogleAuthorizationCode,
+  fetchGoogleUserInfo
+} from "../lib/googleOAuth.js";
 
 export interface StartAuthInput {
   institutionalEmail: string;
@@ -47,10 +52,20 @@ export interface VerifyAuthResult {
 export interface SessionActor {
   personId: string;
   institutionalEmail: string;
-  role: "alumni" | "admin";
+  role: "alumni" | "admin" | "super_admin";
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
+}
+
+/** Initial expiry: sliding window from login, capped at hard max since session creation. */
+function newSessionExpiresAt(createdAtMs: number): Date {
+  return new Date(
+    Math.min(
+      createdAtMs + env.SESSION_SLIDING_HOURS * 3_600_000,
+      createdAtMs + env.SESSION_HARD_CAP_HOURS * 3_600_000
+    )
+  );
 }
 
 export class AuthService {
@@ -130,8 +145,10 @@ export class AuthService {
         otpExpiresAt,
         magicLinkExpiresAt
       });
-    } catch {
+    } catch (err) {
       await this.authChallengeRepo.deleteById(challenge.id);
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[auth] sendAuthEmail failed:", detail);
       throw new AppError(503, "AUTH_DELIVERY_FAILED", "Unable to deliver authentication email. Try again.");
     }
 
@@ -147,6 +164,97 @@ export class AuthService {
           }
         : {})
     };
+  }
+
+  /**
+   * OAuth 2.0 authorization-code callback: verifies Google account, requires verified @allowed-domain email,
+   * then creates a session the same way as magic-link / OTP verification.
+   */
+  async signInWithGoogle(input: {
+    code: string;
+    redirectUri: string;
+    ipAddress: string | null;
+    userAgent: string | null;
+  }): Promise<VerifyAuthResult> {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      throw new AppError(503, "AUTH_GOOGLE_DISABLED", "Google sign-in is not configured.");
+    }
+
+    const accessToken = await exchangeGoogleAuthorizationCode({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      code: input.code,
+      redirectUri: input.redirectUri
+    });
+
+    const userInfo = await fetchGoogleUserInfo(accessToken);
+    const emailRaw = userInfo.email;
+    if (!emailRaw || !userInfo.email_verified) {
+      throw new AppError(
+        403,
+        "AUTH_GOOGLE_EMAIL_UNVERIFIED",
+        "Your Google account must have a verified email address to sign in."
+      );
+    }
+
+    const institutionalEmail = normalizeEmail(emailRaw);
+    if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+    }
+
+    const client = await this.pool.connect();
+    let shouldRollback = true;
+
+    try {
+      await client.query("BEGIN");
+      const personRepo = new PersonRepo(client);
+      const sessionRepo = new SessionRepo(client);
+
+      const parsedIdentity = parseInstitutionalIdentity(institutionalEmail);
+      const person = await personRepo.upsertByInstitutionalEmail({
+        institutionalEmail: parsedIdentity.normalizedEmail,
+        departmentCode: parsedIdentity.departmentCode,
+        departmentName: parsedIdentity.departmentName,
+        joiningYear: parsedIdentity.joiningYear,
+        isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
+      });
+
+      await personRepo.incrementAppLoginCount(person.id);
+
+      const sessionToken = generateOpaqueToken(48);
+      const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
+      const createdAtMs = Date.now();
+      const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
+      await sessionRepo.create({
+        personId: person.id,
+        sessionHash,
+        expiresAt: sessionExpiresAt,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent
+      });
+
+      await client.query("COMMIT");
+      shouldRollback = false;
+
+      return {
+        sessionToken,
+        sessionExpiresAt,
+        person: {
+          id: person.id,
+          institutionalEmail: person.institutional_email,
+          departmentCode: person.department_code,
+          departmentName: person.department_name,
+          joiningYear: person.joining_year
+        }
+      };
+    } catch (error) {
+      if (shouldRollback) {
+        await client.query("ROLLBACK");
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async verifyAuth(input: VerifyAuthInput): Promise<VerifyAuthResult> {
@@ -199,12 +307,16 @@ export class AuthService {
         institutionalEmail: parsedIdentity.normalizedEmail,
         departmentCode: parsedIdentity.departmentCode,
         departmentName: parsedIdentity.departmentName,
-        joiningYear: parsedIdentity.joiningYear
+        joiningYear: parsedIdentity.joiningYear,
+        isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
       });
+
+      await personRepo.incrementAppLoginCount(person.id);
 
       const sessionToken = generateOpaqueToken(48);
       const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
-      const sessionExpiresAt = new Date(Date.now() + env.SESSION_TTL_HOURS * 3_600_000);
+      const createdAtMs = Date.now();
+      const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
         personId: person.id,
         sessionHash,
@@ -239,13 +351,34 @@ export class AuthService {
 
   async getActorFromSessionToken(sessionToken: string): Promise<SessionActor | null> {
     const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
-    const row = await this.sessionRepo.findActiveByHash(sessionHash);
+    const row = await this.sessionRepo.findActiveByHash(sessionHash, env.SESSION_HARD_CAP_HOURS);
     if (!row) {
       return null;
     }
-    await this.sessionRepo.touch(row.id);
+    await this.sessionRepo.touchSlidingThrottled({
+      sessionId: row.id,
+      throttleSeconds: env.SESSION_TOUCH_MIN_INTERVAL_SECONDS,
+      slidingHours: env.SESSION_SLIDING_HOURS,
+      hardCapHours: env.SESSION_HARD_CAP_HOURS
+    });
     return {
       personId: row.person_id,
+      institutionalEmail: row.institutional_email,
+      role: row.role,
+      departmentCode: row.department_code,
+      departmentName: row.department_name,
+      joiningYear: row.joining_year
+    };
+  }
+
+  async getActorByInstitutionalEmail(email: string): Promise<SessionActor | null> {
+    const personRepo = new PersonRepo(this.pool);
+    const row = await personRepo.findActorByInstitutionalEmail(normalizeEmail(email));
+    if (!row) {
+      return null;
+    }
+    return {
+      personId: row.id,
       institutionalEmail: row.institutional_email,
       role: row.role,
       departmentCode: row.department_code,

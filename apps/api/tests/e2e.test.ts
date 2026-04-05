@@ -142,6 +142,40 @@ describe("e2e: full flow", () => {
     expect(typeof searchBody.pageInfo?.hasMore).toBe("boolean");
   });
 
+  it("authenticated: GET /v1/directory/residence-cities returns cities array", async () => {
+    const email = `e2e-res-cities-${Date.now()}@iitbhu.ac.in`;
+    const startRes = await app.inject({
+      method: "POST",
+      url: "/v1/auth/start",
+      payload: { institutionalEmail: email },
+    });
+    if (startRes.statusCode !== 200) return;
+    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const verifyRes = await app.inject({
+      method: "GET",
+      url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
+    });
+    if (verifyRes.statusCode !== 200) return;
+    const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
+    const headers = { cookie: `${cookieName}=${cookie}` };
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/directory/residence-cities?limit=20",
+      headers,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { cities?: { city?: string; country?: string; count?: number }[] };
+    expect(Array.isArray(body.cities)).toBe(true);
+    for (const row of body.cities ?? []) {
+      expect(typeof row.city).toBe("string");
+      expect(typeof row.country).toBe("string");
+      expect(typeof row.count).toBe("number");
+      expect(row.count).toBeGreaterThan(0);
+    }
+  });
+
   it("authenticated: GET /v1/profiles/:id (own profile, after profile update makes searchable)", async () => {
     const email = `e2e-profile-id-${Date.now()}@iitbhu.ac.in`;
     const startRes = await app.inject({
@@ -230,5 +264,233 @@ describe("e2e: full flow", () => {
     const createBody = createRes.json() as { contactRequest?: { id: string; status: string } };
     expect(createBody.contactRequest?.id).toBeDefined();
     expect(createBody.contactRequest?.status).toBeDefined();
+  });
+
+  it("authenticated: GET /v1/search rejects limit above max", async () => {
+    const email = `e2e-search-limit-${Date.now()}@iitbhu.ac.in`;
+    const startRes = await app.inject({
+      method: "POST",
+      url: "/v1/auth/start",
+      payload: { institutionalEmail: email },
+    });
+    if (startRes.statusCode !== 200) return;
+    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const verifyRes = await app.inject({
+      method: "GET",
+      url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
+    });
+    if (verifyRes.statusCode !== 200) return;
+    const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
+    const headers = { cookie: `${cookieName}=${cookie}` };
+
+    const searchRes = await app.inject({
+      method: "GET",
+      url: "/v1/search?limit=101",
+      headers,
+    });
+    expect(searchRes.statusCode).toBe(400);
+  });
+
+  it("authenticated: search excludes viewer and finds other profile by keyword", async () => {
+    const now = Date.now();
+    const emailA = `e2e-sea-${now}@iitbhu.ac.in`;
+    const emailB = `e2e-seb-${now}@iitbhu.ac.in`;
+    const marker = `e2emarker${now}`;
+
+    const login = async (e: string): Promise<{ cookie: string; personId: string } | null> => {
+      const startRes = await app.inject({
+        method: "POST",
+        url: "/v1/auth/start",
+        payload: { institutionalEmail: e },
+      });
+      if (startRes.statusCode !== 200) return null;
+      const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
+      const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
+      const verifyRes = await app.inject({
+        method: "GET",
+        url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
+      });
+      if (verifyRes.statusCode !== 200) return null;
+      const ck = getSessionCookieFromResponse(verifyRes, cookieName);
+      const meRes = await app.inject({
+        method: "GET",
+        url: "/v1/me",
+        headers: { cookie: `${cookieName}=${ck}` },
+      });
+      const meBody = meRes.json() as { person?: { personId: string } };
+      const personId = meBody.person?.personId;
+      if (!personId) return null;
+      return { cookie: ck, personId };
+    };
+
+    const userA = await login(emailA);
+    const userB = await login(emailB);
+    if (!userA?.personId || !userB?.personId) return;
+
+    const headersA = { cookie: `${cookieName}=${userA.cookie}` };
+    const headersB = { cookie: `${cookieName}=${userB.cookie}` };
+
+    const patchA = await app.inject({
+      method: "PATCH",
+      url: "/v1/me/profile",
+      headers: headersA,
+      payload: { fullName: `E2E Alpha ${marker}`, batchYear: 2020, departmentCode: "cse" },
+    });
+    const patchB = await app.inject({
+      method: "PATCH",
+      url: "/v1/me/profile",
+      headers: headersB,
+      payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse" },
+    });
+    if (patchA.statusCode !== 200 || patchB.statusCode !== 200) return;
+
+    const searchRes = await app.inject({
+      method: "GET",
+      url: `/v1/search?q=${encodeURIComponent(marker)}&limit=50`,
+      headers: headersA,
+    });
+    expect(searchRes.statusCode).toBe(200);
+    const searchBody = searchRes.json() as { results?: { id: string }[] };
+    const ids = (searchBody.results ?? []).map((r) => r.id);
+    expect(ids).not.toContain(userA.personId);
+    expect(ids).toContain(userB.personId);
+  });
+
+  it("authenticated: search keyset cursor returns a different row when hasMore", async () => {
+    const email = `e2e-search-page-${Date.now()}@iitbhu.ac.in`;
+    const startRes = await app.inject({
+      method: "POST",
+      url: "/v1/auth/start",
+      payload: { institutionalEmail: email },
+    });
+    if (startRes.statusCode !== 200) return;
+    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const verifyRes = await app.inject({
+      method: "GET",
+      url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
+    });
+    if (verifyRes.statusCode !== 200) return;
+    const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
+    const headers = { cookie: `${cookieName}=${cookie}` };
+
+    const first = await app.inject({
+      method: "GET",
+      url: "/v1/search?limit=1",
+      headers,
+    });
+    if (first.statusCode !== 200) return;
+    const firstBody = first.json() as {
+      results?: { id: string }[];
+      pageInfo?: { hasMore: boolean; nextCursor: string | null };
+    };
+    const firstId = firstBody.results?.[0]?.id;
+    if (!firstId) return;
+    if (!firstBody.pageInfo?.hasMore || !firstBody.pageInfo.nextCursor) return;
+
+    const second = await app.inject({
+      method: "GET",
+      url: `/v1/search?limit=1&cursor=${encodeURIComponent(firstBody.pageInfo.nextCursor)}`,
+      headers,
+    });
+    expect(second.statusCode).toBe(200);
+    const secondBody = second.json() as { results?: { id: string }[] };
+    const secondId = secondBody.results?.[0]?.id;
+    expect(secondId).toBeDefined();
+    expect(secondId).not.toBe(firstId);
+  });
+
+  it("authenticated: search ranks exact name (tier 0) before title FTS match (tier 1)", async () => {
+    const now = Date.now();
+    const emailA = `e2e-rank-a-${now}@iitbhu.ac.in`;
+    const emailB = `e2e-rank-b-${now}@iitbhu.ac.in`;
+    const emailC = `e2e-rank-c-${now}@iitbhu.ac.in`;
+    const marker = `e2erank${now}`;
+    const exactQ = `Zeta Rank ${marker}`;
+
+    const login = async (e: string): Promise<{ cookie: string; personId: string } | null> => {
+      const startRes = await app.inject({
+        method: "POST",
+        url: "/v1/auth/start",
+        payload: { institutionalEmail: e },
+      });
+      if (startRes.statusCode !== 200) return null;
+      const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
+      const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
+      const verifyRes = await app.inject({
+        method: "GET",
+        url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
+      });
+      if (verifyRes.statusCode !== 200) return null;
+      const ck = getSessionCookieFromResponse(verifyRes, cookieName);
+      const meRes = await app.inject({
+        method: "GET",
+        url: "/v1/me",
+        headers: { cookie: `${cookieName}=${ck}` },
+      });
+      const meBody = meRes.json() as { person?: { personId: string } };
+      const personId = meBody.person?.personId;
+      if (!personId) return null;
+      return { cookie: ck, personId };
+    };
+
+    const userA = await login(emailA);
+    const userB = await login(emailB);
+    const userC = await login(emailC);
+    if (!userA?.personId || !userB?.personId || !userC?.personId) return;
+
+    const headersA = { cookie: `${cookieName}=${userA.cookie}` };
+    const headersB = { cookie: `${cookieName}=${userB.cookie}` };
+    const headersC = { cookie: `${cookieName}=${userC.cookie}` };
+
+    const patchA = await app.inject({
+      method: "PATCH",
+      url: "/v1/me/profile",
+      headers: headersA,
+      payload: { fullName: exactQ, batchYear: 2020, departmentCode: "cse" },
+    });
+    const patchB = await app.inject({
+      method: "PATCH",
+      url: "/v1/me/profile",
+      headers: headersB,
+      payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse" },
+    });
+    if (patchA.statusCode !== 200 || patchB.statusCode !== 200) return;
+
+    const occRes = await app.inject({
+      method: "POST",
+      url: "/v1/me/occupations",
+      headers: headersB,
+      payload: {
+        occupationTypeCode: "full_time_employment",
+        roleTitle: exactQ,
+        startDate: "2020-01-01",
+        isCurrent: true,
+      },
+    });
+    if (occRes.statusCode !== 201) return;
+
+    const patchC = await app.inject({
+      method: "PATCH",
+      url: "/v1/me/profile",
+      headers: headersC,
+      payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse" },
+    });
+    if (patchC.statusCode !== 200) return;
+
+    const searchRes = await app.inject({
+      method: "GET",
+      url: `/v1/search?q=${encodeURIComponent(exactQ)}&dept=cse&batch=2020&limit=50`,
+      headers: headersC,
+    });
+    expect(searchRes.statusCode).toBe(200);
+    const searchBody = searchRes.json() as { results?: { id: string; fullName: string }[] };
+    const ids = (searchBody.results ?? []).map((r) => r.id);
+    const ia = ids.indexOf(userA.personId);
+    const ib = ids.indexOf(userB.personId);
+    expect(ib).toBeGreaterThanOrEqual(0);
+    expect(ia).toBeGreaterThanOrEqual(0);
+    expect(ia).toBeLessThan(ib);
   });
 });

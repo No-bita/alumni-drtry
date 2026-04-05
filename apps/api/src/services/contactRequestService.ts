@@ -1,6 +1,11 @@
 import type { Pool } from "pg";
+import { env } from "../config/env.js";
 import { AppError } from "../lib/errors.js";
-import { ContactRequestRepo, type ContactRequestView } from "../repos/contactRequestRepo.js";
+import {
+  ContactRequestRepo,
+  type ContactRequestInboxItemView,
+  type ContactRequestView
+} from "../repos/contactRequestRepo.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import type { EmailSender } from "./emailSender.js";
@@ -58,6 +63,23 @@ export class ContactRequestService {
       );
     }
 
+    const maxOut = env.CONTACT_REQUEST_MAX_PER_SENDER_WINDOW;
+    if (maxOut > 0) {
+      const recent = await this.contactRequestRepo.countOutgoingCreatedInWindow(
+        senderPersonId,
+        env.CONTACT_REQUEST_WINDOW_MINUTES
+      );
+      if (recent >= maxOut) {
+        throw new AppError(
+          429,
+          "CONTACT_REQUEST_RATE_LIMITED",
+          "Too many connection requests in a short period. Try again later.",
+          true,
+          env.CONTACT_REQUEST_WINDOW_MINUTES * 60
+        );
+      }
+    }
+
     const created = await this.contactRequestRepo.create({
       senderPersonId: sender.id,
       recipientPersonId: recipient.id,
@@ -65,6 +87,7 @@ export class ContactRequestService {
       forwardedToInstitutionalEmail: recipient.institutional_email
     });
 
+    let notificationDelivered = true;
     try {
       await this.emailSender.sendContactRequestReceivedEmail({
         to: recipient.institutional_email,
@@ -72,18 +95,19 @@ export class ContactRequestService {
         senderName: sender.full_name ?? sender.institutional_email,
         message
       });
-      return {
-        contactRequest: created,
-        notificationDelivered: true
-      };
-    } catch {
-      await this.contactRequestRepo.deleteById(created.id);
-      throw new AppError(
-        503,
-        "CONTACT_REQUEST_DELIVERY_FAILED",
-        "Unable to deliver contact request email. Try again."
-      );
+    } catch (err) {
+      notificationDelivered = false;
+      console.error("[contact-request] recipient notification email failed (request still saved):", err);
     }
+
+    return {
+      contactRequest: created,
+      notificationDelivered
+    };
+  }
+
+  async listInboxForRecipient(recipientPersonId: string): Promise<ContactRequestInboxItemView[]> {
+    return this.contactRequestRepo.listPendingIncomingForRecipient(recipientPersonId);
   }
 
   async respondToRequest(

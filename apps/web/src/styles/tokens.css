@@ -4,7 +4,7 @@
  * 1. This file — palette (:root colors) + semantic --color-* (nav, CTA, page bg).
  * 2. base.css — typography scale / .section-headline if you change sizes globally.
  * 3. components.css — only if you need different button/nav structure.
- * 4. index.html — Google Fonts link if you swap --font-display / --font-body.
+ * 4. main.tsx — @fontsource-variable imports if you swap --font-display / --font-body.
  * Pages mostly use var(--*) and shared classes; inline styles are mostly layout.
  */
 
@@ -16,6 +16,14 @@
   --ochre-light: #e8c99a;
   --cream: #f2ede4;
   --cream-dark: #e8e0d4;
+  /** Main sand tone; also the middle (~42%) stop of the home sidebar outer column gradient. */
+  --home-sand: #f2efe6;
+  /**
+   * Sidebar outer column (`.home-dashboard__col--side`) vertical gradient — frosted bulletin sits inside.
+   * Top → bottom: warm paper → sand → slightly deeper warm gray.
+   */
+  --home-sidebar-shell-top: #fffcf7;
+  --home-sidebar-shell-bottom: #e4ded2;
   --ink: #1c1410;
   --ink-muted: #6b5e54;
   --ink-faint: #a89a90;
@@ -24,7 +32,8 @@
   --olive: #3d5a2e;
 
   /* Semantic */
-  --color-page-bg: var(--cream);
+  /* Page bg aligned with home sidebar “outer shell” gradient mid stop (see --home-sand) */
+  --color-page-bg: var(--home-sand);
   --color-nav-bg: var(--ink);
   --color-cta-bg: var(--ink);
   --color-cta-hover: var(--brick);
@@ -41,9 +50,9 @@
   --badge-research-bg: #eef0ff;
   --badge-research-text: #3c3489;
 
-  /* Typography — font families */
-  --font-display: "Playfair Display", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  /* Typography — self-hosted variable fonts (see main.tsx imports); fallbacks match old Google Fonts stack */
+  --font-display: "Playfair Display Variable", Georgia, serif;
+  --font-body: "DM Sans Variable", system-ui, sans-serif;
 
   /* Type scale */
   --text-page-headline: clamp(48px, 6vw, 80px);
@@ -76,10 +85,26 @@
   --space-xl-2: 48px;
   --page-x: 2.5rem;
 
-  /* Radii */
-  --radius-card: 4px;
-  --radius-input: 2px;
-  --radius-chip: 2px;
+  /**
+   * Radii — Apple-inspired: soft surfaces, pill chips, 12px controls.
+   * Use --radius-surface-* for cards; --radius-panel for frosted bulletin shell.
+   */
+  --radius-panel: 22px;
+  --radius-surface-lg: 16px;
+  --radius-surface-md: 14px;
+  --radius-surface-sm: 12px;
+  --radius-button: 12px;
+  --radius-input: 12px;
+  --radius-card: 14px;
+  --radius-chip: 999px;
+
+  /* Shadows — layered, soft (match bulletin) */
+  --shadow-surface:
+    0 0 1px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(28, 20, 16, 0.06),
+    0 2px 8px rgba(28, 20, 16, 0.04);
+  --shadow-surface-sm: 0 4px 24px rgba(28, 20, 16, 0.06), 0 1px 3px rgba(28, 20, 16, 0.04);
+  --shadow-surface-hover: 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 36px rgba(28, 20, 16, 0.08);
 
   /* Borders */
   --border-default: 0.5px solid var(--rule);
@@ -104,4 +129,12 @@
   --ease-out: 0.2s ease;
   --ease-reveal: 0.3s ease;
   --ease-progress: 0.4s ease;
+
+  /* Authenticated home dashboard (reference design) */
+  --home-cream: #fdfbf7;
+  --home-hero: #1a140f;
+  --home-gold: #c5a059;
+  --home-gold-dim: rgba(197, 160, 89, 0.55);
+  --home-hero-text: rgba(253, 251, 247, 0.88);
+  --home-hero-muted: rgba(253, 251, 247, 0.58);
 }

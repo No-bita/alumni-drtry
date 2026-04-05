@@ -1,19 +1,20 @@
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
-import type { PersonRow } from "../repos/personRepo.js";
+import type { PersonRole, PersonRow } from "../repos/personRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
 
 export interface AdminPersonView {
   id: string;
   institutionalEmail: string;
-  role: "alumni" | "admin";
+  role: PersonRole;
   fullName: string | null;
   departmentCode: string | null;
   departmentName: string | null;
   batchYear: number | null;
   personalEmail: string | null;
-  isSearchable: boolean;
+  residenceCountry: string | null;
+  residenceCity: string | null;
   profileCompletedAt: Date | null;
   suspendedAt: Date | null;
   deletedAt: Date | null;
@@ -43,7 +44,8 @@ function toAdminView(row: PersonRow): AdminPersonView {
     departmentName: row.department_name,
     batchYear: row.batch_year,
     personalEmail: row.personal_email,
-    isSearchable: row.is_searchable,
+    residenceCountry: row.residence_country,
+    residenceCity: row.residence_city,
     profileCompletedAt: row.profile_completed_at,
     suspendedAt: row.suspended_at,
     deletedAt: row.deleted_at,

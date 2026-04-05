@@ -17,6 +17,7 @@ export const DEPARTMENTS = [
   { code: "mec", label: "Mech Eng" },
   { code: "met", label: "Metallurgical Eng" },
   { code: "meta", label: "Metallurgical Eng" },
+  { code: "mst", label: "Material Sciences and Technology" },
   { code: "min", label: "Mining Eng" },
   { code: "pharm", label: "Pharmaceutical Eng" },
 ] as const;

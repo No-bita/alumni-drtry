@@ -50,3 +50,4 @@ Auth integration tests require a PostgreSQL database. Set `DATABASE_URL` (or use
 
 - [MVP Roadmap](docs/mvp-roadmap.md) — Phase status and build order
 - [Phase 1 Verification](docs/phase1-verification.md) — Auth flow details
+- [Bulletin feed ranking](docs/bulletin-feed-ranking.md) — How intentcast posts are ordered (`GET /v1/intentcasts`); **update when feed SQL changes**

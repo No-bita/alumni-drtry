@@ -5,19 +5,27 @@ export type ApiError = { code: string; message?: string };
 async function request<T>(
   path: string,
   options: RequestInit = {}
-): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number }> {
+): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean }> {
   const url = `${API_BASE}${path}`;
+  const { signal, headers: optHeaders, ...rest } = options;
+  const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };
+  // Fastify rejects `Content-Type: application/json` when there is no JSON body (e.g. GET).
+  const jsonBody = typeof rest.body === "string" && rest.body.length > 0;
+  if (jsonBody && !headers["Content-Type"] && !headers["content-type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   let res: Response;
   try {
     res = await fetch(url, {
-      ...options,
+      ...rest,
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
+      signal,
     });
-  } catch {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { aborted: true };
+    }
     return {
       error: {
         code: "NETWORK_ERROR",
@@ -40,8 +48,11 @@ async function request<T>(
   return { data: body as T };
 }
 
+/** Options for `api.get`; pass `signal` from `AbortController` (e.g. `useEffect` cleanup) to cancel the fetch. */
+export type ApiGetInit = Pick<RequestInit, "signal" | "headers">;
+
 export const api = {
-  get: <T>(path: string) => request<T>(path, { method: "GET" }),
+  get: <T>(path: string, init?: ApiGetInit) => request<T>(path, { method: "GET", ...init }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
@@ -53,11 +64,15 @@ export const api = {
 export type MePerson = {
   personId: string;
   institutionalEmail: string;
-  role: "alumni" | "admin";
+  role: "alumni" | "admin" | "super_admin";
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
 };
+
+export function isSuperAdmin(person: Pick<MePerson, "role"> | undefined | null): boolean {
+  return person?.role === "super_admin";
+}
 
 export type Me = { person: MePerson };
 
@@ -65,15 +80,29 @@ export type Me = { person: MePerson };
 export type MyProfileView = {
   id: string;
   fullName: string | null;
+  institutionalEmail?: string;
   departmentCode: string | null;
   departmentName: string | null;
   parsedDepartmentCode: string | null;
   parsedDepartmentName: string | null;
   batchYear: number | null;
   parsedJoiningYear: number | null;
+  degreeCode?: string | null;
+  degreeName?: string | null;
   bio: string | null;
-  isSearchable: boolean;
+  personalEmail?: string | null;
+  mobilePhone?: string | null;
+  residenceCountry?: string | null;
+  residenceCity?: string | null;
   profileCompletedAt: string | null;
+  /** Set when the full onboarding funnel (all steps) is finished. */
+  onboardingCompletedAt: string | null;
+  /** Successful OTP/magic-link logins; gates onboarding after cap (see onboardingEligibility). */
+  appLoginCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Present on GET /v1/me/profile; used when gating onboarding if session `person` is stale. */
+  role?: MePerson["role"];
 };
 
 export type MeProfileResponse = { profile: MyProfileView };
@@ -88,17 +117,193 @@ export type SearchProfileView = {
   fullName: string;
   departmentCode: string | null;
   departmentName: string | null;
+  parsedDepartmentCode: string | null;
+  parsedDepartmentName: string | null;
   batchYear: number | null;
   parsedJoiningYear: number | null;
+  degreeCode: string | null;
+  degreeName: string | null;
   bio: string | null;
   headlineRoleTitle: string | null;
   headlineOrganizationName: string | null;
+  residenceCountry: string | null;
+  residenceCity: string | null;
+  matchReasons: string[];
+};
+
+export type SearchNormalizationMeta = {
+  applied: boolean;
+  batchFromQuery?: number;
+  deptFromQuery?: string;
+  companyFromQuery?: string;
+  removedTokens?: string[];
 };
 
 export type SearchResult = {
   results: SearchProfileView[];
   pageInfo: { hasMore: boolean; nextCursor: string | null };
+  wideningSummary?: string | null;
+  messageKey?: string | null;
+  searchSessionId?: string | null;
+  normalization?: SearchNormalizationMeta | null;
 };
+
+/** GET /v1/directory/residence-cities — city/country pairs ordered by alumni count */
+export type ResidenceCityAggregate = { city: string; country: string; count: number };
+export type ResidenceCitiesResponse = { cities: ResidenceCityAggregate[] };
+
+/** GET /v1/contact-requests/inbox — pending requests where viewer is recipient */
+export type ContactRequestInboxItem = {
+  id: string;
+  senderPersonId: string;
+  senderFullName: string | null;
+  message: string;
+  createdAt: string;
+};
+
+export type ContactRequestsInboxResponse = { requests: ContactRequestInboxItem[] };
+
+/** POST /v1/connection-threads */
+export type CreateConnectionThreadResponse = { threadId: string; reusedThread: boolean };
+
+/** GET /v1/connection-threads */
+export type ConnectionThreadListItem = {
+  id: string;
+  initiatorPersonId: string;
+  recipientPersonId: string;
+  status: string;
+  updatedAt: string;
+  counterpartyPersonId: string;
+  counterpartyFullName: string | null;
+  lastMessageBody: string;
+  lastMessageAuthorPersonId: string;
+  lastMessageCreatedAt: string;
+};
+
+export type ConnectionThreadsListResponse = { threads: ConnectionThreadListItem[] };
+
+export type AvailableDisclosureOption = {
+  kind: "institutional_email" | "personal_email" | "profile_link";
+  label: string;
+  profileLinkId?: string;
+};
+
+/** GET /v1/connection-threads/:id */
+export type ConnectionThreadDetailResponse = {
+  thread: {
+    id: string;
+    initiatorPersonId: string;
+    recipientPersonId: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  counterpartyPersonId: string;
+  counterpartyFullName: string | null;
+  messages: { id: string; authorPersonId: string; body: string; createdAt: string }[];
+  disclosures: {
+    id: string;
+    personId: string;
+    kind: string;
+    profileLinkId: string | null;
+    disclosedValue: string;
+    createdAt: string;
+  }[];
+  messageCount: number;
+  showShareNudge: boolean;
+  availableDisclosures: AvailableDisclosureOption[];
+};
+
+/** GET /v1/notifications — aggregated in-app activity */
+export type NotificationItem =
+  | {
+      kind: "contact_request_received";
+      id: string;
+      occurredAt: string;
+      contactRequestId: string;
+      senderPersonId: string;
+      senderFullName: string | null;
+      message: string;
+    }
+  | {
+      kind: "contact_request_resolved";
+      id: string;
+      occurredAt: string;
+      contactRequestId: string;
+      outcome: "accepted" | "declined";
+      recipientPersonId: string;
+      recipientFullName: string | null;
+    }
+  | {
+      kind: "bulletin_response";
+      id: string;
+      occurredAt: string;
+      responseId: string;
+      intentcastId: string;
+      postPreview: string;
+      responderPersonId: string;
+      responderFullName: string;
+      responseMessage: string;
+    }
+  | {
+      kind: "connection_thread_reply";
+      id: string;
+      occurredAt: string;
+      threadId: string;
+      counterpartyPersonId: string;
+      counterpartyFullName: string | null;
+      lastMessagePreview: string;
+    };
+
+export type NotificationsResponse = { items: NotificationItem[] };
+
+/** GET /v1/notifications/summary — badge count */
+export type NotificationsSummaryResponse = { count: number };
+
+/** GET /v1/intentcasts */
+export type IntentcastFeedItem = {
+  id: string;
+  authorPersonId: string;
+  authorFullName: string;
+  authorDepartmentCode: string | null;
+  authorDepartmentName: string | null;
+  /** Graduation / cohort year for short bylines (e.g. ’24). */
+  authorBatchYear?: number | null;
+  category: "hiring" | "mentorship" | "collaboration" | "guidance";
+  content: string;
+  status: string;
+  expiresAt: string;
+  closedAt: string | null;
+  createdAt: string;
+  editableUntil: string;
+  /** Set when the author removed the post from the public bulletin; others no longer see it. */
+  authorSoftDeletedAt?: string | null;
+  /** After this time the row and replies are permanently deleted server-side (default ~7 days after author removal). */
+  authorDeletePurgeAt?: string | null;
+  responseCount: number;
+  /** True when the signed-in user has already replied (at most one reply per post). */
+  viewerHasResponded: boolean;
+};
+
+/** GET /v1/intentcasts/:id/responses (author only) */
+export type IntentcastResponseItem = {
+  id: string;
+  intentcastId: string;
+  responderPersonId: string;
+  responderFullName: string;
+  responderDepartmentCode: string | null;
+  responderDepartmentName: string | null;
+  message: string;
+  createdAt: string;
+};
+
+export type IntentcastFeedResponse = {
+  intentcasts: IntentcastFeedItem[];
+  pageInfo: { hasMore: boolean; nextOffset: number | null };
+};
+
+/** GET /v1/intentcasts/:id — one card if the viewer may see it */
+export type IntentcastSingleResponse = { intentcast: IntentcastFeedItem };
 
 /** GET /v1/profiles/:id returns { profile, occupations, links } */
 export type PublicProfileView = {
@@ -109,7 +314,12 @@ export type PublicProfileView = {
   batchYear: number | null;
   parsedJoiningYear: number | null;
   bio: string | null;
-  skillsText: string | null;
+  /** Present when viewing your own profile only. */
+  personalEmail?: string | null;
+  /** Present when viewing your own profile only. */
+  mobilePhone?: string | null;
+  residenceCountry: string | null;
+  residenceCity: string | null;
 };
 
 export type OccupationView = {
@@ -131,6 +341,8 @@ export type ProfileLinkView = {
   url: string;
   label: string | null;
 };
+
+export type MeLinksResponse = { links: ProfileLinkView[] };
 
 export type ProfileResponse = {
   profile: PublicProfileView;

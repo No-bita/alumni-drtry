@@ -6,11 +6,17 @@ import { PersonRepo, type PersonProfileView } from "../repos/personRepo.js";
 export interface UpdateMyProfileInput {
   fullName?: string;
   departmentCode?: string;
-  batchYear?: number;
+  batchYear?: number | null;
   degreeCode?: string | null;
   personalEmail?: string | null;
   bio?: string | null;
-  skillsText?: string | null;
+  mobilePhone?: string | null;
+  residenceCountry?: string | null;
+  residenceCity?: string | null;
+  /** Server sets `profile_completed_at` when name exists (minimum = end of onboarding step 2). */
+  markMinimumProfileComplete?: true;
+  /** Server sets `onboarding_completed_at` when minimum profile already exists (ideal = all steps). */
+  markOnboardingComplete?: true;
 }
 
 function isPgUniqueViolation(error: unknown): boolean {
@@ -54,7 +60,9 @@ export class ProfileService {
     let nextBatchYear = current.batchYear;
     let nextPersonalEmail = current.personalEmail;
     let nextBio = current.bio;
-    let nextSkillsText = current.skillsText;
+    let nextMobilePhone = current.mobilePhone;
+    let nextResidenceCountry = current.residenceCountry;
+    let nextResidenceCity = current.residenceCity;
 
     if (input.fullName !== undefined) {
       nextFullName = input.fullName.trim();
@@ -97,16 +105,52 @@ export class ProfileService {
       nextBio = input.bio === null ? null : input.bio.trim();
     }
 
-    if (input.skillsText !== undefined) {
-      nextSkillsText = input.skillsText === null ? null : input.skillsText.trim();
+    if (input.mobilePhone !== undefined) {
+      nextMobilePhone =
+        input.mobilePhone === null || input.mobilePhone.trim() === ""
+          ? null
+          : input.mobilePhone.trim();
     }
 
-    const hasName = Boolean(nextFullName && nextFullName.length > 0);
-    const hasDepartment = Boolean(nextDepartmentId || nextDepartmentCode || current.parsedDepartmentCode);
-    const hasBatch = Boolean(nextBatchYear || current.parsedJoiningYear);
-    const nextIsSearchable = hasName && hasDepartment && hasBatch;
-    const nextProfileCompletedAt =
-      current.profileCompletedAt ?? (nextIsSearchable ? new Date() : null);
+    if (input.residenceCountry !== undefined) {
+      nextResidenceCountry =
+        input.residenceCountry === null || input.residenceCountry.trim() === ""
+          ? null
+          : input.residenceCountry.trim();
+    }
+
+    if (input.residenceCity !== undefined) {
+      nextResidenceCity =
+        input.residenceCity === null || input.residenceCity.trim() === ""
+          ? null
+          : input.residenceCity.trim();
+    }
+
+    let nextProfileCompletedAt = current.profileCompletedAt;
+    if (input.markMinimumProfileComplete === true) {
+      if (!nextFullName?.trim()) {
+        throw new AppError(
+          400,
+          "PROFILE_MINIMUM_INCOMPLETE",
+          "Save your name and details (step 1) before completing this step."
+        );
+      }
+      nextProfileCompletedAt = nextProfileCompletedAt ?? new Date();
+    }
+
+    let nextOnboardingCompletedAt = current.onboardingCompletedAt;
+    if (input.markOnboardingComplete === true) {
+      const hasMinimum =
+        nextProfileCompletedAt != null || current.profileCompletedAt != null;
+      if (!hasMinimum) {
+        throw new AppError(
+          400,
+          "PROFILE_ONBOARDING_ORDER",
+          "Complete earlier onboarding steps before marking the full funnel done."
+        );
+      }
+      nextOnboardingCompletedAt = nextOnboardingCompletedAt ?? new Date();
+    }
 
     try {
       return await this.personRepo.updateProfile({
@@ -117,9 +161,11 @@ export class ProfileService {
         batchYear: nextBatchYear,
         personalEmail: nextPersonalEmail,
         bio: nextBio,
-        skillsText: nextSkillsText,
-        isSearchable: nextIsSearchable,
-        profileCompletedAt: nextProfileCompletedAt
+        mobilePhone: nextMobilePhone,
+        residenceCountry: nextResidenceCountry,
+        residenceCity: nextResidenceCity,
+        profileCompletedAt: nextProfileCompletedAt,
+        onboardingCompletedAt: nextOnboardingCompletedAt
       });
     } catch (error) {
       if (isPgUniqueViolation(error)) {

@@ -109,7 +109,7 @@ Last updated: March 8, 2026
 | 5 | Graph relationship engine | `person_edge` table + traversal, phase 2 of long roadmap |
 | 6 | Mobile app | Web only for MVP |
 | 7 | LinkedIn sync | Business and API risk, deferred indefinitely |
-| 8 | Skills as serious feature | Free text only in MVP |
+| 8 | Skills as a profile field | Explicitly out of scope — not collected on the platform |
 | 9 | Neo4j or graph database | Only if multi-hop traversal gets heavy |
 | 10 | Embeddings and semantic search | Only after bio completion rate is above 50% |
 

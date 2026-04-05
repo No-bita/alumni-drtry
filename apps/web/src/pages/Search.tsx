@@ -1,186 +1,401 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
-import { Chip } from "../components/Chip";
-import { SearchResultCard } from "../components/SearchResultCard";
-import { api, type SearchResult, type SearchProfileView } from "../api/client";
-import { Avatar } from "../components/Avatar";
-import { DEPARTMENTS } from "../constants/departments";
+import { SearchResultRow } from "../components/SearchResultRow";
+import { DirectorySearchBar } from "../components/DirectorySearchBar";
+import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
+import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
+import { Spinner } from "../components/Spinner";
+import { type SearchResult, type SearchProfileView } from "../api/client";
+import { assertApiGet } from "../lib/assertApiGet";
+import { queryKeys } from "../lib/queryKeys";
 import { CAMPUS_IMAGE_SMALL } from "../constants/images";
+import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
+import {
+  buildSearchParamsFromDraft,
+  countDirectoryFilterParams,
+  draftMatchesUrl,
+  draftsEqual,
+  EMPTY_DIRECTORY_SEARCH_DRAFT,
+  normalizeQ,
+  parseDirectorySearchFromParams,
+  type DirectorySearchDraft,
+} from "../lib/directorySearchUrlState";
 
-const BATCH_YEARS = [2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013];
+/** Directory results: 2 columns from this min-width; one column below (narrow phones). */
+const SEARCH_RESULTS_TWO_COL_MIN_PX = 720;
 
 export function Search() {
-  const [results, setResults] = useState<SearchProfileView[]>([]);
-  const [pageInfo, setPageInfo] = useState<{ hasMore: boolean; nextCursor: string | null }>({ hasMore: false, nextCursor: null });
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [batchYear, setBatchYear] = useState<number | null>(null);
-  const [departmentCode, setDepartmentCode] = useState<string | null>(null);
-  const [keyword, setKeyword] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [draft, setDraft] = useState(() => parseDirectorySearchFromParams(searchParams));
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const buildParams = (cursor?: string | null) => {
-    const params = new URLSearchParams();
-    if (batchYear != null) params.set("batchYear", String(batchYear));
-    if (departmentCode) params.set("departmentCode", departmentCode);
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    params.set("limit", "20");
-    if (cursor) params.set("cursor", cursor);
-    return params;
-  };
+  const [resultsColumnCount, setResultsColumnCount] = useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia(`(min-width: ${SEARCH_RESULTS_TWO_COL_MIN_PX}px)`).matches
+      ? 2
+      : 1
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      const params = buildParams();
-      const { data } = await api.get<SearchResult>(`/v1/search?${params.toString()}`);
-      if (!cancelled && data) {
-        setResults(data.results ?? []);
-        setPageInfo(data.pageInfo ?? { hasMore: false, nextCursor: null });
-      }
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [batchYear, departmentCode, keyword]);
+    const mq = window.matchMedia(`(min-width: ${SEARCH_RESULTS_TWO_COL_MIN_PX}px)`);
+    const sync = () => setResultsColumnCount(mq.matches ? 2 : 1);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
-  const loadMore = async () => {
-    if (!pageInfo.nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    const params = buildParams(pageInfo.nextCursor);
-    const { data } = await api.get<SearchResult>(`/v1/search?${params.toString()}`);
-    if (data) {
-      setResults((prev) => [...prev, ...(data.results ?? [])]);
-      setPageInfo(data.pageInfo ?? { hasMore: false, nextCursor: null });
-    }
-    setLoadingMore(false);
+  useEffect(() => {
+    setDraft(parseDirectorySearchFromParams(searchParams));
+  }, [searchParams]);
+
+  const applied = useMemo(() => parseDirectorySearchFromParams(searchParams), [searchParams]);
+
+  const batch = applied.batch;
+  const dept = applied.dept;
+  const company = applied.company;
+  const occ = applied.occ;
+  const residenceCountry = applied.residenceCountry;
+  const residenceCity = applied.residenceCity;
+  const committedQ = normalizeQ(applied.q);
+
+  const buildQueryParams = useCallback(
+    (cursor?: string | null) => {
+      const params = new URLSearchParams();
+      if (batch != null) params.set("batch", String(batch));
+      if (dept) params.set("dept", dept);
+      if (company) params.set("company", company);
+      if (occ) params.set("occ", occ);
+      if (residenceCountry) params.set("residenceCountry", residenceCountry);
+      if (residenceCity) params.set("residenceCity", residenceCity);
+      if (committedQ) params.set("q", committedQ);
+      params.set("limit", "20");
+      if (cursor) params.set("cursor", cursor);
+      return params;
+    },
+    [batch, dept, company, occ, residenceCountry, residenceCity, committedQ]
+  );
+
+  const searchQueryKey = useMemo(
+    () =>
+      queryKeys.directory.searchInfinite(
+        batch,
+        dept ?? "",
+        company ?? "",
+        occ ?? "",
+        residenceCountry ?? "",
+        residenceCity ?? "",
+        committedQ
+      ),
+    [batch, dept, company, occ, residenceCountry, residenceCity, committedQ]
+  );
+
+  const searchQuery = useInfiniteQuery({
+    queryKey: searchQueryKey,
+    queryFn: async ({ pageParam, signal }) => {
+      const params = buildQueryParams(pageParam ?? null);
+      return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.pageInfo.nextCursor ?? undefined,
+    ...DIRECTORY_INFINITE_QUERY_OPTIONS,
+  });
+
+  const results = useMemo(
+    () => searchQuery.data?.pages.flatMap((p) => p.results) ?? [],
+    [searchQuery.data]
+  );
+
+  const errorMessage =
+    searchQuery.error instanceof Error ? searchQuery.error.message : searchQuery.error ? String(searchQuery.error) : null;
+
+  const fetchingMain = searchQuery.isFetching && !searchQuery.isFetchingNextPage;
+  const showMainSpinner = fetchingMain && results.length === 0 && !errorMessage;
+  const searchPending = !draftMatchesUrl(draft, searchParams);
+
+  const firstPage = searchQuery.data?.pages[0];
+  const wideningSummary = firstPage?.wideningSummary ?? null;
+  const normalization = firstPage?.normalization ?? null;
+
+  /** Anchor for window virtualizer: document Y offset to top of results list (see scrollMargin). */
+  const resultsListAnchorRef = useRef<HTMLDivElement>(null);
+  const [listScrollMargin, setListScrollMargin] = useState(0);
+
+  const resultsRowCount = useMemo(
+    () => (results.length === 0 ? 0 : Math.ceil(results.length / resultsColumnCount)),
+    [results.length, resultsColumnCount]
+  );
+
+  const listLayoutKey =
+    `${wideningSummary ?? ""}|${normalization?.applied ?? false}|${searchPending}|${showMainSpinner}|${errorMessage ?? ""}|${results.length}`;
+
+  useLayoutEffect(() => {
+    const el = resultsListAnchorRef.current;
+    const main = el?.closest(".search-page__main");
+    if (!el || !main) return;
+
+    const update = () => {
+      setListScrollMargin(el.getBoundingClientRect().top + window.scrollY);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(main);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [listLayoutKey]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- virtualizer helpers; intentional
+  const virtualizer = useWindowVirtualizer({
+    count: resultsRowCount,
+    estimateSize: () => (resultsColumnCount === 2 ? 112 : 108),
+    overscan: 10,
+    scrollMargin: listScrollMargin,
+  });
+
+  const commitDraftToUrl = useCallback(() => {
+    setSearchParams(buildSearchParamsFromDraft(draft), { replace: true });
+  }, [draft, setSearchParams]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    commitDraftToUrl();
   };
+
+  const clearAllFilters = useCallback(() => {
+    setDraft(EMPTY_DIRECTORY_SEARCH_DRAFT);
+    setSearchParams(new URLSearchParams(), { replace: true });
+    setFiltersOpen(false);
+  }, [setSearchParams]);
+
+  const canClear =
+    !draftsEqual(draft, EMPTY_DIRECTORY_SEARCH_DRAFT) ||
+    !draftMatchesUrl(EMPTY_DIRECTORY_SEARCH_DRAFT, searchParams);
+
+  const hasActiveFilters =
+    batch != null ||
+    !!dept ||
+    !!company ||
+    !!occ ||
+    !!residenceCountry ||
+    !!residenceCity ||
+    !!committedQ;
+
+  const filterCount = countDirectoryFilterParams(draft);
+
+  const setDraftPatch = useCallback((patch: Partial<DirectorySearchDraft>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+  }, []);
+
+  const searchSessionId = firstPage?.searchSessionId ?? null;
 
   return (
     <>
-      <Nav right={<Avatar name="You" size="sm" />} />
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "calc(100vh - var(--nav-height))" }}>
-        <aside
-          style={{
-            background: "var(--surface)",
-            borderRight: "var(--border-default)",
-            padding: "var(--space-lg) var(--page-x)",
-          }}
-        >
-          <div className="ui-label" style={{ marginBottom: 12 }}>Filters</div>
-          <div style={{ marginBottom: 20 }}>
-            <input
-              type="search"
-              placeholder="Search by name, role…"
-              className="input"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              style={{ marginBottom: 8 }}
-            />
-          </div>
-          <div className="section-divider">
-            <span className="section-divider__text">Batch</span>
-            <span className="section-divider__line" />
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-            {BATCH_YEARS.map((y) => (
-              <Chip
-                key={y}
-                size="sm"
-                active={batchYear === y}
-                onClick={() => setBatchYear(batchYear === y ? null : y)}
-              >
-                {y}
-              </Chip>
-            ))}
-          </div>
-          <div className="section-divider">
-            <span className="section-divider__text">Department</span>
-            <span className="section-divider__line" />
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {DEPARTMENTS.map((d) => (
-              <Chip
-                key={d.code}
-                size="sm"
-                active={departmentCode === d.code}
-                onClick={() => setDepartmentCode(departmentCode === d.code ? null : d.code)}
-              >
-                {d.label}
-              </Chip>
-            ))}
-          </div>
-        </aside>
-        <main>
-          <header
-            style={{
-              background: "var(--surface)",
-              padding: "1.5rem var(--page-x)",
-              borderBottom: "var(--border-default)",
+      <Nav />
+      <div className="search-page search-page--search-first">
+        <header className="search-page__hero">
+          <h1 className="search-page__title search-page__title--hero">Alumni directory</h1>
+          <DirectorySearchBar
+            variant="directory"
+            keyword={draft.q}
+            onKeywordChange={(q) => setDraftPatch({ q })}
+            onSubmit={handleSearchSubmit}
+            filterCount={filterCount}
+            onOpenRefine={() => setFiltersOpen(true)}
+            keywordPlaceholder="Name, role, company…"
+            autoFocusKeyword
+            inlineTrailingAction={{
+              label: "Clear all filters",
+              onClick: clearAllFilters,
+              disabled: !canClear,
             }}
-          >
-            <span className="ui-body">
-              {loading ? "Loading…" : `${results.length} result${results.length !== 1 ? "s" : ""}`}
-            </span>
-          </header>
-          {!loading && results.length === 0 ? (
-            <div
-              style={{
-                padding: "3rem var(--page-x)",
-                textAlign: "center",
-                color: "var(--ink-muted)",
-              }}
+            onNativeSearchCleared={clearAllFilters}
+          />
+          {searchPending ? (
+            <p className="search-page__pending search-page__pending--under-bar" role="status">
+              Press Search or Enter to run this search.
+            </p>
+          ) : null}
+        </header>
+
+        {wideningSummary ? (
+          <div className="search-page__notice" role="status">
+            <p className="search-page__notice-text">{wideningSummary}</p>
+          </div>
+        ) : null}
+
+        {normalization?.applied ? (
+          <div className="search-page__notice search-page__notice--muted" role="status">
+            <p className="search-page__notice-text">
+              Filtered your search from keywords
+              {normalization.batchFromQuery != null ? ` · batch ${normalization.batchFromQuery}` : ""}
+              {normalization.deptFromQuery ? ` · dept ${normalization.deptFromQuery}` : ""}
+              {normalization.companyFromQuery ? ` · company ${normalization.companyFromQuery}` : ""}
+              {normalization.removedTokens?.length ? ` (removed: ${normalization.removedTokens.join(", ")})` : ""}.
+            </p>
+          </div>
+        ) : null}
+
+        <DirectoryFilterDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter search">
+          <DirectoryFiltersForm
+            batchYear={draft.batch}
+            departmentCode={draft.dept}
+            companyName={draft.company}
+            occupationTypeCode={draft.occ}
+            residenceCountry={draft.residenceCountry}
+            residenceCity={draft.residenceCity}
+            onBatchYearChange={(y) => setDraftPatch({ batch: y })}
+            onDepartmentChange={(code) => setDraftPatch({ dept: code })}
+            onCompanyNameChange={(v) => setDraftPatch({ company: v })}
+            onOccupationChange={(code) => setDraftPatch({ occ: code })}
+            onResidenceCountryChange={(v) => setDraftPatch({ residenceCountry: v })}
+            onResidenceCityChange={(v) => setDraftPatch({ residenceCity: v })}
+            onClearAll={canClear ? clearAllFilters : undefined}
+            onSearch={() => {
+              commitDraftToUrl();
+              setFiltersOpen(false);
+            }}
+          />
+        </DirectoryFilterDrawer>
+
+        <main className="search-page__main">
+          <div className="search-page__toolbar">
+            <p
+              className={`search-page__toolbar-meta${fetchingMain && !errorMessage ? " search-page__toolbar-meta--busy" : ""}`}
             >
-              <p className="section-headline" style={{ marginBottom: 8, color: "var(--ink)" }}>
-                No alumni match your filters
+              {errorMessage ? (
+                <span className="search-page__error-inline">{errorMessage}</span>
+              ) : fetchingMain ? (
+                <>
+                  <Spinner size="sm" />
+                  {results.length === 0 ? (
+                    <span>Searching…</span>
+                  ) : (
+                    <span>
+                      {results.length} result{results.length !== 1 ? "s" : ""}
+                      {hasActiveFilters ? " · filtered" : ""}
+                      <span style={{ opacity: 0.75 }}> · updating…</span>
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {results.length} result{results.length !== 1 ? "s" : ""}
+                  {hasActiveFilters ? " · filtered" : ""}
+                </>
+              )}
+            </p>
+          </div>
+
+          {showMainSpinner ? (
+            <div className="search-page__loading" role="status" aria-live="polite" aria-busy="true">
+              <div className="login-sending">
+                <Spinner />
+                <p className="login-sending__line">Searching…</p>
+              </div>
+            </div>
+          ) : null}
+
+          {!fetchingMain && errorMessage && results.length === 0 ? (
+            <div className="search-page__empty">
+              <p className="section-headline" style={{ marginBottom: 8, color: "var(--brick)" }}>
+                Couldn’t load results
               </p>
-              <p className="body-text">
-                Try adjusting batch or department, or search by name or role.
+              <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
+                {errorMessage}
               </p>
             </div>
-          ) : (
+          ) : null}
+
+          {!fetchingMain && !errorMessage && results.length === 0 ? (
+            <div className="search-page__empty">
+              <p className="section-headline" style={{ marginBottom: 8 }}>
+                No alumni match your search
+              </p>
+              <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
+                Try another keyword, open <strong>Filter</strong> to adjust batch or department, or clear filters.
+              </p>
+            </div>
+          ) : null}
+
+          {!errorMessage && results.length > 0 ? (
             <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: 16,
-                  padding: "var(--page-x)",
-                  position: "relative",
-                  minHeight: 200,
-                }}
-              >
-                {results.map((profile, i) => (
-                  <SearchResultCard
-                    key={profile.id}
-                    profile={profile}
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  />
-                ))}
+              <div ref={resultsListAnchorRef} className="search-page__results-scroll">
+                <div
+                  className="search-page__virtual-track"
+                  style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+                >
+                  {virtualizer.getVirtualItems().map((vi) => {
+                    const rowIndex = vi.index;
+                    const cells: ReactNode[] = [];
+                    for (let c = 0; c < resultsColumnCount; c++) {
+                      const profileIndex = rowIndex * resultsColumnCount + c;
+                      if (profileIndex >= results.length) break;
+                      const profile = results[profileIndex] as SearchProfileView;
+                      cells.push(
+                        <div key={profile.id} className="search-page__result-cell">
+                          <SearchResultRow
+                            profile={profile}
+                            resultIndex={profileIndex}
+                            searchSessionId={searchSessionId}
+                            style={{ animationDelay: `${Math.min(profileIndex, 12) * 24}ms` }}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={vi.key}
+                        data-index={vi.index}
+                        ref={virtualizer.measureElement}
+                        className={`search-page__virtual-row search-page__virtual-row--dense search-page__virtual-row--cols-${resultsColumnCount}`}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${vi.start - listScrollMargin}px)`,
+                        }}
+                      >
+                        {cells}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              {pageInfo.hasMore && pageInfo.nextCursor && (
-                <div style={{ padding: "1.5rem var(--page-x)", textAlign: "center" }}>
+              {searchQuery.hasNextPage ? (
+                <div className="search-page__load-more">
                   <Button
                     variant="secondary"
-                    onClick={loadMore}
-                    disabled={loadingMore}
+                    onClick={() => void searchQuery.fetchNextPage()}
+                    disabled={searchQuery.isFetchingNextPage}
                   >
-                    {loadingMore ? "Loading…" : "Load more"}
+                    {searchQuery.isFetchingNextPage ? (
+                      <>
+                        <Spinner size="sm" />
+                        Loading…
+                      </>
+                    ) : (
+                      "Load more"
+                    )}
                   </Button>
                 </div>
-              )}
+              ) : null}
             </>
-          )}
+          ) : null}
+
           <div
-            style={{
-              width: "100%",
-              height: 120,
-              background: "linear-gradient(to top, var(--cream), transparent)",
-              backgroundSize: "cover",
-              backgroundImage: `url(${CAMPUS_IMAGE_SMALL})`,
-              opacity: 0.25,
-              marginTop: 24,
-            }}
+            className="search-page__footer-image"
+            style={{ backgroundImage: `url(${CAMPUS_IMAGE_SMALL})` }}
+            aria-hidden
           />
         </main>
       </div>

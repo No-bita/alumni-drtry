@@ -33,11 +33,12 @@ export function ReachOutCard({ profileName, onSubmit, status = "idle", errorMess
       <div className="card-reach-out__body">
         <h3 className="card-reach-out__title">Reach out to {profileName}</h3>
         <p className="card-reach-out__desc">
-          Send a short note about what you’d like to connect on. They’ll get it via the platform.
+          Start a short conversation on the platform. You can share email or LinkedIn only if you choose to, after you
+          exchange a few messages.
         </p>
         {status === "success" && (
           <p className="body-text" style={{ color: "var(--olive)", marginBottom: 12 }}>
-            Request sent. They’ll get your note via the platform.
+            Opening your conversation…
           </p>
         )}
         {status === "error" && errorMessage && (
@@ -56,7 +57,7 @@ export function ReachOutCard({ profileName, onSubmit, status = "idle", errorMess
             }}
           />
           <Button type="submit" variant="secondary" disabled={loading || !message.trim()}>
-            {loading ? "Sending…" : "Send request"}
+            {loading ? "Starting…" : "Start conversation"}
           </Button>
         </form>
       </div>

@@ -1,0 +1,361 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#150F08;overflow:hidden;}
+.wrap{position:relative;width:100%;background:#150F08;}
+.header{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  padding:1.75rem 2.5rem;
+  display:flex;align-items:flex-start;justify-content:space-between;
+}
+html.map-embed .header{display:none;}
+/* Fill iframe height and center map (canvas is shorter than viewport) */
+html.map-embed,html.map-embed body{height:100%;margin:0;}
+html.map-embed body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100%;
+}
+html.map-embed .wrap{width:100%;flex-shrink:0;}
+.hl{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(22px,3vw,38px);
+  font-weight:300;color:#F2EAD8;line-height:1.1;
+}
+.hl em{font-style:italic;color:#E8D090;}
+.eyebrow{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(196,154,60,0.5);margin-bottom:0.5rem;}
+.stat{text-align:right;}
+.stat-n{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:600;color:#C49A3C;line-height:1;}
+.stat-l{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(242,234,216,0.25);margin-top:2px;}
+canvas{display:block;width:100%;}
+</style>
+<script>document.documentElement.classList.toggle("map-embed", new URLSearchParams(location.search).get("embed")==="1");</script>
+
+<div class="wrap">
+  <div class="header">
+    <div>
+      <div class="eyebrow">IIT BHU Alumni Network</div>
+      <div class="hl">Rooted in Varanasi.<br><em>Spread across the world.</em></div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">23+</div>
+      <div class="stat-l">Countries</div>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+const STATIC = new URLSearchParams(location.search).get('mode') === 'static';
+
+const W = document.querySelector('.wrap');
+const canvas = document.getElementById('c');
+
+const destinations = [
+  { name:'London',        lat:51.5, lon:-0.12 },
+  { name:'New York',      lat:40.7, lon:-74.0 },
+  { name:'San Francisco', lat:37.7, lon:-122.4 },
+  { name:'Boston',        lat:42.3, lon:-71.0 },
+  { name:'Toronto',       lat:43.6, lon:-79.4 },
+  { name:'Berlin',        lat:52.5, lon:13.4 },
+  { name:'Paris',         lat:48.8, lon:2.3 },
+  { name:'Dubai',         lat:25.2, lon:55.2 },
+  { name:'Singapore',     lat:1.35, lon:103.8 },
+  { name:'Tokyo',         lat:35.6, lon:139.7 },
+  { name:'Sydney',        lat:-33.8, lon:151.2 },
+  { name:'Nairobi',       lat:-1.3, lon:36.8 },
+  { name:'Bengaluru',     lat:12.9, lon:77.6 },
+  { name:'Mumbai',        lat:19.0, lon:72.8 },
+  { name:'Zurich',        lat:47.4, lon:8.5 },
+];
+
+const VARANASI = { lat: 25.3, lon: 82.97 };
+
+async function init() {
+  const W_px = W.offsetWidth || 900;
+  const H_px = Math.round(W_px * 0.52);
+  canvas.width  = W_px * devicePixelRatio;
+  canvas.height = H_px * devicePixelRatio;
+  canvas.style.height = H_px + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const projection = d3.geoNaturalEarth1()
+    .scale(W_px / 6.2)
+    .translate([W_px / 2, H_px / 2 + 10]);
+
+  const path = d3.geoPath().projection(projection).context(ctx);
+
+  let world;
+  try {
+    const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    if (!res.ok) return;
+    world = await res.json();
+  } catch (e) { return; }
+
+  const topojson = await import('https://cdn.jsdelivr.net/npm/topojson-client@3/+esm');
+  const land = topojson.feature(world, world.objects.land);
+  const borders = topojson.mesh(world, world.objects.countries, (a,b) => a !== b);
+
+  function drawBase() {
+    ctx.clearRect(0, 0, W_px, H_px);
+
+    ctx.fillStyle = '#150F08';
+    ctx.fillRect(0, 0, W_px, H_px);
+
+    ctx.beginPath();
+    path(d3.geoGraticule()());
+    ctx.strokeStyle = 'rgba(196,154,60,0.04)';
+    ctx.lineWidth = 0.4;
+    ctx.stroke();
+
+    ctx.beginPath();
+    path(land);
+    ctx.fillStyle = 'rgba(196,154,60,0.09)';
+    ctx.fill();
+
+    ctx.beginPath();
+    path(borders);
+    ctx.strokeStyle = 'rgba(196,154,60,0.18)';
+    ctx.lineWidth = 0.4;
+    ctx.stroke();
+
+    ctx.beginPath();
+    path(land);
+    ctx.strokeStyle = 'rgba(196,154,60,0.22)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  function project(lat, lon) {
+    const [x, y] = projection([lon, lat]);
+    return { x, y };
+  }
+
+  function bezierPoint(from, to, cx, cy, t) {
+    const bx = (1-t)*(1-t)*from.x + 2*(1-t)*t*cx + t*t*to.x;
+    const by = (1-t)*(1-t)*from.y + 2*(1-t)*t*cy + t*t*to.y;
+    return { x: bx, y: by };
+  }
+
+  function arcControl(from, to) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+    const cx = mx - dy * 0.35;
+    const cy = my + dx * 0.35 - dist * 0.18;
+    return { cx, cy };
+  }
+
+  function drawArc(from, to, progress, delay) {
+    const p = Math.max(0, Math.min(1, (progress - delay) / 0.6));
+    if (p <= 0) return;
+
+    const { cx, cy } = arcControl(from, to);
+    const steps = 80;
+    const maxStep = Math.floor(p * steps);
+
+    const glowSizes = [
+      { w: 3.5, a: 0.08 },
+      { w: 2.0, a: 0.18 },
+      { w: 1.0, a: 0.55 },
+      { w: 0.4, a: 1.0  },
+    ];
+
+    glowSizes.forEach(({ w, a }) => {
+      ctx.beginPath();
+      for (let i = 0; i <= maxStep; i++) {
+        const t = i / steps;
+        const pt = bezierPoint(from, to, cx, cy, t);
+        i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = `rgba(196,154,60,${a})`;
+      ctx.lineWidth = w;
+      ctx.shadowColor = '#C49A3C';
+      ctx.shadowBlur = w * 4;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+
+    if (p < 1) {
+      const t = p;
+      const pt = bezierPoint(from, to, cx, cy, t);
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI*2);
+      ctx.fillStyle = '#E8D090';
+      ctx.shadowColor = '#C49A3C';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function drawArcComplete(from, to) {
+    const { cx, cy } = arcControl(from, to);
+    const steps = 80;
+    const glowSizes = [
+      { w: 3.5, a: 0.08 },
+      { w: 2.0, a: 0.18 },
+      { w: 1.0, a: 0.55 },
+      { w: 0.4, a: 1.0  },
+    ];
+
+    glowSizes.forEach(({ w, a }) => {
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const pt = bezierPoint(from, to, cx, cy, t);
+        i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = `rgba(196,154,60,${a})`;
+      ctx.lineWidth = w;
+      ctx.shadowColor = '#C49A3C';
+      ctx.shadowBlur = w * 4;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  function drawOriginDot(ox, oy, t) {
+    const pulseR = 6 + Math.sin(t * 3) * 3;
+    ctx.beginPath();
+    ctx.arc(ox, oy, pulseR, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(196,154,60,${0.3 + 0.2 * Math.sin(t * 3)})`;
+    ctx.lineWidth = 0.8;
+    ctx.shadowColor = '#C49A3C';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 4, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(196,154,60,0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 3, 0, Math.PI*2);
+    ctx.fillStyle = '#C49A3C';
+    ctx.shadowColor = '#E8D090';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawOriginStatic(ox, oy) {
+    ctx.beginPath();
+    ctx.arc(ox, oy, 9, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(196,154,60,0.45)';
+    ctx.lineWidth = 0.8;
+    ctx.shadowColor = '#C49A3C';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 4, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(196,154,60,0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 3, 0, Math.PI*2);
+    ctx.fillStyle = '#C49A3C';
+    ctx.shadowColor = '#E8D090';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawOriginLabel(ox, oy) {
+    ctx.save();
+    ctx.font = '600 10px "DM Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(232, 208, 144, 0.95)';
+    ctx.shadowColor = 'rgba(21, 15, 8, 0.85)';
+    ctx.shadowBlur = 5;
+    ctx.letterSpacing = '0.06em';
+    ctx.fillText('Varanasi', ox, oy + 14);
+    ctx.restore();
+  }
+
+  function drawDestDot(x, y, alpha) {
+    if (alpha <= 0) return;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(232,208,144,${alpha * 0.9})`;
+    ctx.shadowColor = '#C49A3C';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  const origin = project(VARANASI.lat, VARANASI.lon);
+  const destPts = destinations.map(d => ({
+    ...d,
+    ...project(d.lat, d.lon)
+  }));
+
+  const maxDelay = destPts.length > 1
+    ? ((destPts.length - 1) / destPts.length) * 0.5
+    : 0;
+  const END_PROGRESS = maxDelay + 0.6;
+  const TOTAL = 4000;
+
+  function drawCompletedState() {
+    drawBase();
+    destPts.forEach((dest) => {
+      drawArcComplete(origin, dest);
+    });
+    drawOriginStatic(origin.x, origin.y);
+    drawOriginLabel(origin.x, origin.y);
+    destPts.forEach((dest) => {
+      drawDestDot(dest.x, dest.y, 1);
+    });
+  }
+
+  if (STATIC) {
+    drawCompletedState();
+    return;
+  }
+
+  let start = null;
+
+  function frame(ts) {
+    if (!start) start = ts;
+    const elapsed = ts - start;
+    const progress = Math.min((elapsed / TOTAL) * END_PROGRESS, END_PROGRESS);
+
+    if (progress >= END_PROGRESS) {
+      drawCompletedState();
+      return;
+    }
+
+    drawBase();
+
+    destPts.forEach((dest, i) => {
+      const delay = i / destPts.length * 0.5;
+      drawArc(origin, dest, progress, delay);
+    });
+
+    drawOriginDot(origin.x, origin.y, elapsed / 1000);
+    drawOriginLabel(origin.x, origin.y);
+
+    destPts.forEach((dest, i) => {
+      const delay = i / destPts.length * 0.5;
+      const arcDone = Math.max(0, (progress - delay) / 0.6);
+      drawDestDot(dest.x, dest.y, Math.min(arcDone * 2, 1));
+    });
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+init();
+</script>
