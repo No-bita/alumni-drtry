@@ -66,6 +66,8 @@ export interface ContactRequestInboxItemView {
   id: string;
   senderPersonId: string;
   senderFullName: string | null;
+  /** Department code from sender profile when set (directory avatar tint). */
+  senderDepartmentCode: string | null;
   message: string;
   createdAt: Date;
 }
@@ -74,6 +76,7 @@ interface ContactRequestInboxRow {
   id: string;
   sender_person_id: string;
   sender_full_name: string | null;
+  sender_department_code: string | null;
   message: string;
   created_at: Date;
 }
@@ -100,6 +103,7 @@ function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView 
     id: row.id,
     senderPersonId: row.sender_person_id,
     senderFullName: row.sender_full_name,
+    senderDepartmentCode: row.sender_department_code,
     message: row.message,
     createdAt: row.created_at
   };
@@ -185,10 +189,12 @@ export class ContactRequestRepo {
         c.id,
         c.sender_person_id,
         s.full_name AS sender_full_name,
+        d.code AS sender_department_code,
         c.message,
         c.created_at
       FROM contact_requests c
       JOIN people s ON s.id = c.sender_person_id
+      LEFT JOIN departments d ON d.id = s.department_id
       WHERE c.recipient_person_id = $1
         AND c.status = 'pending'
       ORDER BY c.created_at DESC

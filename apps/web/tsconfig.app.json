@@ -22,7 +22,12 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@department-catalog": ["../api/src/constants/departmentCatalog.ts"]
+    }
   },
   "include": ["src"]
 }

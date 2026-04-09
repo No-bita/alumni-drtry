@@ -36,11 +36,20 @@ type NavUserMenuProps = {
   variant: "default" | "home";
   /** Own profile id for “My Profile”; omit if profile failed to load. */
   profileId?: string;
+  /** For avatar tint when department is known. */
+  departmentCode?: string | null;
   notificationCount: number;
   onSignOut: () => void | Promise<void>;
 };
 
-function NavUserMenu({ name, variant, profileId, notificationCount, onSignOut }: NavUserMenuProps) {
+function NavUserMenu({
+  name,
+  variant,
+  profileId,
+  departmentCode,
+  notificationCount,
+  onSignOut,
+}: NavUserMenuProps) {
   const isHome = variant === "home";
   const menuRef = useRef<HTMLDetailsElement>(null);
 
@@ -55,7 +64,12 @@ function NavUserMenu({ name, variant, profileId, notificationCount, onSignOut }:
     <details ref={menuRef} className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}`}>
       <summary className="nav__user-menu-summary">
         <span className="nav__user-menu-summary-inner">
-          <Avatar name={name} size="sm" tone={isHome ? "pastel" : "default"} />
+          <Avatar
+            name={name}
+            size="sm"
+            tone={isHome ? "pastel" : "default"}
+            departmentCode={departmentCode}
+          />
           {notificationCount > 0 ? (
             <span className="nav__count-badge nav__count-badge--avatar" aria-hidden>
               {formatNotificationBadgeCount(notificationCount)}
@@ -152,6 +166,11 @@ export function Nav({
   const myProfileId =
     auth.status === "authenticated" && auth.myProfile?.id ? auth.myProfile.id : undefined;
 
+  const navDepartmentCode =
+    auth.status === "authenticated" && auth.myProfile
+      ? auth.myProfile.departmentCode ?? auth.myProfile.parsedDepartmentCode
+      : null;
+
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 
   const showIntentNav =
@@ -213,6 +232,7 @@ export function Nav({
                 name={resolvedAvatarName}
                 variant={variant === "home" ? "home" : "default"}
                 profileId={myProfileId}
+                departmentCode={navDepartmentCode}
                 notificationCount={notificationCount}
                 onSignOut={handleSignOut}
               />

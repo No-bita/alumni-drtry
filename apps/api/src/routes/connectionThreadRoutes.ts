@@ -8,11 +8,12 @@ const uuidParam = z.object({ threadId: z.string().uuid() });
 
 const createThreadBodySchema = z.object({
   recipientPersonId: z.string().uuid(),
-  initialMessage: z.string().min(1).max(2000)
+  initialMessage: z.string().min(1).max(300),
+  kind: z.enum(["general", "referral"]).optional()
 });
 
 const postMessageBodySchema = z.object({
-  body: z.string().min(1).max(2000)
+  body: z.string().min(1).max(300)
 });
 
 const discloseItemSchema = z.discriminatedUnion("kind", [
@@ -42,7 +43,8 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
     const result = await app.connectionThreadService.createOrContinueThread(
       request.actor.personId,
       parsed.data.recipientPersonId,
-      parsed.data.initialMessage
+      parsed.data.initialMessage,
+      parsed.data.kind ?? "general"
     );
     return reply.code(201).send(result);
   });
@@ -55,6 +57,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
         initiatorPersonId: t.initiatorPersonId,
         recipientPersonId: t.recipientPersonId,
         status: t.status,
+        kind: t.kind,
         updatedAt: t.updatedAt.toISOString(),
         counterpartyPersonId: t.counterpartyPersonId,
         counterpartyFullName: t.counterpartyFullName,

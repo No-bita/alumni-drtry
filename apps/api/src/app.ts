@@ -1,11 +1,13 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { AppError, isAppError } from "./lib/errors.js";
 import { captureException } from "./lib/sentry.js";
 import { pool } from "./db/pool.js";
 import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
+import { campusMonthlyRoutes } from "./routes/campusMonthlyRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
 import { authRoutes } from "./routes/authRoutes.js";
@@ -27,6 +29,7 @@ import { LinkService } from "./services/linkService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
+import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
 
@@ -58,6 +61,15 @@ export async function createApp() {
     credentials: true
   });
 
+  await app.register(multipart, {
+    limits: {
+      fileSize: 12 * 1024 * 1024,
+      files: 2,
+      fields: 12,
+      parts: 24
+    }
+  });
+
   const emailSender = buildEmailSender();
   const authService = new AuthService(pool, emailSender);
   const profileService = new ProfileService(pool);
@@ -71,6 +83,7 @@ export async function createApp() {
   const notificationService = new NotificationService(pool);
   const adminPeopleService = new AdminPeopleService(pool);
   const adminMetricsService = new AdminMetricsService(pool);
+  const campusMonthlyService = new CampusMonthlyService(pool);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);
   app.decorate("occupationService", occupationService);
@@ -83,6 +96,7 @@ export async function createApp() {
   app.decorate("notificationService", notificationService);
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
+  app.decorate("campusMonthlyService", campusMonthlyService);
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
@@ -106,12 +120,26 @@ export async function createApp() {
       }
     }
 
+    if (env.AUTH_BYPASS && env.AUTH_BYPASS_EMAIL && env.NODE_ENV !== "production") {
+      const actor = await app.authService.getActorByInstitutionalEmail(env.AUTH_BYPASS_EMAIL);
+      if (actor) {
+        request.actor = actor;
+        return;
+      }
+    }
+
     throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
   });
 
   app.decorate("requireAdmin", async (request, _reply) => {
     if (request.actor.role !== "admin" && request.actor.role !== "super_admin") {
       throw new AppError(403, "AUTH_FORBIDDEN", "Admin access required.");
+    }
+  });
+
+  app.decorate("requireSuperAdmin", async (request, _reply) => {
+    if (request.actor.role !== "super_admin") {
+      throw new AppError(403, "AUTH_FORBIDDEN", "Super admin access required.");
     }
   });
 
@@ -126,6 +154,7 @@ export async function createApp() {
   await app.register(adminOrgRoutes);
   await app.register(adminPeopleRoutes);
   await app.register(adminMetricsRoutes);
+  await app.register(campusMonthlyRoutes);
 
   app.get("/healthz", async (_request, reply) => {
     try {

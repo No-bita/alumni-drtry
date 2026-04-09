@@ -1,3 +1,4 @@
+import { DEPARTMENT_LABEL_BY_CODE } from "../constants/departmentCatalog.js";
 import { normalizeEmail } from "./domainAllowlist.js";
 
 export interface ParsedIdentity {
@@ -10,25 +11,23 @@ export interface ParsedIdentity {
   parsedLastName: string | null;
 }
 
-const DEPARTMENT_BY_CODE: Record<string, string> = {
-  cse: "Computer Science and Engineering",
-  ece: "Electronics Engineering",
-  eee: "Electrical Engineering",
-  mec: "Mechanical Engineering",
-  me: "Mechanical Engineering",
-  civil: "Civil Engineering",
-  ce: "Civil Engineering",
-  chem: "Chemical Engineering",
-  ch: "Chemical Engineering",
-  min: "Mining Engineering",
-  meta: "Metallurgical Engineering",
-  met: "Metallurgical Engineering",
-  mst: "Material Sciences and Technology",
-  cer: "Ceramic Engineering",
-  pharm: "Pharmaceutical Engineering",
-  bt: "Biochemical Engineering",
-  bme: "Biomedical Engineering"
+const DEPARTMENT_CODE_ALIASES: Record<string, string> = {
+  // Legacy aliases still seen in email locals.
+  me: "mech",
+  mec: "mech",
+  ce: "civil",
+  ch: "chem",
+  met: "meta",
+  pharm: "pharma",
+  bt: "bce",
+  civ: "civil",
+  cera: "cer"
 };
+
+function normalizeDepartmentCode(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return DEPARTMENT_CODE_ALIASES[key] ?? key;
+}
 
 const PATTERNS = [
   /^(?<dept>[a-z]{2,10})(?<year>\d{2})(?<rest>[a-z0-9._-]*)$/i,
@@ -58,7 +57,7 @@ function tryParseDeptYearBeforeFirstDigit(localPart: string): Omit<ParsedIdentit
   while (ls >= 0 && /[a-z]/i.test(last.charAt(ls))) {
     ls -= 1;
   }
-  const departmentCode = last.slice(ls + 1, dIdx).toLowerCase();
+  const departmentCode = normalizeDepartmentCode(last.slice(ls + 1, dIdx));
   if (departmentCode.length < 2) {
     return null;
   }
@@ -72,7 +71,7 @@ function tryParseDeptYearBeforeFirstDigit(localPart: string): Omit<ParsedIdentit
     return null;
   }
 
-  const departmentName = DEPARTMENT_BY_CODE[departmentCode] ?? null;
+  const departmentName = DEPARTMENT_LABEL_BY_CODE[departmentCode] ?? null;
 
   const nameSegs = segments.slice(0, -1);
   let parsedFirstName: string | null = null;
@@ -136,7 +135,7 @@ export function parseInstitutionalIdentity(email: string): ParsedIdentity {
     if (!match?.groups) {
       continue;
     }
-    const candidateDept = (match.groups.dept ?? "").toLowerCase();
+    const candidateDept = normalizeDepartmentCode((match.groups.dept ?? "").toLowerCase());
     const candidateYear = normalizeYear(match.groups.year ?? "");
 
     departmentCode = candidateDept || null;
@@ -145,11 +144,12 @@ export function parseInstitutionalIdentity(email: string): ParsedIdentity {
   }
 
   if (!departmentCode && localPart.length >= 2) {
-    const fallbackDept = localPart.match(/[a-z]{2,10}/i)?.[0]?.toLowerCase() ?? null;
+    const fallbackDeptRaw = localPart.match(/[a-z]{2,10}/i)?.[0]?.toLowerCase() ?? null;
+    const fallbackDept = fallbackDeptRaw ? normalizeDepartmentCode(fallbackDeptRaw) : null;
     departmentCode = fallbackDept;
   }
 
-  const departmentName = departmentCode ? DEPARTMENT_BY_CODE[departmentCode] ?? null : null;
+  const departmentName = departmentCode ? DEPARTMENT_LABEL_BY_CODE[departmentCode] ?? null : null;
 
   return {
     normalizedEmail,

@@ -15,6 +15,8 @@ export interface SearchProfilesInput {
   residenceCountry?: string;
   /** Substring match (case-insensitive) on trimmed residence_city. */
   residenceCity?: string;
+  /** Require both non-empty residence city and country. */
+  requireResidence?: boolean;
   /** Omit this person from results (e.g. current viewer). */
   excludePersonId?: string;
   limit: number;
@@ -268,6 +270,13 @@ export class DiscoveryRepo {
     if (input.residenceCity?.trim()) {
       const ph = bind(input.residenceCity.trim().toLowerCase());
       whereInner.push(`strpos(lower(trim(COALESCE(p.residence_city, ''))), ${ph}) > 0`);
+    }
+
+    if (input.requireResidence) {
+      whereInner.push("p.residence_city IS NOT NULL");
+      whereInner.push("btrim(p.residence_city) <> ''");
+      whereInner.push("p.residence_country IS NOT NULL");
+      whereInner.push("btrim(p.residence_country) <> ''");
     }
 
     let qPh: string | null = null;

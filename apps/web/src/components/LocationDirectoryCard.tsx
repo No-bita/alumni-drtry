@@ -8,17 +8,6 @@ type LocationDirectoryCardProps = {
   searchSessionId?: string | null;
 };
 
-function headline(profile: SearchProfileView): string {
-  if (profile.headlineRoleTitle && profile.headlineOrganizationName) {
-    return `${profile.headlineRoleTitle} · ${profile.headlineOrganizationName}`;
-  }
-  if (profile.headlineRoleTitle) return profile.headlineRoleTitle;
-  const dept = profile.departmentName ?? profile.parsedDepartmentName ?? profile.departmentCode ?? "";
-  const yr = profile.batchYear ?? profile.parsedJoiningYear;
-  const parts = [dept, yr != null ? String(yr) : ""].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : "IIT BHU alum";
-}
-
 function residenceLine(profile: SearchProfileView): string | null {
   const city = profile.residenceCity?.trim();
   const country = profile.residenceCountry?.trim();
@@ -36,7 +25,6 @@ function tintFromName(name: string): string {
 }
 
 export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }: LocationDirectoryCardProps) {
-  const meta = headline(profile);
   const loc = residenceLine(profile);
   const tint = tintFromName(profile.fullName || profile.id);
 
@@ -52,18 +40,19 @@ export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }:
   return (
     <Link to={`/profiles/${profile.id}`} className="location-card" onClick={handleClick}>
       <div className="location-card__visual" style={{ background: tint }}>
-        <Avatar name={profile.fullName} size="lg" tone="pastel" className="location-card__avatar" />
+        <Avatar
+          name={profile.fullName}
+          size="lg"
+          tone="pastel"
+          className="location-card__avatar"
+          departmentCode={profile.departmentCode ?? profile.parsedDepartmentCode}
+        />
       </div>
       <div className="location-card__body">
         <span className="location-card__name">{profile.fullName}</span>
-        <span className="location-card__role" title={meta}>
-          {meta}
+        <span className="location-card__role" title={loc ?? "Location not set"}>
+          {loc ?? "Location not set"}
         </span>
-        {loc ? (
-          <span className="location-card__place" title={loc}>
-            {loc}
-          </span>
-        ) : null}
       </div>
     </Link>
   );

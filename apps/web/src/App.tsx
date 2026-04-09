@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { CAREER_INTENT_DEFAULT_PATH } from "./constants/careerTabs";
 import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
+import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
 
@@ -21,6 +22,7 @@ const ConnectionThread = lazy(() =>
 );
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
+const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 
 function RouteFallback() {
   return (
@@ -181,6 +183,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/intent/build"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <BuildPage />
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/intent/:intentSlug"
           element={
             <RequireAuth>
@@ -220,6 +232,7 @@ export default function App() {
       <DeferredVercelAnalytics />
       <AuthProvider>
         <AppRoutes />
+        <GlobalMessagingWidget />
       </AuthProvider>
     </BrowserRouter>
   );

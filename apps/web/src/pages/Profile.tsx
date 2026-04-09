@@ -284,7 +284,12 @@ export function Profile() {
                 ← Directory
               </Link>
               <div className="profile-page__hero-main">
-                <Avatar name={profile.fullName ?? "?"} size="lg" tone="pastel" />
+                <Avatar
+                  name={profile.fullName ?? "?"}
+                  size="lg"
+                  tone="pastel"
+                  departmentCode={profile.departmentCode}
+                />
                 <div>
                   <h1 id="profile-hero-heading" className="home-dashboard__hero-title">
                     {profile.fullName}

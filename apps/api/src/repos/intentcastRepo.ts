@@ -14,6 +14,9 @@ interface IntentcastFeedRow {
   author_department_code: string | null;
   author_department_name: string | null;
   author_batch_year: number | null;
+  /** Current occupation (is_current), for bulletin UI tooltips. */
+  author_current_role_title: string | null;
+  author_current_organization_name: string | null;
   content: string;
   category: IntentcastCategory;
   status: IntentcastStatus;
@@ -35,6 +38,10 @@ export interface IntentcastFeedView {
   authorDepartmentCode: string | null;
   authorDepartmentName: string | null;
   authorBatchYear: number | null;
+  /** Primary current role title from `occupations`, if any. */
+  authorCurrentRoleTitle: string | null;
+  /** Organization name for the current occupation, if any. */
+  authorCurrentOrganizationName: string | null;
   content: string;
   category: IntentcastCategory;
   status: IntentcastStatus;
@@ -167,6 +174,8 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     authorDepartmentCode: row.author_department_code,
     authorDepartmentName: row.author_department_name,
     authorBatchYear: row.author_batch_year != null ? Number(row.author_batch_year) : null,
+    authorCurrentRoleTitle: row.author_current_role_title,
+    authorCurrentOrganizationName: row.author_current_organization_name,
     content: row.content,
     category: row.category,
     status: row.status,
@@ -304,6 +313,8 @@ export class IntentcastRepo {
         COALESCE(d.code, p.department_code) AS author_department_code,
         COALESCE(d.name, p.department_name) AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
+        cur_occ.role_title AS author_current_role_title,
+        cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
         i.status,
@@ -328,6 +339,15 @@ export class IntentcastRepo {
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
       LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN LATERAL (
+        SELECT o.role_title, org.name::text AS org_name
+        FROM occupations o
+        LEFT JOIN organizations org ON org.id = o.organization_id
+        WHERE o.person_id = p.id
+          AND o.is_current = TRUE
+        ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
+        LIMIT 1
+      ) cur_occ ON TRUE
       WHERE ${where.join("\n  AND ")}
       /* Bulletin feed ordering — document in docs/bulletin-feed-ranking.md; update when this changes. */
       ORDER BY
@@ -371,6 +391,8 @@ export class IntentcastRepo {
         COALESCE(d.code, p.department_code) AS author_department_code,
         COALESCE(d.name, p.department_name) AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
+        cur_occ.role_title AS author_current_role_title,
+        cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
         i.status,
@@ -398,6 +420,15 @@ export class IntentcastRepo {
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
       LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN LATERAL (
+        SELECT o.role_title, org.name::text AS org_name
+        FROM occupations o
+        LEFT JOIN organizations org ON org.id = o.organization_id
+        WHERE o.person_id = p.id
+          AND o.is_current = TRUE
+        ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
+        LIMIT 1
+      ) cur_occ ON TRUE
       WHERE i.id = $1
       LIMIT 1
       `,
@@ -425,6 +456,8 @@ export class IntentcastRepo {
         COALESCE(d.code, p.department_code) AS author_department_code,
         COALESCE(d.name, p.department_name) AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
+        cur_occ.role_title AS author_current_role_title,
+        cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
         i.status,
@@ -449,6 +482,15 @@ export class IntentcastRepo {
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
       LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN LATERAL (
+        SELECT o.role_title, org.name::text AS org_name
+        FROM occupations o
+        LEFT JOIN organizations org ON org.id = o.organization_id
+        WHERE o.person_id = p.id
+          AND o.is_current = TRUE
+        ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
+        LIMIT 1
+      ) cur_occ ON TRUE
       WHERE i.id = $1
         AND p.deleted_at IS NULL
         AND p.suspended_at IS NULL

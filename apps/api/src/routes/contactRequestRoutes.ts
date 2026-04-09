@@ -23,6 +23,7 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
         id: r.id,
         senderPersonId: r.senderPersonId,
         senderFullName: r.senderFullName,
+        senderDepartmentCode: r.senderDepartmentCode,
         message: r.message,
         createdAt: r.createdAt.toISOString()
       }))

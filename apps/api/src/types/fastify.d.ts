@@ -2,6 +2,7 @@ import "fastify";
 import type { AdminMetricsService } from "../services/adminMetricsService.js";
 import type { AdminPeopleService } from "../services/adminPeopleService.js";
 import type { AuthService, SessionActor } from "../services/authService.js";
+import type { CampusMonthlyService } from "../services/campusMonthlyService.js";
 import type { ConnectionThreadService } from "../services/connectionThreadService.js";
 import type { ContactRequestService } from "../services/contactRequestService.js";
 import type { DiscoveryService } from "../services/discoveryService.js";
@@ -26,8 +27,10 @@ declare module "fastify" {
     contactRequestService: ContactRequestService;
     connectionThreadService: ConnectionThreadService;
     notificationService: NotificationService;
+    campusMonthlyService: CampusMonthlyService;
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireSuperAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 
   interface FastifyRequest {

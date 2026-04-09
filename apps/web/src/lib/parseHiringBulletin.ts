@@ -46,7 +46,7 @@ function pickExperience(text: string): string | null {
 function pickSalary(text: string): string | null {
   if (/\bcompetitive\b/i.test(text)) return "₹ Competitive";
   if (/\b(?:₹|inr|rs\.?|lpa|lakh|crore)\b/i.test(text)) {
-    const slice = text.match(/(?:₹|inr|rs\.?)\s*[^.;]{1,32}|(?:\d[\d,]*\s*(?:lpa|lakh))/i);
+    const slice = text.match(/₹\s*[^.;]{1,32}|\b(?:inr|rs\.?)\b\s*[^.;]{1,32}|(?:\d[\d,]*\s*(?:lpa|lakh))/i);
     return slice?.[0]?.trim() ?? "₹ Competitive";
   }
   if (/\$\s*[\d,]+|\d+k\+/i.test(text)) {
@@ -128,4 +128,74 @@ export function postedByShortLabel(fullName: string): string {
   const last = parts[parts.length - 1]!;
   const initial = last[0]?.toUpperCase() ?? "";
   return initial ? `${first} ${initial}.` : first;
+}
+
+/** First `https?://…` in the details tail (for JD link). */
+const DETAIL_URL_RE = /https?:\/\/[^\s<>"')]+/i;
+
+function takeFirstSentences(text: string, maxSentences: number): string {
+  const t = text.trim();
+  if (!t) return "";
+  const parts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (parts.length <= maxSentences) return t;
+  return parts.slice(0, maxSentences).join(" ").trim();
+}
+
+export type HiringCardBodySections = {
+  /** 1–2 sentences about the role (from details, before JD / apply blocks). */
+  roleSummary: string;
+  /** First http(s) URL in details, if any. */
+  jdUrl: string | null;
+  /** Text after an optional “Steps to apply:” / “How to apply:” block. */
+  applySteps: string;
+};
+
+/**
+ * Splits the hiring `details` tail for the Opportunities card: short role blurb, JD link, apply steps.
+ * Recognizes a leading URL and a trailing `Steps to apply:` or `How to apply:` section.
+ */
+export function splitHiringDetailsForCard(tail: string): HiringCardBodySections {
+  const raw = tail.trim();
+  if (!raw) {
+    return { roleSummary: "", jdUrl: null, applySteps: "" };
+  }
+
+  const urlMatch = raw.match(DETAIL_URL_RE);
+  let jdUrl: string | null = null;
+  let working = raw;
+  if (urlMatch?.[0]) {
+    jdUrl = urlMatch[0].replace(/[.,;]+$/, "");
+    try {
+      const u = new URL(jdUrl);
+      if (u.protocol !== "http:" && u.protocol !== "https:") {
+        jdUrl = null;
+        working = raw;
+      } else {
+        working = raw.replace(urlMatch[0], " ").replace(/\s+/g, " ").trim();
+      }
+    } catch {
+      jdUrl = null;
+      working = raw;
+    }
+  }
+
+  const applyRe = /(?:Steps to apply|How to apply)\s*:\s*([\s\S]+)$/i;
+  const applyMatch = working.match(applyRe);
+  let applySteps = "";
+  let intro = working;
+  if (applyMatch?.[1]) {
+    applySteps = applyMatch[1].trim();
+    const cut = applyMatch.index ?? 0;
+    intro = working.slice(0, cut).trim();
+  }
+
+  let roleSummary = takeFirstSentences(intro, 2);
+  if (!roleSummary && intro) {
+    roleSummary = intro;
+  }
+  if (!roleSummary && !applySteps && !jdUrl) {
+    roleSummary = takeFirstSentences(raw, 2) || raw;
+  }
+
+  return { roleSummary, jdUrl, applySteps };
 }

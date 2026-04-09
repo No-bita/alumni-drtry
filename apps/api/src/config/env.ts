@@ -91,6 +91,12 @@ const envSchema = z.object({
    */
   AUTH_BYPASS_SUPER_ADMIN: z.coerce.boolean().default(false),
   AUTH_BYPASS_SUPER_ADMIN_EMAIL: optionalEmailSchema,
+  /**
+   * Development only: treat unauthenticated API requests as this person (any role).
+   * Blocked when NODE_ENV=production.
+   */
+  AUTH_BYPASS: z.coerce.boolean().default(false),
+  AUTH_BYPASS_EMAIL: optionalEmailSchema,
   /** Days author keeps a soft-deleted bulletin post + replies before hard delete. */
   INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
 
@@ -146,6 +152,15 @@ if (parsed.data.AUTH_BYPASS_SUPER_ADMIN) {
   }
   if (!parsed.data.AUTH_BYPASS_SUPER_ADMIN_EMAIL) {
     throw new Error("Invalid environment: AUTH_BYPASS_SUPER_ADMIN_EMAIL is required when AUTH_BYPASS_SUPER_ADMIN=true.");
+  }
+}
+
+if (parsed.data.AUTH_BYPASS) {
+  if (parsed.data.NODE_ENV === "production") {
+    throw new Error("Invalid environment: AUTH_BYPASS cannot be enabled in production.");
+  }
+  if (!parsed.data.AUTH_BYPASS_EMAIL) {
+    throw new Error("Invalid environment: AUTH_BYPASS_EMAIL is required when AUTH_BYPASS=true.");
   }
 }
 

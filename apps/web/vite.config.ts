@@ -1,9 +1,13 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const webRoot = path.dirname(fileURLToPath(import.meta.url));
+
 /**
  * Vendor chunk strategy: stable, long-cacheable groups so app/route code can ship often
- * without invalidating React, router, fonts, or analytics.
+ * without invalidating React, router, or analytics. (@fontsource stays in vendor-misc — see comment below.)
  */
 function manualChunks(id: string): string | undefined {
   if (!id.includes("node_modules")) {
@@ -28,13 +32,8 @@ function manualChunks(id: string): string | undefined {
     return "vendor-tanstack";
   }
 
-  // All font packages (variable + static) — large, change rarely
-  if (
-    id.includes("node_modules/@fontsource-variable/") ||
-    id.includes("node_modules/@fontsource/")
-  ) {
-    return "vendor-fonts";
-  }
+  // Do not split @fontsource into its own chunk — Rollup can emit broken ESM for
+  // files like `300.css` (Export '_300_exports' is not defined) when manual chunked.
 
   if (id.includes("node_modules/@vercel/analytics")) {
     return "vendor-analytics";
@@ -47,6 +46,11 @@ function manualChunks(id: string): string | undefined {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@department-catalog": path.resolve(webRoot, "../api/src/constants/departmentCatalog.ts"),
+    },
+  },
   build: {
     rollupOptions: {
       output: {

@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
+const API_BASE = API_BASE_URL;
 
 export type ApiError = { code: string; message?: string };
 
@@ -59,6 +60,23 @@ export const api = {
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+/** Multipart POST (e.g. PDF upload). Sends cookies; response body must be JSON. */
+export async function apiPostForm<T>(path: string, form: FormData): Promise<{ data?: T; error?: ApiError }> {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { method: "POST", body: form, credentials: "include" });
+  const body: unknown = await res.json().catch(() => ({}));
+  const b = body as Record<string, unknown>;
+  if (!res.ok) {
+    return {
+      error: {
+        code: typeof b.code === "string" ? b.code : "UNKNOWN",
+        message: typeof b.message === "string" ? b.message : res.statusText
+      }
+    };
+  }
+  return { data: body as T };
+}
 
 /** GET /v1/me returns { person } — shape matches API SessionActor */
 export type MePerson = {
@@ -152,11 +170,17 @@ export type SearchResult = {
 export type ResidenceCityAggregate = { city: string; country: string; count: number };
 export type ResidenceCitiesResponse = { cities: ResidenceCityAggregate[] };
 
+/** GET /v1/campus-monthly/current — latest digest metadata (PDF bytes via /v1/campus-monthly/current/pdf) */
+export type CampusMonthlyIssueDto = { issueMonth: string; headingLabel: string };
+export type CampusMonthlyCurrentResponse = { issue: CampusMonthlyIssueDto | null };
+export type CampusMonthlyUploadResponse = { issue: CampusMonthlyIssueDto | null };
+
 /** GET /v1/contact-requests/inbox — pending requests where viewer is recipient */
 export type ContactRequestInboxItem = {
   id: string;
   senderPersonId: string;
   senderFullName: string | null;
+  senderDepartmentCode: string | null;
   message: string;
   createdAt: string;
 };
@@ -172,6 +196,7 @@ export type ConnectionThreadListItem = {
   initiatorPersonId: string;
   recipientPersonId: string;
   status: string;
+  kind: "general" | "referral";
   updatedAt: string;
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
@@ -198,6 +223,7 @@ export type ConnectionThreadDetailResponse = {
     createdAt: string;
     updatedAt: string;
   };
+  kind: "general" | "referral";
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
   messages: { id: string; authorPersonId: string; body: string; createdAt: string }[];
@@ -211,6 +237,9 @@ export type ConnectionThreadDetailResponse = {
   }[];
   messageCount: number;
   showShareNudge: boolean;
+  showOfflineContactPrompt: boolean;
+  messagesDeletionWarning: string | null;
+  referralReplyCount: number;
   availableDisclosures: AvailableDisclosureOption[];
 };
 
@@ -269,6 +298,9 @@ export type IntentcastFeedItem = {
   authorDepartmentName: string | null;
   /** Graduation / cohort year for short bylines (e.g. ’24). */
   authorBatchYear?: number | null;
+  /** Current occupation (from feed join); used for author hover tooltips. */
+  authorCurrentRoleTitle?: string | null;
+  authorCurrentOrganizationName?: string | null;
   category: "hiring" | "mentorship" | "collaboration" | "guidance";
   content: string;
   status: string;

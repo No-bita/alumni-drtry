@@ -9,6 +9,7 @@ type SearchResultRowProps = {
   /** Zero-based position in the current merged result list (for analytics). */
   resultIndex: number;
   searchSessionId?: string | null;
+  onRowClick?: () => void;
 };
 
 /** Role + organization from current occupation (no department/batch — those have their own line). */
@@ -39,7 +40,7 @@ function residenceLine(profile: SearchProfileView): string | null {
   return null;
 }
 
-export function SearchResultRow({ profile, style, resultIndex, searchSessionId }: SearchResultRowProps) {
+export function SearchResultRow({ profile, style, resultIndex, searchSessionId, onRowClick }: SearchResultRowProps) {
   const roleOrg = roleOrgLine(profile);
   const deptBatch = departmentBatchLine(profile);
   const loc = residenceLine(profile);
@@ -54,14 +55,32 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId }
     });
   };
 
-  return (
+  const avatar = onRowClick ? (
     <Link
       to={`/profiles/${profile.id}`}
-      className="search-result-row"
-      style={style}
-      onClick={handleClick}
+      onClick={(e) => e.stopPropagation()}
+      className="search-result-row__avatar-link"
+      aria-label={`View ${profile.fullName}'s profile`}
     >
-      <Avatar name={profile.fullName} size="sm" tone="pastel" />
+      <Avatar
+        name={profile.fullName}
+        size="sm"
+        tone="pastel"
+        departmentCode={profile.departmentCode ?? profile.parsedDepartmentCode}
+      />
+    </Link>
+  ) : (
+    <Avatar
+      name={profile.fullName}
+      size="sm"
+      tone="pastel"
+      departmentCode={profile.departmentCode ?? profile.parsedDepartmentCode}
+    />
+  );
+
+  const content = (
+    <>
+      {avatar}
       <div className="search-result-row__text">
         <span className="search-result-row__name">{profile.fullName}</span>
         {roleOrg ? <span className="search-result-row__meta">{roleOrg}</span> : null}
@@ -85,6 +104,41 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId }
       <span className="search-result-row__chevron" aria-hidden>
         →
       </span>
+    </>
+  );
+
+  if (onRowClick) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className="search-result-row search-result-row--button"
+        style={style}
+        onClick={() => {
+          handleClick();
+          onRowClick();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+            onRowClick();
+          }
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to={`/profiles/${profile.id}`}
+      className="search-result-row"
+      style={style}
+      onClick={handleClick}
+    >
+      {content}
     </Link>
   );
 }

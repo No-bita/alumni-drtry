@@ -1,4 +1,4 @@
-import { DIRECTORY_DEPARTMENT_CODES } from "../constants/departmentCodes.js";
+import { DIRECTORY_DEPARTMENT_CODES } from "../constants/departmentCatalog.js";
 
 /** Lowercase token → preferred company string for refine (hard filter: org name substring). */
 const KNOWN_ORG_ALIASES: Record<string, string> = {

@@ -7,6 +7,7 @@ export interface ConnectionThreadRow {
   initiator_person_id: string;
   recipient_person_id: string;
   status: ConnectionThreadStatus;
+  kind: "general" | "referral";
   created_at: Date;
   updated_at: Date;
 }
@@ -16,6 +17,7 @@ export interface ConnectionThreadListView {
   initiatorPersonId: string;
   recipientPersonId: string;
   status: ConnectionThreadStatus;
+  kind: "general" | "referral";
   updatedAt: Date;
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
@@ -86,7 +88,7 @@ export class ConnectionThreadRepo {
   async findOpenThreadBetween(initiatorId: string, recipientId: string): Promise<ConnectionThreadRow | null> {
     const result = await this.db.query<ConnectionThreadRow>(
       `
-      SELECT id, initiator_person_id, recipient_person_id, status, created_at, updated_at
+      SELECT id, initiator_person_id, recipient_person_id, status, kind, created_at, updated_at
       FROM connection_threads
       WHERE initiator_person_id = $1 AND recipient_person_id = $2 AND status = 'open'
       LIMIT 1
@@ -99,7 +101,7 @@ export class ConnectionThreadRepo {
   async findById(threadId: string): Promise<ConnectionThreadRow | null> {
     const result = await this.db.query<ConnectionThreadRow>(
       `
-      SELECT id, initiator_person_id, recipient_person_id, status, created_at, updated_at
+      SELECT id, initiator_person_id, recipient_person_id, status, kind, created_at, updated_at
       FROM connection_threads
       WHERE id = $1
       LIMIT 1
@@ -112,7 +114,7 @@ export class ConnectionThreadRepo {
   async assertParticipant(threadId: string, personId: string): Promise<ConnectionThreadRow | null> {
     const result = await this.db.query<ConnectionThreadRow>(
       `
-      SELECT id, initiator_person_id, recipient_person_id, status, created_at, updated_at
+      SELECT id, initiator_person_id, recipient_person_id, status, kind, created_at, updated_at
       FROM connection_threads
       WHERE id = $1
         AND (initiator_person_id = $2 OR recipient_person_id = $2)
@@ -126,18 +128,19 @@ export class ConnectionThreadRepo {
   async createThreadWithFirstMessage(
     initiatorId: string,
     recipientId: string,
-    firstMessageBody: string
+    firstMessageBody: string,
+    kind: "general" | "referral"
   ): Promise<{ thread: ConnectionThreadRow; message: ConnectionMessageView }> {
     const client = await this.db.connect();
     try {
       await client.query("BEGIN");
       const t = await client.query<ConnectionThreadRow>(
         `
-        INSERT INTO connection_threads (initiator_person_id, recipient_person_id, status)
-        VALUES ($1, $2, 'open')
-        RETURNING id, initiator_person_id, recipient_person_id, status, created_at, updated_at
+        INSERT INTO connection_threads (initiator_person_id, recipient_person_id, status, kind)
+        VALUES ($1, $2, 'open', $3)
+        RETURNING id, initiator_person_id, recipient_person_id, status, kind, created_at, updated_at
         `,
-        [initiatorId, recipientId]
+        [initiatorId, recipientId, kind]
       );
       const thread = t.rows[0]!;
       const m = await client.query<{
@@ -207,6 +210,14 @@ export class ConnectionThreadRepo {
     const result = await this.db.query<{ c: string }>(
       `SELECT count(*)::text AS c FROM connection_messages WHERE thread_id = $1`,
       [threadId]
+    );
+    return parseInt(result.rows[0]?.c ?? "0", 10);
+  }
+
+  async countMessagesByAuthor(threadId: string, authorPersonId: string): Promise<number> {
+    const result = await this.db.query<{ c: string }>(
+      `SELECT count(*)::text AS c FROM connection_messages WHERE thread_id = $1 AND author_person_id = $2`,
+      [threadId, authorPersonId]
     );
     return parseInt(result.rows[0]?.c ?? "0", 10);
   }
@@ -304,12 +315,39 @@ export class ConnectionThreadRepo {
     ]);
   }
 
+  async purgeExpiredMessages(retentionDays: number): Promise<void> {
+    if (!Number.isFinite(retentionDays) || retentionDays <= 0) return;
+    const result = await this.db.query<{ thread_id: string }>(
+      `
+      DELETE FROM connection_messages
+      WHERE created_at < now() - ($1::text || ' days')::interval
+      RETURNING thread_id
+      `,
+      [String(retentionDays)]
+    );
+    const touchedThreadIds = Array.from(new Set(result.rows.map((r) => r.thread_id)));
+    if (touchedThreadIds.length === 0) return;
+    await this.db.query(
+      `
+      UPDATE connection_threads t
+      SET status = 'closed', updated_at = now()
+      WHERE t.id = ANY($1::uuid[])
+        AND NOT EXISTS (
+          SELECT 1 FROM connection_messages m
+          WHERE m.thread_id = t.id
+        )
+      `,
+      [touchedThreadIds]
+    );
+  }
+
   async listThreadsForPerson(personId: string, limit: number): Promise<ConnectionThreadListView[]> {
     const result = await this.db.query<{
       id: string;
       initiator_person_id: string;
       recipient_person_id: string;
       status: ConnectionThreadStatus;
+      kind: "general" | "referral";
       updated_at: Date;
       counterparty_person_id: string;
       counterparty_full_name: string | null;
@@ -332,6 +370,7 @@ export class ConnectionThreadRepo {
         t.initiator_person_id,
         t.recipient_person_id,
         t.status,
+        t.kind,
         t.updated_at,
         CASE
           WHEN t.initiator_person_id = $1 THEN t.recipient_person_id
@@ -360,6 +399,7 @@ export class ConnectionThreadRepo {
       initiatorPersonId: r.initiator_person_id,
       recipientPersonId: r.recipient_person_id,
       status: r.status,
+      kind: r.kind,
       updatedAt: r.updated_at,
       counterpartyPersonId: r.counterparty_person_id,
       counterpartyFullName: r.counterparty_full_name,

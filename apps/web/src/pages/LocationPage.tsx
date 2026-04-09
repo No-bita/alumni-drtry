@@ -7,8 +7,6 @@ import { Button } from "../components/Button";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
 import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
 import { LocationDirectoryCard } from "../components/LocationDirectoryCard";
-import { LocationLensWorldMap } from "../components/LocationLensWorldMap";
-import { GlobalCitiesWordCloud } from "../components/GlobalCitiesWordCloud";
 import { Spinner } from "../components/Spinner";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constants/locationLens";
@@ -132,6 +130,7 @@ export function LocationPage() {
       if (residenceCountry) params.set("residenceCountry", residenceCountry);
       if (residenceCity) params.set("residenceCity", residenceCity);
       if (committedQ) params.set("q", committedQ);
+      params.set("requireResidence", "true");
       params.set("limit", "20");
       if (cursor) params.set("cursor", cursor);
       return params;
@@ -148,7 +147,8 @@ export function LocationPage() {
         occ ?? "",
         residenceCountry ?? "",
         residenceCity ?? "",
-        committedQ
+        committedQ,
+        true
       ),
     [batch, dept, company, occ, residenceCountry, residenceCity, committedQ]
   );
@@ -437,10 +437,6 @@ export function LocationPage() {
             </aside>
 
             <div className="location-page__main">
-            <LocationLensWorldMap>
-              <GlobalCitiesWordCloud />
-            </LocationLensWorldMap>
-
             <section className="location-page__results" aria-label="People in this view">
               {wideningSummary ? (
                 <div className="search-page__notice" role="status">

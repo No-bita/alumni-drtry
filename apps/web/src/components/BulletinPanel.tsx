@@ -2,6 +2,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -32,6 +33,7 @@ import {
   buildHiringBulletinContent,
   parseHiringBulletin,
   postedByShortLabel,
+  splitHiringDetailsForCard,
   validateHiringBulletinFields,
   type ParsedHiringBulletin,
 } from "../lib/parseHiringBulletin";
@@ -45,6 +47,8 @@ function hiringPreviewIntentcast(authorFullName: string, content: string): Inten
     authorDepartmentCode: null,
     authorDepartmentName: null,
     authorBatchYear: null,
+    authorCurrentRoleTitle: null,
+    authorCurrentOrganizationName: null,
     category: "hiring",
     content,
     status: "open",
@@ -58,6 +62,7 @@ function hiringPreviewIntentcast(authorFullName: string, content: string): Inten
 }
 
 const BULLETIN_PAGE_SIZE = 15;
+const HIRING_COMPOSE_MAX_LENGTH = 700;
 
 const BULLETIN_HIGHLIGHT_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -135,8 +140,12 @@ function formatRelativeTime(iso: string): string {
   return `${d}d ago`;
 }
 
-function firstNameFromFullName(fullName: string): string {
-  const t = fullName.trim();
+function safeFullName(fullName: string | null | undefined): string {
+  return (fullName ?? "").trim();
+}
+
+function firstNameFromFullName(fullName: string | null | undefined): string {
+  const t = safeFullName(fullName);
   if (!t) return "";
   return t.split(/\s+/)[0] ?? t;
 }
@@ -145,6 +154,53 @@ function firstNameFromFullName(fullName: string): string {
 function formatBatchYearShort(year: number): string {
   const y = Math.floor(year) % 100;
   return `'${String(y).padStart(2, "0")}`;
+}
+
+/** Dept code + batch for author tooltip (e.g. `CSE '21`). */
+function formatAuthorDeptBatchForTooltip(ic: IntentcastFeedItem): string | null {
+  const dept = ic.authorDepartmentCode?.trim().toUpperCase() ?? "";
+  const batch =
+    ic.authorBatchYear != null && Number.isFinite(ic.authorBatchYear)
+      ? formatBatchYearShort(ic.authorBatchYear)
+      : "";
+  if (dept && batch) return `${dept} ${batch}`;
+  if (dept) return dept;
+  if (batch) return `Batch ${batch}`;
+  return null;
+}
+
+/** Current role and organization from feed occupation join. */
+function formatAuthorRoleCompanyForTooltip(ic: IntentcastFeedItem): string | null {
+  const role = ic.authorCurrentRoleTitle?.trim();
+  const org = ic.authorCurrentOrganizationName?.trim();
+  if (role && org) return `${role} · ${org}`;
+  if (role) return role;
+  if (org) return org;
+  return null;
+}
+
+/** High-level role family chip (Product / Consulting / SDE / ...), inferred from title/details. */
+function inferHiringTrackChip(parsed: ParsedHiringBulletin): string | null {
+  const hay = `${parsed.title} ${parsed.description}`.toLowerCase();
+
+  if (/\b(product|pm|product manager|product management)\b/.test(hay)) return "Product";
+  if (/\b(consult(ing|ant)|advisory|strategy)\b/.test(hay)) return "Consulting";
+  if (/\b(sde|software|backend|frontend|full\s*stack|developer|engineer)\b/.test(hay)) return "SDE";
+  if (/\b(design|ux|ui|product designer)\b/.test(hay)) return "Design";
+  if (/\b(data scientist|data science|ml|machine learning|ai engineer|analytics)\b/.test(hay)) return "Data/AI";
+  if (/\b(marketing|growth|brand|content)\b/.test(hay)) return "Marketing";
+  if (/\b(sales|business development|account executive)\b/.test(hay)) return "Sales";
+  if (/\b(finance|fp&a|investment|accounting)\b/.test(hay)) return "Finance";
+  if (/\b(hr|talent|recruit(er|ing)|people operations)\b/.test(hay)) return "People";
+
+  return null;
+}
+
+/** Track "Other" posts are held for admin verification before Opportunities tab visibility. */
+function hiringPostNeedsTrackVerification(content: string): boolean {
+  const parsed = parseHiringBulletin(content);
+  const source = parsed?.description ?? content;
+  return /Role track:\s*Other\b/i.test(source);
 }
 
 /** Short byline: First name, DEPT 'YY · time */
@@ -280,37 +336,107 @@ function intentcastDeleteSummaryText(ic: IntentcastFeedItem): string {
   return t.length > 88 ? `${t.slice(0, 88)}…` : t;
 }
 
+function CareerOpportunityPosterRow({
+  ic,
+  composePreview,
+}: {
+  ic: IntentcastFeedItem;
+  composePreview: boolean;
+}) {
+  const tooltipId = useId();
+  if (composePreview) return null;
+
+  const authorName = safeFullName(ic.authorFullName);
+  const displayName = authorName || "Alumni";
+  const deptBatch = formatAuthorDeptBatchForTooltip(ic);
+  const roleCompany = formatAuthorRoleCompanyForTooltip(ic);
+
+  const inner = (
+    <>
+      <Avatar
+        name={authorName}
+        size="sm"
+        tone="pastel"
+        className="career-opportunity-card__avatar"
+        departmentCode={ic.authorDepartmentCode}
+      />
+      <span className="career-opportunity-card__posted-by">
+        Posted by {postedByShortLabel(authorName || "Alumni")}
+      </span>
+    </>
+  );
+
+  if (ic.authorPersonId) {
+    return (
+      <div className="career-opportunity-card__poster">
+        <div className="career-opportunity-card__avatar-tip">
+          <Link
+            to={`/profiles/${ic.authorPersonId}`}
+            className="career-opportunity-card__avatar-link"
+            aria-describedby={tooltipId}
+            aria-label={`View ${displayName}'s profile`}
+          >
+            <Avatar
+              name={authorName}
+              size="sm"
+              tone="pastel"
+              className="career-opportunity-card__avatar"
+              departmentCode={ic.authorDepartmentCode}
+            />
+          </Link>
+          <div id={tooltipId} className="career-opportunity-card__avatar-tooltip" role="tooltip">
+            <span className="career-opportunity-card__avatar-tooltip-name">{displayName}</span>
+            {deptBatch ? (
+              <span className="career-opportunity-card__avatar-tooltip-meta">{deptBatch}</span>
+            ) : null}
+            {roleCompany ? (
+              <span className="career-opportunity-card__avatar-tooltip-role">{roleCompany}</span>
+            ) : null}
+          </div>
+        </div>
+        <Link
+          to={`/profiles/${ic.authorPersonId}`}
+          className="career-opportunity-card__poster-text-link"
+          aria-label={`View ${displayName}'s profile`}
+        >
+          <span className="career-opportunity-card__posted-by">
+            Posted by {postedByShortLabel(authorName || "Alumni")}
+          </span>
+        </Link>
+      </div>
+    );
+  }
+
+  return <div className="career-opportunity-card__poster">{inner}</div>;
+}
+
 function CareerOpportunityCardBody({
   ic,
   parsed,
   composePreview = false,
+  viewerHasReplied = false,
 }: {
   ic: IntentcastFeedItem;
   parsed: ParsedHiringBulletin | null;
   /** Omits poster row and timestamp so the compose form preview reads as draft layout, not a duplicate feed card. */
   composePreview?: boolean;
+  viewerHasReplied?: boolean;
 }) {
   const cardClass = `career-opportunity-card${composePreview ? " career-opportunity-card--compose-preview" : ""}`;
 
   if (!parsed) {
     return (
       <div className={cardClass}>
-        <div className="career-opportunity-card__header">
-          <div className="career-opportunity-card__brand">
-            <span className="career-opportunity-card__company">Hiring</span>
-          </div>
-          {!composePreview ? (
-            <div className="career-opportunity-card__poster">
-              <Avatar name={ic.authorFullName} size="sm" tone="pastel" className="career-opportunity-card__avatar" />
-              <span className="career-opportunity-card__posted-by">
-                Posted by {postedByShortLabel(ic.authorFullName)}
-              </span>
-            </div>
-          ) : null}
+        <div className="career-opportunity-card__top">
+          <div className="career-opportunity-card__chips" aria-hidden />
+          <CareerOpportunityPosterRow ic={ic} composePreview={composePreview} />
         </div>
-        <h3 className="career-opportunity-card__title career-opportunity-card__title--unparsed">{ic.content.trim()}</h3>
+        <h3 className="career-opportunity-card__headline career-opportunity-card__headline--unparsed">{ic.content.trim()}</h3>
         {!composePreview && ic.createdAt ? (
           <div className="career-opportunity-card__footer">
+            {viewerHasReplied ? (
+              <span className="career-opportunity-card__you-replied">You replied.</span>
+            ) : null}
             <time className="career-opportunity-card__time" dateTime={ic.createdAt}>
               {formatRelativeTime(ic.createdAt)}
             </time>
@@ -320,35 +446,62 @@ function CareerOpportunityCardBody({
     );
   }
 
-  const hasDescription = Boolean(parsed.description.trim());
+  const sections = splitHiringDetailsForCard(parsed.description);
+  const hasStructured =
+    Boolean(sections.roleSummary.trim()) ||
+    Boolean(sections.jdUrl) ||
+    Boolean(sections.applySteps.trim());
+  const showFallbackDescription = Boolean(parsed.description.trim()) && !hasStructured;
+
+  const chipTrack = inferHiringTrackChip(parsed);
+  const rawLocation = parsed.locationLine.trim();
+  const chipLocation = rawLocation ? `Location - ${rawLocation}` : "";
+  const chipYoE = parsed.experienceLabel?.trim();
+  const chipComp = parsed.salaryLabel?.trim();
 
   return (
     <div className={cardClass}>
-      <div className="career-opportunity-card__header">
-        <div className="career-opportunity-card__brand">
-          <span className="career-opportunity-card__company">{parsed.company.toUpperCase()}</span>
-          {parsed.locationLine ? (
-            <>
-              <span className="career-opportunity-card__brand-dot" aria-hidden>
-                ·
-              </span>
-              <span className="career-opportunity-card__location">{parsed.locationLine}</span>
-            </>
+      <div className="career-opportunity-card__top">
+        <div className="career-opportunity-card__chips" aria-label="Role highlights">
+          {chipTrack ? <span className="career-opportunity-card__chip">{chipTrack}</span> : null}
+          {chipLocation ? (
+            <span className="career-opportunity-card__chip">{chipLocation}</span>
           ) : null}
+          {chipYoE ? <span className="career-opportunity-card__chip">{chipYoE}</span> : null}
+          {chipComp ? <span className="career-opportunity-card__chip">{chipComp}</span> : null}
         </div>
-        {!composePreview ? (
-          <div className="career-opportunity-card__poster">
-            <Avatar name={ic.authorFullName} size="sm" tone="pastel" className="career-opportunity-card__avatar" />
-            <span className="career-opportunity-card__posted-by">
-              Posted by {postedByShortLabel(ic.authorFullName)}
-            </span>
-          </div>
-        ) : null}
+        <CareerOpportunityPosterRow ic={ic} composePreview={composePreview} />
       </div>
-      <h3 className="career-opportunity-card__title">{parsed.title}</h3>
-      {hasDescription ? <p className="career-opportunity-card__description">{parsed.description}</p> : null}
+
+      <h3 className="career-opportunity-card__headline">
+        <span className="career-opportunity-card__role">{parsed.title}</span>
+        <span className="career-opportunity-card__headline-sep" aria-hidden>
+          {" "}
+          @{" "}
+        </span>
+        <span className="career-opportunity-card__company-inline">{parsed.company}</span>
+      </h3>
+
+      {sections.jdUrl ? (
+        <p className="career-opportunity-card__jd">
+          <a className="career-opportunity-card__jd-link" href={sections.jdUrl} target="_blank" rel="noopener noreferrer">
+            View full job description
+          </a>
+        </p>
+      ) : null}
+      {sections.applySteps ? (
+        <div className="career-opportunity-card__apply">
+          <p className="career-opportunity-card__apply-label">Steps to apply</p>
+          <p className="career-opportunity-card__apply-text">{sections.applySteps}</p>
+        </div>
+      ) : null}
+      {showFallbackDescription ? <p className="career-opportunity-card__description">{parsed.description}</p> : null}
+
       {!composePreview && ic.createdAt ? (
         <div className="career-opportunity-card__footer">
+          {viewerHasReplied ? (
+            <span className="career-opportunity-card__you-replied">You replied.</span>
+          ) : null}
           <time className="career-opportunity-card__time" dateTime={ic.createdAt}>
             {formatRelativeTime(ic.createdAt)}
           </time>
@@ -377,7 +530,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       feedExcludeAuthorSoftDeleted = false,
       showInlineAuthorReplies = false,
       feedDisableAutoScroll = false,
-      composePlacement = "panelEnd",
       onComposeOpenChange,
     },
     ref
@@ -479,6 +631,9 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       ) {
         list = [hi, ...list];
       }
+      if (layout === "career" && effectiveCategoryFilter === "hiring" && !feedMine) {
+        list = list.filter((ic) => !hiringPostNeedsTrackVerification(ic.content));
+      }
       return list;
     }, [
       showFeed,
@@ -561,8 +716,17 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [postOpen, setPostOpen] = useState(false);
     const [hiringCompany, setHiringCompany] = useState("");
     const [hiringTitle, setHiringTitle] = useState("");
+    const [hiringTrackChoice, setHiringTrackChoice] = useState("");
+    const [hiringTrackOther, setHiringTrackOther] = useState("");
     const [hiringLocation, setHiringLocation] = useState("");
-    const [hiringDetails, setHiringDetails] = useState("");
+    const [hiringExperience, setHiringExperience] = useState("");
+    const [hiringCompensation, setHiringCompensation] = useState("");
+    // const [hiringEmploymentType, setHiringEmploymentType] = useState("Full-time");
+    const [hiringRoleSummary, setHiringRoleSummary] = useState("");
+    const [hiringJdUrl, setHiringJdUrl] = useState("");
+    const [hiringApplySteps, setHiringApplySteps] = useState("");
+    const hiringSummaryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const hiringApplyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
     const [postSubmitting, setPostSubmitting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
     const [deleteSubmittingId, setDeleteSubmittingId] = useState<string | null>(null);
@@ -670,6 +834,15 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     }, [deleteConfirmIntentcastId]);
 
     useEffect(() => {
+      if (!postOpen) return;
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && !postSubmitting) setPostOpen(false);
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [postOpen, postSubmitting]);
+
+    useEffect(() => {
       if (!showFeed) return;
       onFeedMetaChange?.({
         status: bulletinFeedStatus,
@@ -701,6 +874,20 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       if (!showFeed) return;
       bulletinScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     }, [showFeed, effectiveCategoryFilter, feedMine, feedAuthorHistory, feedExcludeAuthorSoftDeleted]);
+
+    const autosizeTextarea = useCallback((el: HTMLTextAreaElement | null) => {
+      if (!el) return;
+      el.style.height = "0px";
+      el.style.height = `${el.scrollHeight}px`;
+    }, []);
+
+    useEffect(() => {
+      autosizeTextarea(hiringSummaryTextareaRef.current);
+    }, [hiringRoleSummary, autosizeTextarea]);
+
+    useEffect(() => {
+      autosizeTextarea(hiringApplyTextareaRef.current);
+    }, [hiringApplySteps, autosizeTextarea]);
 
     const loadMoreIntentcasts = useCallback(() => {
       if (!feedInfinite.hasNextPage || feedInfinite.isFetchingNextPage) return;
@@ -879,15 +1066,58 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       setArchivedRepliesPostId(ic.id);
     };
 
+    const hiringComposeDetails = useMemo(() => {
+      const parts: string[] = [];
+      const track = (hiringTrackChoice === "other" ? hiringTrackOther : hiringTrackChoice).trim();
+      const needsTrackReview = hiringTrackChoice === "other" && Boolean(hiringTrackOther.trim());
+      const exp = hiringExperience.trim();
+      const comp = hiringCompensation.trim();
+      const summary = hiringRoleSummary.trim();
+      const jd = hiringJdUrl.trim();
+      const steps = hiringApplySteps.trim();
+
+      // Employment type is temporarily hidden across the app.
+      if (track) parts.push(`Role track: ${hiringTrackChoice === "other" ? `Other (${track})` : track}.`);
+      if (needsTrackReview) parts.push("Awaiting admin verification before this appears in Opportunities.");
+      if (exp) parts.push(`${exp} years experience preferred.`);
+      if (comp) parts.push(`Compensation: ₹${comp} LPA.`);
+      if (summary) parts.push(summary);
+      if (jd) parts.push(jd);
+      if (steps) parts.push(`Steps to apply: ${steps}`);
+
+      return parts.join(" ").replace(/\s+/g, " ").trim();
+    }, [
+      hiringApplySteps,
+      hiringCompensation,
+      hiringExperience,
+      hiringJdUrl,
+      hiringRoleSummary,
+      hiringTrackChoice,
+      hiringTrackOther,
+    ]);
+
     const hiringComposeBody = useMemo(
       () =>
         buildHiringBulletinContent({
           company: hiringCompany,
           title: hiringTitle,
           location: hiringLocation,
-          details: hiringDetails,
+          details: hiringComposeDetails,
         }).trim(),
-      [hiringCompany, hiringTitle, hiringLocation, hiringDetails]
+      [hiringCompany, hiringTitle, hiringLocation, hiringComposeDetails]
+    );
+
+    const hiringPreviewBody = useMemo(
+      () =>
+        buildHiringBulletinContent({
+          company: hiringCompany.trim() || "Stripe",
+          title: hiringTitle.trim() || "Senior Product Manager, Payments Infrastructure",
+          location: hiringLocation.trim() || "Bengaluru",
+          details:
+            hiringComposeDetails ||
+            "5+ years experience preferred. Compensation: ₹45-60 LPA. What will this person own, and what kind of impact should they expect? https://jobs.company.com/role Steps to apply: Reply here with CV + LinkedIn + 2 lines on relevant experience.",
+        }).trim(),
+      [hiringCompany, hiringTitle, hiringLocation, hiringComposeDetails]
     );
 
     const hiringPreviewAuthor =
@@ -895,16 +1125,51 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         ? (auth.myProfile?.fullName?.trim() || "You")
         : "You";
 
+    const isValidHttpUrl = (raw: string): boolean => {
+      try {
+        const url = new URL(raw.trim());
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    };
+
+    const hiringJdUrlInvalid = Boolean(hiringJdUrl.trim()) && !isValidHttpUrl(hiringJdUrl);
+
     const handlePostIntentcast = async () => {
       const categoryForApi: BulletinCategory = lockedCategoryFilter ?? "hiring";
       const fieldErr = validateHiringBulletinFields({
         company: hiringCompany,
         title: hiringTitle,
         location: hiringLocation,
-        details: hiringDetails,
+        details: hiringComposeDetails,
       });
       if (fieldErr) {
         setPostError(fieldErr);
+        return;
+      }
+      if (!hiringTrackChoice.trim()) {
+        setPostError("Select a track.");
+        return;
+      }
+      if (!hiringExperience.trim()) {
+        setPostError("Add experience in years.");
+        return;
+      }
+      if (hiringTrackChoice === "other" && !hiringTrackOther.trim()) {
+        setPostError("Choose Other only when you also add a role track detail.");
+        return;
+      }
+      if (!hiringRoleSummary.trim()) {
+        setPostError("Add 1-2 lines about the role.");
+        return;
+      }
+      if (hiringJdUrl.trim() && hiringJdUrlInvalid) {
+        setPostError("Enter a valid URL (http:// or https://).");
+        return;
+      }
+      if (!hiringApplySteps.trim()) {
+        setPostError("Add clear steps to apply.");
         return;
       }
       const content = hiringComposeBody;
@@ -913,8 +1178,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         setPostError("Post must be at least 10 characters.");
         return;
       }
-      if (content.length > BULLETIN_POST_MAX_LENGTH) {
-        setPostError(`Post must be at most ${BULLETIN_POST_MAX_LENGTH} characters.`);
+      if (content.length > HIRING_COMPOSE_MAX_LENGTH) {
+        setPostError(`Post must be at most ${HIRING_COMPOSE_MAX_LENGTH} characters.`);
         return;
       }
       setPostError(null);
@@ -938,8 +1203,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
       setHiringCompany("");
       setHiringTitle("");
+      setHiringTrackChoice("");
+      setHiringTrackOther("");
       setHiringLocation("");
-      setHiringDetails("");
+      setHiringExperience("");
+      setHiringCompensation("");
+      setHiringRoleSummary("");
+      setHiringJdUrl("");
+      setHiringApplySteps("");
       setPostOpen(false);
     };
     useImperativeHandle(ref, () => ({
@@ -948,8 +1219,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         setPostError(null);
         setHiringCompany("");
         setHiringTitle("");
+        setHiringTrackChoice("");
+        setHiringTrackOther("");
         setHiringLocation("");
-        setHiringDetails("");
+        setHiringExperience("");
+        setHiringCompensation("");
+        setHiringRoleSummary("");
+        setHiringJdUrl("");
+        setHiringApplySteps("");
         panelRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       },
     }));
@@ -958,29 +1235,41 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       if (!postOpen) return null;
       return (
         <div
-          className={
-            "home-dashboard__bulletin-compose" +
-            (composePlacement === "panelStart" ? " home-dashboard__bulletin-compose--panel-start" : "")
-          }
+          className="home-dashboard__bulletin-compose-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !postSubmitting) setPostOpen(false);
+          }}
         >
-                    <p className="home-dashboard__bulletin-compose-label">New hiring post</p>
-                    <p className="home-dashboard__bulletin-compose-hint">
-                      Each line below has one job: <strong>company</strong>, <strong>role title</strong>, and{" "}
-                      <strong>where</strong> people work from. Put everything else in <strong>Role details</strong>—type of
-                      engagement, seniority, pay, must-have skills, and how to apply—so nothing repeats between fields. Card
-                      matches <strong>Opportunities</strong>. {BULLETIN_POST_MAX_LENGTH.toLocaleString()} characters max.
-                    </p>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${domIdPrefix}-compose-title`}
+            className="home-dashboard__bulletin-compose-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+        <button
+          type="button"
+          className="home-dashboard__bulletin-compose-close"
+          aria-label="Close new hiring post dialog"
+          onClick={() => setPostOpen(false)}
+          disabled={postSubmitting}
+        >
+          ×
+        </button>
+        <div className="home-dashboard__bulletin-compose home-dashboard__bulletin-compose--modal">
+                    <p id={`${domIdPrefix}-compose-title`} className="home-dashboard__bulletin-compose-label">New hiring post</p>
                         <div className="home-dashboard__bulletin-hiring-form">
                           <div className="home-dashboard__bulletin-hiring-field">
                             <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-company`}>
-                              Company / team
+                              Company *
                             </label>
                             <input
                               id={`${domIdPrefix}-hiring-company`}
                               className="input"
                               type="text"
                               autoComplete="organization"
-                              placeholder="e.g. Acme Labs"
+                              placeholder="Stripe"
                               maxLength={200}
                               value={hiringCompany}
                               onChange={(e) => setHiringCompany(e.target.value)}
@@ -989,14 +1278,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                           </div>
                           <div className="home-dashboard__bulletin-hiring-field">
                             <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-title`}>
-                              Role title
+                              Role *
                             </label>
                             <input
                               id={`${domIdPrefix}-hiring-title`}
                               className="input"
                               type="text"
                               autoComplete="off"
-                              placeholder="e.g. Senior Product Designer"
+                              placeholder="Senior Product Manager, Payments Infrastructure"
                               maxLength={200}
                               value={hiringTitle}
                               onChange={(e) => setHiringTitle(e.target.value)}
@@ -1004,62 +1293,178 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                             />
                           </div>
                           <div className="home-dashboard__bulletin-hiring-field">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-track`}>
+                              Track *
+                            </label>
+                            <select
+                              id={`${domIdPrefix}-hiring-track`}
+                              className="input"
+                              value={hiringTrackChoice}
+                              onChange={(e) => setHiringTrackChoice(e.target.value)}
+                              disabled={postSubmitting}
+                            >
+                              <option value="">Select role track</option>
+                              <option value="Product">Product</option>
+                              <option value="Consulting">Consulting</option>
+                              <option value="SDE">SDE</option>
+                              <option value="Design">Design</option>
+                              <option value="Data/AI">Data/AI</option>
+                              <option value="Marketing">Marketing</option>
+                              <option value="Sales">Sales</option>
+                              <option value="Finance">Finance</option>
+                              <option value="People">People</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          {hiringTrackChoice === "other" ? (
+                            <div className="home-dashboard__bulletin-hiring-field">
+                              <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-track-other`}>
+                                Other role track details
+                              </label>
+                              <input
+                                id={`${domIdPrefix}-hiring-track-other`}
+                                className="input"
+                                type="text"
+                                autoComplete="off"
+                                placeholder="Regulatory Affairs / Supply Chain"
+                                maxLength={120}
+                                value={hiringTrackOther}
+                                onChange={(e) => setHiringTrackOther(e.target.value)}
+                                disabled={postSubmitting}
+                              />
+                              <p className="home-dashboard__bulletin-hiring-details-note">
+                                Posts with <strong>Other</strong> are sent to admin for verification and stay in your
+                                Post tab until approved.
+                              </p>
+                            </div>
+                          ) : null}
+                          <div className="home-dashboard__bulletin-hiring-field">
                             <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-location`}>
-                              Location
+                              Location *
                             </label>
                             <input
                               id={`${domIdPrefix}-hiring-location`}
                               className="input"
                               type="text"
                               autoComplete="off"
-                              placeholder="e.g. Bengaluru, Remote friendly"
+                              placeholder="Bengaluru"
                               maxLength={200}
                               value={hiringLocation}
                               onChange={(e) => setHiringLocation(e.target.value)}
                               disabled={postSubmitting}
                             />
                           </div>
-                          <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
-                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-details`}>
-                              Role details
+                          <div className="home-dashboard__bulletin-hiring-field">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-experience`}>
+                              Experience (in years) *
                             </label>
-                            <textarea
-                              id={`${domIdPrefix}-hiring-details`}
-                              className="input home-dashboard__respond-textarea home-dashboard__bulletin-hiring-details"
-                              rows={4}
-                              placeholder="e.g. Full-time · Seniority (e.g. 5+ yrs or mid-level) · Pay band or competitive · Must-have skills or credentials · How to apply (link, email, or reply here)"
-                              maxLength={BULLETIN_POST_MAX_LENGTH}
-                              value={hiringDetails}
-                              onChange={(e) => setHiringDetails(e.target.value)}
+                            <input
+                              id={`${domIdPrefix}-hiring-experience`}
+                              className="input"
+                              type="text"
+                              autoComplete="off"
+                              placeholder="5+"
+                              maxLength={40}
+                              value={hiringExperience}
+                              onChange={(e) => setHiringExperience(e.target.value)}
                               disabled={postSubmitting}
                             />
-                            <p className="home-dashboard__bulletin-hiring-details-note">
-                              Avoid extra parentheses in the title line so the card layout parses cleanly.
-                            </p>
                           </div>
-                        </div>
-                        {hiringComposeBody.length >= 10 ? (
-                          <div className="home-dashboard__bulletin-hiring-preview">
-                            <p className="home-dashboard__bulletin-hiring-preview-label" id={`${domIdPrefix}-hiring-live-preview`}>
-                              Live preview
-                            </p>
-                            <div
-                              className="home-dashboard__bulletin-hiring-preview-surface"
-                              role="region"
-                              aria-labelledby={`${domIdPrefix}-hiring-live-preview`}
-                            >
-                              <CareerOpportunityCardBody
-                                ic={hiringPreviewIntentcast(hiringPreviewAuthor, hiringComposeBody)}
-                                parsed={parseHiringBulletin(hiringComposeBody)}
-                                composePreview
+                          <div className="home-dashboard__bulletin-hiring-field">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-comp`}>
+                              Compensation (in ₹ LPA)
+                            </label>
+                            <input
+                              id={`${domIdPrefix}-hiring-comp`}
+                              className="input"
+                              type="text"
+                              autoComplete="off"
+                              inputMode="numeric"
+                              pattern="[0-9-]*"
+                              placeholder="45-60"
+                              maxLength={20}
+                              value={hiringCompensation}
+                              onChange={(e) => setHiringCompensation(e.target.value.replace(/[^0-9-]/g, ""))}
+                              disabled={postSubmitting}
+                            />
+                          </div>
+                          {/* Employment type is temporarily hidden across the app. */}
+                          <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-summary`}>
+                              Role summary
+                            </label>
+                            <div className="home-dashboard__textarea-with-counter">
+                              <textarea
+                                ref={hiringSummaryTextareaRef}
+                                id={`${domIdPrefix}-hiring-summary`}
+                                className="input home-dashboard__respond-textarea home-dashboard__respond-textarea--with-counter"
+                                rows={1}
+                                placeholder="What will this person own, and what kind of impact should they expect?"
+                                maxLength={700}
+                                value={hiringRoleSummary}
+                                onChange={(e) => setHiringRoleSummary(e.target.value)}
+                                disabled={postSubmitting}
                               />
+                              <span className="home-dashboard__textarea-counter" aria-live="polite">
+                                {hiringRoleSummary.length} / 700
+                              </span>
                             </div>
                           </div>
-                        ) : null}
-                    <p className="home-dashboard__bulletin-char-count" aria-live="polite">
-                      {hiringComposeBody.length} / {BULLETIN_POST_MAX_LENGTH}
-                    </p>
-                    {postError ? <p className="home-dashboard__respond-error">{postError}</p> : null}
+                          <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-jd`}>
+                              Job description link
+                            </label>
+                            <input
+                              id={`${domIdPrefix}-hiring-jd`}
+                              className="input"
+                              type="url"
+                              autoComplete="off"
+                              placeholder="https://jobs.company.com/role"
+                              maxLength={300}
+                              value={hiringJdUrl}
+                              onChange={(e) => setHiringJdUrl(e.target.value)}
+                              disabled={postSubmitting}
+                            />
+                          </div>
+                          <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-apply`}>
+                              Steps to apply
+                            </label>
+                            <div className="home-dashboard__textarea-with-counter">
+                              <textarea
+                                ref={hiringApplyTextareaRef}
+                                id={`${domIdPrefix}-hiring-apply`}
+                                className="input home-dashboard__respond-textarea home-dashboard__respond-textarea--with-counter"
+                                rows={1}
+                                placeholder="Reply here with CV + LinkedIn + 2 lines on relevant experience."
+                                maxLength={700}
+                                value={hiringApplySteps}
+                                onChange={(e) => setHiringApplySteps(e.target.value)}
+                                disabled={postSubmitting}
+                              />
+                              <span className="home-dashboard__textarea-counter" aria-live="polite">
+                                {hiringApplySteps.length} / 700
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                            <div className="home-dashboard__bulletin-hiring-preview">
+                          <p className="home-dashboard__bulletin-hiring-preview-label" id={`${domIdPrefix}-hiring-live-preview`}>
+                            Live preview
+                          </p>
+                          <div
+                            className="home-dashboard__bulletin-hiring-preview-surface"
+                            role="region"
+                            aria-labelledby={`${domIdPrefix}-hiring-live-preview`}
+                          >
+                            <CareerOpportunityCardBody
+                              ic={hiringPreviewIntentcast(hiringPreviewAuthor, hiringPreviewBody)}
+                              parsed={parseHiringBulletin(hiringPreviewBody)}
+                              composePreview
+                            />
+                          </div>
+                        </div>
+                                        {postError ? <p className="home-dashboard__respond-error">{postError}</p> : null}
                     <div className="home-dashboard__respond-actions">
                       <Button
                         type="button"
@@ -1069,8 +1474,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                           setPostError(null);
                           setHiringCompany("");
                           setHiringTitle("");
+                          setHiringTrackChoice("");
+      setHiringTrackOther("");
                           setHiringLocation("");
-                          setHiringDetails("");
+                          setHiringExperience("");
+                          setHiringCompensation("");
+                          setHiringRoleSummary("");
+                          setHiringJdUrl("");
+                          setHiringApplySteps("");
                         }}
                         disabled={postSubmitting}
                       >
@@ -1080,6 +1491,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                         {postSubmitting ? "Posting…" : "Post"}
                       </Button>
                     </div>
+        </div>
+          </div>
         </div>
       );
     };
@@ -1092,7 +1505,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               aria-labelledby={headingId}
             >
               <div className="home-dashboard__bulletin-panel">
-                {composePlacement === "panelStart" ? renderComposeForm() : null}
                 {showPanelHeader ? (
                   <header className="home-dashboard__bulletin-header">
                     <h2 id="home-bulletin-heading" className="home-dashboard__bulletin-title">
@@ -1166,6 +1578,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                           isOwnPost && intentcastWithinEditWindow(ic) && !authorRemoved;
                         const viewerHasReplied =
                           ic.viewerHasResponded === true || repliedIntentcastIds.has(ic.id);
+                        const pendingTrackVerification =
+                          layout === "career" &&
+                          ic.category === "hiring" &&
+                          hiringPostNeedsTrackVerification(ic.content);
                         const showReply =
                           !isOwnPost &&
                           intentcastIsOpen(ic) &&
@@ -1284,7 +1700,12 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                                           className="home-dashboard__bulletin-archived-reply-avatar-link"
                                                           aria-label={`View ${replyName}'s profile`}
                                                         >
-                                                          <Avatar name={replyName} size="sm" tone="pastel" />
+                                                          <Avatar
+                                                            name={replyName}
+                                                            size="sm"
+                                                            tone="pastel"
+                                                            departmentCode={r.responderDepartmentCode}
+                                                          />
                                                         </Link>
                                                         <div className="home-dashboard__bulletin-archived-reply-body">
                                                           <p className="home-dashboard__bulletin-archived-reply-meta">
@@ -1310,7 +1731,17 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                         ) : null}
                                       </div>
                                     ) : null}
-                                    <CareerOpportunityCardBody ic={ic} parsed={parseHiringBulletin(ic.content)} />
+                                    {pendingTrackVerification && isOwnPost ? (
+                                      <p className="career-opportunity-card__pending-note" role="status">
+                                        Role track is marked as <strong>Other</strong>. We sent this post for admin verification,
+                                        so it stays only in your Post tab until approved.
+                                      </p>
+                                    ) : null}
+                                    <CareerOpportunityCardBody
+                                      ic={ic}
+                                      parsed={parseHiringBulletin(ic.content)}
+                                      viewerHasReplied={viewerHasReplied}
+                                    />
                                     {showInlineAuthorReplies && isOwnPost && ic.responseCount > 0 && !authorRemoved ? (
                                       <div className="career-post-replies" aria-label="Replies to your post">
                                         {careerInlineRepliesError ? (
@@ -1335,7 +1766,12 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                                         className="career-post-replies__avatar-link"
                                                         aria-label={`View ${replyName}'s profile`}
                                                       >
-                                                        <Avatar name={replyName} size="sm" tone="pastel" />
+                                                        <Avatar
+                                                          name={replyName}
+                                                          size="sm"
+                                                          tone="pastel"
+                                                          departmentCode={r.responderDepartmentCode}
+                                                        />
                                                       </Link>
                                                       <div className="career-post-replies__body">
                                                         <p className="career-post-replies__meta">
@@ -1423,7 +1859,12 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                                           className="home-dashboard__bulletin-archived-reply-avatar-link"
                                                           aria-label={`View ${replyName}'s profile`}
                                                         >
-                                                          <Avatar name={replyName} size="sm" tone="pastel" />
+                                                          <Avatar
+                                                            name={replyName}
+                                                            size="sm"
+                                                            tone="pastel"
+                                                            departmentCode={r.responderDepartmentCode}
+                                                          />
                                                         </Link>
                                                         <div className="home-dashboard__bulletin-archived-reply-body">
                                                           <p className="home-dashboard__bulletin-archived-reply-meta">
@@ -1541,7 +1982,9 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                 Reply
                               </button>
                             ) : null}
-                            {!isOwnPost && viewerHasReplied ? (
+                            {!isOwnPost &&
+                            viewerHasReplied &&
+                            !(layout === "career" && ic.category === "hiring") ? (
                               <p className="home-dashboard__bulletin-replied-note">You replied.</p>
                             ) : null}
                           </li>
@@ -1565,7 +2008,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                   </div>
                   )
                 ) : null}
-                {composePlacement === "panelEnd" ? renderComposeForm() : null}
                 {!postOpen && !hideComposeCta ? (
                   <button
                     type="button"
@@ -1575,8 +2017,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       setPostError(null);
                       setHiringCompany("");
                       setHiringTitle("");
+                      setHiringTrackChoice("");
+      setHiringTrackOther("");
                       setHiringLocation("");
-                      setHiringDetails("");
+                      setHiringExperience("");
+                      setHiringCompensation("");
+                      setHiringRoleSummary("");
+                      setHiringJdUrl("");
+                      setHiringApplySteps("");
                     }}
                   >
                     <span className="home-dashboard__bulletin-cta-icon" aria-hidden>
@@ -1586,6 +2034,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                   </button>
                 ) : null}
               </div>
+              {renderComposeForm()}
               {deleteConfirmIntentcastId ? (
                 <div
                   className="home-dashboard__bulletin-delete-overlay"

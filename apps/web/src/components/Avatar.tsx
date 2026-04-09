@@ -1,11 +1,15 @@
+import { departmentAvatarBackground } from "../constants/departments";
+
 type AvatarSize = "lg" | "md" | "sm";
 
 type AvatarProps = {
   name: string;
   size?: AvatarSize;
   className?: string;
-  /** Softer pastel backgrounds (e.g. home directory cards). */
-  tone?: "default" | "pastel";
+  /** Softer pastel backgrounds (e.g. home directory cards). Ignored when a department colour applies. */
+  tone?: "default" | "pastel" | "pastel-fixed";
+  /** When set and recognised, uses the department’s avatar background from `DEPARTMENTS`. */
+  departmentCode?: string | null;
 };
 
 const COLORS = [
@@ -42,11 +46,22 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-export function Avatar({ name, size = "md", className = "", tone = "default" }: AvatarProps) {
+export function Avatar({
+  name,
+  size = "md",
+  className = "",
+  tone = "default",
+  departmentCode = null,
+}: AvatarProps) {
   const initials = getInitials(name || "?");
-  const palette = tone === "pastel" ? PASTEL_COLORS : COLORS;
-  const colorIndex = hash(name || "0") % palette.length;
-  const bg = palette[colorIndex];
+  const deptBg = departmentAvatarBackground(departmentCode);
+  const bg =
+    deptBg ??
+    (() => {
+      if (tone === "pastel-fixed") return PASTEL_COLORS[2];
+      const palette = tone === "pastel" ? PASTEL_COLORS : COLORS;
+      return palette[hash(name || "0") % palette.length];
+    })();
   return (
     <div
       className={`avatar avatar--${size} ${className}`.trim()}

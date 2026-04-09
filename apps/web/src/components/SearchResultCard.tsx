@@ -29,7 +29,11 @@ export function SearchResultCard({ profile, style }: SearchResultCardProps) {
     >
       <div className="card-search__top">
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-          <Avatar name={profile.fullName} size="md" />
+          <Avatar
+            name={profile.fullName}
+            size="md"
+            departmentCode={profile.departmentCode ?? profile.parsedDepartmentCode}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 className="card-headline" style={{ margin: 0, fontSize: 20 }}>
               {profile.fullName}

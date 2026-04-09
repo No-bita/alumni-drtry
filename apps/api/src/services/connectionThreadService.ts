@@ -13,9 +13,13 @@ import { PersonRepo } from "../repos/personRepo.js";
 import type { EmailSender } from "./emailSender.js";
 
 export const CONNECTION_NUDGE_MESSAGE_THRESHOLD = 4;
-export const CONNECTION_MESSAGE_MAX_LENGTH = 2000;
+export const CONNECTION_MESSAGE_MAX_LENGTH = 300;
 export const CONNECTION_MESSAGE_MIN_LENGTH = 1;
 export const CONNECTION_THREADS_LIST_LIMIT = 50;
+export const CONNECTION_THREAD_RETENTION_DAYS = 7;
+export const CONNECTION_THREAD_DELETION_WARNING_DAYS = 5;
+export const CONNECTION_REFERRAL_REPLY_PROMPT_THRESHOLD = 3;
+export const CONNECTION_REFERRAL_REPLY_CAP = 5;
 
 function isLinkedInPlatform(platform: string): boolean {
   return platform.toLowerCase().includes("linkedin");
@@ -60,7 +64,11 @@ export interface ConnectionThreadDetailView {
   }[];
   messageCount: number;
   showShareNudge: boolean;
+  showOfflineContactPrompt: boolean;
+  messagesDeletionWarning: string | null;
+  referralReplyCount: number;
   availableDisclosures: AvailableDisclosureOption[];
+  kind: "general" | "referral";
 }
 
 export class ConnectionThreadService {
@@ -102,6 +110,19 @@ export class ConnectionThreadService {
     return messageCount > dismissedAfter;
   }
 
+  private async runMessageRetentionSweep(): Promise<void> {
+    await this.threadRepo.purgeExpiredMessages(CONNECTION_THREAD_RETENTION_DAYS);
+  }
+
+  private computeDeletionWarning(messages: ConnectionMessageView[]): string | null {
+    if (messages.length === 0) return null;
+    const now = Date.now();
+    const thresholdMs = CONNECTION_THREAD_DELETION_WARNING_DAYS * 24 * 60 * 60 * 1000;
+    const hasFiveDayOldMessage = messages.some((m) => now - m.createdAt.getTime() >= thresholdMs);
+    if (!hasFiveDayOldMessage) return null;
+    return "Messages will be deleted in 2 days.";
+  }
+
   private async buildAvailableDisclosures(
     threadId: string,
     personId: string,
@@ -135,8 +156,10 @@ export class ConnectionThreadService {
   async createOrContinueThread(
     initiatorId: string,
     recipientPersonId: string,
-    initialMessage: string
+    initialMessage: string,
+    kind: "general" | "referral" = "general"
   ): Promise<{ threadId: string; reusedThread: boolean }> {
+    await this.runMessageRetentionSweep();
     if (initiatorId === recipientPersonId) {
       throw new AppError(400, "CONNECTION_THREAD_SELF", "You cannot message yourself.");
     }
@@ -154,7 +177,7 @@ export class ConnectionThreadService {
       return { threadId: existing.id, reusedThread: true };
     }
 
-    const { thread } = await this.threadRepo.createThreadWithFirstMessage(initiatorId, recipientPersonId, body);
+    const { thread } = await this.threadRepo.createThreadWithFirstMessage(initiatorId, recipientPersonId, body, kind);
 
     try {
       await this.emailSender.sendContactRequestReceivedEmail({
@@ -171,12 +194,14 @@ export class ConnectionThreadService {
   }
 
   async listThreadsForPerson(personId: string): Promise<ConnectionThreadListView[]> {
+    await this.runMessageRetentionSweep();
     return this.threadRepo.listThreadsForPerson(personId, CONNECTION_THREADS_LIST_LIMIT);
   }
 
   async getThreadDetail(personId: string, threadId: string): Promise<ConnectionThreadDetailView> {
+    await this.runMessageRetentionSweep();
     const thread = await this.assertParticipant(threadId, personId);
-    const [messages, disclosures, messageCount, person, dismissed, counterparty] = await Promise.all([
+    const [messages, disclosures, messageCount, person, dismissed, counterparty, referralReplyCount] = await Promise.all([
       this.threadRepo.listMessages(threadId),
       this.threadRepo.listDisclosures(threadId),
       this.threadRepo.countMessages(threadId),
@@ -184,13 +209,21 @@ export class ConnectionThreadService {
       this.threadRepo.getNudgeDismissal(threadId, personId),
       this.personRepo.findById(
         thread.initiator_person_id === personId ? thread.recipient_person_id : thread.initiator_person_id
-      )
+      ),
+      this.threadRepo.countMessagesByAuthor(threadId, thread.recipient_person_id)
     ]);
     assertActivePerson(person);
     assertActivePerson(counterparty);
 
     const viewerHasDisclosure = await this.threadRepo.hasDisclosureFromPerson(threadId, personId);
     const showShareNudge = this.computeShowNudge(messageCount, viewerHasDisclosure, dismissed);
+    const isReferralThread = thread.kind === "referral";
+    const showOfflineContactPrompt =
+      isReferralThread &&
+      personId === thread.recipient_person_id &&
+      referralReplyCount >= CONNECTION_REFERRAL_REPLY_PROMPT_THRESHOLD &&
+      thread.status === "open";
+    const messagesDeletionWarning = this.computeDeletionWarning(messages);
     const availableDisclosures = await this.buildAvailableDisclosures(threadId, personId, person);
 
     return {
@@ -220,17 +253,40 @@ export class ConnectionThreadService {
       })),
       messageCount,
       showShareNudge,
-      availableDisclosures
+      showOfflineContactPrompt,
+      messagesDeletionWarning,
+      referralReplyCount,
+      availableDisclosures,
+      kind: thread.kind
     };
   }
 
   async addMessage(personId: string, threadId: string, body: string): Promise<ConnectionMessageView> {
+    await this.runMessageRetentionSweep();
     const thread = await this.assertParticipant(threadId, personId);
     if (thread.status !== "open") {
       throw new AppError(409, "CONNECTION_THREAD_CLOSED", "This conversation is closed.");
     }
+    if (thread.kind === "referral") {
+      const referralReplyCount = await this.threadRepo.countMessagesByAuthor(threadId, thread.recipient_person_id);
+      if (referralReplyCount >= CONNECTION_REFERRAL_REPLY_CAP) {
+        await this.threadRepo.setThreadStatus(threadId, "closed");
+        throw new AppError(
+          409,
+          "CONNECTION_THREAD_REFERRAL_REPLY_CAP_REACHED",
+          "This referral conversation reached the 5-reply limit and is now closed."
+        );
+      }
+    }
     const text = this.normalizeMessage(body);
-    return this.threadRepo.addMessage(threadId, personId, text);
+    const message = await this.threadRepo.addMessage(threadId, personId, text);
+    if (thread.kind === "referral" && personId === thread.recipient_person_id) {
+      const updatedReferralReplyCount = await this.threadRepo.countMessagesByAuthor(threadId, thread.recipient_person_id);
+      if (updatedReferralReplyCount >= CONNECTION_REFERRAL_REPLY_CAP) {
+        await this.threadRepo.setThreadStatus(threadId, "closed");
+      }
+    }
+    return message;
   }
 
   async dismissNudge(personId: string, threadId: string): Promise<void> {

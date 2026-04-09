@@ -1,22 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, NavLink, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { DirectorySearchBar } from "../components/DirectorySearchBar";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
 import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
+import { SearchResultRow } from "../components/SearchResultRow";
+import { Spinner } from "../components/Spinner";
 import {
   BulletinPanel,
   type BulletinFeedMeta,
   type BulletinPanelHandle,
 } from "../components/BulletinPanel";
-import { useAuth } from "../contexts/AuthContext";
-import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import {
-  careerIntentPath,
-  isCareerTabSegment,
-  type CareerTabSegment,
-} from "../constants/careerTabs";
+  api,
+  type ConnectionThreadDetailResponse,
+  type CreateConnectionThreadResponse,
+  type SearchResult,
+} from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
+import { assertApiGet } from "../lib/assertApiGet";
+import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
+import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
+import { queryKeys } from "../lib/queryKeys";
+import { careerIntentPath, isCareerTabSegment } from "../constants/careerTabs";
+import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
 
 function navDisplayName(profile: { fullName?: string | null } | undefined, email: string | undefined): string {
   const fn = profile?.fullName?.trim();
@@ -35,20 +44,9 @@ function openRolesHeadline(meta: BulletinFeedMeta): string {
   return meta.loadedCount === 1 ? "1 open role" : `${meta.loadedCount} open roles`;
 }
 
-function yourHiringPostsHeadline(meta: BulletinFeedMeta): string {
-  if (meta.status === "loading") return "Loading your posts…";
-  if (meta.status === "error") return "Couldn’t load your posts";
-  if (meta.loadedCount === 0) return "Your hiring posts";
-  if (meta.mayHaveMore) return `${meta.loadedCount}+ hiring posts`;
-  return meta.loadedCount === 1 ? "1 hiring post" : `${meta.loadedCount} hiring posts`;
-}
-
-/**
- * Career hub: hero + tabs (opportunities / referrals / post). Referrals tab includes inline directory search.
- */
+/** Career hub: unified referrals + opportunities workspace. */
 export function CareerPage() {
   const auth = useAuth();
-  const navigate = useNavigate();
   const { careerTab: careerTabParam } = useParams<{ careerTab: string }>();
   const bulletinRef = useRef<BulletinPanelHandle>(null);
   const referralPrefillDoneRef = useRef(false);
@@ -66,7 +64,22 @@ export function CareerPage() {
   const [filterResidenceCountry, setFilterResidenceCountry] = useState("");
   const [filterResidenceCity, setFilterResidenceCity] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [careerPostComposeOpen, setCareerPostComposeOpen] = useState(false);
+  const [referralsCollapsed, setReferralsCollapsed] = useState(false);
+  const [activeReferralThreadId, setActiveReferralThreadId] = useState<string | null>(null);
+  const [activeReferralRecipient, setActiveReferralRecipient] = useState<{ id: string; name: string } | null>(null);
+  const [referralChatMinimized, setReferralChatMinimized] = useState(false);
+  const [referralComposer, setReferralComposer] = useState("");
+  const [referralSending, setReferralSending] = useState(false);
+  const [referralActionError, setReferralActionError] = useState<string | null>(null);
+  const [committedReferralSearch, setCommittedReferralSearch] = useState<{
+    q: string;
+    batch: number | "";
+    dept: string;
+    company: string;
+    occ: string;
+    residenceCountry: string;
+    residenceCity: string;
+  } | null>(null);
 
   const onFeedMetaChange = useCallback((m: BulletinFeedMeta) => {
     setFeedMeta((prev) =>
@@ -89,18 +102,16 @@ export function CareerPage() {
     if (dc) setFilterDept(dc.toLowerCase());
   }, [auth]);
 
-  const navigateToDirectorySearch = useCallback(() => {
-    const params = new URLSearchParams();
-    const q = searchQuery.trim();
-    if (q) params.set("q", q);
-    if (filterBatch !== "") params.set("batch", String(filterBatch));
-    if (filterDept) params.set("dept", filterDept);
-    if (filterCompany.trim()) params.set("company", filterCompany.trim());
-    if (filterOcc) params.set("occ", filterOcc);
-    if (filterResidenceCountry.trim()) params.set("residenceCountry", filterResidenceCountry.trim());
-    if (filterResidenceCity.trim()) params.set("residenceCity", filterResidenceCity.trim());
-    const qs = params.toString();
-    navigate(qs ? `/search?${qs}` : "/search");
+  const commitReferralSearch = useCallback(() => {
+    setCommittedReferralSearch({
+      q: searchQuery.trim(),
+      batch: filterBatch,
+      dept: filterDept,
+      company: filterCompany.trim(),
+      occ: filterOcc,
+      residenceCountry: filterResidenceCountry.trim(),
+      residenceCity: filterResidenceCity.trim(),
+    });
   }, [
     searchQuery,
     filterBatch,
@@ -109,13 +120,141 @@ export function CareerPage() {
     filterOcc,
     filterResidenceCountry,
     filterResidenceCity,
-    navigate,
   ]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigateToDirectorySearch();
+    commitReferralSearch();
   };
+
+  const referralHasCommittedSearch = committedReferralSearch != null;
+  const referralSearchQuery = useInfiniteQuery({
+    queryKey: queryKeys.directory.searchInfinite(
+      committedReferralSearch?.batch === "" ? null : (committedReferralSearch?.batch ?? null),
+      committedReferralSearch?.dept ?? "",
+      committedReferralSearch?.company ?? "",
+      committedReferralSearch?.occ ?? "",
+      committedReferralSearch?.residenceCountry ?? "",
+      committedReferralSearch?.residenceCity ?? "",
+      committedReferralSearch?.q ?? ""
+    ),
+    queryFn: async ({ pageParam, signal }) => {
+      const params = new URLSearchParams();
+      const committed = committedReferralSearch;
+      if (committed?.batch !== "") params.set("batch", String(committed?.batch));
+      if (committed?.dept) params.set("dept", committed.dept);
+      if (committed?.company) params.set("company", committed.company);
+      if (committed?.occ) params.set("occ", committed.occ);
+      if (committed?.residenceCountry) params.set("residenceCountry", committed.residenceCountry);
+      if (committed?.residenceCity) params.set("residenceCity", committed.residenceCity);
+      if (committed?.q) params.set("q", committed.q);
+      params.set("limit", "20");
+      if (pageParam) params.set("cursor", pageParam);
+      return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.pageInfo.nextCursor ?? undefined,
+    enabled: referralHasCommittedSearch,
+    ...DIRECTORY_INFINITE_QUERY_OPTIONS,
+  });
+  const referralResults = useMemo(
+    () => referralSearchQuery.data?.pages.flatMap((p) => p.results) ?? [],
+    [referralSearchQuery.data]
+  );
+  const referralError =
+    referralSearchQuery.error instanceof Error
+      ? referralSearchQuery.error.message
+      : referralSearchQuery.error
+        ? String(referralSearchQuery.error)
+        : null;
+  const referralSessionId = referralSearchQuery.data?.pages[0]?.searchSessionId ?? null;
+  const referralThreadQuery = useQuery({
+    queryKey: queryKeys.connectionThreads.detail(activeReferralThreadId ?? ""),
+    queryFn: ({ signal }) =>
+      assertApiGet<ConnectionThreadDetailResponse>(`/v1/connection-threads/${activeReferralThreadId}`, signal),
+    enabled: Boolean(activeReferralThreadId),
+    retry: false,
+  });
+  const myPersonId = auth.status === "authenticated" ? auth.person.personId : null;
+  const referralThreadDetail = referralThreadQuery.data ?? null;
+  const hasActiveReferralThread = Boolean(activeReferralThreadId);
+
+  const formatThreadTime = (iso: string): string => {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const closeReferralChat = useCallback(() => {
+    setActiveReferralThreadId(null);
+    setActiveReferralRecipient(null);
+    setReferralChatMinimized(false);
+    setReferralComposer("");
+    setReferralActionError(null);
+  }, []);
+
+  const sendReferralMessage = useCallback(async () => {
+    const composed = referralComposer.trim();
+    if (!activeReferralRecipient || !composed || referralSending) return;
+    setReferralSending(true);
+    setReferralActionError(null);
+    if (!activeReferralThreadId) {
+      const { data, error } = await api.post<CreateConnectionThreadResponse>("/v1/connection-threads", {
+        recipientPersonId: activeReferralRecipient.id,
+        initialMessage: composed,
+        kind: "referral",
+      });
+      setReferralSending(false);
+      if (error || !data?.threadId) {
+        setReferralActionError(error?.message ?? error?.code ?? "Could not send message.");
+        return;
+      }
+      setActiveReferralThreadId(data.threadId);
+      setReferralComposer("");
+      invalidateConnectionThreadQueries();
+      void referralThreadQuery.refetch();
+      return;
+    }
+    const { error } = await api.post(`/v1/connection-threads/${activeReferralThreadId}/messages`, {
+      body: composed,
+    });
+    setReferralSending(false);
+    if (error) {
+      setReferralActionError(error.message ?? error.code ?? "Could not send message.");
+      return;
+    }
+    setReferralComposer("");
+    invalidateConnectionThreadQueries();
+    void referralThreadQuery.refetch();
+  }, [activeReferralRecipient, activeReferralThreadId, referralComposer, referralSending, referralThreadQuery]);
+
+  useEffect(() => {
+    if (!activeReferralThreadId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeReferralChat();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeReferralThreadId, closeReferralChat]);
+
+  const openReferralChat = useCallback(
+    async (recipientPersonId: string, recipientName: string) => {
+      const firstName = recipientName.trim().split(/\s+/)[0] ?? "there";
+      const initialMessage = `Hi ${firstName}, I found your profile on the referrals tab and wanted to connect regarding a referral.`;
+      setActiveReferralRecipient({ id: recipientPersonId, name: recipientName });
+      setActiveReferralThreadId(null);
+      setReferralChatMinimized(false);
+      setReferralComposer(initialMessage);
+      setReferralActionError(null);
+      return;
+    },
+    []
+  );
 
   const referralFilterCount =
     (filterBatch !== "" ? 1 : 0) +
@@ -143,6 +282,7 @@ export function CareerPage() {
     setFilterResidenceCountry("");
     setFilterResidenceCity("");
     setFiltersOpen(false);
+    setCommittedReferralSearch(null);
   };
 
   const displayName = useMemo(() => {
@@ -153,10 +293,6 @@ export function CareerPage() {
     );
   }, [auth]);
 
-  useEffect(() => {
-    if (careerTabParam !== "post") setCareerPostComposeOpen(false);
-  }, [careerTabParam]);
-
   if (auth.status !== "authenticated") {
     return null;
   }
@@ -164,131 +300,44 @@ export function CareerPage() {
   if (!isCareerTabSegment(careerTabParam)) {
     return <Navigate to={careerIntentPath("opportunities")} replace />;
   }
-  const tab: CareerTabSegment = careerTabParam;
 
   return (
     <div className="intent-page-shell">
       <Nav variant="home" avatarName={displayName} />
       <div className="career-page">
         <header className="career-page__hero">
-          <h1 className="career-page__hero-title">Where IIT BHU alumni hire, work, and grow.</h1>
-          <div className="career-page__tabs" role="tablist" aria-label="Career hub">
-            <NavLink
-              to={careerIntentPath("opportunities")}
-              role="tab"
-              id="career-tab-opportunities"
-              aria-selected={tab === "opportunities"}
-              className={({ isActive }) =>
-                `career-page__tab${isActive ? " career-page__tab--active" : ""}`.trim()
-              }
-            >
-              <span className="career-page__tab-kicker">Looking for work</span>
-              <span className="career-page__tab-label">Opportunities</span>
-              <span className="career-page__tab-desc">Roles and openings shared by alumni on the bulletin.</span>
-            </NavLink>
-            <NavLink
-              to={careerIntentPath("referrals")}
-              role="tab"
-              id="career-tab-referrals"
-              aria-selected={tab === "referrals"}
-              className={({ isActive }) =>
-                `career-page__tab${isActive ? " career-page__tab--active" : ""}`.trim()
-              }
-            >
-              <span className="career-page__tab-kicker">Need a referral</span>
-              <span className="career-page__tab-label">Referrals</span>
-              <span className="career-page__tab-desc">Find people by company, role, or batch in the alumni directory.</span>
-            </NavLink>
-            <NavLink
-              to={careerIntentPath("post")}
-              role="tab"
-              id="career-tab-post"
-              aria-selected={tab === "post"}
-              className={({ isActive }) =>
-                `career-page__tab${isActive ? " career-page__tab--active" : ""}`.trim()
-              }
-            >
-              <span className="career-page__tab-kicker">Hiring now</span>
-              <span className="career-page__tab-label">Post a role</span>
-              <span className="career-page__tab-desc">Share a short hiring post so interested alumni can reply.</span>
-            </NavLink>
-          </div>
+          <h1 className="career-page__hero-title">Hire. Refer. Grow.</h1>
         </header>
 
         <div className="career-page__body">
-          {/* Do not mount bulletin on Referrals — a hidden subtree still blocked the directory bar in some browsers. */}
-          {tab === "opportunities" || tab === "post" ? (
-            <div className="career-page__feed-anchor">
-              <section
-                className={`career-page__main${tab === "post" ? " career-page__main--post-tab" : ""}`}
-                aria-labelledby={tab === "post" ? "career-post-heading" : "career-openings-heading"}
-              >
-                {tab === "opportunities" ? (
-                  <div className="career-page__listings-head">
-                    <h2 id="career-openings-heading" className="career-page__openings-title">
-                      {openRolesHeadline(feedMeta)}
-                    </h2>
-                  </div>
+          <section
+            className={`career-page__main career-page__main--mixed${referralsCollapsed ? " career-page__main--referrals-collapsed" : ""}`}
+            aria-labelledby="career-referrals-heading"
+          >
+            <div className={`career-page__rail career-page__rail--referrals${referralsCollapsed ? " is-collapsed" : ""}`}>
+              <div className="career-page__section-head">
+                <h2 id="career-referrals-heading" className="career-page__panel-title">
+                  Find someone for a referral
+                </h2>
+                {referralsCollapsed ? (
+                  <button
+                    type="button"
+                    className="career-page__collapsed-referrals-btn"
+                    onClick={() => setReferralsCollapsed(false)}
+                    aria-controls="career-referrals-content"
+                    aria-expanded="false"
+                  >
+                    Referrals
+                  </button>
                 ) : null}
-                {tab === "post" ? (
-                  careerPostComposeOpen ? (
-                    <h2 id="career-post-heading" className="visually-hidden">
-                      Post a hiring update
-                    </h2>
-                  ) : (
-                    <>
-                      <h2 id="career-post-heading" className="career-page__panel-title">
-                        Post a hiring update
-                      </h2>
-                      <p className="career-page__panel-copy body-text">
-                        Add a short <strong>Hiring</strong> bulletin post. Interested alumni can reply from{" "}
-                        <strong>Opportunities</strong>. Your posts and replies appear below.
-                      </p>
-                      <div className="career-page__post-compose-intro">
-                        <Button type="button" variant="primary" onClick={() => bulletinRef.current?.openCompose()}>
-                          Compose hiring post
-                        </Button>
-                      </div>
-                      <div className="career-page__listings-head career-page__listings-head--after-compose">
-                        <p className="career-page__openings-title career-page__openings-title--mine" role="status">
-                          {yourHiringPostsHeadline(feedMeta)}
-                        </p>
-                      </div>
-                    </>
-                  )
-                ) : null}
-                <BulletinPanel
-                  ref={bulletinRef}
-                  feedReady={feedReady}
-                  showFeed={tab === "opportunities" || tab === "post"}
-                  hideComposeCta={tab === "post"}
-                  feedMine={tab === "post"}
-                  feedAuthorHistory={tab === "post"}
-                  feedExcludeAuthorSoftDeleted={tab === "opportunities"}
-                  showInlineAuthorReplies={tab === "post"}
-                  feedDisableAutoScroll={tab === "post"}
-                  lockedCategoryFilter="hiring"
-                  domIdPrefix="career-bulletin"
-                  showPanelHeader={false}
-                  layout="career"
-                  composePlacement={tab === "post" ? "panelStart" : "panelEnd"}
-                  onComposeOpenChange={tab === "post" ? setCareerPostComposeOpen : undefined}
-                  onFeedMetaChange={tab === "opportunities" || tab === "post" ? onFeedMetaChange : undefined}
-                />
-              </section>
-            </div>
-          ) : null}
-
-          {tab === "referrals" ? (
-            <section className="career-page__main career-page__main--referrals" aria-labelledby="career-referrals-heading">
-              <h2 id="career-referrals-heading" className="career-page__panel-title">
-                Find someone for a referral
-              </h2>
-              <p className="career-page__panel-copy body-text">
-                Search the alumni directory by keyword, company, department, batch, or where people live — then open a
-                profile to reach out.
-              </p>
-              <div className="career-page__referral-search" aria-labelledby="career-referrals-search-label">
+              </div>
+              {!referralsCollapsed ? (
+                <div id="career-referrals-content">
+                  <p className="career-page__panel-copy body-text">
+                    Search the alumni directory by keyword, company, department, batch, or where people live — then open a
+                    profile to reach out.
+                  </p>
+                  <div className="career-page__referral-search" aria-labelledby="career-referrals-search-label">
                 <span id="career-referrals-search-label" className="visually-hidden">
                   Alumni directory search
                 </span>
@@ -299,6 +348,14 @@ export function CareerPage() {
                   onSubmit={handleSearchSubmit}
                   filterCount={referralFilterCount}
                   onOpenRefine={() => setFiltersOpen(true)}
+                  inlineTrailingAction={
+                    referralHasActiveFilters
+                      ? {
+                          label: "Clear filters",
+                          onClick: clearReferralFilters,
+                        }
+                      : undefined
+                  }
                 />
                 <DirectoryFilterDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter search">
                   <DirectoryFiltersForm
@@ -316,13 +373,242 @@ export function CareerPage() {
                     onResidenceCityChange={(v) => setFilterResidenceCity(v ?? "")}
                     onClearAll={referralHasActiveFilters ? clearReferralFilters : undefined}
                     onSearch={() => {
-                      navigateToDirectorySearch();
+                      commitReferralSearch();
                       setFiltersOpen(false);
                     }}
                   />
                 </DirectoryFilterDrawer>
+                {referralHasCommittedSearch ? (
+                  <div className="career-page__referral-results" aria-live="polite">
+                    <p className="career-page__referral-results-meta">
+                      {referralSearchQuery.isFetching && referralResults.length === 0 ? (
+                        <>
+                          <Spinner size="sm" /> Searching…
+                        </>
+                      ) : (
+                        <>
+                          {referralResults.length} result{referralResults.length === 1 ? "" : "s"}
+                          {referralHasActiveFilters ? " · filtered" : ""}
+                        </>
+                      )}
+                    </p>
+                    {referralError && referralResults.length === 0 ? (
+                      <p className="home-dashboard__respond-error">{referralError}</p>
+                    ) : null}
+                    {!referralError && !referralSearchQuery.isFetching && referralResults.length === 0 ? (
+                      <p className="career-page__referral-results-empty">No alumni match this search yet.</p>
+                    ) : null}
+                    {referralResults.length > 0 ? (
+                      <div className="career-page__referral-results-list">
+                        {referralResults.map((profile, index) => (
+                          <SearchResultRow
+                            key={profile.id}
+                            profile={profile}
+                            resultIndex={index}
+                            searchSessionId={referralSessionId}
+                            onRowClick={() => void openReferralChat(profile.id, profile.fullName)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {referralSearchQuery.hasNextPage ? (
+                      <div className="career-page__referral-results-more">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => void referralSearchQuery.fetchNextPage()}
+                          disabled={referralSearchQuery.isFetchingNextPage}
+                        >
+                          {referralSearchQuery.isFetchingNextPage ? "Loading…" : "Load more"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-            </section>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="career-page__rail-separator" aria-hidden>
+              <button
+                type="button"
+                className="career-page__rail-toggle"
+                aria-label={referralsCollapsed ? "Expand referrals panel" : "Collapse referrals panel"}
+                aria-expanded={!referralsCollapsed}
+                aria-controls="career-referrals-content"
+                onClick={() => setReferralsCollapsed((v) => !v)}
+              >
+                {referralsCollapsed ? "›" : "‹"}
+              </button>
+            </div>
+
+            <div className="career-page__rail career-page__rail--opportunities" aria-labelledby="career-openings-heading">
+              <div className="career-page__listings-head">
+                <h2 id="career-openings-heading" className="career-page__openings-title">
+                  {openRolesHeadline(feedMeta)}
+                </h2>
+              </div>
+              <BulletinPanel
+                ref={bulletinRef}
+                feedReady={feedReady}
+                showFeed
+                hideComposeCta
+                feedMine={false}
+                feedAuthorHistory={false}
+                feedExcludeAuthorSoftDeleted
+                showInlineAuthorReplies={false}
+                feedDisableAutoScroll={false}
+                lockedCategoryFilter="hiring"
+                domIdPrefix="career-bulletin"
+                showPanelHeader={false}
+                layout="career"
+                onFeedMetaChange={onFeedMetaChange}
+              />
+
+              <section className="career-page__my-posts" aria-labelledby="career-my-posts-heading">
+                <div className="career-page__section-separator" aria-hidden />
+                <h3 id="career-my-posts-heading" className="career-page__openings-title career-page__openings-title--mine">
+                  Your hiring posts
+                </h3>
+                <BulletinPanel
+                  feedReady={feedReady}
+                  showFeed
+                  hideComposeCta
+                  feedMine
+                  feedAuthorHistory
+                  feedExcludeAuthorSoftDeleted={false}
+                  showInlineAuthorReplies
+                  feedDisableAutoScroll
+                  lockedCategoryFilter="hiring"
+                  domIdPrefix="career-bulletin-mine"
+                  showPanelHeader={false}
+                  layout="career"
+                />
+              </section>
+            </div>
+          </section>
+
+          <div className="career-page__sticky-post-wrap">
+            <Button type="button" variant="primary" onClick={() => bulletinRef.current?.openCompose()}>
+              Post a role
+            </Button>
+          </div>
+
+          {(activeReferralRecipient || activeReferralThreadId) && !referralChatMinimized ? (
+            <div
+              className="career-page__chat-overlay"
+              role="presentation"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeReferralChat();
+              }}
+            >
+              <div
+                className="career-page__chat-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="career-referral-chat-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                  <div className="career-page__chat-head">
+                            <div>
+                              <h3 id="career-referral-chat-title" className="career-page__chat-title">
+                                {referralThreadDetail?.counterpartyFullName?.trim() ||
+                                  activeReferralRecipient?.name?.trim() ||
+                                  "Referral conversation"}
+                              </h3>
+                              {referralThreadDetail?.kind === "referral" ? (
+                                <p className="career-page__chat-thread-tag">Referral chat</p>
+                              ) : null}
+                            </div>
+                    <div className="career-page__chat-head-actions">
+                      <button
+                        type="button"
+                        className="career-page__chat-minimize"
+                        aria-label="Minimize chat"
+                        onClick={() => setReferralChatMinimized(true)}
+                      >
+                        —
+                      </button>
+                      <button
+                        type="button"
+                        className="career-page__chat-close"
+                        aria-label="Close chat"
+                        onClick={closeReferralChat}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  {referralActionError ? <p className="home-dashboard__respond-error">{referralActionError}</p> : null}
+                          {referralThreadDetail?.messagesDeletionWarning ? (
+                            <p className="career-page__chat-retention-banner" role="status">
+                              {referralThreadDetail.messagesDeletionWarning}
+                            </p>
+                          ) : null}
+                          {referralThreadDetail?.showOfflineContactPrompt ? (
+                            <p className="career-page__chat-offline-prompt" role="status">
+                              You have replied {referralThreadDetail.referralReplyCount} times. Please share contact details
+                              and take this conversation offline.
+                            </p>
+                          ) : null}
+                  <div className="career-page__chat-messages" aria-label="Messages">
+                    {hasActiveReferralThread && referralThreadQuery.isPending ? (
+                      <p className="career-page__chat-empty">Loading conversation…</p>
+                    ) : hasActiveReferralThread && referralThreadQuery.isError ? (
+                      <p className="career-page__chat-empty">
+                        {referralThreadQuery.error instanceof Error
+                          ? referralThreadQuery.error.message
+                          : "Could not load conversation."}
+                      </p>
+                    ) : referralThreadDetail?.messages.length ? (
+                      referralThreadDetail.messages.map((m) => {
+                        const mine = m.authorPersonId === myPersonId;
+                        return (
+                          <div
+                            key={m.id}
+                            className={`career-page__chat-msg${mine ? " career-page__chat-msg--mine" : ""}`}
+                          >
+                            <p className="career-page__chat-msg-body">{m.body}</p>
+                            <time className="career-page__chat-msg-time" dateTime={m.createdAt}>
+                              {formatThreadTime(m.createdAt)}
+                            </time>
+                          </div>
+                        );
+                      })
+                    ) : null}
+                  </div>
+                  <div className="career-page__chat-composer">
+                  <div className="home-dashboard__textarea-with-counter">
+                    <textarea
+                      className="input home-dashboard__respond-textarea home-dashboard__respond-textarea--with-counter"
+                      rows={3}
+                      placeholder="Write a message…"
+                      maxLength={300}
+                      value={referralComposer}
+                      onChange={(e) => setReferralComposer(e.target.value)}
+                      disabled={referralSending}
+                    />
+                    <span className="home-dashboard__textarea-counter" aria-live="polite">
+                      {referralComposer.length} / 300
+                    </span>
+                  </div>
+                    <div className="career-page__chat-actions">
+                      <Button type="button" variant="secondary" onClick={closeReferralChat} disabled={referralSending}>
+                        Close
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => void sendReferralMessage()}
+                        disabled={referralSending || !referralComposer.trim()}
+                      >
+                        {referralSending ? "Sending…" : "Send"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+            </div>
           ) : null}
         </div>
       </div>

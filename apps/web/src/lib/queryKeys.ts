@@ -29,6 +29,7 @@ export const queryKeys = {
   home: {
     batchSnapshot: (personId: string, batchYear: number, dept: string) =>
       ["home", "batch-snapshot", personId, batchYear, dept] as const,
+    campusMonthly: () => ["home", "campus-monthly"] as const,
   },
   auth: {
     all: ["auth"] as const,
@@ -45,7 +46,8 @@ export const queryKeys = {
       occ: string,
       residenceCountry: string,
       residenceCity: string,
-      q: string
+      q: string,
+      requireResidence = false
     ) =>
       [
         "directory",
@@ -58,6 +60,7 @@ export const queryKeys = {
         residenceCountry,
         residenceCity,
         q,
+        requireResidence,
       ] as const,
     residenceCities: (limit: number) => ["directory", "residence-cities", limit] as const,
   },

@@ -1,0 +1,170 @@
+/**
+ * Insert demo alumni that share a batch year + department so "Your Batch" on /home shows rows.
+ *
+ * Prereq: DATABASE_URL (e.g. apps/api/.env). Uses @iitbhu.ac.in addresses; rows are flagged
+ * is_test_user for cleanup (see scripts/delete-test-users.sql — that deletes ALL is_test_user).
+ *
+ * Usage (from apps/api):
+ *   npx tsx scripts/seed-batch-demo-profiles.ts
+ *   npx tsx scripts/seed-batch-demo-profiles.ts --dept mst --year 2024 --count 6
+ *
+ * Match your own profile: set --dept and --year to the same values as your account
+ * (profile batch year + department code, e.g. mst / 2024).
+ */
+import "dotenv/config";
+import pg from "pg";
+
+const DEMO_NAMES = [
+  "Arjun Mehta",
+  "Kavya Reddy",
+  "Rohit Joshi",
+  "Sneha Iyer",
+  "Vikram Nair",
+  "Ananya Das",
+  "Devika Rao",
+  "Karan Bhatt",
+];
+
+const DEMO_HEADLINES: { role: string; org: string }[] = [
+  { role: "Materials Engineer", org: "Bharat Forge" },
+  { role: "Graduate Researcher", org: "IIT Bombay" },
+  { role: "Product Analyst", org: "Tata Steel" },
+  { role: "Process Engineer", org: "Reliance Industries" },
+  { role: "R&D Associate", org: "Hindalco" },
+  { role: "Consultant", org: "Deloitte" },
+  { role: "Founding Engineer", org: "Series A startup" },
+  { role: "MS candidate", org: "Georgia Tech" },
+];
+
+function parseArgs(): { dept: string; year: number; count: number } {
+  const argv = process.argv.slice(2);
+  let dept = "mst";
+  let year = 2024;
+  let count = 6;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--dept" && argv[i + 1]) {
+      dept = argv[++i]!.toLowerCase().trim();
+    } else if (a === "--year" && argv[i + 1]) {
+      year = parseInt(argv[++i]!, 10);
+    } else if (a === "--count" && argv[i + 1]) {
+      count = parseInt(argv[++i]!, 10);
+    }
+  }
+  if (!Number.isFinite(year) || year < 1960 || year > new Date().getFullYear() + 1) {
+    throw new Error(`Invalid --year ${year}`);
+  }
+  if (!Number.isFinite(count) || count < 1 || count > 20) {
+    throw new Error(`Invalid --count (use 1–20)`);
+  }
+  return { dept, year, count };
+}
+
+async function main() {
+  const { dept, year, count } = parseArgs();
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error("DATABASE_URL is not set.");
+    process.exit(1);
+  }
+
+  const pool = new pg.Pool({ connectionString: url });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const deptRow = await client.query<{ id: string }>(
+      `SELECT id FROM departments WHERE lower(code) = lower($1) AND is_active IS NOT FALSE LIMIT 1`,
+      [dept]
+    );
+    if (deptRow.rows.length === 0) {
+      throw new Error(`No department row for code "${dept}". Check departments table / migrations.`);
+    }
+    const departmentId = deptRow.rows[0]!.id;
+
+    const occType = await client.query<{ id: string }>(
+      `SELECT id FROM occupation_types WHERE code = 'full_time_employment' LIMIT 1`
+    );
+    if (occType.rows.length === 0) {
+      throw new Error("occupation_types missing full_time_employment");
+    }
+    const occupationTypeId = occType.rows[0]!.id;
+
+    const del = await client.query(
+      `
+      DELETE FROM people
+      WHERE is_test_user = TRUE
+        AND lower(institutional_email::text) LIKE 'batchdemo.%@iitbhu.ac.in'
+      `
+    );
+    if ((del.rowCount ?? 0) > 0) {
+      console.log(`Removed ${del.rowCount} previous batch-demo rows.`);
+    }
+
+    const inserted: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const local = `batchdemo.${dept}${year}.${String(i + 1).padStart(2, "0")}`;
+      const email = `${local}@iitbhu.ac.in`;
+      const fullName = DEMO_NAMES[i % DEMO_NAMES.length]!;
+      const hl = DEMO_HEADLINES[i % DEMO_HEADLINES.length]!;
+
+      const ins = await client.query<{ id: string }>(
+        `
+        INSERT INTO people (
+          institutional_email,
+          role,
+          full_name,
+          department_id,
+          batch_year,
+          is_test_user,
+          profile_completed_at,
+          onboarding_completed_at,
+          updated_at
+        )
+        VALUES ($1, 'alumni', $2, $3::uuid, $4, TRUE, now(), now(), now())
+        RETURNING id
+        `,
+        [email, fullName, departmentId, year]
+      );
+      const personId = ins.rows[0]!.id;
+
+      await client.query(
+        `
+        INSERT INTO occupations (
+          person_id,
+          occupation_type_id,
+          organization_id,
+          role_title,
+          description,
+          is_current,
+          created_at,
+          updated_at
+        )
+        VALUES ($1::uuid, $2::uuid, NULL, $3, $4, TRUE, now(), now())
+        `,
+        [
+          personId,
+          occupationTypeId,
+          `${hl.role} · ${hl.org}`,
+          "Seeded for local batch directory testing.",
+        ]
+      );
+      inserted.push(email);
+    }
+
+    await client.query("COMMIT");
+    console.log(
+      `Inserted ${inserted.length} demo profile(s) for dept=${dept} batch_year=${year}. Emails:\n  ${inserted.join("\n  ")}`
+    );
+    console.log("Reload /home — Your Batch should list them (same cohort as your profile).");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error(e);
+    process.exit(1);
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+void main();

@@ -19,6 +19,19 @@ npm run build
 npm run preview   # serve dist/
 ```
 
+## Performance benchmark scaffold
+
+```bash
+npm run perf:budget      # chunk-size budget checks from dist/assets
+npm run perf:lighthouse  # Lighthouse CI run (configured in lighthouserc.json)
+npm run perf:ci          # build + budgets + Lighthouse
+```
+
+Notes:
+
+- Budget thresholds and route targets live in `../docs/performance-benchmarks.md`.
+- Iteration report template: `../docs/performance-iteration-log-template.md`.
+
 For **Vercel**, `vercel.json` can rewrite `/v1/*` to your hosted API so the browser stays same-origin (leave `VITE_API_URL` unset). Alternatively set `VITE_API_URL` to the API origin and configure API `CORS_ORIGIN` to your frontend.
 
 ## Design

@@ -17,7 +17,7 @@ import { queryKeys } from "../lib/queryKeys";
 
 function formatThreadTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 function disclosureLabel(kind: string): string {
@@ -184,7 +184,18 @@ export function ConnectionThread() {
     );
   }
 
-  const { thread, counterpartyFullName, messages, disclosures, showShareNudge, availableDisclosures } = detail;
+  const {
+    thread,
+    counterpartyFullName,
+    messages,
+    disclosures,
+    showShareNudge,
+    showOfflineContactPrompt,
+    messagesDeletionWarning,
+    referralReplyCount,
+    availableDisclosures,
+    kind,
+  } = detail;
   const isOpen = thread.status === "open";
   const title = counterpartyFullName?.trim() || "Conversation";
 
@@ -202,6 +213,7 @@ export function ConnectionThread() {
               View profile
             </Link>
           </p>
+          {kind === "referral" ? <p className="connection-thread-page__tag">Referral chat</p> : null}
         </header>
 
         {actionError ? (
@@ -213,6 +225,12 @@ export function ConnectionThread() {
         {!isOpen ? (
           <p className="connection-thread-page__closed-banner">
             This conversation is {thread.status === "declined" ? "declined" : "closed"}.
+          </p>
+        ) : null}
+
+        {messagesDeletionWarning ? (
+          <p className="connection-thread-page__retention-banner" role="status">
+            {messagesDeletionWarning}
           </p>
         ) : null}
 
@@ -317,6 +335,14 @@ export function ConnectionThread() {
           </div>
         ) : null}
 
+        {isOpen && showOfflineContactPrompt ? (
+          <div className="connection-thread-page__nudge" role="status" aria-label="Referral offline prompt">
+            <p className="connection-thread-page__nudge-text">
+              You have replied {referralReplyCount} times. Please share contact details and take this conversation offline.
+            </p>
+          </div>
+        ) : null}
+
         {isOpen ? (
           <div className="connection-thread-page__composer">
             <Textarea
@@ -325,8 +351,11 @@ export function ConnectionThread() {
               onChange={(e) => setComposer(e.target.value)}
               rows={3}
               placeholder="Write a message…"
-              maxLength={2000}
+              maxLength={300}
             />
+            <p className="connection-thread-page__composer-counter" aria-live="polite">
+              {composer.length} / 300
+            </p>
             <div className="connection-thread-page__composer-actions">
               <Button type="button" variant="primary" disabled={sending || !composer.trim()} onClick={() => void sendMessage()}>
                 {sending ? "Sending…" : "Send"}

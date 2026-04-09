@@ -90,7 +90,7 @@ export function DirectorySearchBar({
     </form>
   );
 
-  if (variant === "directory" && inlineTrailingAction) {
+  if (inlineTrailingAction) {
     return (
       <div
         className={`directory-search-bar directory-search-bar--${variant} directory-search-bar--with-inline-trailing`}

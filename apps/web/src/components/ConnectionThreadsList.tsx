@@ -4,6 +4,7 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import type { ConnectionThreadsListResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
+import { Avatar } from "./Avatar";
 
 function previewSnippet(text: string, max = 72): string {
   const t = text.trim().replace(/\s+/g, " ");
@@ -48,11 +49,14 @@ export function ConnectionThreadsList() {
             return (
               <li key={t.id}>
                 <Link to={`/connections/${t.id}`} className="home-dashboard__thread-row">
-                  <span className="home-dashboard__thread-name">{name}</span>
-                  <span className="home-dashboard__thread-preview">
-                    {mine ? "You: " : ""}
-                    {previewSnippet(t.lastMessageBody)}
+                  <span className="home-dashboard__thread-row-head">
+                    <span className="home-dashboard__thread-row-person">
+                      <Avatar name={name} size="sm" className="home-dashboard__thread-avatar" />
+                      <span className="home-dashboard__thread-name">{name}</span>
+                    </span>
+                    {t.kind === "referral" ? <span className="home-dashboard__thread-tag">Referral</span> : null}
                   </span>
+                  <span className="home-dashboard__thread-preview">{mine ? "You: " : ""}{previewSnippet(t.lastMessageBody)}</span>
                 </Link>
               </li>
             );

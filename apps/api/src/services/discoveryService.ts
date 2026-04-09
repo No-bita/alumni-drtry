@@ -28,6 +28,7 @@ export interface SearchInput {
   q?: string;
   residenceCountry?: string;
   residenceCity?: string;
+  requireResidence?: boolean;
   excludePersonId?: string;
   limit: number;
   cursor?: string;
@@ -207,6 +208,7 @@ export class DiscoveryService {
       q,
       residenceCountry: input.residenceCountry?.trim() || undefined,
       residenceCity: input.residenceCity?.trim() || undefined,
+      requireResidence: input.requireResidence === true,
       excludePersonId: input.excludePersonId,
       limit: input.limit,
       cursor: decodedCursor

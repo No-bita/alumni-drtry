@@ -1,27 +1,27 @@
+import { DEPARTMENT_LABEL_BY_CODE } from "@department-catalog";
+
 /**
  * Client-side institutional local-part parsing (keep in sync with apps/api/src/lib/emailParser.ts).
  * Layout: firstname[.middles].lastname.deptYY — last segment is dept + year; firstname.deptYY when no last name.
  */
 
-const DEPARTMENT_BY_CODE: Record<string, string> = {
-  cse: "Computer Science and Engineering",
-  ece: "Electronics Engineering",
-  eee: "Electrical Engineering",
-  mec: "Mechanical Engineering",
-  me: "Mechanical Engineering",
-  civil: "Civil Engineering",
-  ce: "Civil Engineering",
-  chem: "Chemical Engineering",
-  ch: "Chemical Engineering",
-  min: "Mining Engineering",
-  meta: "Metallurgical Engineering",
-  met: "Metallurgical Engineering",
-  mst: "Material Sciences and Technology",
-  cer: "Ceramic Engineering",
-  pharm: "Pharmaceutical Engineering",
-  bt: "Biochemical Engineering",
-  bme: "Biomedical Engineering",
+const DEPARTMENT_CODE_ALIASES: Record<string, string> = {
+  // Legacy aliases still seen in email locals.
+  me: "mech",
+  mec: "mech",
+  ce: "civil",
+  ch: "chem",
+  met: "meta",
+  pharm: "pharma",
+  bt: "bce",
+  civ: "civil",
+  cera: "cer",
 };
+
+function normalizeDepartmentCode(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return DEPARTMENT_CODE_ALIASES[key] ?? key;
+}
 
 const LEGACY_PATTERNS = [
   /^(?<dept>[a-z]{2,10})(?<year>\d{2})(?<rest>[a-z0-9._-]*)$/i,
@@ -46,7 +46,7 @@ function tryParseDeptYearBeforeFirstDigit(localPart: string): {
 
   let ls = dIdx - 1;
   while (ls >= 0 && /[a-z]/i.test(last.charAt(ls))) ls--;
-  const departmentCode = last.slice(ls + 1, dIdx).toLowerCase();
+  const departmentCode = normalizeDepartmentCode(last.slice(ls + 1, dIdx));
   if (departmentCode.length < 2) return null;
 
   const yM = last.slice(dIdx).match(/^(\d{4}|\d{2})/);
@@ -118,7 +118,7 @@ export function parseInstitutionalEmailForOnboarding(email: string): ParsedInsti
       firstName: deptYear.firstName,
       lastName: deptYear.lastName,
       departmentCode: deptYear.departmentCode,
-      departmentDisplayName: DEPARTMENT_BY_CODE[deptYear.departmentCode] ?? null,
+      departmentDisplayName: DEPARTMENT_LABEL_BY_CODE[deptYear.departmentCode] ?? null,
       joiningYear: deptYear.joiningYear,
     };
   }
@@ -129,7 +129,8 @@ export function parseInstitutionalEmailForOnboarding(email: string): ParsedInsti
     const match = localPart.match(pattern);
     if (!match?.groups) continue;
     joiningYear = normalizeYear(match.groups.year ?? "");
-    departmentCode = (match.groups.dept ?? "").toLowerCase() || null;
+    const rawDept = (match.groups.dept ?? "").toLowerCase();
+    departmentCode = rawDept ? normalizeDepartmentCode(rawDept) : null;
     break;
   }
 
@@ -137,7 +138,7 @@ export function parseInstitutionalEmailForOnboarding(email: string): ParsedInsti
     firstName: "",
     lastName: "",
     departmentCode,
-    departmentDisplayName: departmentCode ? DEPARTMENT_BY_CODE[departmentCode] ?? null : null,
+    departmentDisplayName: departmentCode ? DEPARTMENT_LABEL_BY_CODE[departmentCode] ?? null : null,
     joiningYear,
   };
 }

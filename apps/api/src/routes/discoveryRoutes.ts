@@ -14,6 +14,7 @@ const searchQuerySchema = z.object({
   q: z.string().max(120).optional(),
   residenceCountry: z.string().trim().max(120).optional(),
   residenceCity: z.string().trim().max(120).optional(),
+  requireResidence: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().max(400).optional()
 });

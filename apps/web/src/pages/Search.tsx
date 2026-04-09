@@ -156,7 +156,7 @@ export function Search() {
   // eslint-disable-next-line react-hooks/incompatible-library -- virtualizer helpers; intentional
   const virtualizer = useWindowVirtualizer({
     count: resultsRowCount,
-    estimateSize: () => (resultsColumnCount === 2 ? 112 : 108),
+    estimateSize: () => (resultsColumnCount === 2 ? 96 : 92),
     overscan: 10,
     scrollMargin: listScrollMargin,
   });
