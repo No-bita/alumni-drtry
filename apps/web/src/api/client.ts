@@ -1,4 +1,9 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
+const rawApiBaseUrl = import.meta.env.VITE_API_URL?.trim() ?? "";
+/**
+ * Production uses same-origin `/v1/*` via hosting rewrites (see `vercel.json`) so
+ * auth cookies remain first-party and survive browser third-party cookie restrictions.
+ */
+export const API_BASE_URL = import.meta.env.PROD ? "" : rawApiBaseUrl;
 const API_BASE = API_BASE_URL;
 
 export type ApiError = { code: string; message?: string };

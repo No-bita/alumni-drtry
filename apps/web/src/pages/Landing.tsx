@@ -3,13 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Eyebrow } from "../components/Eyebrow";
+import { API_BASE_URL } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import { useAuth } from "../contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { LandingWorldMap } from "../components/LandingWorldMap";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 /**
  * Public marketing page at `/`. Signed-in users are redirected to `/home` or `/onboarding`.
@@ -111,7 +110,7 @@ export function Landing() {
             </div>
             {googleEnabled ? (
               <div className="landing-signin-ctas__cell landing-signin-ctas__cell--google">
-                <a className="btn btn--secondary" href={`${API_BASE}/v1/auth/google`}>
+                <a className="btn btn--secondary" href={`${API_BASE_URL}/v1/auth/google`}>
                   Sign in with Google
                 </a>
               </div>
