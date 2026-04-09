@@ -10,6 +10,12 @@ const webRoot = path.dirname(fileURLToPath(import.meta.url));
  * without invalidating React, router, or analytics. (@fontsource stays in vendor-misc — see comment below.)
  */
 function manualChunks(id: string): string | undefined {
+  // Never force CSS into JS manual chunks. This avoids broken ESM export names
+  // from numeric @fontsource files (e.g. `300.css`) in some bundler outputs.
+  if (id.endsWith(".css")) {
+    return undefined;
+  }
+
   if (!id.includes("node_modules")) {
     return undefined;
   }
@@ -32,8 +38,11 @@ function manualChunks(id: string): string | undefined {
     return "vendor-tanstack";
   }
 
-  // Do not split @fontsource into its own chunk — Rollup can emit broken ESM for
-  // files like `300.css` (Export '_300_exports' is not defined) when manual chunked.
+  // Keep @fontsource out of manual chunking to avoid broken ESM for
+  // files like `300.css` (`Export ',300_exports' is not defined in module`).
+  if (id.includes("node_modules/@fontsource/")) {
+    return undefined;
+  }
 
   if (id.includes("node_modules/@vercel/analytics")) {
     return "vendor-analytics";
