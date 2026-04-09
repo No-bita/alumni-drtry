@@ -8,6 +8,12 @@ import { AppError, isAppError } from "../lib/errors.js";
 const GOOGLE_STATE_COOKIE = "google_oauth_state";
 const GOOGLE_STATE_MAX_AGE_SEC = 600;
 
+function sessionSameSite(): "none" | "lax" {
+  // Production deployments commonly host web + API on different domains
+  // (e.g. Vercel + Railway), which requires SameSite=None for cookie-based auth.
+  return env.NODE_ENV === "production" ? "none" : "lax";
+}
+
 function webAppBaseUrl(): string {
   return (env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL).replace(/\/+$/, "");
 }
@@ -131,7 +137,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         path: "/",
         httpOnly: true,
         secure: env.NODE_ENV === "production",
-        sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
+        sameSite: sessionSameSite(),
         maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
         ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
       });
@@ -196,7 +202,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       path: "/",
       httpOnly: true,
       secure: env.NODE_ENV === "production",
-      sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: sessionSameSite(),
       maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
       ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
     });
@@ -224,7 +230,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       path: "/",
       httpOnly: true,
       secure: env.NODE_ENV === "production",
-      sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: sessionSameSite(),
       maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
       ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
     });
