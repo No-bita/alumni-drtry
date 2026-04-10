@@ -126,6 +126,7 @@ const envSchema = z.object({
    * Dev-only password fallback for one account.
    * Password is verified by comparing hashSecret(password, AUTH_SECRET_PEPPER) to DEV_PASSWORD_LOGIN_PASSWORD_HASH.
    */
+  ENABLE_PASSWORD_LOGIN: z.coerce.boolean().default(false),
   DEV_PASSWORD_LOGIN_EMAIL: optionalEmailSchema.default("seed-admin-placeholder@example.invalid"),
   DEV_PASSWORD_LOGIN_PASSWORD_HASH: optionalStringSchema
 });

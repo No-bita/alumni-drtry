@@ -265,11 +265,11 @@ export class AuthService {
   }
 
   /**
-   * Dev-only password login for a single configured email.
-   * This does not replace OTP/magic-link; it's an explicit local fallback.
+   * Optional password fallback for a single configured email.
+   * This does not replace OTP/magic-link; it's an explicit fallback gated by ENABLE_PASSWORD_LOGIN.
    */
   async loginWithDevPassword(input: PasswordLoginInput): Promise<VerifyAuthResult> {
-    if (env.NODE_ENV === "production") {
+    if (!env.ENABLE_PASSWORD_LOGIN) {
       throw new AppError(403, "AUTH_PASSWORD_DISABLED", "Password login is disabled.");
     }
     if (!env.DEV_PASSWORD_LOGIN_EMAIL || !env.DEV_PASSWORD_LOGIN_PASSWORD_HASH) {
