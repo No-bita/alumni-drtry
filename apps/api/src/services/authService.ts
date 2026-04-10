@@ -37,6 +37,13 @@ export interface VerifyAuthInput {
   userAgent: string | null;
 }
 
+export interface PasswordLoginInput {
+  institutionalEmail: string;
+  password: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
 export interface VerifyAuthResult {
   sessionToken: string;
   sessionExpiresAt: Date;
@@ -205,6 +212,85 @@ export class AuthService {
     const client = await this.pool.connect();
     let shouldRollback = true;
 
+    try {
+      await client.query("BEGIN");
+      const personRepo = new PersonRepo(client);
+      const sessionRepo = new SessionRepo(client);
+
+      const parsedIdentity = parseInstitutionalIdentity(institutionalEmail);
+      const person = await personRepo.upsertByInstitutionalEmail({
+        institutionalEmail: parsedIdentity.normalizedEmail,
+        departmentCode: parsedIdentity.departmentCode,
+        departmentName: parsedIdentity.departmentName,
+        joiningYear: parsedIdentity.joiningYear,
+        isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
+      });
+
+      await personRepo.incrementAppLoginCount(person.id);
+
+      const sessionToken = generateOpaqueToken(48);
+      const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
+      const createdAtMs = Date.now();
+      const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
+      await sessionRepo.create({
+        personId: person.id,
+        sessionHash,
+        expiresAt: sessionExpiresAt,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent
+      });
+
+      await client.query("COMMIT");
+      shouldRollback = false;
+
+      return {
+        sessionToken,
+        sessionExpiresAt,
+        person: {
+          id: person.id,
+          institutionalEmail: person.institutional_email,
+          departmentCode: person.department_code,
+          departmentName: person.department_name,
+          joiningYear: person.joining_year
+        }
+      };
+    } catch (error) {
+      if (shouldRollback) {
+        await client.query("ROLLBACK");
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Dev-only password login for a single configured email.
+   * This does not replace OTP/magic-link; it's an explicit local fallback.
+   */
+  async loginWithDevPassword(input: PasswordLoginInput): Promise<VerifyAuthResult> {
+    if (env.NODE_ENV === "production") {
+      throw new AppError(403, "AUTH_PASSWORD_DISABLED", "Password login is disabled.");
+    }
+    if (!env.DEV_PASSWORD_LOGIN_EMAIL || !env.DEV_PASSWORD_LOGIN_PASSWORD_HASH) {
+      throw new AppError(403, "AUTH_PASSWORD_DISABLED", "Password login is not configured.");
+    }
+
+    const institutionalEmail = normalizeEmail(input.institutionalEmail);
+    if (institutionalEmail !== env.DEV_PASSWORD_LOGIN_EMAIL) {
+      throw new AppError(403, "AUTH_PASSWORD_DISABLED", "Password login is unavailable for this email.");
+    }
+    if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+    }
+
+    const submittedHash = hashSecret(input.password, env.AUTH_SECRET_PEPPER);
+    if (submittedHash !== env.DEV_PASSWORD_LOGIN_PASSWORD_HASH) {
+      throw new AppError(401, "AUTH_INVALID_PASSWORD", "Incorrect password.");
+    }
+
+    const client = await this.pool.connect();
+    let shouldRollback = true;
     try {
       await client.query("BEGIN");
       const personRepo = new PersonRepo(client);

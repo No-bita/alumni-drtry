@@ -56,6 +56,11 @@ const verifyAuthQuerySchema = z.object({
   magicLinkToken: z.string().min(16).max(256)
 });
 
+const passwordLoginBodySchema = z.object({
+  institutionalEmail: z.string().email(),
+  password: z.string().min(1).max(256)
+});
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get("/v1/auth/google/config", async (_request, reply) => {
     return reply.code(200).send({
@@ -197,6 +202,34 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     };
 
     const result = await app.authService.verifyAuth(verificationPayload);
+
+    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
+      path: "/",
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: sessionSameSite(),
+      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
+      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
+    });
+
+    return reply.code(200).send({
+      person: result.person,
+      sessionExpiresAt: result.sessionExpiresAt.toISOString()
+    });
+  });
+
+  app.post("/v1/auth/password-login", async (request, reply) => {
+    const parsed = passwordLoginBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError(400, "AUTH_BAD_REQUEST", "Invalid password login payload.");
+    }
+
+    const result = await app.authService.loginWithDevPassword({
+      institutionalEmail: parsed.data.institutionalEmail,
+      password: parsed.data.password,
+      ipAddress: request.ip ?? null,
+      userAgent: request.headers["user-agent"] ?? null
+    });
 
     reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
       path: "/",

@@ -121,7 +121,13 @@ const envSchema = z.object({
    * Optional. Passed to Google as OAuth `hd` (single Google Workspace domain). Nudges the account picker;
    * enforcement of allowed addresses is still ALLOWED_EMAIL_DOMAINS on the API after sign-in.
    */
-  GOOGLE_OAUTH_HOSTED_DOMAIN: optionalStringSchema
+  GOOGLE_OAUTH_HOSTED_DOMAIN: optionalStringSchema,
+  /**
+   * Dev-only password fallback for one account.
+   * Password is verified by comparing hashSecret(password, AUTH_SECRET_PEPPER) to DEV_PASSWORD_LOGIN_PASSWORD_HASH.
+   */
+  DEV_PASSWORD_LOGIN_EMAIL: optionalEmailSchema.default("seed-admin-placeholder@example.invalid"),
+  DEV_PASSWORD_LOGIN_PASSWORD_HASH: optionalStringSchema
 });
 
 const parsed = envSchema.safeParse(process.env);

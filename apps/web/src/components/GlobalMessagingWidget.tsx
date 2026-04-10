@@ -33,7 +33,10 @@ export function GlobalMessagingWidget() {
   const myPersonId = auth.person.personId;
 
   return (
-    <aside className="global-messaging-widget" aria-label="Messaging">
+    <aside
+      className={`global-messaging-widget${expanded ? " global-messaging-widget--expanded" : ""}`}
+      aria-label="Messaging"
+    >
       <button
         type="button"
         className="global-messaging-widget__head"

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/db/migrate.ts",
+    "auth:hash-password": "tsx scripts/generate-password-hash.ts",
     "job:intentcasts:expire": "tsx src/jobs/expireIntentcasts.ts",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/index.js",

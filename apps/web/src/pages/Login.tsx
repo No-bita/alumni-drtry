@@ -9,9 +9,11 @@ import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/on
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
 
 type LoginPhase = "form" | "sending" | "sent";
+type SentAuthMethod = "otp" | "password";
 
 const OTP_LENGTH = 6;
 const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => "");
+const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
 
 /** Basename (no extension) of files in `public/media/` — must match disk names (spaces OK; URLs are encoded). */
 const SUCCESS_VIDEO_STEM = "Gen 4 Turbo Varanasi Aerial";
@@ -43,18 +45,24 @@ export function Login() {
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSubmitting, setOtpSubmitting] = useState(false);
+  const [sentAuthMethod, setSentAuthMethod] = useState<SentAuthMethod>("otp");
+  const [passwordEnabledForEmail, setPasswordEnabledForEmail] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return;
     setPhase("sending");
     try {
       const { data, error: err, retryAfterSeconds } = await api.post<{
         challengeId: string;
         sentTo?: string;
       }>("/v1/auth/start", {
-        institutionalEmail: email.trim(),
+        institutionalEmail: normalizedEmail,
       });
       if (err) {
         let msg = err.message ?? err.code;
@@ -72,6 +80,11 @@ export function Login() {
       setShowSuccessVideo(false);
       setOtpDigits(emptyOtpDigits());
       setOtpError(null);
+      const enablePassword = normalizedEmail === DEV_PASSWORD_LOGIN_EMAIL;
+      setPasswordEnabledForEmail(enablePassword);
+      setSentAuthMethod("otp");
+      setPassword("");
+      setPasswordError(null);
       setPhase("sent");
       if (!cid) {
         setOtpError("Could not start sign-in. Please try again.");
@@ -238,6 +251,35 @@ export function Login() {
     setShowSuccessVideo(true);
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!passwordEnabledForEmail || normalizedEmail !== DEV_PASSWORD_LOGIN_EMAIL) {
+      setPasswordError("Password login is unavailable for this email.");
+      return;
+    }
+    if (!password.trim()) {
+      setPasswordError("Enter your password.");
+      return;
+    }
+    setPasswordError(null);
+    setPasswordSubmitting(true);
+    const { error: perr } = await api.post("/v1/auth/password-login", {
+      institutionalEmail: normalizedEmail,
+      password,
+    });
+    setPasswordSubmitting(false);
+    if (perr) {
+      setPasswordError(perr.message ?? perr.code ?? "Password login failed.");
+      return;
+    }
+    if (!prefersReduceMotion) {
+      sessionPrefetchRef.current = refetch();
+      void import("../pages/Home");
+    }
+    setShowSuccessVideo(true);
+  };
+
   if (phase === "sent" && showSuccessVideo && !prefersReduceMotion) {
     return (
       <div className="login-success-video login-success-video--fullscreen">
@@ -285,47 +327,94 @@ export function Login() {
               <h2 className="section-headline" style={{ marginBottom: 12 }}>
                 We&apos;ve sent you a code
               </h2>
-              <form className="login-gate-sent__otp" onSubmit={handleOtpSubmit}>
-                <label htmlFor="login-otp-0">One-time code</label>
-                <div
-                  className="login-gate-sent__otp-cells"
-                  onPaste={handleOtpPaste}
-                  role="group"
-                  aria-label="One-time code"
-                >
-                  {otpDigits.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={(el) => {
-                        otpInputRefs.current[i] = el;
-                      }}
-                      id={i === 0 ? "login-otp-0" : undefined}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      autoComplete={i === 0 ? "one-time-code" : "off"}
-                      maxLength={1}
-                      className="input login-gate-sent__otp-cell"
-                      value={digit}
-                      onChange={(e) => handleOtpDigitChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      disabled={otpSubmitting}
-                      aria-invalid={!!otpError}
-                    />
-                  ))}
+              {passwordEnabledForEmail ? (
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setSentAuthMethod("otp")}
+                    aria-pressed={sentAuthMethod === "otp"}
+                    style={{ opacity: sentAuthMethod === "otp" ? 1 : 0.75 }}
+                  >
+                    OTP
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setSentAuthMethod("password")}
+                    aria-pressed={sentAuthMethod === "password"}
+                    style={{ opacity: sentAuthMethod === "password" ? 1 : 0.75 }}
+                  >
+                    Password
+                  </button>
                 </div>
-                {otpError && (
-                  <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{otpError}</p>
-                )}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  style={{ marginTop: 16, width: "100%" }}
-                  disabled={!challengeId || otpSubmitting}
-                >
-                  {otpSubmitting ? "Checking…" : "enter"}
-                </Button>
-              </form>
+              ) : null}
+              {sentAuthMethod === "password" && passwordEnabledForEmail ? (
+                <form className="login-gate-sent__otp" onSubmit={handlePasswordSubmit}>
+                  <label htmlFor="login-password-field">Password</label>
+                  <Input
+                    id="login-password-field"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                  {passwordError ? (
+                    <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{passwordError}</p>
+                  ) : null}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    style={{ marginTop: 16, width: "100%" }}
+                    disabled={passwordSubmitting}
+                  >
+                    {passwordSubmitting ? "Checking…" : "Sign in"}
+                  </Button>
+                </form>
+              ) : (
+                <form className="login-gate-sent__otp" onSubmit={handleOtpSubmit}>
+                  <label htmlFor="login-otp-0">One-time code</label>
+                  <div
+                    className="login-gate-sent__otp-cells"
+                    onPaste={handleOtpPaste}
+                    role="group"
+                    aria-label="One-time code"
+                  >
+                    {otpDigits.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => {
+                          otpInputRefs.current[i] = el;
+                        }}
+                        id={i === 0 ? "login-otp-0" : undefined}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                        maxLength={1}
+                        className="input login-gate-sent__otp-cell"
+                        value={digit}
+                        onChange={(e) => handleOtpDigitChange(i, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                        disabled={otpSubmitting}
+                        aria-invalid={!!otpError}
+                      />
+                    ))}
+                  </div>
+                  {otpError && (
+                    <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{otpError}</p>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    style={{ marginTop: 16, width: "100%" }}
+                    disabled={!challengeId || otpSubmitting}
+                  >
+                    {otpSubmitting ? "Checking…" : "enter"}
+                  </Button>
+                </form>
+              )}
               <p className="small-note" style={{ marginTop: 20 }}>
                 You can still open the magic link in your inbox — either path signs you in.
               </p>
@@ -340,6 +429,10 @@ export function Login() {
                   setShowSuccessVideo(false);
                   setOtpDigits(emptyOtpDigits());
                   setOtpError(null);
+                  setPassword("");
+                  setPasswordError(null);
+                  setPasswordEnabledForEmail(false);
+                  setSentAuthMethod("otp");
                 }}
                 style={{ marginTop: 24 }}
               >
