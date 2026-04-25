@@ -57,7 +57,7 @@ function pickSalary(text: string): string | null {
 }
 
 const STRUCTURED_LEAD =
-  /^(.+?)\s*[—–\-]\s*(.+?)\s*\(([^)]*)\)\.\s*(.*)$/s;
+  /^(.+?)\s*[—–-]\s*(.+?)\s*\(([^)]*)\)\.\s*(.*)$/s;
 
 /** Fields collected in the hiring compose form; serializes to the opportunity-card shape. */
 export type HiringBulletinComposeFields = {

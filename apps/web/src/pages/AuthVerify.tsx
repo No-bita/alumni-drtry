@@ -48,7 +48,6 @@ export function AuthVerify() {
 
   useEffect(() => {
     if (!verifyQuery.isSuccess) return;
-    setSessionRefetchFailed(false);
     void (async () => {
       const snap = await refetchRef.current();
       if (!snap) {

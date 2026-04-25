@@ -9,6 +9,7 @@ import { DirectorySearchBar } from "../components/DirectorySearchBar";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
 import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
 import { Spinner } from "../components/Spinner";
+import { PageStateBlock } from "../components/PageStateBlock";
 import { type SearchResult, type SearchProfileView } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
@@ -153,7 +154,6 @@ export function Search() {
     };
   }, [listLayoutKey]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- virtualizer helpers; intentional
   const virtualizer = useWindowVirtualizer({
     count: resultsRowCount,
     estimateSize: () => (resultsColumnCount === 2 ? 96 : 92),
@@ -282,7 +282,7 @@ export function Search() {
                     <span>
                       {results.length} result{results.length !== 1 ? "s" : ""}
                       {hasActiveFilters ? " · filtered" : ""}
-                      <span style={{ opacity: 0.75 }}> · updating…</span>
+                      <span className="search-page__updating-suffix"> · updating…</span>
                     </span>
                   )}
                 </>
@@ -306,23 +306,20 @@ export function Search() {
 
           {!fetchingMain && errorMessage && results.length === 0 ? (
             <div className="search-page__empty">
-              <p className="section-headline" style={{ marginBottom: 8, color: "var(--brick)" }}>
-                Couldn’t load results
-              </p>
-              <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
-                {errorMessage}
-              </p>
+              <PageStateBlock title="Couldn’t load results" description={errorMessage} tone="error" />
             </div>
           ) : null}
 
           {!fetchingMain && !errorMessage && results.length === 0 ? (
             <div className="search-page__empty">
-              <p className="section-headline" style={{ marginBottom: 8 }}>
-                No alumni match your search
-              </p>
-              <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
-                Try another keyword, open <strong>Filter</strong> to adjust batch or department, or clear filters.
-              </p>
+              <PageStateBlock
+                title="No alumni match your search"
+                description={
+                  <>
+                    Try another keyword, open <strong>Filter</strong> to adjust batch or department, or clear filters.
+                  </>
+                }
+              />
             </div>
           ) : null}
 

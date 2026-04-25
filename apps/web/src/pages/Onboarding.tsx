@@ -5,15 +5,12 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { ProgressBar } from "../components/ProgressBar";
 import { StepTabs } from "../components/StepTabs";
-import { Input } from "../components/Input";
 import { Chip } from "../components/Chip";
 import {
   api,
   type MeProfileResponse,
   type MeOccupationsResponse,
-  type MeLinksResponse,
   type MyProfileView,
-  type ProfileLinkView,
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
@@ -25,7 +22,6 @@ import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
 import { CAMPUS_IMAGE, CAMPUS_IMAGE_SMALL } from "../constants/images";
-import { SOCIAL_PLATFORM, normalizeSocialUrl } from "../lib/socialLinks";
 
 const JOIN_YEAR_MIN = 1960;
 const joinYearMax = () => new Date().getUTCFullYear() + 1;
@@ -34,11 +30,20 @@ const STEPS = [
   { id: 0, name: "Welcome" },
   { id: 1, name: "Confirm details" },
   { id: 2, name: "Occupation" },
-  { id: 3, name: "Contact & links" },
-  { id: 4, name: "Done" },
+  { id: 3, name: "Intent" },
 ];
 
 const ONBOARDING_STEP_COUNT = 3;
+
+type OnboardingIntent = "referrals" | "hire" | "build" | "mentor" | "explore";
+
+const ONBOARDING_INTENTS: { id: OnboardingIntent; label: string; hint: string }[] = [
+  { id: "referrals", label: "Get referrals", hint: "Find alumni and reach out quickly." },
+  { id: "hire", label: "Hire", hint: "Post open roles to the alumni network." },
+  { id: "build", label: "Build", hint: "Find collaborators for projects." },
+  { id: "mentor", label: "Mentor", hint: "Discover alumni and offer guidance." },
+  { id: "explore", label: "Explore alumni", hint: "Browse the directory by cohort and context." },
+];
 
 const OCCUPATION_OPTIONS: { label: string; code: string }[] = [
   { label: "Full time employment", code: "full_time_employment" },
@@ -68,7 +73,7 @@ export function Onboarding() {
   const authMyProfileError = auth.status === "authenticated" ? auth.myProfileError : undefined;
   const [searchParams] = useSearchParams();
   const stepParam = searchParams.get("step");
-  const stepIndex = stepParam ? Math.min(4, Math.max(0, parseInt(stepParam, 10))) : 0;
+  const stepIndex = stepParam ? Math.min(3, Math.max(0, parseInt(stepParam, 10))) : 0;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [batchYear, setBatchYear] = useState<number | null>(null);
@@ -82,14 +87,7 @@ export function Onboarding() {
   const departmentSelectRef = useRef<HTMLSelectElement>(null);
   const [selectedOccupationCodes, setSelectedOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationCodes, setExistingOccupationCodes] = useState<Set<string>>(new Set());
-  const [residenceCountry, setResidenceCountry] = useState("");
-  const [residenceCity, setResidenceCity] = useState("");
-  const [mobilePhone, setMobilePhone] = useState("");
-  const [personalEmail, setPersonalEmail] = useState("");
-  const [twitterUrl, setTwitterUrl] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [githubUrl, setGithubUrl] = useState("");
-  const [existingLinks, setExistingLinks] = useState<ProfileLinkView[]>([]);
+  const [selectedIntent, setSelectedIntent] = useState<OnboardingIntent>("explore");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -102,34 +100,17 @@ export function Onboarding() {
     enabled: auth.status === "authenticated",
   });
 
-  const linksQuery = useQuery({
-    queryKey: queryKeys.me.links(),
-    queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
-    enabled: auth.status === "authenticated",
-  });
-
   const occHydratedRef = useRef(false);
-  const linksHydratedRef = useRef(false);
 
   useEffect(() => {
     if (!occQuery.data?.occupations || occHydratedRef.current) return;
     occHydratedRef.current = true;
     const codes = new Set(occQuery.data.occupations.map((o) => o.occupationTypeCode));
-    setExistingOccupationCodes(codes);
-    setSelectedOccupationCodes(codes);
+    queueMicrotask(() => {
+      setExistingOccupationCodes(codes);
+      setSelectedOccupationCodes(codes);
+    });
   }, [occQuery.data]);
-
-  useEffect(() => {
-    if (!linksQuery.data?.links || linksHydratedRef.current) return;
-    linksHydratedRef.current = true;
-    const list = linksQuery.data.links;
-    setExistingLinks(list);
-    const urlFor = (platform: string) =>
-      list.find((l) => l.platform.toLowerCase() === platform.toLowerCase())?.url ?? "";
-    setTwitterUrl(urlFor(SOCIAL_PLATFORM.twitter));
-    setLinkedinUrl(urlFor(SOCIAL_PLATFORM.linkedin));
-    setGithubUrl(urlFor(SOCIAL_PLATFORM.github));
-  }, [linksQuery.data]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -192,10 +173,6 @@ export function Onboarding() {
       } else {
         setBatchYear(2019 + 4);
       }
-      if (p.residenceCountry) setResidenceCountry(p.residenceCountry);
-      if (p.residenceCity) setResidenceCity(p.residenceCity);
-      if (p.mobilePhone) setMobilePhone(p.mobilePhone);
-      if (p.personalEmail) setPersonalEmail(p.personalEmail);
     };
 
     if (
@@ -250,10 +227,6 @@ export function Onboarding() {
   const NULLABLE_PATCH_KEYS = new Set([
     "bio",
     "degreeCode",
-    "personalEmail",
-    "mobilePhone",
-    "residenceCountry",
-    "residenceCity",
   ]);
 
   const saveProfile = async (payload: {
@@ -262,10 +235,6 @@ export function Onboarding() {
     departmentCode?: string;
     degreeCode?: string | null;
     bio?: string | null;
-    personalEmail?: string | null;
-    mobilePhone?: string | null;
-    residenceCountry?: string;
-    residenceCity?: string;
     markMinimumProfileComplete?: true;
     markOnboardingComplete?: true;
   }) => {
@@ -320,9 +289,6 @@ export function Onboarding() {
       batchYear: batchYear ?? undefined,
       departmentCode: departmentCode ?? undefined,
       degreeCode: degreeCode ?? undefined,
-      mobilePhone: mobilePhone.trim() || null,
-      ...(residenceCountry.trim() ? { residenceCountry: residenceCountry.trim() } : {}),
-      ...(residenceCity.trim() ? { residenceCity: residenceCity.trim() } : {}),
     });
     if (err) return;
     goTo(2);
@@ -355,71 +321,29 @@ export function Onboarding() {
   };
 
   const handleStep3Finish = async () => {
-    const emailTrim = personalEmail.trim();
-    if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-      setSaveError("Please enter a valid personal email or leave it blank.");
-      return;
-    }
-    for (const [raw, label] of [
-      [twitterUrl, "Twitter"],
-      [linkedinUrl, "LinkedIn"],
-      [githubUrl, "GitHub"],
-    ] as const) {
-      if (raw.trim() && !normalizeSocialUrl(raw)) {
-        setSaveError(`Please enter a valid ${label} URL or leave it blank.`);
-        return;
-      }
-    }
     setSaveError(null);
-    const errProfile = await saveProfile({
-      // bio: bio.trim() || null,
-      personalEmail: emailTrim || null,
-    });
-    if (errProfile) return;
-
-    setSaving(true);
-    let snapshot = [...existingLinks];
-    const syncPlatform = async (platform: string, raw: string): Promise<string | null> => {
-      const normalized = normalizeSocialUrl(raw);
-      const idx = snapshot.findIndex((l) => l.platform.toLowerCase() === platform.toLowerCase());
-      const existing = idx >= 0 ? snapshot[idx]! : null;
-      if (!normalized) {
-        if (!existing) return null;
-        const { error } = await api.delete(`/v1/me/links/${existing.id}`);
-        if (error) return error.message ?? error.code;
-        snapshot = snapshot.filter((l) => l.id !== existing.id);
-        return null;
-      }
-      if (existing) {
-        if (existing.url === normalized) return null;
-        const { error } = await api.patch(`/v1/me/links/${existing.id}`, { url: normalized });
-        if (error) return error.message ?? error.code;
-        snapshot = snapshot.map((l) => (l.id === existing.id ? { ...l, url: normalized } : l));
-        return null;
-      }
-      const { data, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
-        platform,
-        url: normalized,
-        label: null,
-      });
-      if (error) return error.message ?? error.code;
-      if (data?.link) snapshot = [...snapshot, data.link];
-      return null;
-    };
-
-    const msg =
-      (await syncPlatform(SOCIAL_PLATFORM.twitter, twitterUrl)) ??
-      (await syncPlatform(SOCIAL_PLATFORM.linkedin, linkedinUrl)) ??
-      (await syncPlatform(SOCIAL_PLATFORM.github, githubUrl));
-    if (msg) {
-      setSaveError(msg);
-      setSaving(false);
-      return;
-    }
     const errDone = await saveProfile({ markOnboardingComplete: true });
     if (errDone) return;
-    setExistingLinks(snapshot);
-    goTo(4);
+
+    const params = new URLSearchParams();
+    if (batchYear != null) params.set("batch", String(batchYear));
+    if (departmentCode) params.set("dept", departmentCode.toLowerCase());
+    params.set("fromOnboarding", "1");
+    params.set("intent", selectedIntent);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("onboarding.intent", selectedIntent);
+    }
+
+    if (selectedIntent === "hire") {
+      navigate(`/intent/career/opportunities?compose=1&${params.toString()}`, { replace: true });
+      return;
+    }
+    if (selectedIntent === "build") {
+      navigate(`/intent/build?compose=1&${params.toString()}`, { replace: true });
+      return;
+    }
+    navigate(`/search?${params.toString()}`, { replace: true });
   };
 
   const toggleOccupation = (code: string) => {
@@ -511,38 +435,6 @@ export function Onboarding() {
             </p>
             <Button variant="primary" onClick={() => navigate("/onboarding?step=1")}>
               Get started
-            </Button>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (stepIndex === 4) {
-    return (
-      <>
-        <Nav hideIntentNav />
-        <div
-          className="campus-panel"
-          style={{
-            minHeight: "calc(100vh - var(--nav-height))",
-            display: "flex",
-            alignItems: "flex-end",
-            backgroundImage: `url(${CAMPUS_IMAGE})`,
-          }}
-        >
-          <div className="campus-panel__content" style={{ paddingBottom: "4rem" }}>
-            <p className="eyebrow" style={{ marginBottom: 8 }}>
-              You’re all set
-            </p>
-            <h1 className="page-headline" style={{ color: "var(--cream)", marginBottom: 12 }}>
-              You’re part of the <span className="italic-accent">directory</span>.
-            </h1>
-            <p style={{ color: "rgba(242,237,228,0.8)", marginBottom: 24 }}>
-              Other alumni can now find you and reach out.
-            </p>
-            <Button variant="primary" onClick={() => navigate("/home")}>
-              Go to home
             </Button>
           </div>
         </div>
@@ -751,51 +643,6 @@ export function Onboarding() {
                     </button>
                   </div>
                 </div>
-                <div className="onboarding-confirm__field">
-                  <label className="onboarding-confirm__label" htmlFor="onboarding-residence-country">
-                    Country of residence (optional)
-                  </label>
-                  <input
-                    id="onboarding-residence-country"
-                    type="text"
-                    className="onboarding-confirm__input"
-                    value={residenceCountry}
-                    onChange={(e) => setResidenceCountry(e.target.value)}
-                    autoComplete="country-name"
-                    placeholder="e.g. India"
-                  />
-                </div>
-                <div className="onboarding-confirm__field">
-                  <label className="onboarding-confirm__label" htmlFor="onboarding-residence-city">
-                    City of residence (optional)
-                  </label>
-                  <input
-                    id="onboarding-residence-city"
-                    type="text"
-                    className="onboarding-confirm__input"
-                    value={residenceCity}
-                    onChange={(e) => setResidenceCity(e.target.value)}
-                    autoComplete="address-level2"
-                    placeholder="e.g. Bengaluru"
-                  />
-                </div>
-                <div className="onboarding-confirm__field">
-                  <label className="onboarding-confirm__label" htmlFor="onboarding-mobile">
-                    Mobile number (optional)
-                  </label>
-                  <input
-                    id="onboarding-mobile"
-                    type="tel"
-                    className="onboarding-confirm__input"
-                    value={mobilePhone}
-                    onChange={(e) => setMobilePhone(e.target.value)}
-                    autoComplete="tel"
-                    placeholder="e.g. +91 98765 43210"
-                  />
-                  <p className="onboarding-confirm__hint">
-                    <span aria-hidden>↳</span> Optional — you can edit this anytime from your profile.
-                  </p>
-                </div>
                 {saveError && (
                   <p className="onboarding-confirm__error" role="alert">
                     {saveError}
@@ -868,49 +715,26 @@ export function Onboarding() {
                   Step 3 of {ONBOARDING_STEP_COUNT}
                 </p>
                 <h2 className="section-headline" style={{ marginBottom: 8 }}>
-                  Contact & links
+                  What are you here for?
                 </h2>
                 <p className="body-text" style={{ color: "var(--ink-muted)", marginBottom: 20 }}>
-                  Optional — add a personal email and social profiles so classmates can reach you. URLs can be full
-                  links or just your handle (we’ll add https://).
+                  We will route you to a best first action right after this step.
                 </p>
-                <Input
-                  label="Personal email (optional)"
-                  type="email"
-                  autoComplete="email"
-                  value={personalEmail}
-                  onChange={(e) => setPersonalEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  style={{ marginBottom: 16 }}
-                />
-                <Input
-                  label="Twitter / X (optional)"
-                  type="url"
-                  inputMode="url"
-                  value={twitterUrl}
-                  onChange={(e) => setTwitterUrl(e.target.value)}
-                  placeholder="https://x.com/yourhandle"
-                  style={{ marginBottom: 12 }}
-                />
-                <Input
-                  label="LinkedIn (optional)"
-                  type="url"
-                  inputMode="url"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  style={{ marginBottom: 12 }}
-                />
-                <Input
-                  label="GitHub (optional)"
-                  type="url"
-                  inputMode="url"
-                  value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
-                  placeholder="https://github.com/yourusername"
-                  style={{ marginBottom: 16 }}
-                />
-                {/* Short bio (optional) — commented out; restore Textarea, `bio` state, init from profile, and `bio` in step-3 PATCH if needed */}
+                <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+                  {ONBOARDING_INTENTS.map((intent) => (
+                    <button
+                      key={intent.id}
+                      type="button"
+                      className={`onboarding-intent-card${
+                        selectedIntent === intent.id ? " onboarding-intent-card--active" : ""
+                      }`}
+                      onClick={() => setSelectedIntent(intent.id)}
+                    >
+                      <span className="onboarding-intent-card__label">{intent.label}</span>
+                      <span className="onboarding-intent-card__hint">{intent.hint}</span>
+                    </button>
+                  ))}
+                </div>
                 {saveError && (
                   <p style={{ color: "var(--brick)", fontSize: 13, marginBottom: 12 }}>{saveError}</p>
                 )}
@@ -919,7 +743,7 @@ export function Onboarding() {
                     Back
                   </Button>
                   <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>
-                    {saving ? "Saving…" : "Finish"}
+                    {saving ? "Saving…" : "Continue"}
                   </Button>
                 </div>
               </>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { BuildPostCard, type BuildPostCardProps } from "../components/BuildPostCard";
@@ -10,6 +11,8 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import type { IntentcastFeedItem, IntentcastFeedResponse } from "../api/client";
 import { buildBuildPostContent, parseBuildPostContent } from "../lib/buildPostContent";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 
 function navDisplayName(profile: { fullName?: string | null } | undefined, email: string | undefined): string {
   const fn = profile?.fullName?.trim();
@@ -55,9 +58,13 @@ const DEMO_BUILD_FEED: BuildPostCardProps[] = [
  * Build hub: alumni projects, collaborations, and ideas — feed of post cards (UI shell; data is demo for now).
  */
 export function BuildPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const auth = useAuth();
+  const isAuthenticated = auth.status === "authenticated";
+  const myPersonId = isAuthenticated ? auth.person.personId : undefined;
   const queryClient = useQueryClient();
   const panelRootRef = useRef<HTMLElement | null>(null);
+  const composeDialogRef = useRef<HTMLDivElement | null>(null);
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [postSubmitting, setPostSubmitting] = useState(false);
@@ -65,6 +72,12 @@ export function BuildPage() {
   const [title, setTitle] = useState("");
   const [industry, setIndustry] = useState("");
   const [description, setDescription] = useState("");
+  useBodyScrollLock(composeOpen);
+  useDialogFocusManager({
+    open: composeOpen,
+    containerRef: composeDialogRef,
+    onClose: postSubmitting ? undefined : () => setComposeOpen(false),
+  });
 
   const resetCompose = () => {
     setPostError(null);
@@ -74,16 +87,12 @@ export function BuildPage() {
   };
 
   const displayName = useMemo(() => {
-    if (auth.status !== "authenticated") return "";
+    if (!isAuthenticated) return "";
     return (
       auth.myProfile?.fullName?.trim() ||
       navDisplayName(auth.myProfile ?? undefined, auth.person.institutionalEmail)
     );
-  }, [auth]);
-
-  if (auth.status !== "authenticated") {
-    return null;
-  }
+  }, [auth, isAuthenticated]);
 
   const buildFeedQueryKey = queryKeys.intentcasts.feedInfinite({
     category: BUILD_FEED_CATEGORY,
@@ -106,7 +115,7 @@ export function BuildPage() {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.pageInfo.nextOffset ?? undefined,
-    enabled: auth.status === "authenticated",
+    enabled: isAuthenticated,
   });
 
   const intentcasts = useMemo(() => {
@@ -123,11 +132,27 @@ export function BuildPage() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [composeOpen, postSubmitting]);
 
-  const openCompose = () => {
-    resetCompose();
+  const openCompose = useCallback(() => {
+    setPostError(null);
+    setTitle("");
+    setIndustry("");
+    setDescription("");
     setComposeOpen(true);
     panelRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("compose") !== "1") return;
+    const t = window.setTimeout(() => {
+      openCompose();
+    }, 0);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("compose");
+      return next;
+    }, { replace: true });
+    return () => window.clearTimeout(t);
+  }, [openCompose, searchParams, setSearchParams]);
 
   const handlePost = async () => {
     const t = title.trim();
@@ -223,10 +248,14 @@ export function BuildPage() {
   const previewParsed = useMemo(() => parseBuildPostContent(previewContent), [previewContent]);
   const previewCompany = "Company name";
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="intent-page-shell">
       <Nav variant="home" avatarName={displayName} />
-      <div className="build-page">
+      <div className={`build-page${composeOpen ? " build-page--compose-open" : ""}`}>
         <header className="build-page__hero">
           <h1 className="build-page__hero-title">Build with alumni — projects, collaborators, and ideas.</h1>
           <p className="build-page__hero-lede">
@@ -261,7 +290,7 @@ export function BuildPage() {
                     <BuildPostCard
                       key={`${card.title}-${i}`}
                       {...card}
-                      posterProfileId={card.posterProfileId ?? auth.person.personId}
+                      posterProfileId={card.posterProfileId ?? myPersonId}
                     />
                   ))}
                   {!showDemoFeed && feedInfinite.hasNextPage ? (
@@ -303,6 +332,8 @@ export function BuildPage() {
             aria-modal="true"
             aria-labelledby="build-compose-title"
             className="home-dashboard__bulletin-compose-dialog"
+            ref={composeDialogRef}
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <button

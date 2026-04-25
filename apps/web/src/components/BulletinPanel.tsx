@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { Link, useLocation } from "react-router-dom";
-import type { InfiniteData } from "@tanstack/react-query";
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
@@ -30,13 +29,15 @@ import {
   BULLETIN_REPLY_MAX_LENGTH,
 } from "../constants/bulletin";
 import {
-  buildHiringBulletinContent,
   parseHiringBulletin,
   postedByShortLabel,
   splitHiringDetailsForCard,
-  validateHiringBulletinFields,
   type ParsedHiringBulletin,
 } from "../lib/parseHiringBulletin";
+import { buildIntentcastFeedQuery, buildVisibleIntentcasts } from "./bulletinFeedHelpers";
+import { patchIntentcastInFeedCache, prependIntentcastToFeedCache } from "./bulletinCacheHelpers";
+import { useBulletinComposeState } from "./useBulletinComposeState";
+import { useBulletinDialogController } from "./useBulletinDialogController";
 
 function hiringPreviewIntentcast(authorFullName: string, content: string): IntentcastFeedItem {
   const now = new Date().toISOString();
@@ -61,7 +62,6 @@ function hiringPreviewIntentcast(authorFullName: string, content: string): Inten
   };
 }
 
-const BULLETIN_PAGE_SIZE = 15;
 const HIRING_COMPOSE_MAX_LENGTH = 700;
 
 const BULLETIN_HIGHLIGHT_UUID_RE =
@@ -299,12 +299,12 @@ function AuthorDeleteUndoRow({
   restoreSubmitting: boolean;
   onRestore: () => void;
 }) {
-  void undoClock;
   if (!viewerPersonId || ic.authorPersonId !== viewerPersonId) return null;
   const removed = ic.authorSoftDeletedAt;
   if (!removed || Number.isNaN(Date.parse(removed))) return null;
-  if (Date.now() >= intentcastAuthorDeleteUndoDeadlineMs(removed)) return null;
-  const msLeft = intentcastAuthorDeleteUndoDeadlineMs(removed) - Date.now();
+  const deadlineMs = intentcastAuthorDeleteUndoDeadlineMs(removed);
+  if (undoClock >= deadlineMs) return null;
+  const msLeft = deadlineMs - undoClock;
   const totalSec = Math.max(0, Math.ceil(msLeft / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -511,6 +511,146 @@ function CareerOpportunityCardBody({
   );
 }
 
+function ComposeDialog({
+  open,
+  domIdPrefix,
+  postSubmitting,
+  composeDialogRef,
+  onRequestClose,
+  children,
+}: {
+  open: boolean;
+  domIdPrefix: string;
+  postSubmitting: boolean;
+  composeDialogRef: React.RefObject<HTMLDivElement | null>;
+  onRequestClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="home-dashboard__bulletin-compose-overlay"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !postSubmitting) onRequestClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${domIdPrefix}-compose-title`}
+        className="home-dashboard__bulletin-compose-dialog"
+        ref={composeDialogRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="home-dashboard__bulletin-compose-close"
+          aria-label="Close new hiring post dialog"
+          onClick={onRequestClose}
+          disabled={postSubmitting}
+        >
+          ×
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FeedList({
+  showFeed,
+  status,
+  errorMessage,
+  emptyMessage,
+  onRetry,
+  children,
+}: {
+  showFeed: boolean;
+  status: "loading" | "ready" | "error";
+  errorMessage: string | null;
+  emptyMessage: string;
+  onRetry: () => void;
+  children: React.ReactNode;
+}) {
+  if (!showFeed) return null;
+  if (status === "loading") return <p className="home-dashboard__bulletin-empty">Loading posts…</p>;
+  if (status === "error") {
+    return (
+      <div className="home-dashboard__bulletin-load-more-error">
+        <p>{errorMessage ?? "Could not load bulletin."}</p>
+        <button type="button" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+  if (!children) {
+    return <p className="home-dashboard__bulletin-empty">{emptyMessage}</p>;
+  }
+  return <>{children}</>;
+}
+
+function DeleteDialog({
+  open,
+  deleteDialogRef,
+  submitting,
+  title,
+  summary,
+  onRequestClose,
+  onConfirm,
+}: {
+  open: boolean;
+  deleteDialogRef: React.RefObject<HTMLDivElement | null>;
+  submitting: boolean;
+  title: string;
+  summary: string | null;
+  onRequestClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="home-dashboard__bulletin-delete-overlay"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onRequestClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulletin-delete-dialog-title"
+        aria-describedby="bulletin-delete-dialog-desc"
+        className="home-dashboard__bulletin-delete-dialog"
+        ref={deleteDialogRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="bulletin-delete-dialog-title" className="home-dashboard__bulletin-delete-dialog-title">
+          {title}
+        </h2>
+        {summary ? <p className="home-dashboard__bulletin-delete-dialog-summary">{summary}</p> : null}
+        <p id="bulletin-delete-dialog-desc" className="home-dashboard__bulletin-delete-dialog-desc">
+          This removes the post from the bulletin for everyone. You’ll still see a private copy here (and any replies)
+          until the <strong>date on the card</strong>, when we permanently delete it. By default that date is{" "}
+          <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after removal—you can also <strong>undo</strong>{" "}
+          for {BULLETIN_AUTHOR_DELETE_UNDO_MINUTES} minutes.
+        </p>
+        <div className="home-dashboard__bulletin-delete-dialog-actions">
+          <Button type="button" variant="secondary" onClick={onRequestClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="button" variant="primary" onClick={onConfirm} disabled={submitting}>
+            {submitting ? "Removing…" : "Remove post"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>(
   function BulletinPanel(
     {
@@ -552,17 +692,13 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const bulletinAutoScrollPauseRef = useRef({ pointerInside: false, focusInside: false, wheelUntil: 0 });
 
     const buildFeedQuery = useCallback(
-      (offset: number) => {
-        const q = new URLSearchParams({
-          limit: String(BULLETIN_PAGE_SIZE),
-          offset: String(offset),
-        });
-        if (effectiveCategoryFilter) q.set("category", effectiveCategoryFilter);
-        if (feedMine) q.set("mine", "true");
-        if (feedAuthorHistory) q.set("authorHistory", "true");
-        if (feedExcludeAuthorSoftDeleted) q.set("excludeAuthorSoftDeleted", "true");
-        return q;
-      },
+      (offset: number) =>
+        buildIntentcastFeedQuery(offset, {
+          category: effectiveCategoryFilter,
+          mine: feedMine,
+          authorHistory: feedAuthorHistory,
+          excludeAuthorSoftDeleted: feedExcludeAuthorSoftDeleted,
+        }),
       [effectiveCategoryFilter, feedMine, feedAuthorHistory, feedExcludeAuthorSoftDeleted]
     );
 
@@ -620,21 +756,17 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     });
 
     const intentcasts = useMemo(() => {
-      if (!showFeed) return [];
-      let list = [...feedFlat];
-      const hi = highlightQuery.data?.intentcast;
-      if (
-        hi &&
-        !list.some((ic) => ic.id === hi.id) &&
-        !(feedMine && feedAuthorHistory && personId && hi.authorPersonId !== personId) &&
-        !(feedExcludeAuthorSoftDeleted && hi.authorSoftDeletedAt)
-      ) {
-        list = [hi, ...list];
-      }
-      if (layout === "career" && effectiveCategoryFilter === "hiring" && !feedMine) {
-        list = list.filter((ic) => !hiringPostNeedsTrackVerification(ic.content));
-      }
-      return list;
+      return buildVisibleIntentcasts({
+        showFeed,
+        feedFlat,
+        highlightIntentcast: highlightQuery.data?.intentcast,
+        viewerPersonId: personId,
+        feedMine,
+        feedAuthorHistory,
+        feedExcludeAuthorSoftDeleted,
+        applyCareerHiringFilter: layout === "career" && effectiveCategoryFilter === "hiring" && !feedMine,
+        shouldHideCareerHiringPost: (ic) => hiringPostNeedsTrackVerification(ic.content),
+      });
     }, [
       showFeed,
       feedFlat,
@@ -643,6 +775,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       feedAuthorHistory,
       feedExcludeAuthorSoftDeleted,
       personId,
+      layout,
+      effectiveCategoryFilter,
     ]);
 
     const bulletinFeedStatus: "loading" | "ready" | "error" = !showFeed
@@ -670,15 +804,11 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
 
     const patchFeedItem = useCallback(
       (intentcastId: string, map: (ic: IntentcastFeedItem) => IntentcastFeedItem) => {
-        queryClient.setQueryData<InfiniteData<IntentcastFeedResponse>>(feedQueryKey, (old) => {
-          if (!old) return old;
-          return {
-            pageParams: old.pageParams,
-            pages: old.pages.map((page) => ({
-              ...page,
-              intentcasts: page.intentcasts.map((ic) => (ic.id === intentcastId ? map(ic) : ic)),
-            })),
-          };
+        patchIntentcastInFeedCache({
+          queryClient,
+          feedQueryKey,
+          intentcastId,
+          map,
         });
       },
       [queryClient, feedQueryKey]
@@ -686,19 +816,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
 
     const prependFeedIntentcast = useCallback(
       (posted: IntentcastFeedItem) => {
-        queryClient.setQueryData<InfiniteData<IntentcastFeedResponse>>(feedQueryKey, (old) => {
-          if (!old?.pages[0]) return old;
-          const [first, ...rest] = old.pages;
-          return {
-            ...old,
-            pages: [
-              {
-                ...first,
-                intentcasts: [posted, ...first.intentcasts.filter((x) => x.id !== posted.id)],
-              },
-              ...rest,
-            ],
-          };
+        prependIntentcastToFeedCache({
+          queryClient,
+          feedQueryKey,
+          posted,
         });
       },
       [queryClient, feedQueryKey]
@@ -713,22 +834,42 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [editContent, setEditContent] = useState("");
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
-    const [postOpen, setPostOpen] = useState(false);
-    const [hiringCompany, setHiringCompany] = useState("");
-    const [hiringTitle, setHiringTitle] = useState("");
-    const [hiringTrackChoice, setHiringTrackChoice] = useState("");
-    const [hiringTrackOther, setHiringTrackOther] = useState("");
-    const [hiringLocation, setHiringLocation] = useState("");
-    const [hiringExperience, setHiringExperience] = useState("");
-    const [hiringCompensation, setHiringCompensation] = useState("");
+    const {
+      postOpen,
+      setPostOpen,
+      postSubmitting,
+      setPostSubmitting,
+      postError,
+      setPostError,
+      hiringCompany,
+      setHiringCompany,
+      hiringTitle,
+      setHiringTitle,
+      hiringTrackChoice,
+      setHiringTrackChoice,
+      hiringTrackOther,
+      setHiringTrackOther,
+      hiringLocation,
+      setHiringLocation,
+      hiringExperience,
+      setHiringExperience,
+      hiringCompensation,
+      setHiringCompensation,
+      hiringRoleSummary,
+      setHiringRoleSummary,
+      hiringJdUrl,
+      setHiringJdUrl,
+      hiringApplySteps,
+      setHiringApplySteps,
+      hiringComposeBody,
+      hiringPreviewBody,
+      resetComposeFields,
+      openCompose,
+      validatePostInput,
+    } = useBulletinComposeState({ maxLength: HIRING_COMPOSE_MAX_LENGTH });
     // const [hiringEmploymentType, setHiringEmploymentType] = useState("Full-time");
-    const [hiringRoleSummary, setHiringRoleSummary] = useState("");
-    const [hiringJdUrl, setHiringJdUrl] = useState("");
-    const [hiringApplySteps, setHiringApplySteps] = useState("");
     const hiringSummaryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
     const hiringApplyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-    const [postSubmitting, setPostSubmitting] = useState(false);
-    const [postError, setPostError] = useState<string | null>(null);
     const [deleteSubmittingId, setDeleteSubmittingId] = useState<string | null>(null);
     const [deleteConfirmIntentcastId, setDeleteConfirmIntentcastId] = useState<string | null>(null);
     const [bulletinDeleteError, setBulletinDeleteError] = useState<string | null>(null);
@@ -736,6 +877,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [bulletinRestoreError, setBulletinRestoreError] = useState<string | null>(null);
     const [authorDeleteUndoTick, setAuthorDeleteUndoTick] = useState(0);
     const [archivedRepliesPostId, setArchivedRepliesPostId] = useState<string | null>(null);
+    const deleteDialogOpen = Boolean(deleteConfirmIntentcastId);
+    const composeDialogOpen = postOpen;
 
     const archivedRepliesQuery = useQuery({
       queryKey: queryKeys.intentcasts.responses(archivedRepliesPostId ?? ""),
@@ -803,6 +946,15 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       onComposeOpenChange?.(postOpen);
     }, [postOpen, onComposeOpenChange]);
 
+    const { composeDialogRef, deleteDialogRef } = useBulletinDialogController({
+      composeDialogOpen,
+      deleteDialogOpen,
+      postSubmitting,
+      deleteSubmittingLocked: deleteSubmittingId != null,
+      onCloseCompose: () => setPostOpen(false),
+      onCloseDelete: () => setDeleteConfirmIntentcastId(null),
+    });
+
     const deleteConfirmIntentcast = useMemo(
       () =>
         deleteConfirmIntentcastId
@@ -823,24 +975,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       const id = window.setInterval(() => setAuthorDeleteUndoTick((n) => n + 1), 1000);
       return () => window.clearInterval(id);
     }, [hasAuthorDeleteUndoCandidate]);
-
-    useEffect(() => {
-      if (!deleteConfirmIntentcastId) return;
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") setDeleteConfirmIntentcastId(null);
-      };
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
-    }, [deleteConfirmIntentcastId]);
-
-    useEffect(() => {
-      if (!postOpen) return;
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape" && !postSubmitting) setPostOpen(false);
-      };
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
-    }, [postOpen, postSubmitting]);
 
     useEffect(() => {
       if (!showFeed) return;
@@ -1066,127 +1200,23 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       setArchivedRepliesPostId(ic.id);
     };
 
-    const hiringComposeDetails = useMemo(() => {
-      const parts: string[] = [];
-      const track = (hiringTrackChoice === "other" ? hiringTrackOther : hiringTrackChoice).trim();
-      const needsTrackReview = hiringTrackChoice === "other" && Boolean(hiringTrackOther.trim());
-      const exp = hiringExperience.trim();
-      const comp = hiringCompensation.trim();
-      const summary = hiringRoleSummary.trim();
-      const jd = hiringJdUrl.trim();
-      const steps = hiringApplySteps.trim();
-
-      // Employment type is temporarily hidden across the app.
-      if (track) parts.push(`Role track: ${hiringTrackChoice === "other" ? `Other (${track})` : track}.`);
-      if (needsTrackReview) parts.push("Awaiting admin verification before this appears in Opportunities.");
-      if (exp) parts.push(`${exp} years experience preferred.`);
-      if (comp) parts.push(`Compensation: ₹${comp} LPA.`);
-      if (summary) parts.push(summary);
-      if (jd) parts.push(jd);
-      if (steps) parts.push(`Steps to apply: ${steps}`);
-
-      return parts.join(" ").replace(/\s+/g, " ").trim();
-    }, [
-      hiringApplySteps,
-      hiringCompensation,
-      hiringExperience,
-      hiringJdUrl,
-      hiringRoleSummary,
-      hiringTrackChoice,
-      hiringTrackOther,
-    ]);
-
-    const hiringComposeBody = useMemo(
-      () =>
-        buildHiringBulletinContent({
-          company: hiringCompany,
-          title: hiringTitle,
-          location: hiringLocation,
-          details: hiringComposeDetails,
-        }).trim(),
-      [hiringCompany, hiringTitle, hiringLocation, hiringComposeDetails]
-    );
-
-    const hiringPreviewBody = useMemo(
-      () =>
-        buildHiringBulletinContent({
-          company: hiringCompany.trim() || "Stripe",
-          title: hiringTitle.trim() || "Senior Product Manager, Payments Infrastructure",
-          location: hiringLocation.trim() || "Bengaluru",
-          details:
-            hiringComposeDetails ||
-            "5+ years experience preferred. Compensation: ₹45-60 LPA. What will this person own, and what kind of impact should they expect? https://jobs.company.com/role Steps to apply: Reply here with CV + LinkedIn + 2 lines on relevant experience.",
-        }).trim(),
-      [hiringCompany, hiringTitle, hiringLocation, hiringComposeDetails]
-    );
-
     const hiringPreviewAuthor =
       auth.status === "authenticated"
         ? (auth.myProfile?.fullName?.trim() || "You")
         : "You";
 
-    const isValidHttpUrl = (raw: string): boolean => {
-      try {
-        const url = new URL(raw.trim());
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    };
-
-    const hiringJdUrlInvalid = Boolean(hiringJdUrl.trim()) && !isValidHttpUrl(hiringJdUrl);
-
     const handlePostIntentcast = async () => {
       const categoryForApi: BulletinCategory = lockedCategoryFilter ?? "hiring";
-      const fieldErr = validateHiringBulletinFields({
-        company: hiringCompany,
-        title: hiringTitle,
-        location: hiringLocation,
-        details: hiringComposeDetails,
-      });
-      if (fieldErr) {
-        setPostError(fieldErr);
-        return;
-      }
-      if (!hiringTrackChoice.trim()) {
-        setPostError("Select a track.");
-        return;
-      }
-      if (!hiringExperience.trim()) {
-        setPostError("Add experience in years.");
-        return;
-      }
-      if (hiringTrackChoice === "other" && !hiringTrackOther.trim()) {
-        setPostError("Choose Other only when you also add a role track detail.");
-        return;
-      }
-      if (!hiringRoleSummary.trim()) {
-        setPostError("Add 1-2 lines about the role.");
-        return;
-      }
-      if (hiringJdUrl.trim() && hiringJdUrlInvalid) {
-        setPostError("Enter a valid URL (http:// or https://).");
-        return;
-      }
-      if (!hiringApplySteps.trim()) {
-        setPostError("Add clear steps to apply.");
-        return;
-      }
-      const content = hiringComposeBody;
-
-      if (content.length < 10) {
-        setPostError("Post must be at least 10 characters.");
-        return;
-      }
-      if (content.length > HIRING_COMPOSE_MAX_LENGTH) {
-        setPostError(`Post must be at most ${HIRING_COMPOSE_MAX_LENGTH} characters.`);
+      const validationError = validatePostInput();
+      if (validationError) {
+        setPostError(validationError);
         return;
       }
       setPostError(null);
       setPostSubmitting(true);
       const { data, error } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: categoryForApi,
-        content,
+        content: hiringComposeBody,
       });
       setPostSubmitting(false);
       const posted = data?.intentcast;
@@ -1201,62 +1231,25 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(posted.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
-      setHiringCompany("");
-      setHiringTitle("");
-      setHiringTrackChoice("");
-      setHiringTrackOther("");
-      setHiringLocation("");
-      setHiringExperience("");
-      setHiringCompensation("");
-      setHiringRoleSummary("");
-      setHiringJdUrl("");
-      setHiringApplySteps("");
+      resetComposeFields();
       setPostOpen(false);
     };
     useImperativeHandle(ref, () => ({
       openCompose: () => {
-        setPostOpen(true);
-        setPostError(null);
-        setHiringCompany("");
-        setHiringTitle("");
-        setHiringTrackChoice("");
-        setHiringTrackOther("");
-        setHiringLocation("");
-        setHiringExperience("");
-        setHiringCompensation("");
-        setHiringRoleSummary("");
-        setHiringJdUrl("");
-        setHiringApplySteps("");
+        openCompose();
         panelRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       },
-    }));
+    }), [openCompose]);
 
     const renderComposeForm = () => {
-      if (!postOpen) return null;
       return (
-        <div
-          className="home-dashboard__bulletin-compose-overlay"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !postSubmitting) setPostOpen(false);
-          }}
+        <ComposeDialog
+          open={postOpen}
+          domIdPrefix={domIdPrefix}
+          postSubmitting={postSubmitting}
+          composeDialogRef={composeDialogRef}
+          onRequestClose={() => setPostOpen(false)}
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`${domIdPrefix}-compose-title`}
-            className="home-dashboard__bulletin-compose-dialog"
-            onClick={(e) => e.stopPropagation()}
-          >
-        <button
-          type="button"
-          className="home-dashboard__bulletin-compose-close"
-          aria-label="Close new hiring post dialog"
-          onClick={() => setPostOpen(false)}
-          disabled={postSubmitting}
-        >
-          ×
-        </button>
         <div className="home-dashboard__bulletin-compose home-dashboard__bulletin-compose--modal">
                     <p id={`${domIdPrefix}-compose-title`} className="home-dashboard__bulletin-compose-label">New hiring post</p>
                         <div className="home-dashboard__bulletin-hiring-form">
@@ -1471,17 +1464,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                         variant="secondary"
                         onClick={() => {
                           setPostOpen(false);
-                          setPostError(null);
-                          setHiringCompany("");
-                          setHiringTitle("");
-                          setHiringTrackChoice("");
-      setHiringTrackOther("");
-                          setHiringLocation("");
-                          setHiringExperience("");
-                          setHiringCompensation("");
-                          setHiringRoleSummary("");
-                          setHiringJdUrl("");
-                          setHiringApplySteps("");
+                          resetComposeFields();
                         }}
                         disabled={postSubmitting}
                       >
@@ -1492,8 +1475,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       </Button>
                     </div>
         </div>
-          </div>
-        </div>
+        </ComposeDialog>
       );
     };
 
@@ -1504,7 +1486,9 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               className={`home-dashboard__bulletin${layout === "career" ? " home-dashboard__bulletin--career" : ""}${className ? ` ${className}` : ""}`}
               aria-labelledby={headingId}
             >
-              <div className="home-dashboard__bulletin-panel">
+              <div
+                className={`home-dashboard__bulletin-panel${composeDialogOpen || deleteDialogOpen ? " home-dashboard__bulletin-panel--dialog-open" : ""}`}
+              >
                 {showPanelHeader ? (
                   <header className="home-dashboard__bulletin-header">
                     <h2 id="home-bulletin-heading" className="home-dashboard__bulletin-title">
@@ -1523,51 +1507,46 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     {bulletinRestoreError}
                   </p>
                 ) : null}
-                {showFeed ? (
-                  bulletinFeedStatus === "loading" ? (
-                    <p className="home-dashboard__bulletin-empty">Loading posts…</p>
-                  ) : bulletinFeedStatus === "error" ? (
-                    <div className="home-dashboard__bulletin-load-more-error">
-                      <p>{bulletinFeedError ?? "Could not load bulletin."}</p>
-                      <button type="button" onClick={() => setBulletinFeedRetryNonce((n) => n + 1)}>
-                        Retry
-                      </button>
-                    </div>
-                  ) : intentcasts.length === 0 ? (
-                    <p className="home-dashboard__bulletin-empty">
-                      {feedMine && feedAuthorHistory && lockedCategoryFilter === "hiring"
-                        ? "You haven’t posted a hiring role yet. Use Compose hiring post above to add one."
-                        : lockedCategoryFilter === "hiring"
-                          ? "No hiring posts right now."
-                          : "No posts yet. Check back soon."}
-                    </p>
-                  ) : (
+                <FeedList
+                  showFeed={showFeed}
+                  status={bulletinFeedStatus}
+                  errorMessage={bulletinFeedError}
+                  emptyMessage={
+                    feedMine && feedAuthorHistory && lockedCategoryFilter === "hiring"
+                      ? "You haven’t posted a hiring role yet. Use Compose hiring post above to add one."
+                      : lockedCategoryFilter === "hiring"
+                        ? "No hiring posts right now."
+                        : "No posts yet. Check back soon."
+                  }
+                  onRetry={() => setBulletinFeedRetryNonce((n) => n + 1)}
+                >
+                  {intentcasts.length > 0 ? (
                     <div
-                    ref={bulletinScrollRef}
-                    className={`home-dashboard__bulletin-scroll${feedDisableAutoScroll ? "" : " home-dashboard__bulletin-scroll--auto"}`}
-                    aria-label="Bulletin posts"
-                    onPointerEnter={() => {
-                      bulletinAutoScrollPauseRef.current.pointerInside = true;
-                    }}
-                    onPointerLeave={(e) => {
-                      const next = e.relatedTarget as Node | null;
-                      if (!next || !e.currentTarget.contains(next)) {
-                        bulletinAutoScrollPauseRef.current.pointerInside = false;
-                      }
-                    }}
-                    onFocusCapture={() => {
-                      bulletinAutoScrollPauseRef.current.focusInside = true;
-                    }}
-                    onBlurCapture={(e) => {
-                      const next = e.relatedTarget as Node | null;
-                      if (!next || !e.currentTarget.contains(next)) {
-                        bulletinAutoScrollPauseRef.current.focusInside = false;
-                      }
-                    }}
-                    onWheel={() => {
-                      bulletinAutoScrollPauseRef.current.wheelUntil = Date.now() + BULLETIN_AUTO_SCROLL_WHEEL_PAUSE_MS;
-                    }}
-                  >
+                      ref={bulletinScrollRef}
+                      className={`home-dashboard__bulletin-scroll${feedDisableAutoScroll ? "" : " home-dashboard__bulletin-scroll--auto"}`}
+                      aria-label="Bulletin posts"
+                      onPointerEnter={() => {
+                        bulletinAutoScrollPauseRef.current.pointerInside = true;
+                      }}
+                      onPointerLeave={(e) => {
+                        const next = e.relatedTarget as Node | null;
+                        if (!next || !e.currentTarget.contains(next)) {
+                          bulletinAutoScrollPauseRef.current.pointerInside = false;
+                        }
+                      }}
+                      onFocusCapture={() => {
+                        bulletinAutoScrollPauseRef.current.focusInside = true;
+                      }}
+                      onBlurCapture={(e) => {
+                        const next = e.relatedTarget as Node | null;
+                        if (!next || !e.currentTarget.contains(next)) {
+                          bulletinAutoScrollPauseRef.current.focusInside = false;
+                        }
+                      }}
+                      onWheel={() => {
+                        bulletinAutoScrollPauseRef.current.wheelUntil = Date.now() + BULLETIN_AUTO_SCROLL_WHEEL_PAUSE_MS;
+                      }}
+                    >
                     <ul className="home-dashboard__bulletin-list" role="list">
                       {intentcasts.map((ic) => {
                         const isOwnPost =
@@ -2005,26 +1984,15 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                         </button>
                       </div>
                     ) : null}
-                  </div>
-                  )
-                ) : null}
+                    </div>
+                  ) : null}
+                </FeedList>
                 {!postOpen && !hideComposeCta ? (
                   <button
                     type="button"
                     className="home-dashboard__bulletin-cta"
                     onClick={() => {
-                      setPostOpen(true);
-                      setPostError(null);
-                      setHiringCompany("");
-                      setHiringTitle("");
-                      setHiringTrackChoice("");
-      setHiringTrackOther("");
-                      setHiringLocation("");
-                      setHiringExperience("");
-                      setHiringCompensation("");
-                      setHiringRoleSummary("");
-                      setHiringJdUrl("");
-                      setHiringApplySteps("");
+                      openCompose();
                     }}
                   >
                     <span className="home-dashboard__bulletin-cta-icon" aria-hidden>
@@ -2035,61 +2003,22 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 ) : null}
               </div>
               {renderComposeForm()}
-              {deleteConfirmIntentcastId ? (
-                <div
-                  className="home-dashboard__bulletin-delete-overlay"
-                  role="presentation"
-                  onClick={(e) => {
-                    if (e.target === e.currentTarget && deleteSubmittingId == null) {
-                      setDeleteConfirmIntentcastId(null);
-                    }
-                  }}
-                >
-                  <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="bulletin-delete-dialog-title"
-                    aria-describedby="bulletin-delete-dialog-desc"
-                    className="home-dashboard__bulletin-delete-dialog"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <h2 id="bulletin-delete-dialog-title" className="home-dashboard__bulletin-delete-dialog-title">
-                      {deleteConfirmIntentcast?.category === "hiring"
-                        ? "Remove this hiring post?"
-                        : "Remove this bulletin post?"}
-                    </h2>
-                    {deleteConfirmIntentcast ? (
-                      <p className="home-dashboard__bulletin-delete-dialog-summary">
-                        {intentcastDeleteSummaryText(deleteConfirmIntentcast)}
-                      </p>
-                    ) : null}
-                    <p id="bulletin-delete-dialog-desc" className="home-dashboard__bulletin-delete-dialog-desc">
-                      This removes the post from the bulletin for everyone. You’ll still see a private copy here (and any
-                      replies) until the <strong>date on the card</strong>, when we permanently delete it. By default that
-                      date is <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after removal—you can also{" "}
-                      <strong>undo</strong> for {BULLETIN_AUTHOR_DELETE_UNDO_MINUTES} minutes.
-                    </p>
-                    <div className="home-dashboard__bulletin-delete-dialog-actions">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setDeleteConfirmIntentcastId(null)}
-                        disabled={deleteSubmittingId === deleteConfirmIntentcastId}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        onClick={() => void executeDeleteIntentcast(deleteConfirmIntentcastId)}
-                        disabled={deleteSubmittingId === deleteConfirmIntentcastId}
-                      >
-                        {deleteSubmittingId === deleteConfirmIntentcastId ? "Removing…" : "Remove post"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              <DeleteDialog
+                open={Boolean(deleteConfirmIntentcastId)}
+                deleteDialogRef={deleteDialogRef}
+                submitting={deleteSubmittingId === deleteConfirmIntentcastId}
+                title={
+                  deleteConfirmIntentcast?.category === "hiring"
+                    ? "Remove this hiring post?"
+                    : "Remove this bulletin post?"
+                }
+                summary={deleteConfirmIntentcast ? intentcastDeleteSummaryText(deleteConfirmIntentcast) : null}
+                onRequestClose={() => setDeleteConfirmIntentcastId(null)}
+                onConfirm={() => {
+                  if (!deleteConfirmIntentcastId) return;
+                  void executeDeleteIntentcast(deleteConfirmIntentcastId);
+                }}
+              />
             </section>
     );
   }

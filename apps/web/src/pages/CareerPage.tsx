@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
@@ -26,6 +26,8 @@ import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
 import { careerIntentPath, isCareerTabSegment } from "../constants/careerTabs";
 import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 
 function navDisplayName(profile: { fullName?: string | null } | undefined, email: string | undefined): string {
   const fn = profile?.fullName?.trim();
@@ -47,6 +49,7 @@ function openRolesHeadline(meta: BulletinFeedMeta): string {
 /** Career hub: unified referrals + opportunities workspace. */
 export function CareerPage() {
   const auth = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { careerTab: careerTabParam } = useParams<{ careerTab: string }>();
   const bulletinRef = useRef<BulletinPanelHandle>(null);
   const referralPrefillDoneRef = useRef(false);
@@ -80,6 +83,8 @@ export function CareerPage() {
     residenceCountry: string;
     residenceCity: string;
   } | null>(null);
+  const chatDialogRef = useRef<HTMLDivElement | null>(null);
+  const chatOpen = (activeReferralRecipient || activeReferralThreadId) && !referralChatMinimized;
 
   const onFeedMetaChange = useCallback((m: BulletinFeedMeta) => {
     setFeedMeta((prev) =>
@@ -97,10 +102,22 @@ export function CareerPage() {
     if (!myProfile || referralPrefillDoneRef.current) return;
     referralPrefillDoneRef.current = true;
     const p = myProfile;
-    if (p.batchYear != null) setFilterBatch(p.batchYear);
-    const dc = p.departmentCode ?? p.parsedDepartmentCode;
-    if (dc) setFilterDept(dc.toLowerCase());
+    queueMicrotask(() => {
+      if (p.batchYear != null) setFilterBatch(p.batchYear);
+      const dc = p.departmentCode ?? p.parsedDepartmentCode;
+      if (dc) setFilterDept(dc.toLowerCase());
+    });
   }, [auth]);
+
+  useEffect(() => {
+    if (searchParams.get("compose") !== "1") return;
+    bulletinRef.current?.openCompose();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("compose");
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const commitReferralSearch = useCallback(() => {
     setCommittedReferralSearch({
@@ -198,6 +215,13 @@ export function CareerPage() {
     setReferralActionError(null);
   }, []);
 
+  useBodyScrollLock(Boolean(chatOpen));
+  useDialogFocusManager({
+    open: Boolean(chatOpen),
+    containerRef: chatDialogRef,
+    onClose: closeReferralChat,
+  });
+
   const sendReferralMessage = useCallback(async () => {
     const composed = referralComposer.trim();
     if (!activeReferralRecipient || !composed || referralSending) return;
@@ -232,15 +256,6 @@ export function CareerPage() {
     invalidateConnectionThreadQueries();
     void referralThreadQuery.refetch();
   }, [activeReferralRecipient, activeReferralThreadId, referralComposer, referralSending, referralThreadQuery]);
-
-  useEffect(() => {
-    if (!activeReferralThreadId) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeReferralChat();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeReferralThreadId, closeReferralChat]);
 
   const openReferralChat = useCallback(
     async (recipientPersonId: string, recipientName: string) => {
@@ -489,13 +504,13 @@ export function CareerPage() {
             </div>
           </section>
 
-          <div className="career-page__sticky-post-wrap">
+          <div className={`career-page__sticky-post-wrap${chatOpen ? " career-page__sticky-post-wrap--muted" : ""}`}>
             <Button type="button" variant="primary" onClick={() => bulletinRef.current?.openCompose()}>
               Post a role
             </Button>
           </div>
 
-          {(activeReferralRecipient || activeReferralThreadId) && !referralChatMinimized ? (
+          {chatOpen ? (
             <div
               className="career-page__chat-overlay"
               role="presentation"
@@ -508,6 +523,8 @@ export function CareerPage() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="career-referral-chat-title"
+                ref={chatDialogRef}
+                tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
               >
                   <div className="career-page__chat-head">

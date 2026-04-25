@@ -69,7 +69,18 @@ export const api = {
 /** Multipart POST (e.g. PDF upload). Sends cookies; response body must be JSON. */
 export async function apiPostForm<T>(path: string, form: FormData): Promise<{ data?: T; error?: ApiError }> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, { method: "POST", body: form, credentials: "include" });
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", body: form, credentials: "include" });
+  } catch {
+    return {
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          "Could not reach the API. Local: run apps/api on port 4000 with VITE_API_URL unset (Vite proxies /v1). Deployed: ensure /v1 reaches your API (Vercel rewrites or VITE_API_URL + CORS).",
+      },
+    };
+  }
   const body: unknown = await res.json().catch(() => ({}));
   const b = body as Record<string, unknown>;
   if (!res.ok) {

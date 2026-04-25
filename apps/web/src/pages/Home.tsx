@@ -115,6 +115,40 @@ export function Home() {
     };
   }, [batchQuery.data, authPersonId]);
 
+  /** Same filters as the home batch snapshot — directory opens scoped to this cohort. */
+  const batchDirectorySearchHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (profileBatchYear != null) params.set("batch", String(profileBatchYear));
+    if (profileDeptLower) params.set("dept", profileDeptLower);
+    const qs = params.toString();
+    return qs ? `/search?${qs}` : "/search";
+  }, [profileBatchYear, profileDeptLower]);
+
+  /** Match bulletin column height to the Your Batch card (ResizeObserver; no inner batch scroll). */
+  const batchSectionRef = useRef<HTMLElement>(null);
+  const [batchSectionHeightPx, setBatchSectionHeightPx] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = batchSectionRef.current;
+    if (!el) return;
+    const sync = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      setBatchSectionHeightPx(Number.isFinite(h) && h > 0 ? h : null);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener("resize", sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
+  const feedRowStyle: CSSProperties | undefined =
+    batchSectionHeightPx != null
+      ? ({ "--home-batch-section-height": `${batchSectionHeightPx}px` } as CSSProperties)
+      : undefined;
+
   if (!profile) {
     return (
       <>
@@ -155,42 +189,9 @@ export function Home() {
         : "Your batch";
 
   const displayName = profile.fullName?.trim() || firstName;
+  const needsContactNudge = !profile.residenceCountry?.trim() || !profile.mobilePhone?.trim();
   /** Preview grid: two columns, up to 6 profiles (compact cards). */
   const batchList = batchMeta?.members.slice(0, 6) ?? [];
-
-  /** Same filters as the home batch snapshot — directory opens scoped to this cohort. */
-  const batchDirectorySearchHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (profileBatchYear != null) params.set("batch", String(profileBatchYear));
-    if (profileDeptLower) params.set("dept", profileDeptLower);
-    const qs = params.toString();
-    return qs ? `/search?${qs}` : "/search";
-  }, [profileBatchYear, profileDeptLower]);
-
-  /** Match bulletin column height to the Your Batch card (ResizeObserver; no inner batch scroll). */
-  const batchSectionRef = useRef<HTMLElement>(null);
-  const [batchSectionHeightPx, setBatchSectionHeightPx] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const el = batchSectionRef.current;
-    if (!el) return;
-    const sync = () => {
-      const h = Math.round(el.getBoundingClientRect().height);
-      setBatchSectionHeightPx(Number.isFinite(h) && h > 0 ? h : null);
-    };
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    window.addEventListener("resize", sync);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", sync);
-    };
-  }, []);
-
-  const feedRowStyle: CSSProperties | undefined =
-    batchSectionHeightPx != null
-      ? ({ "--home-batch-section-height": `${batchSectionHeightPx}px` } as CSSProperties)
-      : undefined;
 
   return (
     <>
@@ -211,6 +212,22 @@ export function Home() {
 
         <div className="home-dashboard__toolbar">
           <ContactRequestsInbox />
+          {needsContactNudge ? (
+            <section className="home-dashboard__profile-nudge" aria-labelledby="home-profile-nudge-heading">
+              <h2 id="home-profile-nudge-heading" className="home-dashboard__profile-nudge-title">
+                Complete your profile
+              </h2>
+              <p className="home-dashboard__profile-nudge-copy">
+                Add your residence city/country and mobile number so alumni can connect with you faster.
+              </p>
+              <Link
+                to={`/profiles/${profile.id}?edit=contact`}
+                className="home-dashboard__text-link home-dashboard__text-link--caps"
+              >
+                Add contact details →
+              </Link>
+            </section>
+          ) : null}
           {/*
           Profile completion nudge — disabled until layout/copy is reworked.
           <section

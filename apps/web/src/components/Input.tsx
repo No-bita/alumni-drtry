@@ -19,7 +19,7 @@ export function Input({
   return (
     <div className={className}>
       {label && (
-        <label htmlFor={inputId} className="ui-label" style={{ display: "block", marginBottom: 4 }}>
+        <label htmlFor={inputId} className="ui-label input-field__label">
           {label}
         </label>
       )}
@@ -29,7 +29,7 @@ export function Input({
         {...props}
       />
       {note && (
-        <p className="input-note" style={{ marginTop: 4 }}>
+        <p className="input-note">
           → {note}
         </p>
       )}
@@ -47,14 +47,13 @@ export function Textarea({ label, id, className = "", ...props }: TextareaProps)
   return (
     <div className={className}>
       {label && (
-        <label htmlFor={inputId} className="ui-label" style={{ display: "block", marginBottom: 4 }}>
+        <label htmlFor={inputId} className="ui-label input-field__label">
           {label}
         </label>
       )}
       <textarea
         id={inputId}
-        className="input"
-        style={{ minHeight: 100, resize: "vertical" }}
+        className="input input--textarea"
         {...props}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { ReachOutCard } from "../components/ReachOutCard";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
+import { PageStateBlock } from "../components/PageStateBlock";
 import {
   api,
   type CreateConnectionThreadResponse,
@@ -36,6 +37,7 @@ function PencilIcon({ className }: { className?: string }) {
 export function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const auth = useAuth();
   const refetchAuth = auth.refetch;
@@ -79,8 +81,10 @@ export function Profile() {
       return;
     }
     if (!linksQuery.data?.links || editLinksHydratedRef.current) return;
-    setEditLinks(linksQuery.data.links);
     editLinksHydratedRef.current = true;
+    queueMicrotask(() => {
+      setEditLinks(linksQuery.data!.links);
+    });
   }, [isEditing, linksQuery.data]);
 
   const handleReachOut = async (message: string) => {
@@ -126,6 +130,20 @@ export function Profile() {
     setNewUrl("");
     setIsEditing(true);
   }, [profileQuery.data]);
+
+  useEffect(() => {
+    const editMode = searchParams.get("edit");
+    if (!isOwnProfile || isEditing || editMode !== "contact") return;
+    const t = window.setTimeout(() => {
+      beginEdit();
+    }, 0);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("edit");
+      return next;
+    }, { replace: true });
+    return () => window.clearTimeout(t);
+  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams]);
 
   const cancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -215,9 +233,7 @@ export function Profile() {
         <Nav variant="home" avatarName={navAvatarName} />
         <div className="home-dashboard profile-page">
           <div className="profile-page__loading">
-            <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-              Loading…
-            </p>
+            <PageStateBlock title="Loading profile" description="Please wait a moment." />
           </div>
         </div>
       </>
@@ -230,12 +246,15 @@ export function Profile() {
         <Nav variant="home" avatarName={navAvatarName} />
         <div className="home-dashboard profile-page">
           <div className="profile-page__loading">
-            <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-              Profile not found.
-            </p>
-            <Link to="/search" className="home-dashboard__text-link home-dashboard__text-link--caps" style={{ marginTop: "1rem", display: "inline-block" }}>
-              Back to directory
-            </Link>
+            <PageStateBlock
+              title="Profile not found"
+              description={
+                <Link to="/search" className="home-dashboard__text-link home-dashboard__text-link--caps profile-page__back-link">
+                  Back to directory
+                </Link>
+              }
+              tone="error"
+            />
           </div>
         </div>
       </>
@@ -321,7 +340,7 @@ export function Profile() {
         <div className="home-dashboard__main">
           <div className="home-dashboard__col home-dashboard__col--wide">
             {isOwnProfile && isEditing && editError ? (
-              <p className="body-text" style={{ color: "var(--brick)", margin: 0 }}>
+              <p className="body-text profile-page__error-text">
                 {editError}
               </p>
             ) : null}
@@ -334,17 +353,17 @@ export function Profile() {
                 <h2 className="profile-page__section-title">About</h2>
                 {/* Bio field/display removed — restore Textarea + draftBio + PATCH `bio` if needed */}
                 {isOwnProfile && !isEditing && (profile.personalEmail || profile.mobilePhone) ? (
-                  <div className="body-text" style={{ marginTop: 0 }}>
+                  <div className="body-text profile-page__contact-summary">
                     {profile.personalEmail ? (
-                      <p style={{ margin: "0 0 8px" }}>
-                        <span style={{ color: "var(--ink-muted)", fontSize: 13 }}>Personal email</span>
+                      <p className="profile-page__contact-row">
+                        <span className="profile-page__contact-label">Personal email</span>
                         <br />
                         {profile.personalEmail}
                       </p>
                     ) : null}
                     {profile.mobilePhone ? (
-                      <p style={{ margin: 0 }}>
-                        <span style={{ color: "var(--ink-muted)", fontSize: 13 }}>Mobile</span>
+                      <p className="profile-page__contact-row profile-page__contact-row--last">
+                        <span className="profile-page__contact-label">Mobile</span>
                         <br />
                         {profile.mobilePhone}
                       </p>
@@ -352,14 +371,7 @@ export function Profile() {
                   </div>
                 ) : null}
                 {isOwnProfile && isEditing ? (
-                  <div
-                    style={{
-                      marginTop: "var(--space-lg)",
-                      display: "grid",
-                      gap: "var(--space-md)",
-                      maxWidth: 420,
-                    }}
-                  >
+                  <div className="profile-page__edit-grid">
                     <Input
                       label="Personal email (optional)"
                       type="email"
@@ -402,13 +414,13 @@ export function Profile() {
                         aria-hidden
                       />
                       <div>
-                        <div className="ui-body" style={{ fontWeight: 600 }}>
+                        <div className="ui-body profile-page__exp-role">
                           {occ.roleTitle}
                         </div>
-                        <div style={{ color: "var(--brick)", fontSize: 13, marginTop: 2 }}>
+                        <div className="profile-page__exp-company">
                           {occ.organizationName ?? "—"}
                         </div>
-                        <div className="small-note" style={{ marginTop: 4 }}>
+                        <div className="small-note profile-page__exp-period">
                           {occ.startDate ? occ.startDate.slice(0, 4) : "—"} –{" "}
                           {occ.isCurrent ? "Present" : occ.endDate ? occ.endDate.slice(0, 4) : "—"}
                         </div>
@@ -421,14 +433,14 @@ export function Profile() {
 
             {!isOwnProfile && occupations.length === 0 ? (
               <article className="home-dashboard__card">
-                <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
+                <p className="body-text profile-page__muted-text profile-page__flush-text">
                   No experience listed yet.
                 </p>
               </article>
             ) : null}
             {isOwnProfile && !isEditing && occupations.length === 0 ? (
               <article className="home-dashboard__card">
-                <p className="body-text" style={{ color: "var(--ink-muted)", margin: 0 }}>
+                <p className="body-text profile-page__muted-text profile-page__flush-text">
                   No experience yet. Use <strong>Edit</strong> in the header to add links or contact details.
                 </p>
               </article>
@@ -447,7 +459,7 @@ export function Profile() {
             ) : null}
             {displayLinks.length > 0 || isOwnProfile ? (
               <div className="home-dashboard__card">
-                <span className="eyebrow" style={{ display: "block", marginBottom: 8 }}>
+                <span className="eyebrow profile-page__links-eyebrow">
                   Links
                 </span>
                 {isOwnProfile && isEditing ? (
@@ -471,7 +483,7 @@ export function Profile() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="body-text" style={{ color: "var(--ink-muted)", fontSize: 14, margin: "0 0 var(--space-md)" }}>
+                      <p className="body-text profile-page__muted-text profile-page__links-empty">
                         No links yet.
                       </p>
                     )}
@@ -494,7 +506,7 @@ export function Profile() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="body-text" style={{ color: "var(--ink-muted)", fontSize: 14, margin: 0 }}>
+                  <p className="body-text profile-page__muted-text profile-page__links-empty profile-page__flush-text">
                     {isOwnProfile ? "No links yet. Use Edit in the header to add links." : null}
                   </p>
                 )}
