@@ -1479,6 +1479,392 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       );
     };
 
+    const renderFeedItem = (ic: IntentcastFeedItem) => {
+      const isOwnPost = auth.status === "authenticated" && ic.authorPersonId === auth.person.personId;
+      const isEditing = editIntentcastId === ic.id;
+      const authorRemoved = intentcastIsAuthorRemoved(ic);
+      const canEdit = isOwnPost && intentcastWithinEditWindow(ic) && !authorRemoved;
+      const viewerHasReplied = ic.viewerHasResponded === true || repliedIntentcastIds.has(ic.id);
+      const pendingTrackVerification =
+        layout === "career" &&
+        ic.category === "hiring" &&
+        hiringPostNeedsTrackVerification(ic.content);
+      const showReply =
+        !isOwnPost &&
+        intentcastIsOpen(ic) &&
+        !authorRemoved &&
+        !viewerHasReplied;
+
+      return (
+        <li
+          key={ic.id}
+          id={`${domIdPrefix}-${ic.id}`}
+          className={`home-dashboard__bulletin-card${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`}
+        >
+          {isEditing ? (
+            <>
+              <textarea
+                className="input home-dashboard__respond-textarea home-dashboard__bulletin-edit-textarea"
+                rows={5}
+                aria-label="Edit bulletin post"
+                maxLength={BULLETIN_POST_MAX_LENGTH}
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                disabled={editSubmitting}
+              />
+              <p className="home-dashboard__bulletin-char-count" aria-live="polite">
+                {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
+              </p>
+              {editError ? <p className="home-dashboard__respond-error">{editError}</p> : null}
+              <div className="home-dashboard__respond-actions home-dashboard__respond-actions--wrap">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={cancelIntentcastEdit}
+                  disabled={editSubmitting || deleteSubmittingId === ic.id}
+                >
+                  Cancel
+                </Button>
+                <button
+                  type="button"
+                  className="home-dashboard__bulletin-delete"
+                  disabled={editSubmitting || deleteSubmittingId === ic.id}
+                  onClick={() => setDeleteConfirmIntentcastId(ic.id)}
+                >
+                  Delete
+                </button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => void handleSaveIntentcastEdit(ic.id)}
+                  disabled={editSubmitting || deleteSubmittingId === ic.id}
+                >
+                  {editSubmitting ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {layout === "career" && ic.category === "hiring" ? (
+                <>
+                  {authorRemoved && isOwnPost ? (
+                    <div className="home-dashboard__bulletin-archived-banner" role="status">
+                      <p className="home-dashboard__bulletin-archived-title">Removed from bulletin</p>
+                      <p className="home-dashboard__bulletin-archived-copy">
+                        Other alumni no longer see this post. The hiring card below is <strong>your private copy</strong> of
+                        the same post-not a second public listing-so you can reread what you shared. By default we
+                        permanently delete that copy <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after
+                        removal (exact date below).
+                        {ic.responseCount > 0 ? (
+                          <>
+                            {" "}
+                            Open <strong>Show replies</strong> in this box to read responses; we don’t list them again under
+                            the card.
+                          </>
+                        ) : null}
+                      </p>
+                      <AuthorPermanentDeletionNote ic={ic} />
+                      <AuthorDeleteUndoRow
+                        ic={ic}
+                        viewerPersonId={personId}
+                        undoClock={authorDeleteUndoTick}
+                        restoreSubmitting={restoreSubmittingId === ic.id}
+                        onRestore={() => void executeRestoreIntentcast(ic.id)}
+                      />
+                      {ic.responseCount > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            className="home-dashboard__bulletin-archived-replies-toggle"
+                            onClick={() => void toggleArchivedReplies(ic)}
+                          >
+                            {archivedRepliesPostId === ic.id ? "Hide replies" : `Show replies (${ic.responseCount})`}
+                          </button>
+                          {archivedRepliesPostId === ic.id && archivedRepliesLoading ? (
+                            <p className="home-dashboard__bulletin-archived-replies-status">Loading…</p>
+                          ) : null}
+                          {archivedRepliesPostId === ic.id && archivedRepliesError ? (
+                            <p className="home-dashboard__respond-error">{archivedRepliesError}</p>
+                          ) : null}
+                          {archivedRepliesPostId === ic.id && !archivedRepliesLoading && archivedReplies.length > 0 ? (
+                            <ul className="home-dashboard__bulletin-archived-replies" aria-label="Replies to your post">
+                              {archivedReplies.map((r) => {
+                                const replyName = intentcastReplyDisplayName(r);
+                                return (
+                                  <li key={r.id} className="home-dashboard__bulletin-archived-reply">
+                                    <div className="home-dashboard__bulletin-archived-reply-row">
+                                      <Link
+                                        to={`/profiles/${r.responderPersonId}`}
+                                        className="home-dashboard__bulletin-archived-reply-avatar-link"
+                                        aria-label={`View ${replyName}'s profile`}
+                                      >
+                                        <Avatar
+                                          name={replyName}
+                                          size="sm"
+                                          tone="pastel"
+                                          departmentCode={r.responderDepartmentCode}
+                                        />
+                                      </Link>
+                                      <div className="home-dashboard__bulletin-archived-reply-body">
+                                        <p className="home-dashboard__bulletin-archived-reply-meta">
+                                          {r.responderFullName}
+                                          {r.responderDepartmentCode
+                                            ? ` · ${r.responderDepartmentCode.toUpperCase()}`
+                                            : ""}
+                                          {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
+                                        </p>
+                                        <p className="home-dashboard__bulletin-archived-reply-msg">{r.message}</p>
+                                      </div>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {pendingTrackVerification && isOwnPost ? (
+                    <p className="career-opportunity-card__pending-note" role="status">
+                      Role track is marked as <strong>Other</strong>. We sent this post for admin verification, so it stays
+                      only in your Post tab until approved.
+                    </p>
+                  ) : null}
+                  <CareerOpportunityCardBody
+                    ic={ic}
+                    parsed={parseHiringBulletin(ic.content)}
+                    viewerHasReplied={viewerHasReplied}
+                  />
+                  {showInlineAuthorReplies && isOwnPost && ic.responseCount > 0 && !authorRemoved ? (
+                    <div className="career-post-replies" aria-label="Replies to your post">
+                      {careerInlineRepliesError ? (
+                        <p className="home-dashboard__respond-error" role="alert">
+                          {careerInlineRepliesError}
+                        </p>
+                      ) : null}
+                      {!careerInlineReplies[ic.id] && !careerInlineRepliesError ? (
+                        <p className="career-post-replies__status">Loading replies…</p>
+                      ) : null}
+                      {careerInlineReplies[ic.id] && careerInlineReplies[ic.id].length > 0 ? (
+                        <>
+                          <h4 className="career-post-replies__title">Replies</h4>
+                          <ul className="career-post-replies__list" role="list">
+                            {careerInlineReplies[ic.id].map((r) => {
+                              const replyName = intentcastReplyDisplayName(r);
+                              return (
+                                <li key={r.id} className="career-post-replies__item">
+                                  <div className="career-post-replies__row">
+                                    <Link
+                                      to={`/profiles/${r.responderPersonId}`}
+                                      className="career-post-replies__avatar-link"
+                                      aria-label={`View ${replyName}'s profile`}
+                                    >
+                                      <Avatar
+                                        name={replyName}
+                                        size="sm"
+                                        tone="pastel"
+                                        departmentCode={r.responderDepartmentCode}
+                                      />
+                                    </Link>
+                                    <div className="career-post-replies__body">
+                                      <p className="career-post-replies__meta">
+                                        {r.responderFullName}
+                                        {r.responderDepartmentCode ? ` · ${r.responderDepartmentCode.toUpperCase()}` : ""}
+                                        {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
+                                      </p>
+                                      <p className="career-post-replies__msg">{r.message}</p>
+                                    </div>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {canEdit ? (
+                    <p className="home-dashboard__bulletin-edit-hint">{formatEditWindowHint(ic.editableUntil)}</p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {authorRemoved && isOwnPost ? (
+                    <div className="home-dashboard__bulletin-archived-banner" role="status">
+                      <p className="home-dashboard__bulletin-archived-title">Removed from bulletin</p>
+                      <p className="home-dashboard__bulletin-archived-copy">
+                        Other alumni no longer see this post. The text below is <strong>your private copy</strong> of the same
+                        post-not a second listing-until we permanently delete it (by default{" "}
+                        <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after removal; the exact date is below).
+                        {ic.responseCount > 0 ? (
+                          <>
+                            {" "}
+                            Open <strong>Show replies</strong> in this box to read responses.
+                          </>
+                        ) : null}
+                      </p>
+                      <AuthorPermanentDeletionNote ic={ic} />
+                      <AuthorDeleteUndoRow
+                        ic={ic}
+                        viewerPersonId={personId}
+                        undoClock={authorDeleteUndoTick}
+                        restoreSubmitting={restoreSubmittingId === ic.id}
+                        onRestore={() => void executeRestoreIntentcast(ic.id)}
+                      />
+                      {ic.responseCount > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            className="home-dashboard__bulletin-archived-replies-toggle"
+                            onClick={() => void toggleArchivedReplies(ic)}
+                          >
+                            {archivedRepliesPostId === ic.id ? "Hide replies" : `Show replies (${ic.responseCount})`}
+                          </button>
+                          {archivedRepliesPostId === ic.id && archivedRepliesLoading ? (
+                            <p className="home-dashboard__bulletin-archived-replies-status">Loading…</p>
+                          ) : null}
+                          {archivedRepliesPostId === ic.id && archivedRepliesError ? (
+                            <p className="home-dashboard__respond-error">{archivedRepliesError}</p>
+                          ) : null}
+                          {archivedRepliesPostId === ic.id && !archivedRepliesLoading && archivedReplies.length > 0 ? (
+                            <ul className="home-dashboard__bulletin-archived-replies" aria-label="Replies to your post">
+                              {archivedReplies.map((r) => {
+                                const replyName = intentcastReplyDisplayName(r);
+                                return (
+                                  <li key={r.id} className="home-dashboard__bulletin-archived-reply">
+                                    <div className="home-dashboard__bulletin-archived-reply-row">
+                                      <Link
+                                        to={`/profiles/${r.responderPersonId}`}
+                                        className="home-dashboard__bulletin-archived-reply-avatar-link"
+                                        aria-label={`View ${replyName}'s profile`}
+                                      >
+                                        <Avatar
+                                          name={replyName}
+                                          size="sm"
+                                          tone="pastel"
+                                          departmentCode={r.responderDepartmentCode}
+                                        />
+                                      </Link>
+                                      <div className="home-dashboard__bulletin-archived-reply-body">
+                                        <p className="home-dashboard__bulletin-archived-reply-meta">
+                                          {r.responderFullName}
+                                          {r.responderDepartmentCode
+                                            ? ` · ${r.responderDepartmentCode.toUpperCase()}`
+                                            : ""}
+                                          {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
+                                        </p>
+                                        <p className="home-dashboard__bulletin-archived-reply-msg">{r.message}</p>
+                                      </div>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <p className="home-dashboard__bulletin-body">{ic.content}</p>
+                  <p className="home-dashboard__bulletin-meta">{formatBulletinAuthorByline(ic)}</p>
+                  {canEdit ? (
+                    <p className="home-dashboard__bulletin-edit-hint">{formatEditWindowHint(ic.editableUntil)}</p>
+                  ) : null}
+                </>
+              )}
+            </>
+          )}
+          {isOwnPost && !isEditing && !authorRemoved ? (
+            <div className="home-dashboard__bulletin-card-actions">
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="home-dashboard__bulletin-edit"
+                  onClick={() => {
+                    setEditIntentcastId(ic.id);
+                    setEditContent(ic.content);
+                    setEditError(null);
+                    setRespondTargetId(null);
+                    setBulletinDeleteError(null);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="home-dashboard__bulletin-delete"
+                disabled={deleteSubmittingId === ic.id}
+                onClick={() => setDeleteConfirmIntentcastId(ic.id)}
+              >
+                Delete
+              </button>
+            </div>
+          ) : null}
+          {!isOwnPost && showReply && respondTargetId === ic.id ? (
+            <div className="home-dashboard__respond-box">
+              <textarea
+                className="input home-dashboard__respond-textarea"
+                rows={3}
+                placeholder="Write at least 5 characters…"
+                maxLength={BULLETIN_REPLY_MAX_LENGTH}
+                value={respondMessage}
+                onChange={(e) => setRespondMessage(e.target.value)}
+                disabled={respondSubmitting}
+              />
+              <p className="home-dashboard__bulletin-char-count" aria-live="polite">
+                {respondMessage.length} / {BULLETIN_REPLY_MAX_LENGTH}
+              </p>
+              {respondError ? <p className="home-dashboard__respond-error">{respondError}</p> : null}
+              <div className="home-dashboard__respond-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setRespondTargetId(null);
+                    setRespondMessage("");
+                    setRespondError(null);
+                  }}
+                  disabled={respondSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => void handleRespond(ic.id)}
+                  disabled={respondSubmitting}
+                >
+                  {respondSubmitting ? "Sending…" : "Send"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {!isOwnPost && showReply && respondTargetId !== ic.id ? (
+            <button
+              type="button"
+              className="home-dashboard__bulletin-reply"
+              onClick={() => {
+                setRespondTargetId(ic.id);
+                setRespondMessage("");
+                setRespondError(null);
+                setEditIntentcastId(null);
+                setEditError(null);
+              }}
+            >
+              Reply
+            </button>
+          ) : null}
+          {!isOwnPost &&
+          viewerHasReplied &&
+          !(layout === "career" && ic.category === "hiring") ? (
+            <p className="home-dashboard__bulletin-replied-note">You replied.</p>
+          ) : null}
+        </li>
+      );
+    };
+
     const headingId = showPanelHeader ? "home-bulletin-heading" : undefined;
     return (
             <section
@@ -1548,427 +1934,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       }}
                     >
                     <ul className="home-dashboard__bulletin-list" role="list">
-                      {intentcasts.map((ic) => {
-                        const isOwnPost =
-                          auth.status === "authenticated" && ic.authorPersonId === auth.person.personId;
-                        const isEditing = editIntentcastId === ic.id;
-                        const authorRemoved = intentcastIsAuthorRemoved(ic);
-                        const canEdit =
-                          isOwnPost && intentcastWithinEditWindow(ic) && !authorRemoved;
-                        const viewerHasReplied =
-                          ic.viewerHasResponded === true || repliedIntentcastIds.has(ic.id);
-                        const pendingTrackVerification =
-                          layout === "career" &&
-                          ic.category === "hiring" &&
-                          hiringPostNeedsTrackVerification(ic.content);
-                        const showReply =
-                          !isOwnPost &&
-                          intentcastIsOpen(ic) &&
-                          !authorRemoved &&
-                          !viewerHasReplied;
-                        return (
-                          <li
-                            key={ic.id}
-                            id={`${domIdPrefix}-${ic.id}`}
-                            className={`home-dashboard__bulletin-card${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`}
-                          >
-                            {isEditing ? (
-                              <>
-                                <textarea
-                                  className="input home-dashboard__respond-textarea home-dashboard__bulletin-edit-textarea"
-                                  rows={5}
-                                  aria-label="Edit bulletin post"
-                                  maxLength={BULLETIN_POST_MAX_LENGTH}
-                                  value={editContent}
-                                  onChange={(e) => setEditContent(e.target.value)}
-                                  disabled={editSubmitting}
-                                />
-                                <p className="home-dashboard__bulletin-char-count" aria-live="polite">
-                                  {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
-                                </p>
-                                {editError ? <p className="home-dashboard__respond-error">{editError}</p> : null}
-                                <div className="home-dashboard__respond-actions home-dashboard__respond-actions--wrap">
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={cancelIntentcastEdit}
-                                    disabled={editSubmitting || deleteSubmittingId === ic.id}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <button
-                                    type="button"
-                                    className="home-dashboard__bulletin-delete"
-                                    disabled={editSubmitting || deleteSubmittingId === ic.id}
-                                    onClick={() => setDeleteConfirmIntentcastId(ic.id)}
-                                  >
-                                    Delete
-                                  </button>
-                                  <Button
-                                    type="button"
-                                    variant="primary"
-                                    onClick={() => void handleSaveIntentcastEdit(ic.id)}
-                                    disabled={editSubmitting || deleteSubmittingId === ic.id}
-                                  >
-                                    {editSubmitting ? "Saving…" : "Save"}
-                                  </Button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                {layout === "career" && ic.category === "hiring" ? (
-                                  <>
-                                    {authorRemoved && isOwnPost ? (
-                                      <div className="home-dashboard__bulletin-archived-banner" role="status">
-                                        <p className="home-dashboard__bulletin-archived-title">Removed from bulletin</p>
-                                        <p className="home-dashboard__bulletin-archived-copy">
-                                          Other alumni no longer see this post. The hiring card below is{" "}
-                                          <strong>your private copy</strong> of the same post—not a second public listing—so you
-                                          can reread what you shared. By default we permanently delete that copy{" "}
-                                          <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after removal (exact date
-                                          below).
-                                          {ic.responseCount > 0 ? (
-                                            <>
-                                              {" "}
-                                              Open <strong>Show replies</strong> in this box to read responses; we don’t list
-                                              them again under the card.
-                                            </>
-                                          ) : null}
-                                        </p>
-                                        <AuthorPermanentDeletionNote ic={ic} />
-                                        <AuthorDeleteUndoRow
-                                          ic={ic}
-                                          viewerPersonId={personId}
-                                          undoClock={authorDeleteUndoTick}
-                                          restoreSubmitting={restoreSubmittingId === ic.id}
-                                          onRestore={() => void executeRestoreIntentcast(ic.id)}
-                                        />
-                                        {ic.responseCount > 0 ? (
-                                          <>
-                                            <button
-                                              type="button"
-                                              className="home-dashboard__bulletin-archived-replies-toggle"
-                                              onClick={() => void toggleArchivedReplies(ic)}
-                                            >
-                                              {archivedRepliesPostId === ic.id
-                                                ? "Hide replies"
-                                                : `Show replies (${ic.responseCount})`}
-                                            </button>
-                                            {archivedRepliesPostId === ic.id && archivedRepliesLoading ? (
-                                              <p className="home-dashboard__bulletin-archived-replies-status">
-                                                Loading…
-                                              </p>
-                                            ) : null}
-                                            {archivedRepliesPostId === ic.id && archivedRepliesError ? (
-                                              <p className="home-dashboard__respond-error">{archivedRepliesError}</p>
-                                            ) : null}
-                                            {archivedRepliesPostId === ic.id &&
-                                            !archivedRepliesLoading &&
-                                            archivedReplies.length > 0 ? (
-                                              <ul
-                                                className="home-dashboard__bulletin-archived-replies"
-                                                aria-label="Replies to your post"
-                                              >
-                                                {archivedReplies.map((r) => {
-                                                  const replyName = intentcastReplyDisplayName(r);
-                                                  return (
-                                                    <li key={r.id} className="home-dashboard__bulletin-archived-reply">
-                                                      <div className="home-dashboard__bulletin-archived-reply-row">
-                                                        <Link
-                                                          to={`/profiles/${r.responderPersonId}`}
-                                                          className="home-dashboard__bulletin-archived-reply-avatar-link"
-                                                          aria-label={`View ${replyName}'s profile`}
-                                                        >
-                                                          <Avatar
-                                                            name={replyName}
-                                                            size="sm"
-                                                            tone="pastel"
-                                                            departmentCode={r.responderDepartmentCode}
-                                                          />
-                                                        </Link>
-                                                        <div className="home-dashboard__bulletin-archived-reply-body">
-                                                          <p className="home-dashboard__bulletin-archived-reply-meta">
-                                                            {r.responderFullName}
-                                                            {r.responderDepartmentCode
-                                                              ? ` · ${r.responderDepartmentCode.toUpperCase()}`
-                                                              : ""}
-                                                            {r.createdAt
-                                                              ? ` · ${formatRelativeTime(r.createdAt)}`
-                                                              : ""}
-                                                          </p>
-                                                          <p className="home-dashboard__bulletin-archived-reply-msg">
-                                                            {r.message}
-                                                          </p>
-                                                        </div>
-                                                      </div>
-                                                    </li>
-                                                  );
-                                                })}
-                                              </ul>
-                                            ) : null}
-                                          </>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
-                                    {pendingTrackVerification && isOwnPost ? (
-                                      <p className="career-opportunity-card__pending-note" role="status">
-                                        Role track is marked as <strong>Other</strong>. We sent this post for admin verification,
-                                        so it stays only in your Post tab until approved.
-                                      </p>
-                                    ) : null}
-                                    <CareerOpportunityCardBody
-                                      ic={ic}
-                                      parsed={parseHiringBulletin(ic.content)}
-                                      viewerHasReplied={viewerHasReplied}
-                                    />
-                                    {showInlineAuthorReplies && isOwnPost && ic.responseCount > 0 && !authorRemoved ? (
-                                      <div className="career-post-replies" aria-label="Replies to your post">
-                                        {careerInlineRepliesError ? (
-                                          <p className="home-dashboard__respond-error" role="alert">
-                                            {careerInlineRepliesError}
-                                          </p>
-                                        ) : null}
-                                        {!careerInlineReplies[ic.id] && !careerInlineRepliesError ? (
-                                          <p className="career-post-replies__status">Loading replies…</p>
-                                        ) : null}
-                                        {careerInlineReplies[ic.id] && careerInlineReplies[ic.id].length > 0 ? (
-                                          <>
-                                            <h4 className="career-post-replies__title">Replies</h4>
-                                            <ul className="career-post-replies__list" role="list">
-                                              {careerInlineReplies[ic.id].map((r) => {
-                                                const replyName = intentcastReplyDisplayName(r);
-                                                return (
-                                                  <li key={r.id} className="career-post-replies__item">
-                                                    <div className="career-post-replies__row">
-                                                      <Link
-                                                        to={`/profiles/${r.responderPersonId}`}
-                                                        className="career-post-replies__avatar-link"
-                                                        aria-label={`View ${replyName}'s profile`}
-                                                      >
-                                                        <Avatar
-                                                          name={replyName}
-                                                          size="sm"
-                                                          tone="pastel"
-                                                          departmentCode={r.responderDepartmentCode}
-                                                        />
-                                                      </Link>
-                                                      <div className="career-post-replies__body">
-                                                        <p className="career-post-replies__meta">
-                                                          {r.responderFullName}
-                                                          {r.responderDepartmentCode
-                                                            ? ` · ${r.responderDepartmentCode.toUpperCase()}`
-                                                            : ""}
-                                                          {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
-                                                        </p>
-                                                        <p className="career-post-replies__msg">{r.message}</p>
-                                                      </div>
-                                                    </div>
-                                                  </li>
-                                                );
-                                              })}
-                                            </ul>
-                                          </>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
-                                    {canEdit ? (
-                                      <p className="home-dashboard__bulletin-edit-hint">
-                                        {formatEditWindowHint(ic.editableUntil)}
-                                      </p>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  <>
-                                    {authorRemoved && isOwnPost ? (
-                                      <div className="home-dashboard__bulletin-archived-banner" role="status">
-                                        <p className="home-dashboard__bulletin-archived-title">Removed from bulletin</p>
-                                        <p className="home-dashboard__bulletin-archived-copy">
-                                          Other alumni no longer see this post. The text below is{" "}
-                                          <strong>your private copy</strong> of the same post—not a second listing—until we
-                                          permanently delete it (by default <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong>{" "}
-                                          after removal; the exact date is below).
-                                          {ic.responseCount > 0 ? (
-                                            <>
-                                              {" "}
-                                              Open <strong>Show replies</strong> in this box to read responses.
-                                            </>
-                                          ) : null}
-                                        </p>
-                                        <AuthorPermanentDeletionNote ic={ic} />
-                                        <AuthorDeleteUndoRow
-                                          ic={ic}
-                                          viewerPersonId={personId}
-                                          undoClock={authorDeleteUndoTick}
-                                          restoreSubmitting={restoreSubmittingId === ic.id}
-                                          onRestore={() => void executeRestoreIntentcast(ic.id)}
-                                        />
-                                        {ic.responseCount > 0 ? (
-                                          <>
-                                            <button
-                                              type="button"
-                                              className="home-dashboard__bulletin-archived-replies-toggle"
-                                              onClick={() => void toggleArchivedReplies(ic)}
-                                            >
-                                              {archivedRepliesPostId === ic.id
-                                                ? "Hide replies"
-                                                : `Show replies (${ic.responseCount})`}
-                                            </button>
-                                            {archivedRepliesPostId === ic.id && archivedRepliesLoading ? (
-                                              <p className="home-dashboard__bulletin-archived-replies-status">
-                                                Loading…
-                                              </p>
-                                            ) : null}
-                                            {archivedRepliesPostId === ic.id && archivedRepliesError ? (
-                                              <p className="home-dashboard__respond-error">{archivedRepliesError}</p>
-                                            ) : null}
-                                            {archivedRepliesPostId === ic.id &&
-                                            !archivedRepliesLoading &&
-                                            archivedReplies.length > 0 ? (
-                                              <ul
-                                                className="home-dashboard__bulletin-archived-replies"
-                                                aria-label="Replies to your post"
-                                              >
-                                                {archivedReplies.map((r) => {
-                                                  const replyName = intentcastReplyDisplayName(r);
-                                                  return (
-                                                    <li key={r.id} className="home-dashboard__bulletin-archived-reply">
-                                                      <div className="home-dashboard__bulletin-archived-reply-row">
-                                                        <Link
-                                                          to={`/profiles/${r.responderPersonId}`}
-                                                          className="home-dashboard__bulletin-archived-reply-avatar-link"
-                                                          aria-label={`View ${replyName}'s profile`}
-                                                        >
-                                                          <Avatar
-                                                            name={replyName}
-                                                            size="sm"
-                                                            tone="pastel"
-                                                            departmentCode={r.responderDepartmentCode}
-                                                          />
-                                                        </Link>
-                                                        <div className="home-dashboard__bulletin-archived-reply-body">
-                                                          <p className="home-dashboard__bulletin-archived-reply-meta">
-                                                            {r.responderFullName}
-                                                            {r.responderDepartmentCode
-                                                              ? ` · ${r.responderDepartmentCode.toUpperCase()}`
-                                                              : ""}
-                                                            {r.createdAt
-                                                              ? ` · ${formatRelativeTime(r.createdAt)}`
-                                                              : ""}
-                                                          </p>
-                                                          <p className="home-dashboard__bulletin-archived-reply-msg">
-                                                            {r.message}
-                                                          </p>
-                                                        </div>
-                                                      </div>
-                                                    </li>
-                                                  );
-                                                })}
-                                              </ul>
-                                            ) : null}
-                                          </>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
-                                    <p className="home-dashboard__bulletin-body">{ic.content}</p>
-                                    <p className="home-dashboard__bulletin-meta">{formatBulletinAuthorByline(ic)}</p>
-                                    {canEdit ? (
-                                      <p className="home-dashboard__bulletin-edit-hint">
-                                        {formatEditWindowHint(ic.editableUntil)}
-                                      </p>
-                                    ) : null}
-                                  </>
-                                )}
-                              </>
-                            )}
-                            {isOwnPost && !isEditing && !authorRemoved ? (
-                              <div className="home-dashboard__bulletin-card-actions">
-                                {canEdit ? (
-                                  <button
-                                    type="button"
-                                    className="home-dashboard__bulletin-edit"
-                                    onClick={() => {
-                                      setEditIntentcastId(ic.id);
-                                      setEditContent(ic.content);
-                                      setEditError(null);
-                                      setRespondTargetId(null);
-                                      setBulletinDeleteError(null);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  className="home-dashboard__bulletin-delete"
-                                  disabled={deleteSubmittingId === ic.id}
-                                  onClick={() => setDeleteConfirmIntentcastId(ic.id)}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
-                            {!isOwnPost && showReply && respondTargetId === ic.id ? (
-                              <div className="home-dashboard__respond-box">
-                                <textarea
-                                  className="input home-dashboard__respond-textarea"
-                                  rows={3}
-                                  placeholder="Write at least 5 characters…"
-                                  maxLength={BULLETIN_REPLY_MAX_LENGTH}
-                                  value={respondMessage}
-                                  onChange={(e) => setRespondMessage(e.target.value)}
-                                  disabled={respondSubmitting}
-                                />
-                                <p className="home-dashboard__bulletin-char-count" aria-live="polite">
-                                  {respondMessage.length} / {BULLETIN_REPLY_MAX_LENGTH}
-                                </p>
-                                {respondError ? <p className="home-dashboard__respond-error">{respondError}</p> : null}
-                                <div className="home-dashboard__respond-actions">
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={() => {
-                                      setRespondTargetId(null);
-                                      setRespondMessage("");
-                                      setRespondError(null);
-                                    }}
-                                    disabled={respondSubmitting}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="primary"
-                                    onClick={() => void handleRespond(ic.id)}
-                                    disabled={respondSubmitting}
-                                  >
-                                    {respondSubmitting ? "Sending…" : "Send"}
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : null}
-                            {!isOwnPost && showReply && respondTargetId !== ic.id ? (
-                              <button
-                                type="button"
-                                className="home-dashboard__bulletin-reply"
-                                onClick={() => {
-                                  setRespondTargetId(ic.id);
-                                  setRespondMessage("");
-                                  setRespondError(null);
-                                  setEditIntentcastId(null);
-                                  setEditError(null);
-                                }}
-                              >
-                                Reply
-                              </button>
-                            ) : null}
-                            {!isOwnPost &&
-                            viewerHasReplied &&
-                            !(layout === "career" && ic.category === "hiring") ? (
-                              <p className="home-dashboard__bulletin-replied-note">You replied.</p>
-                            ) : null}
-                          </li>
-                        );
-                      })}
+                      {intentcasts.map(renderFeedItem)}
                     </ul>
                     {intentcastNextOffset != null ? (
                       <div ref={bulletinSentinelRef} className="home-dashboard__bulletin-sentinel" aria-hidden />
