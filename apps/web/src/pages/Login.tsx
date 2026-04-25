@@ -14,6 +14,8 @@ type SentAuthMethod = "otp" | "password";
 const OTP_LENGTH = 6;
 const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => "");
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
+const BETA_INVITE_AUTH_ENABLED = import.meta.env.VITE_BETA_INVITE_AUTH_ENABLED === "true";
+const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
 
 /** Basename (no extension) of files in `public/media/` — must match disk names (spaces OK; URLs are encoded). */
 const SUCCESS_VIDEO_STEM = "Gen 4 Turbo Varanasi Aerial";
@@ -50,14 +52,59 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
+  const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
+    if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
+      const isIitBhuEmail = normalizedEmail.endsWith("@iitbhu.ac.in");
+      if (!isIitBhuEmail) {
+        setError("Beta access is currently limited. Request access using the form below.");
+        setShowBetaWaitlistCta(true);
+        return;
+      }
+      setBetaInviteStepUnlocked(true);
+      return;
+    }
+    if (BETA_INVITE_AUTH_ENABLED && !inviteCode.trim()) {
+      setError("Enter your invite code.");
+      return;
+    }
     setPhase("sending");
     try {
+      if (BETA_INVITE_AUTH_ENABLED) {
+        const { error: inviteErr } = await api.post("/v1/auth/invite-login", {
+          institutionalEmail: normalizedEmail,
+          inviteCode: inviteCode.trim(),
+        });
+        if (inviteErr) {
+          if (
+            inviteErr.code === "AUTH_BETA_NOT_ALLOWED" ||
+            inviteErr.code === "AUTH_DOMAIN_NOT_ALLOWED"
+          ) {
+            setError("You are not approved for this beta yet. Request access using the form below.");
+            setShowBetaWaitlistCta(true);
+          } else {
+            setError(inviteErr.message ?? inviteErr.code);
+          }
+          setPhase("form");
+          return;
+        }
+        if (!prefersReduceMotion) {
+          sessionPrefetchRef.current = refetch();
+          void import("../pages/Home");
+        }
+        setShowSuccessVideo(true);
+        setPhase("sent");
+        return;
+      }
+
       const { data, error: err, retryAfterSeconds } = await api.post<{
         challengeId: string;
         sentTo?: string;
@@ -458,7 +505,9 @@ export function Login() {
         >
           <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
             <div className="login-sending__spinner" aria-hidden />
-            <p className="login-sending__line">Hang tight — we’re sending your sign-in link.</p>
+            <p className="login-sending__line">
+              {BETA_INVITE_AUTH_ENABLED ? "Signing you in…" : "Hang tight — we’re sending your sign-in link."}
+            </p>
           </div>
         </div>
       </>
@@ -496,25 +545,56 @@ export function Login() {
         }}
       >
         <h2 className="section-headline" style={{ marginBottom: 16 }}>
-          Use your insti email ID to log in
+          {BETA_INVITE_AUTH_ENABLED ? "Beta sign in" : "Use your insti email ID to log in"}
         </h2>
         <form onSubmit={handleSubmit}>
           <Input
             type="email"
             placeholder="you@iitbhu.ac.in"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (BETA_INVITE_AUTH_ENABLED) {
+                setBetaInviteStepUnlocked(false);
+                setInviteCode("");
+                setShowBetaWaitlistCta(false);
+              }
+            }}
             required
             autoComplete="email"
             style={{ marginBottom: 16 }}
           />
+          {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
+            <Input
+              type="password"
+              placeholder="Invite code"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              required
+              autoComplete="off"
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
           {error && (
             <p style={{ color: "var(--brick)", fontSize: 13, marginBottom: 12 }}>
               {error}
             </p>
           )}
+          {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
+            <p style={{ marginBottom: 12, fontSize: 13 }}>
+              Join beta waitlist:{" "}
+              <a href={BETA_FORM_LINK} target="_blank" rel="noreferrer">
+                fill this Google form
+              </a>
+              .
+            </p>
+          ) : null}
           <Button type="submit" variant="primary" style={{ width: "100%" }}>
-            Send magic link
+            {BETA_INVITE_AUTH_ENABLED
+              ? betaInviteStepUnlocked
+                ? "Enter beta"
+                : "Continue"
+              : "Send magic link"}
           </Button>
         </form>
       </div>

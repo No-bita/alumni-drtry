@@ -46,6 +46,16 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
       parsed.data.initialMessage,
       parsed.data.kind ?? "general"
     );
+    void app.adminMetricsService
+      .logBetaUsageEvent({
+        eventType: "thread_created",
+        personId: request.actor.personId,
+        route: request.routeOptions.url ?? request.url,
+        metadata: { recipientPersonId: parsed.data.recipientPersonId, kind: parsed.data.kind ?? "general" }
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, "Failed to log beta usage event.");
+      });
     return reply.code(201).send(result);
   });
 
@@ -96,6 +106,16 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
         params.data.threadId,
         parsed.data.body
       );
+      void app.adminMetricsService
+        .logBetaUsageEvent({
+          eventType: "thread_message_sent",
+          personId: request.actor.personId,
+          route: request.routeOptions.url ?? request.url,
+          metadata: { threadId: params.data.threadId, messageLength: parsed.data.body.length }
+        })
+        .catch((error) => {
+          request.log.warn({ err: error }, "Failed to log beta usage event.");
+        });
       return reply.code(201).send({
         message: {
           id: msg.id,
@@ -117,7 +137,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
         throw new AppError(400, "CONNECTION_THREAD_BAD_REQUEST", "Invalid body.");
       }
 
-      const items = parsed.data.items as DiscloseItemInput[];
+      const items: DiscloseItemInput[] = parsed.data.items;
       try {
         const rows = await app.connectionThreadService.disclose(request.actor.personId, params.data.threadId, items);
         return reply.code(201).send({

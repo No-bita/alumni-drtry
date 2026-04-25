@@ -43,6 +43,16 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       request.actor.personId,
       parsed.data
     );
+    void app.adminMetricsService
+      .logBetaUsageEvent({
+        eventType: "intentcast_posted",
+        personId: request.actor.personId,
+        route: request.routeOptions.url ?? request.url,
+        metadata: { category: parsed.data.category }
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, "Failed to log beta usage event.");
+      });
     return reply.code(201).send({ intentcast });
   });
 
@@ -178,6 +188,16 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
         params.data.id,
         parsed.data
       );
+      void app.adminMetricsService
+        .logBetaUsageEvent({
+          eventType: "intentcast_responded",
+          personId: request.actor.personId,
+          route: request.routeOptions.url ?? request.url,
+          metadata: { intentcastId: params.data.id, messageLength: parsed.data.message.length }
+        })
+        .catch((error) => {
+          request.log.warn({ err: error }, "Failed to log beta usage event.");
+        });
       return reply.code(201).send({ response });
     }
   );

@@ -84,6 +84,28 @@ describe("auth", () => {
     expect(body.code).toBe("AUTH_UNAUTHORIZED");
   });
 
+  it("rejects invite login when beta invite auth is disabled", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/auth/invite-login",
+      payload: { institutionalEmail: "user@iitbhu.ac.in", inviteCode: "demo" }
+    });
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.code).toBe("AUTH_INVITE_DISABLED");
+  });
+
+  it("rejects invite login payload with invalid email", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/auth/invite-login",
+      payload: { institutionalEmail: "not-an-email", inviteCode: "demo" }
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe("AUTH_BAD_REQUEST");
+  });
+
   it("accepts allowed domain and returns challenge (requires DB)", async () => {
     const email = `auth-${Date.now()}@iitbhu.ac.in`;
     const res = await app.inject({

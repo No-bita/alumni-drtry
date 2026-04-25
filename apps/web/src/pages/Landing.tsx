@@ -1,11 +1,7 @@
 import { Link, Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Eyebrow } from "../components/Eyebrow";
-import { API_BASE_URL } from "../api/client";
-import { assertApiGet } from "../lib/assertApiGet";
-import { queryKeys } from "../lib/queryKeys";
 import { useAuth } from "../contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { LandingWorldMap } from "../components/LandingWorldMap";
@@ -17,13 +13,6 @@ import { LandingWorldMap } from "../components/LandingWorldMap";
 export function Landing() {
   const auth = useAuth();
   const person = auth.status === "authenticated" ? auth.person : undefined;
-
-  const googleConfigQuery = useQuery({
-    queryKey: queryKeys.auth.googleConfig(),
-    queryFn: ({ signal }) => assertApiGet<{ enabled: boolean }>("/v1/auth/google/config", signal),
-    staleTime: 5 * 60_000,
-  });
-  const googleEnabled = Boolean(googleConfigQuery.data?.enabled);
 
   if (auth.status === "loading") {
     return (
@@ -85,13 +74,7 @@ export function Landing() {
 
   return (
     <>
-      <Nav
-        right={
-          <Link to="/login" style={{ color: "var(--cream)", fontSize: 13, textDecoration: "none" }}>
-            Sign in
-          </Link>
-        }
-      />
+      <Nav />
       <section className="hero hero--map-serif-voice">
         <div className="hero__left">
           <Eyebrow>IIT BHU Alumni Network</Eyebrow>
@@ -108,15 +91,13 @@ export function Landing() {
                 </Button>
               </Link>
             </div>
-            {googleEnabled ? (
-              <div className="landing-signin-ctas__cell landing-signin-ctas__cell--google">
-                <a className="btn btn--secondary" href={`${API_BASE_URL}/v1/auth/google`}>
-                  Sign in with Google
-                </a>
-              </div>
-            ) : null}
+            {/* <div className="landing-signin-ctas__cell landing-signin-ctas__cell--google">
+              <a className="btn btn--secondary" href={`${API_BASE_URL}/v1/auth/google`}>
+                Sign in with Google
+              </a>
+            </div> */}
           </div>
-          <div style={{ display: "flex", gap: "2.5rem" }}>
+          {/* <div style={{ display: "flex", gap: "2.5rem" }}>
             <div>
               <span className="stat-number">1000+</span>
               <span className="ui-label" style={{ display: "block", marginTop: 4 }}>
@@ -129,7 +110,7 @@ export function Landing() {
                 Batches
               </span>
             </div>
-          </div>
+          </div> */}
         </div>
         <LandingWorldMap className="hero__map" />
       </section>

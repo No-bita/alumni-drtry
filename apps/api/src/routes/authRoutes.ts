@@ -61,7 +61,56 @@ const passwordLoginBodySchema = z.object({
   password: z.string().min(1).max(256)
 });
 
+const inviteLoginBodySchema = z.object({
+  institutionalEmail: z.string().email(),
+  inviteCode: z.string().min(1).max(256)
+});
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
+  const inviteLoginAttemptsByEmail = new Map<string, number[]>();
+  const inviteLoginAttemptsByIp = new Map<string, number[]>();
+  const inviteLoginAttemptsGlobal: number[] = [];
+
+  const withinInviteWindow = (arr: number[], now: number) => {
+    const cutoff = now - env.BETA_INVITE_WINDOW_MINUTES * 60_000;
+    while (arr.length > 0 && arr[0]! < cutoff) arr.shift();
+  };
+
+  const bumpInviteAttempt = (email: string, ip: string | null, now: number) => {
+    const emailArr = inviteLoginAttemptsByEmail.get(email) ?? [];
+    emailArr.push(now);
+    inviteLoginAttemptsByEmail.set(email, emailArr);
+    if (ip) {
+      const ipArr = inviteLoginAttemptsByIp.get(ip) ?? [];
+      ipArr.push(now);
+      inviteLoginAttemptsByIp.set(ip, ipArr);
+    }
+    inviteLoginAttemptsGlobal.push(now);
+  };
+
+  const assertInviteRateLimit = (email: string, ip: string | null, now: number) => {
+    const emailArr = inviteLoginAttemptsByEmail.get(email) ?? [];
+    withinInviteWindow(emailArr, now);
+    inviteLoginAttemptsByEmail.set(email, emailArr);
+    if (emailArr.length >= env.BETA_INVITE_MAX_PER_EMAIL_WINDOW) {
+      throw new AppError(429, "AUTH_RATE_LIMITED", "Too many login attempts. Try again later.", true, 60);
+    }
+
+    if (ip) {
+      const ipArr = inviteLoginAttemptsByIp.get(ip) ?? [];
+      withinInviteWindow(ipArr, now);
+      inviteLoginAttemptsByIp.set(ip, ipArr);
+      if (ipArr.length >= env.BETA_INVITE_MAX_PER_IP_WINDOW) {
+        throw new AppError(429, "AUTH_RATE_LIMITED", "Too many login attempts. Try again later.", true, 60);
+      }
+    }
+
+    withinInviteWindow(inviteLoginAttemptsGlobal, now);
+    if (inviteLoginAttemptsGlobal.length >= env.BETA_INVITE_MAX_PER_IP_WINDOW * 20) {
+      throw new AppError(429, "AUTH_RATE_LIMITED", "Too many login attempts. Try again later.", true, 60);
+    }
+  };
+
   app.get("/v1/auth/google/config", async (_request, reply) => {
     return reply.code(200).send({
       enabled: isGoogleOAuthConfigured(),
@@ -239,6 +288,105 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
       ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
     });
+
+    return reply.code(200).send({
+      person: result.person,
+      sessionExpiresAt: result.sessionExpiresAt.toISOString()
+    });
+  });
+
+  app.post("/v1/auth/invite-login", async (request, reply) => {
+    const parsed = inviteLoginBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError(400, "AUTH_BAD_REQUEST", "Invalid invite login payload.");
+    }
+
+    const now = Date.now();
+    const email = parsed.data.institutionalEmail.trim().toLowerCase();
+    const ip = request.ip ?? null;
+    const emailDomain = email.split("@")[1] ?? null;
+    const analyticsBase = {
+      emailDomain,
+      ip: ip ?? null,
+      inviteCodeId: env.BETA_SHARED_INVITE_CODE_ID
+    } as const;
+    request.log.info({ event: "auth_invite_attempt", ...analyticsBase }, "Invite login attempt");
+    void app.adminMetricsService.logBetaAuthEvent({
+      eventType: "invite_attempt",
+      emailDomain: analyticsBase.emailDomain,
+      ip: analyticsBase.ip,
+      inviteCodeId: analyticsBase.inviteCodeId
+    }).catch(() => {});
+
+    try {
+      assertInviteRateLimit(email, ip, now);
+    } catch (error) {
+      if (isAppError(error) && error.code === "AUTH_RATE_LIMITED") {
+        void app.adminMetricsService.logBetaAuthEvent({
+          eventType: "invite_rate_limited",
+          emailDomain: analyticsBase.emailDomain,
+          errorCode: error.code,
+          ip: analyticsBase.ip,
+          inviteCodeId: analyticsBase.inviteCodeId
+        }).catch(() => {});
+      }
+      throw error;
+    }
+    bumpInviteAttempt(email, ip, now);
+
+    let result;
+    try {
+      result = await app.authService.loginWithInviteCode({
+        institutionalEmail: email,
+        inviteCode: parsed.data.inviteCode,
+        ipAddress: ip,
+        userAgent: request.headers["user-agent"] ?? null
+      });
+    } catch (error) {
+      if (isAppError(error)) {
+        request.log.info(
+          {
+            event: "auth_invite_failure",
+            code: error.code,
+            ...analyticsBase
+          },
+          "Invite login failed"
+        );
+        void app.adminMetricsService.logBetaAuthEvent({
+          eventType: "invite_failure",
+          emailDomain: analyticsBase.emailDomain,
+          errorCode: error.code,
+          ip: analyticsBase.ip,
+          inviteCodeId: analyticsBase.inviteCodeId
+        }).catch(() => {});
+      }
+      throw error;
+    }
+
+    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
+      path: "/",
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: sessionSameSite(),
+      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
+      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
+    });
+
+    request.log.info(
+      {
+        event: "auth_invite_success",
+        personId: result.person.id,
+        ...analyticsBase
+      },
+      "Invite login succeeded"
+    );
+    void app.adminMetricsService.logBetaAuthEvent({
+      eventType: "invite_success",
+      personId: result.person.id,
+      emailDomain: analyticsBase.emailDomain,
+      ip: analyticsBase.ip,
+      inviteCodeId: analyticsBase.inviteCodeId
+    }).catch(() => {});
 
     return reply.code(200).send({
       person: result.person,

@@ -6,6 +6,7 @@ import { isInstitutionalEmailAllowed, normalizeEmail, parseAllowedDomains } from
 import { parseInstitutionalIdentity } from "../lib/emailParser.js";
 import { AppError } from "../lib/errors.js";
 import { AuthChallengeRepo } from "../repos/authChallengeRepo.js";
+import { BetaAllowedEmailRepo } from "../repos/betaAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
 import type { EmailSender } from "./emailSender.js";
@@ -40,6 +41,13 @@ export interface VerifyAuthInput {
 export interface PasswordLoginInput {
   institutionalEmail: string;
   password: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+export interface InviteCodeLoginInput {
+  institutionalEmail: string;
+  inviteCode: string;
   ipAddress: string | null;
   userAgent: string | null;
 }
@@ -79,6 +87,7 @@ export class AuthService {
   private readonly allowedDomains: ReadonlySet<string>;
   private readonly authChallengeRepo: AuthChallengeRepo;
   private readonly sessionRepo: SessionRepo;
+  private readonly betaAllowedEmailRepo: BetaAllowedEmailRepo;
 
   constructor(
     private readonly pool: Pool,
@@ -87,6 +96,7 @@ export class AuthService {
     this.allowedDomains = parseAllowedDomains(env.ALLOWED_EMAIL_DOMAINS);
     this.authChallengeRepo = new AuthChallengeRepo(pool);
     this.sessionRepo = new SessionRepo(pool);
+    this.betaAllowedEmailRepo = new BetaAllowedEmailRepo(pool);
   }
 
   async startAuth(input: StartAuthInput): Promise<StartAuthResult> {
@@ -287,6 +297,85 @@ export class AuthService {
     const submittedHash = hashSecret(input.password, env.AUTH_SECRET_PEPPER);
     if (submittedHash !== env.DEV_PASSWORD_LOGIN_PASSWORD_HASH) {
       throw new AppError(401, "AUTH_INVALID_PASSWORD", "Incorrect password.");
+    }
+
+    const client = await this.pool.connect();
+    let shouldRollback = true;
+    try {
+      await client.query("BEGIN");
+      const personRepo = new PersonRepo(client);
+      const sessionRepo = new SessionRepo(client);
+
+      const parsedIdentity = parseInstitutionalIdentity(institutionalEmail);
+      const person = await personRepo.upsertByInstitutionalEmail({
+        institutionalEmail: parsedIdentity.normalizedEmail,
+        departmentCode: parsedIdentity.departmentCode,
+        departmentName: parsedIdentity.departmentName,
+        joiningYear: parsedIdentity.joiningYear,
+        isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
+      });
+
+      await personRepo.incrementAppLoginCount(person.id);
+
+      const sessionToken = generateOpaqueToken(48);
+      const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
+      const createdAtMs = Date.now();
+      const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
+      await sessionRepo.create({
+        personId: person.id,
+        sessionHash,
+        expiresAt: sessionExpiresAt,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent
+      });
+
+      await client.query("COMMIT");
+      shouldRollback = false;
+
+      return {
+        sessionToken,
+        sessionExpiresAt,
+        person: {
+          id: person.id,
+          institutionalEmail: person.institutional_email,
+          departmentCode: person.department_code,
+          departmentName: person.department_name,
+          joiningYear: person.joining_year
+        }
+      };
+    } catch (error) {
+      if (shouldRollback) {
+        await client.query("ROLLBACK");
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async loginWithInviteCode(input: InviteCodeLoginInput): Promise<VerifyAuthResult> {
+    if (!env.BETA_INVITE_AUTH_ENABLED) {
+      throw new AppError(403, "AUTH_INVITE_DISABLED", "Invite-code login is disabled.");
+    }
+    if (!env.BETA_SHARED_INVITE_CODE_HASH) {
+      throw new AppError(503, "AUTH_INVITE_MISCONFIGURED", "Invite-code auth is not configured.");
+    }
+
+    const institutionalEmail = normalizeEmail(input.institutionalEmail);
+    if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+    }
+
+    if (env.BETA_REQUIRE_ALLOWLIST) {
+      const allowed = await this.betaAllowedEmailRepo.isAllowed(institutionalEmail);
+      if (!allowed) {
+        throw new AppError(403, "AUTH_BETA_NOT_ALLOWED", "Your email is not yet approved for this beta.");
+      }
+    }
+
+    const submittedHash = hashSecret(input.inviteCode, env.AUTH_SECRET_PEPPER);
+    if (submittedHash !== env.BETA_SHARED_INVITE_CODE_HASH) {
+      throw new AppError(401, "AUTH_INVALID_INVITE_CODE", "Invalid invite code.");
     }
 
     const client = await this.pool.connect();

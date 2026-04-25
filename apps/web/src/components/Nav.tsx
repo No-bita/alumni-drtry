@@ -244,11 +244,7 @@ export function Nav({
         ) : hideSignInLink ? (
           (right ?? null)
         ) : (
-          (right ?? (
-            <Link to="/login" className="nav__guest-sign-in">
-              Sign in
-            </Link>
-          ))
+          (right ?? null)
         )}
       </div>
     </nav>

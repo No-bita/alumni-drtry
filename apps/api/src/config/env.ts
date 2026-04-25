@@ -122,6 +122,13 @@ const envSchema = z.object({
    * enforcement of allowed addresses is still ALLOWED_EMAIL_DOMAINS on the API after sign-in.
    */
   GOOGLE_OAUTH_HOSTED_DOMAIN: optionalStringSchema,
+  BETA_INVITE_AUTH_ENABLED: z.coerce.boolean().default(false),
+  BETA_REQUIRE_ALLOWLIST: z.coerce.boolean().default(true),
+  BETA_SHARED_INVITE_CODE_HASH: optionalStringSchema,
+  BETA_SHARED_INVITE_CODE_ID: optionalStringSchema.default("shared-v1"),
+  BETA_INVITE_MAX_PER_EMAIL_WINDOW: z.coerce.number().int().min(1).max(100).default(10),
+  BETA_INVITE_MAX_PER_IP_WINDOW: z.coerce.number().int().min(1).max(1000).default(50),
+  BETA_INVITE_WINDOW_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   /**
    * Dev-only password fallback for one account.
    * Password is verified by comparing hashSecret(password, AUTH_SECRET_PEPPER) to DEV_PASSWORD_LOGIN_PASSWORD_HASH.
@@ -178,6 +185,12 @@ const hasGoogleSecret = Boolean(parsed.data.GOOGLE_CLIENT_SECRET);
 if (hasGoogleId !== hasGoogleSecret) {
   throw new Error(
     "Invalid environment: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or omit both to disable Google sign-in."
+  );
+}
+
+if (parsed.data.BETA_INVITE_AUTH_ENABLED && !parsed.data.BETA_SHARED_INVITE_CODE_HASH) {
+  throw new Error(
+    "Invalid environment: BETA_SHARED_INVITE_CODE_HASH is required when BETA_INVITE_AUTH_ENABLED=true."
   );
 }
 

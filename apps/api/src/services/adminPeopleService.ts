@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
+import { normalizeEmail } from "../lib/domainAllowlist.js";
+import { BetaAllowedEmailRepo } from "../repos/betaAllowedEmailRepo.js";
 import type { PersonRole, PersonRow } from "../repos/personRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
@@ -34,6 +36,16 @@ export interface UpdateAdminPersonInput {
   suspendedAt?: Date | null;
 }
 
+export interface BetaAllowedEmailView {
+  id: string;
+  email: string;
+  status: "active" | "revoked";
+  notes: string | null;
+  addedByPersonId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 function toAdminView(row: PersonRow): AdminPersonView {
   return {
     id: row.id,
@@ -57,10 +69,12 @@ function toAdminView(row: PersonRow): AdminPersonView {
 export class AdminPeopleService {
   private readonly personRepo: PersonRepo;
   private readonly sessionRepo: SessionRepo;
+  private readonly betaAllowedEmailRepo: BetaAllowedEmailRepo;
 
   constructor(private readonly pool: Pool) {
     this.personRepo = new PersonRepo(pool);
     this.sessionRepo = new SessionRepo(pool);
+    this.betaAllowedEmailRepo = new BetaAllowedEmailRepo(pool);
   }
 
   async getPerson(personId: string): Promise<AdminPersonView> {
@@ -120,5 +134,49 @@ export class AdminPeopleService {
 
   async listDuplicates(): Promise<DuplicateGroup[]> {
     return this.personRepo.findDuplicates();
+  }
+
+  async listBetaAllowedEmails(): Promise<BetaAllowedEmailView[]> {
+    const rows = await this.betaAllowedEmailRepo.list();
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async addBetaAllowedEmail(email: string, actorPersonId: string, notes: string | null): Promise<BetaAllowedEmailView> {
+    const normalized = normalizeEmail(email);
+    const row = await this.betaAllowedEmailRepo.upsertActive(normalized, actorPersonId, notes);
+    return {
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async revokeBetaAllowedEmail(email: string): Promise<BetaAllowedEmailView> {
+    const normalized = normalizeEmail(email);
+    const row = await this.betaAllowedEmailRepo.revoke(normalized);
+    if (!row) {
+      throw new AppError(404, "BETA_ALLOWED_EMAIL_NOT_FOUND", "Allowed email not found.");
+    }
+    return {
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 }

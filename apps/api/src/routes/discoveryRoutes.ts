@@ -47,6 +47,16 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       excludePersonId: request.actor.personId
     });
     await app.adminMetricsService.logSearch();
+    void app.adminMetricsService
+      .logBetaUsageEvent({
+        eventType: "search_executed",
+        personId: request.actor.personId,
+        route: request.routeOptions.url ?? request.url,
+        metadata: { limit: parsed.data.limit, hasQuery: Boolean(parsed.data.q) }
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, "Failed to log beta usage event.");
+      });
     return reply.code(200).send(result);
   });
 
@@ -61,6 +71,16 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       profileId: parsed.data.profileId,
       resultPosition: parsed.data.resultPosition
     });
+    void app.adminMetricsService
+      .logBetaUsageEvent({
+        eventType: "profile_clicked",
+        personId: request.actor.personId,
+        route: request.routeOptions.url ?? request.url,
+        metadata: { profileId: parsed.data.profileId, resultPosition: parsed.data.resultPosition }
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, "Failed to log beta usage event.");
+      });
     return reply.code(204).send();
   });
 
@@ -88,6 +108,16 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
     assertDiscoveryReadAllowed(request.actor.personId, request.ip);
 
     const result = await app.discoveryService.getPublicProfile(parsed.data.id, request.actor.personId);
+    void app.adminMetricsService
+      .logBetaUsageEvent({
+        eventType: "profile_viewed",
+        personId: request.actor.personId,
+        route: request.routeOptions.url ?? request.url,
+        metadata: { profileId: parsed.data.id }
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, "Failed to log beta usage event.");
+      });
     return reply.code(200).send(result);
   });
 };
