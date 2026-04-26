@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import type { SearchProfileView } from "../api/client";
+import { isDemoProfileBio } from "../lib/demoProfile";
 
 type SearchResultCardProps = {
   profile: SearchProfileView;
@@ -20,6 +21,7 @@ export function SearchResultCard({ profile, style }: SearchResultCardProps) {
     profile.parsedDepartmentCode ??
     "—";
   const degree = profile.degreeName ?? profile.degreeCode;
+  const isDemo = isDemoProfileBio(profile.bio);
 
   return (
     <Link
@@ -37,6 +39,7 @@ export function SearchResultCard({ profile, style }: SearchResultCardProps) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 className="card-headline" style={{ margin: 0, fontSize: 20 }}>
               {profile.fullName}
+              {isDemo ? <span className="badge badge--hiring search-result-row__demo-badge">Demo</span> : null}
             </h3>
             <p className="ui-body" style={{ margin: 0, color: "var(--ink-muted)", fontSize: 13 }}>
               {roleLabel}

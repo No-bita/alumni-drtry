@@ -23,6 +23,7 @@ const ConnectionThread = lazy(() =>
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
+const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
 
 function RouteFallback() {
   return (
@@ -117,6 +118,30 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
   return <>{children}</>;
 }
 
+function OwnProfileRequiresOnboardingComplete({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
+  const { id: routeProfileId } = useParams();
+
+  if (auth.status !== "authenticated") return null;
+  if (superAdminSkipsAlumniJourney(auth.person)) return <>{children}</>;
+
+  const profile = auth.myProfile;
+  if (!profile) {
+    return (
+      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
+        Loading…
+      </div>
+    );
+  }
+
+  const viewingOwnProfile = Boolean(routeProfileId && routeProfileId === profile.id);
+  if (viewingOwnProfile && !profile.onboardingCompletedAt) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
@@ -138,9 +163,11 @@ function AppRoutes() {
           path="/profiles/:id"
           element={
             <RequireAuth>
-              <ProfileGate mode="directory">
-                <Profile />
-              </ProfileGate>
+              <OwnProfileRequiresOnboardingComplete>
+                <ProfileGate mode="directory">
+                  <Profile />
+                </ProfileGate>
+              </OwnProfileRequiresOnboardingComplete>
             </RequireAuth>
           }
         />
@@ -158,6 +185,16 @@ function AppRoutes() {
             <RequireAuth>
               <ProfileGate mode="home">
                 <Home />
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/events"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <EventsPage />
               </ProfileGate>
             </RequireAuth>
           }
@@ -206,7 +243,9 @@ function AppRoutes() {
           path="/notifications"
           element={
             <RequireAuth>
-              <Notifications />
+              <ProfileGate mode="home">
+                <Notifications />
+              </ProfileGate>
             </RequireAuth>
           }
         />

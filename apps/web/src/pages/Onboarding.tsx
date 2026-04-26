@@ -3,13 +3,13 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
-import { ProgressBar } from "../components/ProgressBar";
 import { StepTabs } from "../components/StepTabs";
 import { Chip } from "../components/Chip";
 import {
   api,
   type MeProfileResponse,
   type MeOccupationsResponse,
+  type MyOccupationView,
   type MyProfileView,
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
@@ -21,7 +21,7 @@ import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
-import { CAMPUS_IMAGE, CAMPUS_IMAGE_SMALL } from "../constants/images";
+import { CAMPUS_IMAGE } from "../constants/images";
 
 const JOIN_YEAR_MIN = 1960;
 const joinYearMax = () => new Date().getUTCFullYear() + 1;
@@ -46,13 +46,97 @@ const ONBOARDING_INTENTS: { id: OnboardingIntent; label: string; hint: string }[
 ];
 
 const OCCUPATION_OPTIONS: { label: string; code: string }[] = [
-  { label: "Full time employment", code: "full_time_employment" },
-  { label: "Part time employment", code: "part_time_employment" },
+  { label: "Full/Part time employment", code: "employment" },
   { label: "PhD / Research", code: "phd_research" },
   { label: "Founded a venture", code: "founded_venture" },
   { label: "Freelance / Consulting", code: "freelance_consulting" },
   { label: "Other", code: "other" },
 ];
+
+type OccupationFollowUp = {
+  company: string;
+  role: string;
+  university: string;
+  industry: string;
+  other: string;
+};
+
+type OccupationWritePayload = {
+  roleTitle: string;
+  organizationName: string | null;
+  description: string | null;
+};
+
+const OCCUPATION_FOLLOW_UP_LABELS: Partial<Record<string, { title: string; fields: Array<keyof OccupationFollowUp> }>> =
+  {
+    employment: { title: "Employment details", fields: ["company", "role"] },
+    phd_research: { title: "PhD / Research details", fields: ["university"] },
+    founded_venture: { title: "Venture details", fields: ["company", "role", "industry"] },
+    other: { title: "Other details", fields: ["other"] },
+  };
+
+function toUiOccupationCode(apiCode: string): string {
+  if (apiCode === "full_time_employment" || apiCode === "part_time_employment") return "employment";
+  return apiCode;
+}
+
+function toApiOccupationCode(uiCode: string): string {
+  if (uiCode === "employment") return "full_time_employment";
+  return uiCode;
+}
+
+function emptyFollowUp(): OccupationFollowUp {
+  return { company: "", role: "", university: "", industry: "", other: "" };
+}
+
+function buildOccupationWritePayload(code: string, detail: OccupationFollowUp | undefined): OccupationWritePayload {
+  const normalized = detail ?? emptyFollowUp();
+  if (code === "employment" || code === "full_time_employment" || code === "part_time_employment") {
+    const role = normalized.role.trim();
+    const company = normalized.company.trim();
+    return {
+      roleTitle: role || "Current role",
+      organizationName: company || null,
+      description: null,
+    };
+  }
+  if (code === "phd_research") {
+    return {
+      roleTitle: "PhD / Research",
+      organizationName: normalized.university.trim() || null,
+      description: null,
+    };
+  }
+  if (code === "founded_venture") {
+    const role = normalized.role.trim();
+    const company = normalized.company.trim();
+    const industry = normalized.industry.trim();
+    return {
+      roleTitle: role || "Founder",
+      organizationName: company || null,
+      description: industry ? `Industry: ${industry}` : null,
+    };
+  }
+  if (code === "other") {
+    return {
+      roleTitle: normalized.other.trim() || "Other",
+      organizationName: null,
+      description: null,
+    };
+  }
+  if (code === "freelance_consulting") {
+    return {
+      roleTitle: "Freelance / Consulting",
+      organizationName: null,
+      description: null,
+    };
+  }
+  return {
+    roleTitle: "Current role",
+    organizationName: null,
+    description: null,
+  };
+}
 
 function departmentLabel(code: string | null): string {
   if (!code) return "—";
@@ -87,7 +171,13 @@ export function Onboarding() {
   const departmentSelectRef = useRef<HTMLSelectElement>(null);
   const [selectedOccupationCodes, setSelectedOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationCodes, setExistingOccupationCodes] = useState<Set<string>>(new Set());
-  const [selectedIntent, setSelectedIntent] = useState<OnboardingIntent>("explore");
+  const [existingOccupationsByCode, setExistingOccupationsByCode] = useState<Map<string, MyOccupationView>>(new Map());
+  const [occupationFollowUps, setOccupationFollowUps] = useState<Record<string, OccupationFollowUp>>({});
+  const [residenceCountry, setResidenceCountry] = useState("");
+  const [residenceCity, setResidenceCity] = useState("");
+  const [mobileCountryCode, setMobileCountryCode] = useState("");
+  const [mobilePhone, setMobilePhone] = useState("");
+  const [selectedIntent, setSelectedIntent] = useState<OnboardingIntent | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -105,10 +195,22 @@ export function Onboarding() {
   useEffect(() => {
     if (!occQuery.data?.occupations || occHydratedRef.current) return;
     occHydratedRef.current = true;
-    const codes = new Set(occQuery.data.occupations.map((o) => o.occupationTypeCode));
+    const firstCode = occQuery.data.occupations[0]
+      ? toUiOccupationCode(occQuery.data.occupations[0].occupationTypeCode)
+      : undefined;
+    const codes = new Set(firstCode ? [firstCode] : []);
+    const nextByCode = new Map<string, MyOccupationView>();
+    occQuery.data.occupations.forEach((o) => {
+      const uiCode = toUiOccupationCode(o.occupationTypeCode);
+      if (!nextByCode.has(uiCode)) {
+        nextByCode.set(uiCode, o);
+      }
+    });
     queueMicrotask(() => {
       setExistingOccupationCodes(codes);
       setSelectedOccupationCodes(codes);
+      setExistingOccupationsByCode(nextByCode);
+      setOccupationFollowUps({});
     });
   }, [occQuery.data]);
 
@@ -157,6 +259,17 @@ export function Onboarding() {
       }
       // if (p.bio) setBio(p.bio);
       if (p.degreeCode) setDegreeCode(p.degreeCode);
+      setResidenceCountry(p.residenceCountry?.trim() ?? "");
+      setResidenceCity(p.residenceCity?.trim() ?? "");
+      const rawMobile = p.mobilePhone?.trim() ?? "";
+      const mobileMatch = rawMobile.match(/^(\+\d{1,4})\s*(\d+)$/);
+      if (mobileMatch) {
+        setMobileCountryCode(mobileMatch[1] ?? "");
+        setMobilePhone(mobileMatch[2] ?? "");
+      } else {
+        setMobileCountryCode("");
+        setMobilePhone(rawMobile);
+      }
       setParsedDeptLabel(
         p.parsedDepartmentName ?? p.departmentName ?? parsed.departmentDisplayName ?? null
       );
@@ -216,7 +329,6 @@ export function Onboarding() {
   const gradYear4 = joinYear + 4;
   const gradYear5 = joinYear + 5;
 
-  const progress = (stepIndex + 1) / (STEPS.length + 1);
   const showTabs = stepIndex > 0 && stepIndex < 4;
 
   const goTo = (step: number) => {
@@ -235,6 +347,9 @@ export function Onboarding() {
     departmentCode?: string;
     degreeCode?: string | null;
     bio?: string | null;
+    mobilePhone?: string | null;
+    residenceCountry?: string | null;
+    residenceCity?: string | null;
     markMinimumProfileComplete?: true;
     markOnboardingComplete?: true;
   }) => {
@@ -274,13 +389,31 @@ export function Onboarding() {
       setSaveError("Please enter your first name.");
       return;
     }
+    if (!lastName.trim()) {
+      setSaveError("Please enter your last name.");
+      return;
+    }
+    if (!departmentCode) {
+      setSaveError("Please select your department.");
+      return;
+    }
+    if (!degreeCode) {
+      setSaveError("Please select your degree.");
+      return;
+    }
     const joinT = joinYearText.trim();
-    if (joinT !== "") {
-      const y = Number(joinT);
-      if (!Number.isInteger(y) || y < JOIN_YEAR_MIN || y > joinYearMax()) {
-        setSaveError("Please enter a valid year you joined, or clear the field.");
-        return;
-      }
+    if (joinT === "") {
+      setSaveError("Please enter your year of joining.");
+      return;
+    }
+    const y = Number(joinT);
+    if (!Number.isInteger(y) || y < JOIN_YEAR_MIN || y > joinYearMax()) {
+      setSaveError("Please enter a valid year you joined.");
+      return;
+    }
+    if (batchYear == null) {
+      setSaveError("Please select your graduation year.");
+      return;
     }
     setSaveError(null);
     const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
@@ -295,39 +428,152 @@ export function Onboarding() {
   };
 
   const handleStep2Next = async () => {
+    const nextResidenceCountry = residenceCountry.trim();
+    const nextResidenceCity = residenceCity.trim();
+    const nextMobileCountryCode = mobileCountryCode.trim();
+    const nextMobilePhone = mobilePhone.trim();
+    const compactPhone = nextMobilePhone.replace(/[^\d]/g, "");
+    if (!nextResidenceCountry) {
+      setSaveError("Please enter your current country of residence.");
+      return;
+    }
+    if (!nextResidenceCity) {
+      setSaveError("Please enter your current city of residence.");
+      return;
+    }
+    if (!nextMobilePhone) {
+      setSaveError("Please enter your mobile number.");
+      return;
+    }
+    if (!nextMobileCountryCode) {
+      setSaveError("Please enter your country code.");
+      return;
+    }
+    if (compactPhone.length !== 10) {
+      setSaveError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (selectedOccupationCodes.size === 0) {
+      setSaveError("Please select your occupation type.");
+      return;
+    }
+
+    for (const code of selectedOccupationCodes) {
+      const config = OCCUPATION_FOLLOW_UP_LABELS[code];
+      if (!config) continue;
+      const detail = occupationFollowUps[code] ?? emptyFollowUp();
+      if (config.fields.includes("company") && !detail.company.trim()) {
+        setSaveError(`Please add company for ${config.title.replace(" details", "").toLowerCase()}.`);
+        return;
+      }
+      if (config.fields.includes("role") && !detail.role.trim()) {
+        setSaveError(`Please add role for ${config.title.replace(" details", "").toLowerCase()}.`);
+        return;
+      }
+      if (config.fields.includes("university") && !detail.university.trim()) {
+        setSaveError("Please add university for PhD / Research.");
+        return;
+      }
+      if (config.fields.includes("industry") && !detail.industry.trim()) {
+        setSaveError("Please add industry for your venture.");
+        return;
+      }
+      if (config.fields.includes("other") && !detail.other.trim()) {
+        setSaveError("Please add details for Other.");
+        return;
+      }
+    }
+
     const toCreate = [...selectedOccupationCodes].filter((code) => !existingOccupationCodes.has(code));
-    if (toCreate.length > 0) {
+    const toUpdate = [...selectedOccupationCodes].filter((code) => existingOccupationCodes.has(code));
+    const organizationIdCache = new Map<string, string>();
+    const resolveOrganizationId = async (organizationName: string | null): Promise<string | null> => {
+      const trimmed = organizationName?.trim() ?? "";
+      if (!trimmed) return null;
+      const key = trimmed.toLowerCase();
+      const cached = organizationIdCache.get(key);
+      if (cached) return cached;
+      const { data, error } = await api.post<{ organization?: { id?: string } }>("/v1/orgs/suggest", {
+        name: trimmed,
+      });
+      if (error) {
+        throw new Error(error.message ?? error.code);
+      }
+      const id = data?.organization?.id;
+      if (!id) {
+        throw new Error("Could not create or resolve organization.");
+      }
+      organizationIdCache.set(key, id);
+      return id;
+    };
+
+    if (toCreate.length > 0 || toUpdate.length > 0) {
       setSaving(true);
       setSaveError(null);
-      for (const code of toCreate) {
-        const { error } = await api.post("/v1/me/occupations", {
-          occupationTypeCode: code,
-          roleTitle: "Current role",
-          isCurrent: true,
-        });
-        if (error) {
-          setSaveError(error.message ?? error.code);
-          setSaving(false);
-          return;
+      try {
+        for (const code of toCreate) {
+          const payload = buildOccupationWritePayload(code, occupationFollowUps[code]);
+          const organizationId = await resolveOrganizationId(payload.organizationName);
+          const { error } = await api.post("/v1/me/occupations", {
+            occupationTypeCode: toApiOccupationCode(code),
+            organizationId,
+            roleTitle: payload.roleTitle,
+            description: payload.description,
+            isCurrent: true,
+          });
+          if (error) {
+            setSaveError(error.message ?? error.code);
+            setSaving(false);
+            return;
+          }
         }
+        setExistingOccupationCodes((prev) => new Set([...prev, ...toCreate]));
+
+        for (const code of toUpdate) {
+          const existing = existingOccupationsByCode.get(code);
+          if (!existing) continue;
+          const payload = buildOccupationWritePayload(code, occupationFollowUps[code]);
+          const organizationId = await resolveOrganizationId(payload.organizationName);
+          const { error } = await api.patch(`/v1/me/occupations/${existing.id}`, {
+            organizationId,
+            roleTitle: payload.roleTitle,
+            description: payload.description,
+            isCurrent: true,
+          });
+          if (error) {
+            setSaveError(error.message ?? error.code);
+            setSaving(false);
+            return;
+          }
+        }
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Could not save occupation details.");
+        setSaving(false);
+        return;
       }
-      setExistingOccupationCodes((prev) => new Set([...prev, ...toCreate]));
       setSaving(false);
     }
     setSaveError(null);
-    const errMin = await saveProfile({ markMinimumProfileComplete: true });
+    const errMin = await saveProfile({
+      residenceCountry: nextResidenceCountry,
+      residenceCity: nextResidenceCity,
+      mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim(),
+      markMinimumProfileComplete: true,
+    });
     if (errMin) return;
     goTo(3);
   };
 
   const handleStep3Finish = async () => {
+    if (!selectedIntent) {
+      setSaveError("Please select what you are here for.");
+      return;
+    }
     setSaveError(null);
     const errDone = await saveProfile({ markOnboardingComplete: true });
     if (errDone) return;
 
     const params = new URLSearchParams();
-    if (batchYear != null) params.set("batch", String(batchYear));
-    if (departmentCode) params.set("dept", departmentCode.toLowerCase());
     params.set("fromOnboarding", "1");
     params.set("intent", selectedIntent);
 
@@ -348,11 +594,20 @@ export function Onboarding() {
 
   const toggleOccupation = (code: string) => {
     setSelectedOccupationCodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
+      if (prev.has(code) && prev.size === 1) return prev;
+      setOccupationFollowUps((current) => ({ ...current, [code]: current[code] ?? emptyFollowUp() }));
+      return new Set([code]);
     });
+  };
+
+  const updateOccupationFollowUp = (code: string, field: keyof OccupationFollowUp, value: string) => {
+    setOccupationFollowUps((prev) => ({
+      ...prev,
+      [code]: {
+        ...(prev[code] ?? emptyFollowUp()),
+        [field]: value,
+      },
+    }));
   };
 
   const pickProgram = (len: 4 | 5) => {
@@ -442,14 +697,9 @@ export function Onboarding() {
     );
   }
 
-  const onboardingNavRight = (
-    <span className="onboarding-setup__nav-context">Setting up your profile</span>
-  );
-
   return (
     <>
-      <Nav extraRight={onboardingNavRight} hideIntentNav />
-      <ProgressBar value={progress} />
+      <Nav hideIntentNav />
       {showTabs && (
         <StepTabs
           className="step-tabs--onboarding-gold"
@@ -459,21 +709,13 @@ export function Onboarding() {
             done: s.id < stepIndex,
           }))}
           current={stepIndex}
+          onStepClick={goTo}
         />
       )}
       {stepIndex === 1 ? (
         <div className="onboarding-confirm">
           <div className="onboarding-confirm__split">
-            <aside className="onboarding-confirm__left" aria-label="About this step">
-              <p className="onboarding-confirm__left-eyebrow">Confirm your details</p>
-              <h2 className="onboarding-confirm__left-headline">
-                We prefilled what we could from your email. Use the form to fix anything.
-              </h2>
-              <p className="onboarding-confirm__left-note">
-                Nothing is saved until you choose <strong>Looks right</strong>.
-              </p>
-            </aside>
-            <div className="onboarding-confirm__right">
+            <div className="onboarding-confirm__left onboarding-confirm__left--form">
               <form
                 id="onboarding-step1-form"
                 className="onboarding-confirm__form"
@@ -482,16 +724,10 @@ export function Onboarding() {
                   void handleStep1Next();
                 }}
               >
-                <p className="onboarding-confirm__step-label">Step 1 of {ONBOARDING_STEP_COUNT}</p>
-                <h2 className="onboarding-confirm__title">Your details</h2>
-                <p className="onboarding-confirm__sub">
-                  Click any field to edit. Your department and programme years were guessed from your
-                  institutional address—change them if needed.
-                </p>
                 <div className="onboarding-confirm__name-row">
                   <div className="onboarding-confirm__field onboarding-confirm__field--inline">
                     <label className="onboarding-confirm__label" htmlFor="onboarding-first">
-                      First name
+                      First name *
                     </label>
                     <input
                       id="onboarding-first"
@@ -504,7 +740,7 @@ export function Onboarding() {
                   </div>
                   <div className="onboarding-confirm__field onboarding-confirm__field--inline">
                     <label className="onboarding-confirm__label" htmlFor="onboarding-last">
-                      Last name
+                      Last name *
                     </label>
                     <input
                       id="onboarding-last"
@@ -518,7 +754,7 @@ export function Onboarding() {
                 </div>
                 <div className="onboarding-confirm__field">
                   <span className="onboarding-confirm__label" id="onboarding-dept-label">
-                    Department
+                    Department *
                   </span>
                   {!departmentPickerOpen && departmentCode ? (
                     <>
@@ -576,7 +812,7 @@ export function Onboarding() {
                 </div>
                 <div className="onboarding-confirm__field">
                   <label className="onboarding-confirm__label" htmlFor="onboarding-degree">
-                    Degree
+                    Degree *
                   </label>
                   <select
                     id="onboarding-degree"
@@ -594,7 +830,7 @@ export function Onboarding() {
                 </div>
                 <div className="onboarding-confirm__field">
                   <label className="onboarding-confirm__label" htmlFor="onboarding-join-year">
-                    Year you joined (first year of programme)
+                    Year you joined (first year of programme) *
                   </label>
                   <input
                     id="onboarding-join-year"
@@ -614,7 +850,7 @@ export function Onboarding() {
                 </div>
                 <div className="onboarding-confirm__field">
                   <span className="onboarding-confirm__label" id="onboarding-grad-label">
-                    Which year did you graduate?
+                    Which year did you graduate? *
                   </span>
                   <div
                     className="onboarding-confirm__year-cards"
@@ -650,6 +886,15 @@ export function Onboarding() {
                 )}
               </form>
             </div>
+            <aside className="onboarding-confirm__right onboarding-confirm__right--quote" aria-label="About this step">
+              <p className="onboarding-confirm__left-eyebrow">Confirm your details</p>
+              <h2 className="onboarding-confirm__left-headline">
+                We prefilled what we could from your email. Use the form to fix anything.
+              </h2>
+              <p className="onboarding-confirm__left-note">
+                Nothing is saved until you choose <strong>Looks right</strong>.
+              </p>
+            </aside>
           </div>
           <footer className="onboarding-confirm__footer">
             <Button type="button" variant="back" onClick={() => goTo(0)} disabled={saving}>
@@ -665,91 +910,220 @@ export function Onboarding() {
             </Button>
           </footer>
         </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", minHeight: "60vh" }}>
-          <div
-            className="campus-panel"
-            style={{
-              backgroundImage: `url(${CAMPUS_IMAGE_SMALL})`,
-            }}
-          />
-          <div className="form-panel">
-            {stepIndex === 2 && (
-              <>
-                <p className="eyebrow" style={{ marginBottom: 8 }}>
-                  Step 2 of {ONBOARDING_STEP_COUNT}
-                </p>
-                <h2 className="section-headline" style={{ marginBottom: 16 }}>
-                  Occupation type
-                </h2>
-                <p className="body-text" style={{ color: "var(--ink-muted)", marginBottom: 16 }}>
-                  What best describes your current role? (multi-select)
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-                  {OCCUPATION_OPTIONS.map(({ label, code }) => (
-                    <Chip
-                      key={code}
-                      active={selectedOccupationCodes.has(code)}
-                      onClick={() => toggleOccupation(code)}
-                    >
-                      {label}
-                    </Chip>
-                  ))}
+      ) : stepIndex === 2 ? (
+        <section className="onboarding-occupation" aria-labelledby="onboarding-occupation-heading">
+          <div className="onboarding-occupation__panel">
+            <p className="onboarding-occupation__step-label">Step 2 of {ONBOARDING_STEP_COUNT}</p>
+            <h2 id="onboarding-occupation-heading" className="onboarding-occupation__title">
+              Occupation type
+            </h2>
+            <p className="onboarding-occupation__sub">
+              What best describes your current role? Select one option. *
+            </p>
+            <div className="onboarding-occupation__chips" role="group" aria-label="Occupation choices">
+              {OCCUPATION_OPTIONS.map(({ label, code }) => (
+                <Chip key={code} active={selectedOccupationCodes.has(code)} onClick={() => toggleOccupation(code)}>
+                  {label}
+                </Chip>
+              ))}
+            </div>
+            {[...selectedOccupationCodes]
+              .filter((code) => OCCUPATION_FOLLOW_UP_LABELS[code])
+              .map((code) => {
+                const config = OCCUPATION_FOLLOW_UP_LABELS[code];
+                if (!config) return null;
+                const detail = occupationFollowUps[code] ?? emptyFollowUp();
+                return (
+                  <div
+                    key={`followup-${code}`}
+                    className="onboarding-occupation__contact-grid onboarding-occupation__contact-grid--conditional"
+                  >
+                    {config.fields.includes("company") && (
+                      <div className="onboarding-occupation__field">
+                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-company`}>
+                          Company *
+                        </label>
+                        <input
+                          id={`onboarding-${code}-company`}
+                          name={`${code}Company`}
+                          className="onboarding-occupation__input"
+                          autoComplete="organization"
+                          placeholder="Enter company name"
+                          value={detail.company}
+                          onChange={(e) => updateOccupationFollowUp(code, "company", e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {config.fields.includes("role") && (
+                      <div className="onboarding-occupation__field">
+                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-role`}>
+                          Role *
+                        </label>
+                        <input
+                          id={`onboarding-${code}-role`}
+                          name={`${code}Role`}
+                          className="onboarding-occupation__input"
+                          placeholder="Enter your role"
+                          value={detail.role}
+                          onChange={(e) => updateOccupationFollowUp(code, "role", e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {config.fields.includes("university") && (
+                      <div className="onboarding-occupation__field">
+                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-university`}>
+                          University *
+                        </label>
+                        <input
+                          id={`onboarding-${code}-university`}
+                          name={`${code}University`}
+                          className="onboarding-occupation__input"
+                          autoComplete="organization"
+                          placeholder="Enter university name"
+                          value={detail.university}
+                          onChange={(e) => updateOccupationFollowUp(code, "university", e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {config.fields.includes("industry") && (
+                      <div className="onboarding-occupation__field">
+                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-industry`}>
+                          Industry *
+                        </label>
+                        <input
+                          id={`onboarding-${code}-industry`}
+                          name={`${code}Industry`}
+                          className="onboarding-occupation__input"
+                          placeholder="e.g., FinTech"
+                          value={detail.industry}
+                          onChange={(e) => updateOccupationFollowUp(code, "industry", e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {config.fields.includes("other") && (
+                      <div className="onboarding-occupation__field">
+                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-other`}>
+                          Please specify *
+                        </label>
+                        <input
+                          id={`onboarding-${code}-other`}
+                          name={`${code}Other`}
+                          className="onboarding-occupation__input"
+                          placeholder="Tell us your current role"
+                          value={detail.other}
+                          onChange={(e) => updateOccupationFollowUp(code, "other", e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            <div className="onboarding-occupation__contact-grid">
+              <div className="onboarding-occupation__field">
+                <label className="onboarding-occupation__label" htmlFor="onboarding-residence-country">
+                  Current country of residence *
+                </label>
+                <input
+                  id="onboarding-residence-country"
+                  name="residenceCountry"
+                  className="onboarding-occupation__input"
+                  autoComplete="country-name"
+                  placeholder="e.g., India"
+                  value={residenceCountry}
+                  onChange={(e) => setResidenceCountry(e.target.value)}
+                />
+              </div>
+              {residenceCountry.trim() && (
+                <div className="onboarding-occupation__field">
+                  <label className="onboarding-occupation__label" htmlFor="onboarding-residence-city">
+                    Current city of residence *
+                  </label>
+                  <input
+                    id="onboarding-residence-city"
+                    name="residenceCity"
+                    className="onboarding-occupation__input"
+                    autoComplete="address-level2"
+                    placeholder="e.g., Dubai"
+                    value={residenceCity}
+                    onChange={(e) => setResidenceCity(e.target.value)}
+                  />
                 </div>
-                {saveError && (
-                  <p style={{ color: "var(--brick)", fontSize: 13, marginBottom: 12 }}>{saveError}</p>
-                )}
-                <div className="form-panel__footer">
-                  <Button variant="back" onClick={() => goTo(1)} disabled={saving}>
-                    Back
-                  </Button>
-                  <Button variant="primary" onClick={() => void handleStep2Next()} disabled={saving}>
-                    {saving ? "Saving…" : "Next"}
-                  </Button>
+              )}
+              <div className="onboarding-occupation__field onboarding-occupation__field--full">
+                <label className="onboarding-occupation__label" htmlFor="onboarding-mobile-phone">
+                  Mobile number *
+                </label>
+                <div className="onboarding-occupation__mobile-row">
+                  <label className="visually-hidden" htmlFor="onboarding-mobile-country-code">
+                    Country code
+                  </label>
+                  <input
+                    id="onboarding-mobile-country-code"
+                    name="mobileCountryCode"
+                    className="onboarding-occupation__input onboarding-occupation__input--country-code"
+                    autoComplete="tel-country-code"
+                    inputMode="tel"
+                    placeholder="+91"
+                    value={mobileCountryCode}
+                    onChange={(e) => setMobileCountryCode(e.target.value)}
+                  />
+                  <input
+                    id="onboarding-mobile-phone"
+                    name="mobilePhone"
+                    className="onboarding-occupation__input"
+                    autoComplete="tel-national"
+                    inputMode="tel"
+                    placeholder="e.g., 98765 43210"
+                    value={mobilePhone}
+                    onChange={(e) => setMobilePhone(e.target.value)}
+                  />
                 </div>
-              </>
-            )}
-            {stepIndex === 3 && (
-              <>
-                <p className="eyebrow" style={{ marginBottom: 8 }}>
-                  Step 3 of {ONBOARDING_STEP_COUNT}
-                </p>
-                <h2 className="section-headline" style={{ marginBottom: 8 }}>
-                  What are you here for?
-                </h2>
-                <p className="body-text" style={{ color: "var(--ink-muted)", marginBottom: 20 }}>
-                  We will route you to a best first action right after this step.
-                </p>
-                <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
-                  {ONBOARDING_INTENTS.map((intent) => (
-                    <button
-                      key={intent.id}
-                      type="button"
-                      className={`onboarding-intent-card${
-                        selectedIntent === intent.id ? " onboarding-intent-card--active" : ""
-                      }`}
-                      onClick={() => setSelectedIntent(intent.id)}
-                    >
-                      <span className="onboarding-intent-card__label">{intent.label}</span>
-                      <span className="onboarding-intent-card__hint">{intent.hint}</span>
-                    </button>
-                  ))}
-                </div>
-                {saveError && (
-                  <p style={{ color: "var(--brick)", fontSize: 13, marginBottom: 12 }}>{saveError}</p>
-                )}
-                <div className="form-panel__footer">
-                  <Button variant="back" onClick={() => goTo(2)} disabled={saving}>
-                    Back
-                  </Button>
-                  <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>
-                    {saving ? "Saving…" : "Continue"}
-                  </Button>
-                </div>
-              </>
-            )}
+              </div>
+            </div>
+            {saveError && <p className="onboarding-occupation__error">{saveError}</p>}
+            <div className="onboarding-occupation__footer">
+              <Button variant="back" onClick={() => goTo(1)} disabled={saving}>
+                Back
+              </Button>
+              <Button variant="primary" onClick={() => void handleStep2Next()} disabled={saving}>
+                {saving ? "Saving…" : "Next"}
+              </Button>
+            </div>
           </div>
-        </div>
+        </section>
+      ) : (
+        <section className="onboarding-occupation" aria-labelledby="onboarding-intent-heading">
+          <div className="onboarding-occupation__panel">
+            <p className="onboarding-occupation__step-label">Step 3 of {ONBOARDING_STEP_COUNT}</p>
+            <h2 id="onboarding-intent-heading" className="onboarding-occupation__title">
+              What would you like to do? *
+            </h2>
+            <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+              {ONBOARDING_INTENTS.map((intent) => (
+                <button
+                  key={intent.id}
+                  type="button"
+                  className={`onboarding-intent-card${
+                    selectedIntent === intent.id ? " onboarding-intent-card--active" : ""
+                  }`}
+                  onClick={() => setSelectedIntent(intent.id)}
+                >
+                  <span className="onboarding-intent-card__label">{intent.label}</span>
+                  <span className="onboarding-intent-card__hint">{intent.hint}</span>
+                </button>
+              ))}
+            </div>
+            {saveError && <p className="onboarding-occupation__error">{saveError}</p>}
+            <div className="onboarding-occupation__footer">
+              <Button variant="back" onClick={() => goTo(2)} disabled={saving}>
+                Back
+              </Button>
+              <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>
+                {saving ? "Saving…" : "Continue"}
+              </Button>
+            </div>
+          </div>
+        </section>
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -12,6 +12,7 @@ import { BulletinPanel } from "../components/BulletinPanel";
 import { CampusMonthlyDigestSection } from "../components/CampusMonthlyDigestSection";
 import { ContactRequestsInbox } from "../components/ContactRequestsInbox";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
+import { isDemoProfileBio } from "../lib/demoProfile";
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
   const fn = profile.fullName?.trim();
@@ -40,6 +41,24 @@ function batchmateLocationLine(row: SearchProfileView): string | null {
   if (city) return city;
   if (country) return country;
   return null;
+}
+
+function DashboardStateMessage({
+  title,
+  description,
+  action
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="home-dashboard__state-block" role="status" aria-live="polite">
+      <p className="home-dashboard__state-title">{title}</p>
+      <p className="home-dashboard__state-copy">{description}</p>
+      {action ? <div className="home-dashboard__state-action">{action}</div> : null}
+    </div>
+  );
 }
 
 /*
@@ -206,6 +225,11 @@ export function Home() {
               <h1 id="home-hero-heading" className="home-dashboard__hero-title">
                 Hi, {firstName}
               </h1>
+              <div className="home-dashboard__hero-actions">
+                <Link to={batchDirectorySearchHref} className="home-dashboard__hero-primary-action">
+                  Explore alumni
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -259,7 +283,7 @@ export function Home() {
         </div>
 
         <div className="home-dashboard__main home-dashboard__main--feed-row" style={feedRowStyle}>
-          <div className="home-dashboard__col home-dashboard__col--wide">
+          <div className="home-dashboard__col home-dashboard__col--wide home-dashboard__col--batch-secondary">
             <section
               ref={batchSectionRef}
               className="home-dashboard__batch"
@@ -283,9 +307,15 @@ export function Home() {
                 <div className="home-dashboard__batch-body">
                   {hasBatchDept ? (
                     auth.status !== "authenticated" ? (
-                      <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-                        Unable to load your account. Refresh the page to see classmates from your batch.
-                      </p>
+                      <DashboardStateMessage
+                        title="Session not available"
+                        description="Refresh and try again to see batchmates from your cohort."
+                        action={
+                          <Link to="/login" className="home-dashboard__text-link">
+                            Sign in again →
+                          </Link>
+                        }
+                      />
                     ) : batchMeta && !batchMeta.empty ? (
                       <>
                         <p className="home-dashboard__batch-summary">
@@ -296,6 +326,7 @@ export function Home() {
                           {batchList.map((row) => {
                             const roleLine = batchmateRoleLine(row);
                             const locationLine = batchmateLocationLine(row);
+                            const isDemo = isDemoProfileBio(row.bio);
                             return (
                               <li key={row.id} className="home-dashboard__batch-item">
                                 <Link
@@ -311,7 +342,12 @@ export function Home() {
                                     />
                                   </span>
                                   <span className="home-dashboard__batch-card-body">
-                                    <span className="home-dashboard__batch-name">{row.fullName}</span>
+                                    <span className="home-dashboard__batch-name">
+                                      {row.fullName}
+                                      {isDemo ? (
+                                        <span className="badge badge--hiring home-dashboard__demo-badge">Demo</span>
+                                      ) : null}
+                                    </span>
                                     {roleLine ? (
                                       <span className="home-dashboard__batch-meta">{roleLine}</span>
                                     ) : null}
@@ -338,33 +374,46 @@ export function Home() {
                         <p className="home-dashboard__batch-empty-text">
                           <span className="home-dashboard__batch-empty-cohort">{batchTitle}</span>
                           <span className="home-dashboard__batch-empty-sub">
-                            No other alumni from this cohort appear in the directory yet.
+                            Be the first to bring your batch here by inviting classmates to join the platform.
                           </span>
                         </p>
                         <p className="home-dashboard__batch-empty-foot">
-                          Your batch is just the beginning.{" "}
+                          Share IIT BHU Alumni with your cohort so your batch network can start growing here.{" "}
                           <Link to="/search" className="home-dashboard__text-link">
-                            Search all alumni here
+                            Explore existing alumni
                           </Link>
                           .
                         </p>
                       </div>
                     ) : (
-                      <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-                        Loading batch snapshot…
-                      </p>
+                      <div className="home-dashboard__batch-loading" aria-label="Loading batch snapshot">
+                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line home-dashboard__skeleton--line-lg" />
+                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line" />
+                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line home-dashboard__skeleton--line-sm" />
+                        <span className="home-dashboard__skeleton home-dashboard__skeleton--card" />
+                        <span className="home-dashboard__skeleton home-dashboard__skeleton--card" />
+                      </div>
                     )
                   ) : (
-                    <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-                      Add your batch and department on your profile to see classmates here.
-                    </p>
+                    <DashboardStateMessage
+                      title="Add your cohort details"
+                      description="Set your batch year and department so we can surface your closest alumni circle."
+                      action={
+                        <Link
+                          to={`/profiles/${profile.id}?edit=education`}
+                          className="home-dashboard__text-link"
+                        >
+                          Update profile →
+                        </Link>
+                      }
+                    />
                   )}
                 </div>
               </div>
             </section>
           </div>
 
-          <aside className="home-dashboard__col home-dashboard__col--side home-dashboard__col--feed-only">
+          <aside className="home-dashboard__col home-dashboard__col--side home-dashboard__col--feed-only home-dashboard__col--bulletin-primary">
             <div className="home-dashboard__bulletin-grow">
               <BulletinPanel feedReady caption="" hideComposeCta />
             </div>

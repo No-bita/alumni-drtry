@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
@@ -46,6 +46,71 @@ function openRolesHeadline(meta: BulletinFeedMeta): string {
   return meta.loadedCount === 1 ? "1 open role" : `${meta.loadedCount} open roles`;
 }
 
+const REFERRAL_SEARCH_PRESETS = [
+  { id: "software", label: "Software roles", query: "software engineer backend systems" },
+  { id: "product", label: "Product roles", query: "product manager strategy growth" },
+  { id: "finance", label: "Finance roles", query: "finance analyst investment operations" },
+] as const;
+
+const REFERRAL_TEMPLATES = [
+  "Hi {firstName}, I am exploring opportunities and would value your advice on referrals at your company.",
+  "Hi {firstName}, I noticed your experience and wanted to ask if we can connect for a referral conversation.",
+  "Hi {firstName}, I am applying for a role aligned with your team and would appreciate your guidance.",
+] as const;
+
+const MENTORSHIP_WORKFLOW = ["not_started", "requested", "accepted", "scheduled", "completed"] as const;
+type MentorshipStatus = (typeof MENTORSHIP_WORKFLOW)[number];
+
+const REFERRAL_LIFECYCLE = ["initiated", "responded", "taken_offline", "closed"] as const;
+type ReferralLifecycleStatus = (typeof REFERRAL_LIFECYCLE)[number];
+
+const REFERRAL_STATUS_LABELS: Record<ReferralLifecycleStatus, string> = {
+  initiated: "Initiated",
+  responded: "Responded",
+  taken_offline: "Taken offline",
+  closed: "Closed",
+};
+
+type MentorProfile = {
+  id: string;
+  name: string;
+  role: string;
+  topics: string[];
+  availability: string;
+};
+
+const MENTORSHIP_PROFILES: MentorProfile[] = [
+  {
+    id: "mentor-anuj-analytics",
+    name: "Anuj Tripathi",
+    role: "Staff Data Engineer · Seattle",
+    topics: ["Data careers", "Interview prep", "Career transitions"],
+    availability: "Wed / Sat, 30 min slots",
+  },
+  {
+    id: "mentor-sneha-product",
+    name: "Sneha Iyer",
+    role: "Senior Product Lead · Bengaluru",
+    topics: ["PM foundations", "Roadmapping", "Stakeholder communication"],
+    availability: "Tue evenings, 45 min slots",
+  },
+  {
+    id: "mentor-karthik-core",
+    name: "Karthik Menon",
+    role: "Engineering Manager · Mumbai",
+    topics: ["Backend systems", "Leadership growth", "Resume review"],
+    availability: "Fri mornings, 30 min slots",
+  },
+];
+
+const MENTORSHIP_STATUS_LABELS: Record<MentorshipStatus, string> = {
+  not_started: "Not started",
+  requested: "Requested",
+  accepted: "Accepted",
+  scheduled: "Scheduled",
+  completed: "Completed",
+};
+
 /** Career hub: unified referrals + opportunities workspace. */
 export function CareerPage() {
   const auth = useAuth();
@@ -74,6 +139,8 @@ export function CareerPage() {
   const [referralComposer, setReferralComposer] = useState("");
   const [referralSending, setReferralSending] = useState(false);
   const [referralActionError, setReferralActionError] = useState<string | null>(null);
+  const [referralStatusByRecipient, setReferralStatusByRecipient] = useState<Record<string, ReferralLifecycleStatus>>({});
+  const [mentorshipStatusByMentor, setMentorshipStatusByMentor] = useState<Record<string, MentorshipStatus>>({});
   const [committedReferralSearch, setCommittedReferralSearch] = useState<{
     q: string;
     batch: number | "";
@@ -85,6 +152,7 @@ export function CareerPage() {
   } | null>(null);
   const chatDialogRef = useRef<HTMLDivElement | null>(null);
   const chatOpen = (activeReferralRecipient || activeReferralThreadId) && !referralChatMinimized;
+  const activeTab = isCareerTabSegment(careerTabParam) ? careerTabParam : "opportunities";
 
   const onFeedMetaChange = useCallback((m: BulletinFeedMeta) => {
     setFeedMeta((prev) =>
@@ -266,6 +334,9 @@ export function CareerPage() {
       setReferralChatMinimized(false);
       setReferralComposer(initialMessage);
       setReferralActionError(null);
+      setReferralStatusByRecipient((prev) =>
+        prev[recipientPersonId] ? prev : { ...prev, [recipientPersonId]: "initiated" }
+      );
       return;
     },
     []
@@ -300,6 +371,85 @@ export function CareerPage() {
     setCommittedReferralSearch(null);
   };
 
+  const applyReferralPreset = useCallback((presetQuery: string) => {
+    setSearchQuery(presetQuery);
+    setCommittedReferralSearch((prev) => ({
+      q: presetQuery,
+      batch: prev?.batch ?? "",
+      dept: prev?.dept ?? "",
+      company: prev?.company ?? "",
+      occ: prev?.occ ?? "",
+      residenceCountry: prev?.residenceCountry ?? "",
+      residenceCity: prev?.residenceCity ?? "",
+    }));
+  }, []);
+
+  const activeReferralStatus = useMemo(() => {
+    if (activeReferralRecipient) return referralStatusByRecipient[activeReferralRecipient.id] ?? "initiated";
+    return null;
+  }, [activeReferralRecipient, referralStatusByRecipient]);
+
+  const setActiveReferralStatus = useCallback(
+    (status: ReferralLifecycleStatus) => {
+      if (!activeReferralRecipient) return;
+      setReferralStatusByRecipient((prev) => ({ ...prev, [activeReferralRecipient.id]: status }));
+    },
+    [activeReferralRecipient]
+  );
+
+  const formatTemplate = (template: string, fullName: string): string => {
+    const firstName = fullName.trim().split(/\s+/)[0] ?? "there";
+    return template.replace("{firstName}", firstName);
+  };
+
+  const proofMetrics = useMemo(() => {
+    const participants = new Set<string>();
+    referralResults.forEach((profile) => participants.add(profile.id));
+    Object.keys(referralStatusByRecipient).forEach((id) => participants.add(id));
+    const departments = new Set<string>();
+    referralResults.forEach((profile) => {
+      const dept = profile.departmentCode ?? profile.parsedDepartmentCode;
+      if (dept) departments.add(dept.toUpperCase());
+    });
+    const activeMentorshipRequests = Object.values(mentorshipStatusByMentor).filter(
+      (status) => status !== "not_started"
+    ).length;
+    return [
+      {
+        label: "Open opportunities",
+        value:
+          feedMeta.status === "loading"
+            ? "..."
+            : feedMeta.mayHaveMore
+              ? `${Math.max(feedMeta.loadedCount, 1)}+`
+              : String(feedMeta.loadedCount),
+      },
+      { label: "Career participants (30d)", value: String(participants.size) },
+      { label: "Referral conversations", value: String(Object.keys(referralStatusByRecipient).length) },
+      { label: "Departments represented", value: String(departments.size) },
+      { label: "Mentorship requests", value: String(activeMentorshipRequests) },
+    ];
+  }, [feedMeta, mentorshipStatusByMentor, referralResults, referralStatusByRecipient]);
+
+  const mentorshipSummary = useMemo(() => {
+    const statuses = Object.values(mentorshipStatusByMentor);
+    return {
+      requested: statuses.filter((s) => s === "requested").length,
+      accepted: statuses.filter((s) => s === "accepted").length,
+      scheduled: statuses.filter((s) => s === "scheduled").length,
+      completed: statuses.filter((s) => s === "completed").length,
+    };
+  }, [mentorshipStatusByMentor]);
+
+  const advanceMentorshipStatus = (mentorId: string) => {
+    setMentorshipStatusByMentor((prev) => {
+      const current = prev[mentorId] ?? "not_started";
+      const index = MENTORSHIP_WORKFLOW.indexOf(current);
+      const next = MENTORSHIP_WORKFLOW[Math.min(index + 1, MENTORSHIP_WORKFLOW.length - 1)];
+      return { ...prev, [mentorId]: next };
+    });
+  };
+
   const displayName = useMemo(() => {
     if (auth.status !== "authenticated") return "";
     return (
@@ -322,37 +472,175 @@ export function CareerPage() {
       <div className="career-page">
         <header className="career-page__hero">
           <h1 className="career-page__hero-title">Hire. Refer. Grow.</h1>
+          <p className="career-page__hero-subcopy">
+            Alumni-first career momentum for graduates, with clear engagement proof for institutes and alumni offices.
+          </p>
+          <div className="career-page__tabs" role="tablist" aria-label="Career workflows">
+            <Link
+              to={careerIntentPath("opportunities")}
+              className={`career-page__tab${activeTab === "opportunities" ? " career-page__tab--active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "opportunities"}
+            >
+              <span className="career-page__tab-kicker">Primary flow</span>
+              <span className="career-page__tab-label">Opportunities</span>
+              <span className="career-page__tab-desc">Post roles, review openings, and keep hiring active.</span>
+            </Link>
+            <Link
+              to={careerIntentPath("referrals")}
+              className={`career-page__tab${activeTab === "referrals" ? " career-page__tab--active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "referrals"}
+            >
+              <span className="career-page__tab-kicker">Conversion flow</span>
+              <span className="career-page__tab-label">Referrals</span>
+              <span className="career-page__tab-desc">Find relevant alumni and move asks from outreach to closure.</span>
+            </Link>
+            <Link
+              to={careerIntentPath("mentorship")}
+              className={`career-page__tab${activeTab === "mentorship" ? " career-page__tab--active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "mentorship"}
+            >
+              <span className="career-page__tab-kicker">Growth flow</span>
+              <span className="career-page__tab-label">Mentorship</span>
+              <span className="career-page__tab-desc">Request guidance with structured states from request to completion.</span>
+            </Link>
+          </div>
         </header>
 
         <div className="career-page__body">
-          <section
-            className={`career-page__main career-page__main--mixed${referralsCollapsed ? " career-page__main--referrals-collapsed" : ""}`}
-            aria-labelledby="career-referrals-heading"
-          >
-            <div className={`career-page__rail career-page__rail--referrals${referralsCollapsed ? " is-collapsed" : ""}`}>
-              <div className="career-page__section-head">
-                <h2 id="career-referrals-heading" className="career-page__panel-title">
-                  Find someone for a referral
-                </h2>
-                {referralsCollapsed ? (
-                  <button
-                    type="button"
-                    className="career-page__collapsed-referrals-btn"
-                    onClick={() => setReferralsCollapsed(false)}
-                    aria-controls="career-referrals-content"
-                    aria-expanded="false"
-                  >
-                    Referrals
-                  </button>
+          <section className="career-page__proof-strip" aria-label="Career engagement proof">
+            {proofMetrics.map((metric) => (
+              <div key={metric.label} className="career-page__proof-item">
+                <p className="career-page__proof-value">{metric.value}</p>
+                <p className="career-page__proof-label">{metric.label}</p>
+              </div>
+            ))}
+          </section>
+
+          {activeTab === "opportunities" ? (
+            <section
+              className={`career-page__main career-page__main--mixed${referralsCollapsed ? " career-page__main--referrals-collapsed" : ""}`}
+              aria-labelledby="career-referrals-heading"
+            >
+              <div className={`career-page__rail career-page__rail--referrals${referralsCollapsed ? " is-collapsed" : ""}`}>
+                <div className="career-page__section-head">
+                  <h2 id="career-referrals-heading" className="career-page__panel-title">
+                    Referral pipeline
+                  </h2>
+                  {referralsCollapsed ? (
+                    <button
+                      type="button"
+                      className="career-page__collapsed-referrals-btn"
+                      onClick={() => setReferralsCollapsed(false)}
+                      aria-controls="career-referrals-content"
+                      aria-expanded="false"
+                    >
+                      Referrals
+                    </button>
+                  ) : null}
+                </div>
+                {!referralsCollapsed ? (
+                  <div id="career-referrals-content">
+                    <p className="career-page__panel-copy body-text">
+                      Keep referral discovery active while tracking conversations through each stage.
+                    </p>
+                    <div className="career-page__referral-conversion-list">
+                      {Object.entries(referralStatusByRecipient).length === 0 ? (
+                        <p className="career-page__referral-results-empty">No referral conversations started yet.</p>
+                      ) : (
+                        Object.entries(referralStatusByRecipient).map(([personId, status]) => (
+                          <div key={personId} className="career-page__referral-conversion-item">
+                            <span className="career-page__referral-conversion-person">{personId.slice(0, 8)}</span>
+                            <span className="career-page__referral-conversion-status">{REFERRAL_STATUS_LABELS[status]}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 ) : null}
               </div>
-              {!referralsCollapsed ? (
-                <div id="career-referrals-content">
-                  <p className="career-page__panel-copy body-text">
-                    Search the alumni directory by keyword, company, department, batch, or where people live — then open a
-                    profile to reach out.
-                  </p>
-                  <div className="career-page__referral-search" aria-labelledby="career-referrals-search-label">
+
+              <div className="career-page__rail-separator" aria-hidden>
+                <button
+                  type="button"
+                  className="career-page__rail-toggle"
+                  aria-label={referralsCollapsed ? "Expand referrals panel" : "Collapse referrals panel"}
+                  aria-expanded={!referralsCollapsed}
+                  aria-controls="career-referrals-content"
+                  onClick={() => setReferralsCollapsed((v) => !v)}
+                >
+                  {referralsCollapsed ? "›" : "‹"}
+                </button>
+              </div>
+
+              <div className="career-page__rail career-page__rail--opportunities" aria-labelledby="career-openings-heading">
+                <div className="career-page__listings-head">
+                  <h2 id="career-openings-heading" className="career-page__openings-title">
+                    {openRolesHeadline(feedMeta)}
+                  </h2>
+                </div>
+                <BulletinPanel
+                  ref={bulletinRef}
+                  feedReady={feedReady}
+                  showFeed
+                  hideComposeCta
+                  feedMine={false}
+                  feedAuthorHistory={false}
+                  feedExcludeAuthorSoftDeleted
+                  showInlineAuthorReplies={false}
+                  feedDisableAutoScroll={false}
+                  lockedCategoryFilter="hiring"
+                  domIdPrefix="career-bulletin"
+                  showPanelHeader={false}
+                  layout="career"
+                  onFeedMetaChange={onFeedMetaChange}
+                />
+
+                <section className="career-page__my-posts" aria-labelledby="career-my-posts-heading">
+                  <div className="career-page__section-separator" aria-hidden />
+                  <h3 id="career-my-posts-heading" className="career-page__openings-title career-page__openings-title--mine">
+                    Your hiring posts
+                  </h3>
+                  <BulletinPanel
+                    feedReady={feedReady}
+                    showFeed
+                    hideComposeCta
+                    feedMine
+                    feedAuthorHistory
+                    feedExcludeAuthorSoftDeleted={false}
+                    showInlineAuthorReplies
+                    feedDisableAutoScroll
+                    lockedCategoryFilter="hiring"
+                    domIdPrefix="career-bulletin-mine"
+                    showPanelHeader={false}
+                    layout="career"
+                  />
+                </section>
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === "referrals" ? (
+            <section className="career-page__main career-page__main--single career-page__main--referrals">
+              <h2 className="career-page__panel-title">Find someone for a referral</h2>
+              <p className="career-page__panel-copy body-text">
+                Use presets, search alumni, and move each conversation through a clear lifecycle.
+              </p>
+              <div className="career-page__preset-row">
+                {REFERRAL_SEARCH_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="career-page__preset-chip"
+                    onClick={() => applyReferralPreset(preset.query)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div className="career-page__referral-search" aria-labelledby="career-referrals-search-label">
                 <span id="career-referrals-search-label" className="visually-hidden">
                   Alumni directory search
                 </span>
@@ -441,68 +729,47 @@ export function CareerPage() {
                   </div>
                 ) : null}
               </div>
-                </div>
-              ) : null}
-            </div>
+            </section>
+          ) : null}
 
-            <div className="career-page__rail-separator" aria-hidden>
-              <button
-                type="button"
-                className="career-page__rail-toggle"
-                aria-label={referralsCollapsed ? "Expand referrals panel" : "Collapse referrals panel"}
-                aria-expanded={!referralsCollapsed}
-                aria-controls="career-referrals-content"
-                onClick={() => setReferralsCollapsed((v) => !v)}
-              >
-                {referralsCollapsed ? "›" : "‹"}
-              </button>
-            </div>
-
-            <div className="career-page__rail career-page__rail--opportunities" aria-labelledby="career-openings-heading">
-              <div className="career-page__listings-head">
-                <h2 id="career-openings-heading" className="career-page__openings-title">
-                  {openRolesHeadline(feedMeta)}
-                </h2>
+          {activeTab === "mentorship" ? (
+            <section className="career-page__main career-page__main--single">
+              <h2 className="career-page__panel-title">Structured mentorship</h2>
+              <p className="career-page__panel-copy body-text">
+                Move mentor matches from intent to outcome with clear lifecycle states and tracked requests.
+              </p>
+              <div className="career-page__mentorship-summary">
+                <span>Requested: {mentorshipSummary.requested}</span>
+                <span>Accepted: {mentorshipSummary.accepted}</span>
+                <span>Scheduled: {mentorshipSummary.scheduled}</span>
+                <span>Completed: {mentorshipSummary.completed}</span>
               </div>
-              <BulletinPanel
-                ref={bulletinRef}
-                feedReady={feedReady}
-                showFeed
-                hideComposeCta
-                feedMine={false}
-                feedAuthorHistory={false}
-                feedExcludeAuthorSoftDeleted
-                showInlineAuthorReplies={false}
-                feedDisableAutoScroll={false}
-                lockedCategoryFilter="hiring"
-                domIdPrefix="career-bulletin"
-                showPanelHeader={false}
-                layout="career"
-                onFeedMetaChange={onFeedMetaChange}
-              />
-
-              <section className="career-page__my-posts" aria-labelledby="career-my-posts-heading">
-                <div className="career-page__section-separator" aria-hidden />
-                <h3 id="career-my-posts-heading" className="career-page__openings-title career-page__openings-title--mine">
-                  Your hiring posts
-                </h3>
-                <BulletinPanel
-                  feedReady={feedReady}
-                  showFeed
-                  hideComposeCta
-                  feedMine
-                  feedAuthorHistory
-                  feedExcludeAuthorSoftDeleted={false}
-                  showInlineAuthorReplies
-                  feedDisableAutoScroll
-                  lockedCategoryFilter="hiring"
-                  domIdPrefix="career-bulletin-mine"
-                  showPanelHeader={false}
-                  layout="career"
-                />
-              </section>
-            </div>
-          </section>
+              <div className="career-page__mentor-grid">
+                {MENTORSHIP_PROFILES.map((mentor) => {
+                  const status = mentorshipStatusByMentor[mentor.id] ?? "not_started";
+                  return (
+                    <article key={mentor.id} className="career-page__mentor-card">
+                      <h3 className="career-page__mentor-name">{mentor.name}</h3>
+                      <p className="career-page__mentor-role">{mentor.role}</p>
+                      <p className="career-page__mentor-availability">Availability: {mentor.availability}</p>
+                      <p className="career-page__mentor-topics">Topics: {mentor.topics.join(" · ")}</p>
+                      <p className="career-page__mentor-status">
+                        Status: <strong>{MENTORSHIP_STATUS_LABELS[status]}</strong>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => advanceMentorshipStatus(mentor.id)}
+                        disabled={status === "completed"}
+                      >
+                        {status === "not_started" ? "Request mentorship" : status === "completed" ? "Completed" : "Move to next stage"}
+                      </Button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
 
           <div className={`career-page__sticky-post-wrap${chatOpen ? " career-page__sticky-post-wrap--muted" : ""}`}>
             <Button type="button" variant="primary" onClick={() => bulletinRef.current?.openCompose()}>
@@ -527,75 +794,103 @@ export function CareerPage() {
                 tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
               >
-                  <div className="career-page__chat-head">
-                            <div>
-                              <h3 id="career-referral-chat-title" className="career-page__chat-title">
-                                {referralThreadDetail?.counterpartyFullName?.trim() ||
-                                  activeReferralRecipient?.name?.trim() ||
-                                  "Referral conversation"}
-                              </h3>
-                              {referralThreadDetail?.kind === "referral" ? (
-                                <p className="career-page__chat-thread-tag">Referral chat</p>
-                              ) : null}
-                            </div>
-                    <div className="career-page__chat-head-actions">
-                      <button
-                        type="button"
-                        className="career-page__chat-minimize"
-                        aria-label="Minimize chat"
-                        onClick={() => setReferralChatMinimized(true)}
-                      >
-                        —
-                      </button>
-                      <button
-                        type="button"
-                        className="career-page__chat-close"
-                        aria-label="Close chat"
-                        onClick={closeReferralChat}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                  {referralActionError ? <p className="home-dashboard__respond-error">{referralActionError}</p> : null}
-                          {referralThreadDetail?.messagesDeletionWarning ? (
-                            <p className="career-page__chat-retention-banner" role="status">
-                              {referralThreadDetail.messagesDeletionWarning}
-                            </p>
-                          ) : null}
-                          {referralThreadDetail?.showOfflineContactPrompt ? (
-                            <p className="career-page__chat-offline-prompt" role="status">
-                              You have replied {referralThreadDetail.referralReplyCount} times. Please share contact details
-                              and take this conversation offline.
-                            </p>
-                          ) : null}
-                  <div className="career-page__chat-messages" aria-label="Messages">
-                    {hasActiveReferralThread && referralThreadQuery.isPending ? (
-                      <p className="career-page__chat-empty">Loading conversation…</p>
-                    ) : hasActiveReferralThread && referralThreadQuery.isError ? (
-                      <p className="career-page__chat-empty">
-                        {referralThreadQuery.error instanceof Error
-                          ? referralThreadQuery.error.message
-                          : "Could not load conversation."}
+                <div className="career-page__chat-head">
+                  <div>
+                    <h3 id="career-referral-chat-title" className="career-page__chat-title">
+                      {referralThreadDetail?.counterpartyFullName?.trim() ||
+                        activeReferralRecipient?.name?.trim() ||
+                        "Referral conversation"}
+                    </h3>
+                    {activeReferralStatus ? (
+                      <p className="career-page__chat-thread-tag">
+                        Referral status: {REFERRAL_STATUS_LABELS[activeReferralStatus]}
                       </p>
-                    ) : referralThreadDetail?.messages.length ? (
-                      referralThreadDetail.messages.map((m) => {
-                        const mine = m.authorPersonId === myPersonId;
-                        return (
-                          <div
-                            key={m.id}
-                            className={`career-page__chat-msg${mine ? " career-page__chat-msg--mine" : ""}`}
-                          >
-                            <p className="career-page__chat-msg-body">{m.body}</p>
-                            <time className="career-page__chat-msg-time" dateTime={m.createdAt}>
-                              {formatThreadTime(m.createdAt)}
-                            </time>
-                          </div>
-                        );
-                      })
                     ) : null}
                   </div>
-                  <div className="career-page__chat-composer">
+                  <div className="career-page__chat-head-actions">
+                    <button
+                      type="button"
+                      className="career-page__chat-minimize"
+                      aria-label="Minimize chat"
+                      onClick={() => setReferralChatMinimized(true)}
+                    >
+                      —
+                    </button>
+                    <button
+                      type="button"
+                      className="career-page__chat-close"
+                      aria-label="Close chat"
+                      onClick={closeReferralChat}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div className="career-page__status-row">
+                  {REFERRAL_LIFECYCLE.map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={`career-page__status-chip${activeReferralStatus === status ? " is-active" : ""}`}
+                      onClick={() => setActiveReferralStatus(status)}
+                    >
+                      {REFERRAL_STATUS_LABELS[status]}
+                    </button>
+                  ))}
+                </div>
+                <div className="career-page__template-row">
+                  {activeReferralRecipient
+                    ? REFERRAL_TEMPLATES.map((template) => (
+                        <button
+                          key={template}
+                          type="button"
+                          className="career-page__template-chip"
+                          onClick={() => setReferralComposer(formatTemplate(template, activeReferralRecipient.name))}
+                        >
+                          Use template
+                        </button>
+                      ))
+                    : null}
+                </div>
+                {referralActionError ? <p className="home-dashboard__respond-error">{referralActionError}</p> : null}
+                {referralThreadDetail?.messagesDeletionWarning ? (
+                  <p className="career-page__chat-retention-banner" role="status">
+                    {referralThreadDetail.messagesDeletionWarning}
+                  </p>
+                ) : null}
+                {referralThreadDetail?.showOfflineContactPrompt ? (
+                  <p className="career-page__chat-offline-prompt" role="status">
+                    You have replied {referralThreadDetail.referralReplyCount} times. Please share contact details and take
+                    this conversation offline.
+                  </p>
+                ) : null}
+                <div className="career-page__chat-messages" aria-label="Messages">
+                  {hasActiveReferralThread && referralThreadQuery.isPending ? (
+                    <p className="career-page__chat-empty">Loading conversation…</p>
+                  ) : hasActiveReferralThread && referralThreadQuery.isError ? (
+                    <p className="career-page__chat-empty">
+                      {referralThreadQuery.error instanceof Error
+                        ? referralThreadQuery.error.message
+                        : "Could not load conversation."}
+                    </p>
+                  ) : referralThreadDetail?.messages.length ? (
+                    referralThreadDetail.messages.map((m) => {
+                      const mine = m.authorPersonId === myPersonId;
+                      return (
+                        <div
+                          key={m.id}
+                          className={`career-page__chat-msg${mine ? " career-page__chat-msg--mine" : ""}`}
+                        >
+                          <p className="career-page__chat-msg-body">{m.body}</p>
+                          <time className="career-page__chat-msg-time" dateTime={m.createdAt}>
+                            {formatThreadTime(m.createdAt)}
+                          </time>
+                        </div>
+                      );
+                    })
+                  ) : null}
+                </div>
+                <div className="career-page__chat-composer">
                   <div className="home-dashboard__textarea-with-counter">
                     <textarea
                       className="input home-dashboard__respond-textarea home-dashboard__respond-textarea--with-counter"
@@ -610,21 +905,21 @@ export function CareerPage() {
                       {referralComposer.length} / 300
                     </span>
                   </div>
-                    <div className="career-page__chat-actions">
-                      <Button type="button" variant="secondary" onClick={closeReferralChat} disabled={referralSending}>
-                        Close
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        onClick={() => void sendReferralMessage()}
-                        disabled={referralSending || !referralComposer.trim()}
-                      >
-                        {referralSending ? "Sending…" : "Send"}
-                      </Button>
-                    </div>
+                  <div className="career-page__chat-actions">
+                    <Button type="button" variant="secondary" onClick={closeReferralChat} disabled={referralSending}>
+                      Close
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void sendReferralMessage()}
+                      disabled={referralSending || !referralComposer.trim()}
+                    >
+                      {referralSending ? "Sending…" : "Send"}
+                    </Button>
                   </div>
                 </div>
+              </div>
             </div>
           ) : null}
         </div>

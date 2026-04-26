@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { api, type SearchProfileView } from "../api/client";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
+import { isDemoProfileBio } from "../lib/demoProfile";
 
 type SearchResultRowProps = {
   profile: SearchProfileView;
@@ -45,6 +46,7 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
   const deptBatch = departmentBatchLine(profile);
   const loc = residenceLine(profile);
   const reasons = profile.matchReasons ?? [];
+  const isDemo = isDemoProfileBio(profile.bio);
 
   const handleClick = () => {
     if (!searchSessionId) return;
@@ -82,7 +84,10 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
     <>
       {avatar}
       <div className="search-result-row__text">
-        <span className="search-result-row__name">{profile.fullName}</span>
+        <span className="search-result-row__name">
+          {profile.fullName}
+          {isDemo ? <span className="badge badge--hiring search-result-row__demo-badge">Demo</span> : null}
+        </span>
         {roleOrg ? <span className="search-result-row__meta">{roleOrg}</span> : null}
         {deptBatch ? <span className="search-result-row__meta">{deptBatch}</span> : null}
         {!roleOrg && !deptBatch ? (

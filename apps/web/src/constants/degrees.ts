@@ -3,7 +3,7 @@ export const DEGREES = [
   { code: "btech", label: "BTech" },
   { code: "mtech", label: "MTech" },
   { code: "phd", label: "PhD" },
-  { code: "mba", label: "MBA" },
+  { code: "idd", label: "IDD" },
   { code: "msc", label: "MSc" },
   { code: "other", label: "Other" },
 ] as const;

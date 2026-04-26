@@ -1,5 +1,5 @@
 /** URL segments under `/intent/career/:careerTab` */
-export const CAREER_TAB_SEGMENTS = ["opportunities", "referrals", "post"] as const;
+export const CAREER_TAB_SEGMENTS = ["opportunities", "referrals", "mentorship"] as const;
 
 export type CareerTabSegment = (typeof CAREER_TAB_SEGMENTS)[number];
 

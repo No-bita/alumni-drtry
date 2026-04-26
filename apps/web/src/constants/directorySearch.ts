@@ -20,7 +20,7 @@ export const RESIDENCE_CITIES_QUERY_OPTIONS = {
 } as const;
 
 /** Sidebar “Top cities” row count (client slices aggregate list). */
-export const RESIDENCE_CITIES_SIDEBAR_LIMIT = 15;
+export const RESIDENCE_CITIES_SIDEBAR_LIMIT = 5;
 
 /**
  * Residence-city aggregate fetch size (API max 120).

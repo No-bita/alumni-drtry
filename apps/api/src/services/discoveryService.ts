@@ -29,7 +29,7 @@ export interface SearchInput {
   residenceCountry?: string;
   residenceCity?: string;
   requireResidence?: boolean;
-  excludePersonId?: string;
+  viewerPersonId?: string;
   limit: number;
   cursor?: string;
 }
@@ -209,7 +209,6 @@ export class DiscoveryService {
       residenceCountry: input.residenceCountry?.trim() || undefined,
       residenceCity: input.residenceCity?.trim() || undefined,
       requireResidence: input.requireResidence === true,
-      excludePersonId: input.excludePersonId,
       limit: input.limit,
       cursor: decodedCursor
     };
@@ -254,7 +253,8 @@ export class DiscoveryService {
       batchWidened: batchWidenedEffective,
       companySoft: companyIn,
       occSoft: occ,
-      hasKeywordQ: Boolean(q)
+      hasKeywordQ: Boolean(q),
+      queryText: q
     };
 
     const results = toSearchViews(searchResult.rows, matchCtx);
@@ -271,7 +271,7 @@ export class DiscoveryService {
     if (
       env.DISCOVERY_ANALYTICS_ENABLED &&
       !input.cursor &&
-      input.excludePersonId
+      input.viewerPersonId
     ) {
       const snapshot = {
         q: q ?? null,
@@ -287,7 +287,7 @@ export class DiscoveryService {
       };
       try {
         searchSessionId = await this.discoveryAnalyticsRepo.insertSearchSession({
-          viewerPersonId: input.excludePersonId,
+          viewerPersonId: input.viewerPersonId,
           querySnapshot: snapshot,
           resultIds: results.map((r) => r.id),
           wideningMessageKey: messageKey,

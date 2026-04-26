@@ -19,6 +19,7 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
+import { isDemoProfileBio } from "../lib/demoProfile";
 
 function PencilIcon({ className }: { className?: string }) {
   return (
@@ -68,6 +69,7 @@ export function Profile() {
 
   const data = profileQuery.data ?? null;
   const loading = profileQuery.isPending;
+  const isDemoProfile = isDemoProfileBio(data?.profile.bio);
 
   const linksQuery = useQuery({
     queryKey: queryKeys.me.links(),
@@ -312,6 +314,7 @@ export function Profile() {
                 <div>
                   <h1 id="profile-hero-heading" className="home-dashboard__hero-title">
                     {profile.fullName}
+                    {isDemoProfile ? <span className="badge badge--hiring profile-page__demo-badge">Demo</span> : null}
                   </h1>
                 </div>
               </div>

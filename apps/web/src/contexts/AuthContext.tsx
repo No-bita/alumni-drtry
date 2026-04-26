@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await api.post("/v1/auth/logout");
     queryClient.clear();
+    queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, { kind: "unauthenticated" });
   }, []);
 
   const value = useMemo((): AuthContextValue => {

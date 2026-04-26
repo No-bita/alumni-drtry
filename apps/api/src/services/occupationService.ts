@@ -61,8 +61,8 @@ export class OccupationService {
     let organizationId: string | null = null;
     if (input.organizationId !== undefined && input.organizationId !== null) {
       const organization = await this.organizationRepo.findById(input.organizationId);
-      if (!organization || organization.approvalStatus !== "approved") {
-        throw new AppError(400, "OCCUPATION_INVALID_ORG", "Organization must exist and be approved.");
+      if (!organization) {
+        throw new AppError(400, "OCCUPATION_INVALID_ORG", "Organization must exist.");
       }
       organizationId = organization.id;
     }
@@ -114,8 +114,8 @@ export class OccupationService {
         nextOrganizationId = null;
       } else {
         const organization = await this.organizationRepo.findById(patch.organizationId);
-        if (!organization || organization.approvalStatus !== "approved") {
-          throw new AppError(400, "OCCUPATION_INVALID_ORG", "Organization must exist and be approved.");
+        if (!organization) {
+          throw new AppError(400, "OCCUPATION_INVALID_ORG", "Organization must exist.");
         }
         nextOrganizationId = organization.id;
       }

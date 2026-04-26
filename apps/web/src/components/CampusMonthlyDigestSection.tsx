@@ -66,10 +66,11 @@ export function CampusMonthlyDigestSection() {
     <section className="home-dashboard__digest" aria-labelledby={`${formId}-digest-heading`}>
       <header className="home-dashboard__digest-header">
         <div className="home-dashboard__digest-header-main">
+          <p className="home-dashboard__digest-kicker">Campus monthly</p>
           <h2 id={`${formId}-digest-heading`} className="home-dashboard__digest-title">
             {viewerTitle}
           </h2>
-          <p className="home-dashboard__digest-caption">Campus newsletter — embedded below.</p>
+          <p className="home-dashboard__digest-caption">Reference read — open the PDF in a new tab for full view.</p>
         </div>
         <a
           href={pdfSrc}
@@ -87,6 +88,7 @@ export function CampusMonthlyDigestSection() {
           title={viewerTitle}
           className="home-dashboard__digest-iframe"
           src={pdfSrc}
+          loading="lazy"
         />
       </div>
 

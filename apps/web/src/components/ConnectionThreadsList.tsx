@@ -27,11 +27,8 @@ export function ConnectionThreadsList() {
     return null;
   }
 
-  if (threadsQuery.isError || threadsQuery.data.length === 0) {
-    return null;
-  }
-
-  const threads = threadsQuery.data;
+  const threads = threadsQuery.data ?? [];
+  const hasThreads = !threadsQuery.isError && threads.length > 0;
 
   return (
     <section className="home-dashboard__inbox" aria-labelledby="home-threads-heading">
@@ -40,28 +37,37 @@ export function ConnectionThreadsList() {
           <h2 id="home-threads-heading" className="home-dashboard__inbox-title">
             Conversations
           </h2>
-          <p className="home-dashboard__inbox-caption">Open connection threads</p>
+          <p className="home-dashboard__inbox-caption">Your chat entry point</p>
         </header>
-        <ul className="home-dashboard__thread-list">
-          {threads.map((t) => {
-            const name = t.counterpartyFullName?.trim() || "Alumni";
-            const mine = t.lastMessageAuthorPersonId === myId;
-            return (
-              <li key={t.id}>
-                <Link to={`/connections/${t.id}`} className="home-dashboard__thread-row">
-                  <span className="home-dashboard__thread-row-head">
-                    <span className="home-dashboard__thread-row-person">
-                      <Avatar name={name} size="sm" className="home-dashboard__thread-avatar" />
-                      <span className="home-dashboard__thread-name">{name}</span>
+        {hasThreads ? (
+          <ul className="home-dashboard__thread-list">
+            {threads.map((t) => {
+              const name = t.counterpartyFullName?.trim() || "Alumni";
+              const mine = t.lastMessageAuthorPersonId === myId;
+              return (
+                <li key={t.id}>
+                  <Link to={`/connections/${t.id}`} className="home-dashboard__thread-row">
+                    <span className="home-dashboard__thread-row-head">
+                      <span className="home-dashboard__thread-row-person">
+                        <Avatar name={name} size="sm" className="home-dashboard__thread-avatar" />
+                        <span className="home-dashboard__thread-name">{name}</span>
+                      </span>
+                      {t.kind === "referral" ? <span className="home-dashboard__thread-tag">Referral</span> : null}
                     </span>
-                    {t.kind === "referral" ? <span className="home-dashboard__thread-tag">Referral</span> : null}
-                  </span>
-                  <span className="home-dashboard__thread-preview">{mine ? "You: " : ""}{previewSnippet(t.lastMessageBody)}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                    <span className="home-dashboard__thread-preview">
+                      {mine ? "You: " : ""}
+                      {previewSnippet(t.lastMessageBody)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="home-dashboard__inbox-caption">
+            No active chats yet. Start from any alumni profile and your conversation will appear here.
+          </p>
+        )}
       </div>
     </section>
   );

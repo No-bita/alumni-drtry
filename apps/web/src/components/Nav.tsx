@@ -27,7 +27,7 @@ type NavProps = {
   variant?: "default" | "home" | "onboarding";
   /** Avatar initials label; defaults to first name from institutional email. */
   avatarName?: string;
-  /** Hide Career / Location / Build / Explore (e.g. onboarding). */
+  /** Hide Career / Location / Build / Events (e.g. onboarding). */
   hideIntentNav?: boolean;
 };
 
@@ -36,6 +36,8 @@ type NavUserMenuProps = {
   variant: "default" | "home";
   /** Own profile id for “My Profile”; omit if profile failed to load. */
   profileId?: string;
+  /** Hide restricted links until onboarding is complete. */
+  onboardingCompleted: boolean;
   /** For avatar tint when department is known. */
   departmentCode?: string | null;
   notificationCount: number;
@@ -46,6 +48,7 @@ function NavUserMenu({
   name,
   variant,
   profileId,
+  onboardingCompleted,
   departmentCode,
   notificationCount,
   onSignOut,
@@ -82,31 +85,35 @@ function NavUserMenu({
         </span>
       </summary>
       <div className="nav__user-menu-panel">
-        <NavLink
-          to="/notifications"
-          className={({ isActive }) =>
-            `nav__user-menu-link nav__user-menu-link--row${
-              isActive ? " nav__user-menu-link--active" : ""
-            }`.trim()
-          }
-          aria-label={badgeLabel ? `Notifications, ${notificationCount} items` : "Notifications"}
-          onClick={closeMenu}
-        >
-          <span>Notifications</span>
-          {notificationCount > 0 ? (
-            <span className="nav__count-badge" aria-hidden>
-              {formatNotificationBadgeCount(notificationCount)}
-            </span>
-          ) : null}
-        </NavLink>
-        {profileId ? (
-          <Link
-            to={`/profiles/${profileId}`}
-            className="nav__user-menu-link"
-            onClick={closeMenu}
-          >
-            My Profile
-          </Link>
+        {onboardingCompleted ? (
+          <>
+            <NavLink
+              to="/notifications"
+              className={({ isActive }) =>
+                `nav__user-menu-link nav__user-menu-link--row${
+                  isActive ? " nav__user-menu-link--active" : ""
+                }`.trim()
+              }
+              aria-label={badgeLabel ? `Notifications, ${notificationCount} items` : "Notifications"}
+              onClick={closeMenu}
+            >
+              <span>Notifications</span>
+              {notificationCount > 0 ? (
+                <span className="nav__count-badge" aria-hidden>
+                  {formatNotificationBadgeCount(notificationCount)}
+                </span>
+              ) : null}
+            </NavLink>
+            {profileId ? (
+              <Link
+                to={`/profiles/${profileId}`}
+                className="nav__user-menu-link"
+                onClick={closeMenu}
+              >
+                My Profile
+              </Link>
+            ) : null}
+          </>
         ) : null}
         <button
           type="button"
@@ -165,6 +172,8 @@ export function Nav({
 
   const myProfileId =
     auth.status === "authenticated" && auth.myProfile?.id ? auth.myProfile.id : undefined;
+  const onboardingCompleted =
+    auth.status === "authenticated" ? Boolean(auth.myProfile?.onboardingCompletedAt) : false;
 
   const navDepartmentCode =
     auth.status === "authenticated" && auth.myProfile
@@ -198,12 +207,12 @@ export function Nav({
                 </Link>
               );
             }
-            if (slug === "explore") {
-              const active = location.pathname === "/search";
+            if (slug === "events") {
+              const active = location.pathname === "/events";
               return (
                 <Link
                   key={slug}
-                  to="/search"
+                  to="/events"
                   className={`nav__intent-link${active ? " nav__intent-link--active" : ""}`.trim()}
                 >
                   {NAV_INTENT_LABELS[slug]}
@@ -232,6 +241,7 @@ export function Nav({
                 name={resolvedAvatarName}
                 variant={variant === "home" ? "home" : "default"}
                 profileId={myProfileId}
+                onboardingCompleted={onboardingCompleted}
                 departmentCode={navDepartmentCode}
                 notificationCount={notificationCount}
                 onSignOut={handleSignOut}

@@ -97,6 +97,20 @@ export function Landing() {
               </a>
             </div> */}
           </div>
+          <section className="landing-proof-strip" aria-label="Engagement proof">
+            <article className="landing-proof-strip__item">
+              <p className="landing-proof-strip__value">Career-first</p>
+              <p className="landing-proof-strip__label">Opportunities, referrals, and mentorship in one flow</p>
+            </article>
+            <article className="landing-proof-strip__item">
+              <p className="landing-proof-strip__value">Batch-native</p>
+              <p className="landing-proof-strip__label">Department and cohort context built into discovery</p>
+            </article>
+            <article className="landing-proof-strip__item">
+              <p className="landing-proof-strip__value">Institute-ready</p>
+              <p className="landing-proof-strip__label">Activity proof for alumni office engagement and outcomes</p>
+            </article>
+          </section>
           {/* <div style={{ display: "flex", gap: "2.5rem" }}>
             <div>
               <span className="stat-number">1000+</span>

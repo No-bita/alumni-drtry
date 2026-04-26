@@ -13,7 +13,6 @@ import { PageStateBlock } from "../components/PageStateBlock";
 import { type SearchResult, type SearchProfileView } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
-import { CAMPUS_IMAGE_SMALL } from "../constants/images";
 import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
 import {
   buildSearchParamsFromDraft,
@@ -202,28 +201,30 @@ export function Search() {
       <Nav />
       <div className="search-page search-page--search-first">
         <header className="search-page__hero">
-          <h1 className="search-page__title search-page__title--hero">Alumni directory</h1>
-          <DirectorySearchBar
-            variant="directory"
-            keyword={draft.q}
-            onKeywordChange={(q) => setDraftPatch({ q })}
-            onSubmit={handleSearchSubmit}
-            filterCount={filterCount}
-            onOpenRefine={() => setFiltersOpen(true)}
-            keywordPlaceholder="Name, role, company…"
-            autoFocusKeyword
-            inlineTrailingAction={{
-              label: "Clear all filters",
-              onClick: clearAllFilters,
-              disabled: !canClear,
-            }}
-            onNativeSearchCleared={clearAllFilters}
-          />
-          {searchPending ? (
-            <p className="search-page__pending search-page__pending--under-bar" role="status">
-              Press Search or Enter to run this search.
-            </p>
-          ) : null}
+          <div className="search-page__hero-inner">
+            <h1 className="search-page__title search-page__title--hero">Alumni directory</h1>
+            <DirectorySearchBar
+              variant="directory"
+              keyword={draft.q}
+              onKeywordChange={(q) => setDraftPatch({ q })}
+              onSubmit={handleSearchSubmit}
+              filterCount={filterCount}
+              onOpenRefine={() => setFiltersOpen(true)}
+              keywordPlaceholder="Name, role, company…"
+              autoFocusKeyword
+              inlineTrailingAction={{
+                label: "Clear all filters",
+                onClick: clearAllFilters,
+                disabled: !canClear,
+              }}
+              onNativeSearchCleared={clearAllFilters}
+            />
+            {searchPending ? (
+              <p className="search-page__pending search-page__pending--under-bar" role="status">
+                Press Search or Enter to run this search.
+              </p>
+            ) : null}
+          </div>
         </header>
 
         {wideningSummary ? (
@@ -268,31 +269,33 @@ export function Search() {
 
         <main className="search-page__main">
           <div className="search-page__toolbar">
-            <p
-              className={`search-page__toolbar-meta${fetchingMain && !errorMessage ? " search-page__toolbar-meta--busy" : ""}`}
-            >
-              {errorMessage ? (
-                <span className="search-page__error-inline">{errorMessage}</span>
-              ) : fetchingMain ? (
-                <>
-                  <Spinner size="sm" />
-                  {results.length === 0 ? (
-                    <span>Searching…</span>
-                  ) : (
-                    <span>
-                      {results.length} result{results.length !== 1 ? "s" : ""}
-                      {hasActiveFilters ? " · filtered" : ""}
-                      <span className="search-page__updating-suffix"> · updating…</span>
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  {results.length} result{results.length !== 1 ? "s" : ""}
-                  {hasActiveFilters ? " · filtered" : ""}
-                </>
-              )}
-            </p>
+            <div className="search-page__toolbar-inner">
+              <p
+                className={`search-page__toolbar-meta${fetchingMain && !errorMessage ? " search-page__toolbar-meta--busy" : ""}`}
+              >
+                {errorMessage ? (
+                  <span className="search-page__error-inline">{errorMessage}</span>
+                ) : fetchingMain ? (
+                  <>
+                    <Spinner size="sm" />
+                    {results.length === 0 ? (
+                      <span>Searching…</span>
+                    ) : (
+                      <span>
+                        {results.length} result{results.length !== 1 ? "s" : ""}
+                        {hasActiveFilters ? " · filtered" : ""}
+                        <span className="search-page__updating-suffix"> · updating…</span>
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {results.length} result{results.length !== 1 ? "s" : ""}
+                    {hasActiveFilters ? " · filtered" : ""}
+                  </>
+                )}
+              </p>
+            </div>
           </div>
 
           {showMainSpinner ? (
@@ -388,12 +391,6 @@ export function Search() {
               ) : null}
             </>
           ) : null}
-
-          <div
-            className="search-page__footer-image"
-            style={{ backgroundImage: `url(${CAMPUS_IMAGE_SMALL})` }}
-            aria-hidden
-          />
         </main>
       </div>
     </>

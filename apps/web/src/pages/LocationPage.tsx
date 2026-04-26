@@ -11,6 +11,7 @@ import { Spinner } from "../components/Spinner";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constants/locationLens";
 import {
+  api,
   type MyProfileView,
   type ResidenceCityAggregate,
   type ResidenceCitiesResponse,
@@ -36,6 +37,7 @@ import {
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
+import { CITY_EVENTS, CITY_NEEDS, matchCityItem, type CityNeedType } from "../constants/citiesSupport";
 
 function navDisplayName(profile: MyProfileView | undefined, email: string | undefined): string {
   const fn = profile?.fullName?.trim();
@@ -77,6 +79,18 @@ function useLocationLensGridColumns(): number {
   return cols;
 }
 
+function recordCitiesMetric(metric: string): void {
+  try {
+    const key = "cities:metrics:v1";
+    const raw = window.localStorage.getItem(key);
+    const parsed: Record<string, number> = raw ? JSON.parse(raw) : {};
+    parsed[metric] = (parsed[metric] ?? 0) + 1;
+    window.localStorage.setItem(key, JSON.stringify(parsed));
+  } catch {
+    // Best-effort client-side metric scaffold.
+  }
+}
+
 export function LocationPage() {
   const auth = useAuth();
   const authMyProfile = auth.status === "authenticated" ? auth.myProfile : undefined;
@@ -87,6 +101,14 @@ export function LocationPage() {
 
   const [draft, setDraft] = useState(() => parseDirectorySearchFromParams(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [signalBusyId, setSignalBusyId] = useState<string | null>(null);
+  const [signalMessage, setSignalMessage] = useState<string | null>(null);
+  const [askModalOpen, setAskModalOpen] = useState(false);
+  const [askType, setAskType] = useState<CityNeedType>("city_help");
+  const [askTitle, setAskTitle] = useState("");
+  const [askBody, setAskBody] = useState("");
+  const [askSubmitting, setAskSubmitting] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(parseDirectorySearchFromParams(searchParams));
@@ -109,6 +131,7 @@ export function LocationPage() {
       return;
     }
     queueMicrotask(() => setLoadStatus("done"));
+    recordCitiesMetric("tab_visit");
   }, [auth.status, authMyProfile]);
 
   /** Strip legacy query keys from bookmarks. */
@@ -279,14 +302,79 @@ export function LocationPage() {
     return qs ? `/search?${qs}` : "/search";
   }, [searchParams]);
 
+  const selectedCity = residenceCity ?? draft.residenceCity ?? topCitiesRows?.[0]?.city ?? null;
+  const selectedCountry = residenceCountry ?? draft.residenceCountry ?? topCitiesRows?.[0]?.country ?? null;
+
+  const cityEvents = useMemo(
+    () => CITY_EVENTS.filter((item) => matchCityItem(item, selectedCity, selectedCountry)),
+    [selectedCity, selectedCountry]
+  );
+
+  const cityNeeds = useMemo(
+    () => CITY_NEEDS.filter((item) => matchCityItem(item, selectedCity, selectedCountry)),
+    [selectedCity, selectedCountry]
+  );
+
+  const submitCitySignal = useCallback(
+    async (item: { id: string; title: string }, mode: "help" | "same_need") => {
+      if (!selectedCity || !selectedCountry) return;
+      setSignalBusyId(`${item.id}-${mode}`);
+      setSignalMessage(null);
+      const label = mode === "help" ? "I can help" : "I need this too";
+      const { error } = await api.post("/v1/intentcasts", {
+        category: "guidance",
+        content: `Title: City support signal\nIndustry: Cities\nDescription: ${label} · ${item.title} · ${selectedCity}, ${selectedCountry}`,
+      });
+      setSignalBusyId(null);
+      if (error) {
+        setSignalMessage(error.message ?? error.code ?? "Could not send signal.");
+        return;
+      }
+      recordCitiesMetric(mode === "help" ? "signal_help_sent" : "signal_need_sent");
+      setSignalMessage("Support signal sent.");
+    },
+    [selectedCity, selectedCountry]
+  );
+
+  const submitCityAsk = async () => {
+    if (!selectedCity || !selectedCountry) return;
+    const t = askTitle.trim();
+    const b = askBody.trim();
+    if (!t || !b) {
+      setAskError("Add a title and details for your city ask.");
+      return;
+    }
+    setAskSubmitting(true);
+    setAskError(null);
+    const { error } = await api.post("/v1/intentcasts", {
+      category: "guidance",
+      content: `Title: City ask (${askType})\nIndustry: Cities\nDescription: ${t}\nAsk: ${b}\nLocation: ${selectedCity}, ${selectedCountry}`,
+    });
+    setAskSubmitting(false);
+    if (error) {
+      setAskError(error.message ?? error.code ?? "Could not post city ask.");
+      return;
+    }
+    recordCitiesMetric("city_ask_posted");
+    setAskModalOpen(false);
+    setAskTitle("");
+    setAskBody("");
+    setSignalMessage("City ask posted.");
+  };
+
   const pickTopCity = useCallback(
     (pick: TopCityPick) => {
-      const next = new URLSearchParams(searchParams);
+      const next = new URLSearchParams();
       next.set("residenceCity", pick.city);
       next.set("residenceCountry", pick.country);
       setSearchParams(next, { replace: true });
+      setDraft({
+        ...EMPTY_DIRECTORY_SEARCH_DRAFT,
+        residenceCity: pick.city,
+        residenceCountry: pick.country,
+      });
     },
-    [searchParams, setSearchParams]
+    [setSearchParams]
   );
 
   const clearPlaceFilter = useCallback(() => {
@@ -341,8 +429,11 @@ export function LocationPage() {
           <div className="home-dashboard__hero-inner">
             <div className="home-dashboard__hero-left">
               <h1 id="location-hero-heading" className="home-dashboard__hero-title">
-                Where are alumni living?
+                Cities
               </h1>
+              <p className="home-dashboard__hero-sub">
+                Find alumni in your city, discover city-level events, and get practical local support.
+              </p>
             </div>
           </div>
         </section>
@@ -437,6 +528,86 @@ export function LocationPage() {
             </aside>
 
             <div className="location-page__main">
+            <section className="cities-page__context" aria-label="City context">
+              <div className="cities-page__context-head">
+                <h2 className="cities-page__context-title">
+                  {selectedCity && selectedCountry ? `${selectedCity}, ${selectedCountry}` : "Select a city"}
+                </h2>
+                <button type="button" className="cities-page__ask-button" onClick={() => setAskModalOpen(true)}>
+                  Post city ask
+                </button>
+              </div>
+              {signalMessage ? (
+                <p className="cities-page__signal-message" role="status" aria-live="polite">
+                  {signalMessage}
+                </p>
+              ) : null}
+              <div className="cities-page__context-grid">
+                <section className="cities-page__panel" aria-labelledby="cities-events-heading">
+                  <h3 id="cities-events-heading" className="cities-page__panel-title">
+                    City events
+                  </h3>
+                  {cityEvents.length === 0 ? (
+                    <p className="cities-page__panel-empty">No city events listed yet.</p>
+                  ) : (
+                    <ul className="cities-page__event-list">
+                      {cityEvents.map((item) => (
+                        <li key={item.id} className="cities-page__event-item">
+                          <p className="cities-page__event-title">{item.title}</p>
+                          <p className="cities-page__event-meta">
+                            {item.startsAtLabel} · {item.venue}
+                          </p>
+                          <p className="cities-page__event-meta">{item.attendeesLabel}</p>
+                          <Link
+                            to="/intent/events"
+                            className="cities-page__event-link"
+                            onClick={() => recordCitiesMetric("event_cta_click")}
+                          >
+                            View in Events →
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+                <section className="cities-page__panel" aria-labelledby="cities-needs-heading">
+                  <h3 id="cities-needs-heading" className="cities-page__panel-title">
+                    Housing, accommodation, and activities
+                  </h3>
+                  {cityNeeds.length === 0 ? (
+                    <p className="cities-page__panel-empty">No city needs posted yet.</p>
+                  ) : (
+                    <ul className="cities-page__needs-list">
+                      {cityNeeds.map((item) => (
+                        <li key={item.id} className="cities-page__need-item">
+                          <p className="cities-page__need-type">{item.type.replace("_", " ")}</p>
+                          <p className="cities-page__need-title">{item.title}</p>
+                          <p className="cities-page__need-copy">{item.description}</p>
+                          <div className="cities-page__need-actions">
+                            <button
+                              type="button"
+                              className="cities-page__need-btn"
+                              onClick={() => void submitCitySignal(item, "help")}
+                              disabled={signalBusyId === `${item.id}-help`}
+                            >
+                              {signalBusyId === `${item.id}-help` ? "Sending…" : "I can help"}
+                            </button>
+                            <button
+                              type="button"
+                              className="cities-page__need-btn cities-page__need-btn--muted"
+                              onClick={() => void submitCitySignal(item, "same_need")}
+                              disabled={signalBusyId === `${item.id}-same_need`}
+                            >
+                              {signalBusyId === `${item.id}-same_need` ? "Sending…" : "I need this too"}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
+            </section>
             <section className="location-page__results" aria-label="People in this view">
               {wideningSummary ? (
                 <div className="search-page__notice" role="status">
@@ -596,6 +767,70 @@ export function LocationPage() {
           </DirectoryFilterDrawer>
         </div>
       </div>
+      {askModalOpen ? (
+        <div className="cities-page__ask-overlay" role="presentation" onClick={() => (!askSubmitting ? setAskModalOpen(false) : undefined)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cities-ask-heading"
+            className="cities-page__ask-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="cities-ask-heading" className="cities-page__ask-title">
+              Post city ask
+            </h2>
+            <label className="ui-label" htmlFor="cities-ask-type">
+              Ask type
+            </label>
+            <select
+              id="cities-ask-type"
+              className="input"
+              value={askType}
+              onChange={(e) => setAskType(e.target.value as CityNeedType)}
+              disabled={askSubmitting}
+            >
+              <option value="housing">Housing</option>
+              <option value="accommodation">Accommodation</option>
+              <option value="sports_activity">Sports / activity</option>
+              <option value="city_help">General city help</option>
+            </select>
+            <label className="ui-label" htmlFor="cities-ask-title-field">
+              Title
+            </label>
+            <input
+              id="cities-ask-title-field"
+              className="input"
+              value={askTitle}
+              onChange={(e) => setAskTitle(e.target.value)}
+              placeholder="Looking for flatmate near Koramangala"
+              maxLength={120}
+              disabled={askSubmitting}
+            />
+            <label className="ui-label" htmlFor="cities-ask-body-field">
+              Details
+            </label>
+            <textarea
+              id="cities-ask-body-field"
+              className="input cities-page__ask-textarea"
+              rows={4}
+              value={askBody}
+              onChange={(e) => setAskBody(e.target.value)}
+              placeholder="Move-in date, budget, preferences, and where you need help."
+              maxLength={500}
+              disabled={askSubmitting}
+            />
+            {askError ? <p className="cities-page__ask-error">{askError}</p> : null}
+            <div className="cities-page__ask-actions">
+              <Button type="button" variant="secondary" onClick={() => setAskModalOpen(false)} disabled={askSubmitting}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" onClick={() => void submitCityAsk()} disabled={askSubmitting}>
+                {askSubmitting ? "Posting…" : "Post ask"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

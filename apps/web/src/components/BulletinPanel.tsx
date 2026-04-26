@@ -575,19 +575,32 @@ function FeedList({
   children: React.ReactNode;
 }) {
   if (!showFeed) return null;
-  if (status === "loading") return <p className="home-dashboard__bulletin-empty">Loading posts…</p>;
+  if (status === "loading") {
+    return (
+      <div className="home-dashboard__bulletin-state" role="status" aria-live="polite">
+        <p className="home-dashboard__bulletin-state-title">Loading bulletin</p>
+        <p className="home-dashboard__bulletin-state-copy">Pulling the latest updates from alumni…</p>
+      </div>
+    );
+  }
   if (status === "error") {
     return (
-      <div className="home-dashboard__bulletin-load-more-error">
-        <p>{errorMessage ?? "Could not load bulletin."}</p>
-        <button type="button" onClick={onRetry}>
+      <div className="home-dashboard__bulletin-state home-dashboard__bulletin-state--error">
+        <p className="home-dashboard__bulletin-state-title">Couldn’t load bulletin</p>
+        <p className="home-dashboard__bulletin-state-copy">{errorMessage ?? "Please retry in a moment."}</p>
+        <button type="button" className="home-dashboard__bulletin-state-action" onClick={onRetry}>
           Retry
         </button>
       </div>
     );
   }
   if (!children) {
-    return <p className="home-dashboard__bulletin-empty">{emptyMessage}</p>;
+    return (
+      <div className="home-dashboard__bulletin-state">
+        <p className="home-dashboard__bulletin-state-title">No posts yet</p>
+        <p className="home-dashboard__bulletin-state-copy">{emptyMessage}</p>
+      </div>
+    );
   }
   return <>{children}</>;
 }

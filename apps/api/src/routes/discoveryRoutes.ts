@@ -44,7 +44,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
 
     const result = await app.discoveryService.search({
       ...parsed.data,
-      excludePersonId: request.actor.personId
+      viewerPersonId: request.actor.personId
     });
     await app.adminMetricsService.logSearch();
     void app.adminMetricsService

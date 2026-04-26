@@ -63,8 +63,9 @@ export function Login() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
     if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
-      const isIitBhuEmail = normalizedEmail.endsWith("@iitbhu.ac.in");
-      if (!isIitBhuEmail) {
+      const isAllowedInstitutionalEmail =
+        normalizedEmail.endsWith("@iitbhu.ac.in") || normalizedEmail.endsWith("@itbhu.ac.in");
+      if (!isAllowedInstitutionalEmail) {
         setError("Beta access is currently limited. Request access using the form below.");
         setShowBetaWaitlistCta(true);
         return;

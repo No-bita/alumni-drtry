@@ -18,7 +18,6 @@ export interface SearchProfilesInput {
   /** Require both non-empty residence city and country. */
   requireResidence?: boolean;
   /** Omit this person from results (e.g. current viewer). */
-  excludePersonId?: string;
   limit: number;
   /** Keyset cursor (rule-based sort). */
   cursor?: SearchRankCursor;
@@ -222,11 +221,6 @@ export class DiscoveryRepo {
       "p.suspended_at IS NULL",
       "p.full_name IS NOT NULL"
     ];
-
-    if (input.excludePersonId) {
-      const ph = bind(input.excludePersonId);
-      whereInner.push(`p.id <> ${ph}`);
-    }
 
     if (input.batch !== undefined) {
       if (input.batchWidened) {
