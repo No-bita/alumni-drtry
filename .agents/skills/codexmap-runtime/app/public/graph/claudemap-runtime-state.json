@@ -1,0 +1,28 @@
+{
+  "graphRevision": 1,
+  "updatedAt": "2026-04-26T20:16:21.273Z",
+  "graphMeta": {
+    "repoName": "Repo 2",
+    "generatedAt": "2026-04-26T20:16:21.260Z",
+    "source": "heuristic",
+    "nodeCount": 306,
+    "edgeCount": 0,
+    "fileCount": 172
+  },
+  "runtime": {
+    "healthOverlay": false,
+    "highlightedNodeIds": [],
+    "highlightColor": "accent",
+    "focus": null,
+    "guidedFlow": null,
+    "presentation": {
+      "mode": "free",
+      "lockInput": false,
+      "title": null,
+      "explanation": null,
+      "body": null,
+      "stepLabel": null,
+      "updatedAt": null
+    }
+  }
+}

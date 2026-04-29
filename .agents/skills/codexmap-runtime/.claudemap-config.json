@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "skillRootRel": ".agents/skills/codexmap-runtime",
+  "assistant": "codex"
+}
