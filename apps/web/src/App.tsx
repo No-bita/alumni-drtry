@@ -1,10 +1,11 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { CAREER_INTENT_DEFAULT_PATH } from "./constants/careerTabs";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
+import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
+import { isDevHubPagesEnabled } from "./lib/devHubPages";
 
 /** Each `import()` becomes its own JS chunk; only the current route’s page loads (no static `pages/*` imports here). */
 const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
@@ -14,16 +15,19 @@ const Search = lazy(() => import("./pages/Search").then((m) => ({ default: m.Sea
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
 const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
 const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })));
-const Notifications = lazy(() =>
-  import("./pages/Notifications").then((m) => ({ default: m.Notifications }))
-);
 const ConnectionThread = lazy(() =>
   import("./pages/ConnectionThread").then((m) => ({ default: m.ConnectionThread }))
 );
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
+const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+
+function LocationHubRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/intent/location/bengaluru", search }} replace />;
+}
 
 function RouteFallback() {
   return (
@@ -194,7 +198,27 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                <EventsPage />
+                {isDevHubPagesEnabled ? <EventsPage /> : <Navigate to="/home" replace />}
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/intent/location"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <LocationHubRedirect />
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/intent/location/:citySlug"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <LocationPage />
               </ProfileGate>
             </RequireAuth>
           }
@@ -204,7 +228,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                <Navigate to={CAREER_INTENT_DEFAULT_PATH} replace />
+                <CareerPage />
               </ProfileGate>
             </RequireAuth>
           }
@@ -213,9 +237,7 @@ function AppRoutes() {
           path="/intent/career/:careerTab"
           element={
             <RequireAuth>
-              <ProfileGate mode="home">
-                <CareerPage />
-              </ProfileGate>
+              <Navigate to="/intent/career" replace />
             </RequireAuth>
           }
         />
@@ -224,7 +246,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                <BuildPage />
+                {isDevHubPagesEnabled ? <BuildPage /> : <Navigate to="/home" replace />}
               </ProfileGate>
             </RequireAuth>
           }
@@ -235,16 +257,6 @@ function AppRoutes() {
             <RequireAuth>
               <ProfileGate mode="home">
                 <IntentPage />
-              </ProfileGate>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/notifications"
-          element={
-            <RequireAuth>
-              <ProfileGate mode="home">
-                <Notifications />
               </ProfileGate>
             </RequireAuth>
           }
@@ -271,6 +283,7 @@ export default function App() {
       <DeferredVercelAnalytics />
       <AuthProvider>
         <AppRoutes />
+        <GlobalNotificationsWidget />
         <GlobalMessagingWidget />
       </AuthProvider>
     </BrowserRouter>

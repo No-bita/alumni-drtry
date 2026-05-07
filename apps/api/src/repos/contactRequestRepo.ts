@@ -66,7 +66,7 @@ export interface ContactRequestInboxItemView {
   id: string;
   senderPersonId: string;
   senderFullName: string | null;
-  /** Department code from sender profile when set (directory avatar tint). */
+  /** Department code from sender profile when set. */
   senderDepartmentCode: string | null;
   message: string;
   createdAt: Date;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { Button } from "./Button";
 import { Textarea } from "./Input";
 import { CAMPUS_IMAGE_SMALL } from "../constants/images";
@@ -26,9 +27,7 @@ export function ReachOutCard({ profileName, onSubmit, status = "idle", errorMess
     <div className="card-reach-out">
       <div
         className="card-reach-out__strip"
-        style={{
-          backgroundImage: `url(${CAMPUS_IMAGE_SMALL})`,
-        }}
+        style={{ ...({ "--campus-strip-image": `url("${CAMPUS_IMAGE_SMALL}")` } as CSSProperties) }}
       />
       <div className="card-reach-out__body">
         <h3 className="card-reach-out__title">Reach out to {profileName}</h3>

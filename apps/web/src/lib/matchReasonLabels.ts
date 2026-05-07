@@ -1,6 +1,7 @@
 /** Maps API `matchReasons` keys to short UI strings. */
 export const MATCH_REASON_LABELS: Record<string, string> = {
   exact_name: "Name match",
+  name_match: "Name match",
   title_match: "Role match",
   keyword_match: "Keyword match",
   same_department: "Same department",

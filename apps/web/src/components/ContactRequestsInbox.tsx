@@ -90,12 +90,7 @@ export function ContactRequestsInbox() {
               <li key={r.id} className="home-dashboard__inbox-item">
                 <div className="home-dashboard__inbox-item-head">
                   <Link to={`/profiles/${r.senderPersonId}`} className="home-dashboard__inbox-sender">
-                    <Avatar
-                      name={name}
-                      size="sm"
-                      tone="pastel"
-                      departmentCode={r.senderDepartmentCode}
-                    />
+                    <Avatar name={name} size="sm" tone="pastel" />
                     <span className="home-dashboard__inbox-sender-name">{name}</span>
                   </Link>
                 </div>

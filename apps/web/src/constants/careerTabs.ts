@@ -1,15 +1,9 @@
-/** URL segments under `/intent/career/:careerTab` */
-export const CAREER_TAB_SEGMENTS = ["opportunities", "referrals", "mentorship"] as const;
+/** Canonical Career hub URL — single scrollable page (hiring, referrals, mentorship). */
+export const CAREER_INTENT_DEFAULT_PATH = "/intent/career";
 
-export type CareerTabSegment = (typeof CAREER_TAB_SEGMENTS)[number];
+/** `id` on the referrals directory region in {@link CareerPage}. */
+export const CAREER_REFERRALS_SECTION_ID = "referrals";
 
-export function isCareerTabSegment(value: string | undefined): value is CareerTabSegment {
-  return value !== undefined && (CAREER_TAB_SEGMENTS as readonly string[]).includes(value);
+export function careerPageReferralsHref(): string {
+  return `${CAREER_INTENT_DEFAULT_PATH}#${CAREER_REFERRALS_SECTION_ID}`;
 }
-
-export function careerIntentPath(segment: CareerTabSegment): string {
-  return `/intent/career/${segment}`;
-}
-
-/** Redirect target for bare `/intent/career` */
-export const CAREER_INTENT_DEFAULT_PATH = careerIntentPath("opportunities");

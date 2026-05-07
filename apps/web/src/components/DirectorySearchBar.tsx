@@ -56,7 +56,9 @@ export function DirectorySearchBar({
   const form = (
     <form className="directory-search-bar__form" onSubmit={onSubmit}>
         <label className="directory-search-bar__keyword">
-          <span className="visually-hidden">Search alumni</span>
+          <span className="visually-hidden">
+            Alumni directory keyword — prefix with @ and a city to open its hub, or enter any search terms
+          </span>
           <div className="directory-search-bar__keyword-inner">
             <input
               ref={keywordInputRef}

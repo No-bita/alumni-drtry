@@ -3,7 +3,7 @@ export const INTENT_SLUGS = ["career", "location", "build"] as const;
 export type IntentSlug = (typeof INTENT_SLUGS)[number];
 
 export const INTENT_LABELS: Record<IntentSlug, string> = {
-  career: "Career",
+  career: "Careers",
   location: "Cities",
   build: "Build",
 };
@@ -17,7 +17,7 @@ export const NAV_INTENT_SLUGS = ["career", "location", "build", "events"] as con
 export type NavIntentSlug = (typeof NAV_INTENT_SLUGS)[number];
 
 export const NAV_INTENT_LABELS: Record<NavIntentSlug, string> = {
-  career: "Career",
+  career: "Careers",
   location: "Cities",
   build: "Build",
   events: "Events",

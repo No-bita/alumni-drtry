@@ -3,6 +3,7 @@ import { Nav } from "../components/Nav";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
 import { INTENT_LABELS, isIntentSlug } from "../constants/intents";
+import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { LocationPage } from "./LocationPage";
 
@@ -10,7 +11,7 @@ function navAvatarName(
   profile: { fullName?: string | null } | undefined,
   email: string | undefined
 ): string {
-  const fn = profile?.fullName?.trim();
+  const fn = demoDisplayFullName(profile?.fullName).trim() || profile?.fullName?.trim();
   if (fn) {
     const parts = fn.split(/\s+/);
     return parts[0] ?? fn;
@@ -19,7 +20,7 @@ function navAvatarName(
 }
 
 /**
- * `/intent/location` → location lens; `/intent/build` → build hub (see App.tsx); `/intent/career/...` → career hub.
+ * `/intent/location` → location lens; `/intent/build` → build hub (see App.tsx); `/intent/career` → career hub.
  */
 export function IntentPage() {
   const { intentSlug } = useParams();
@@ -43,6 +44,7 @@ export function IntentPage() {
 
   const title = INTENT_LABELS[intentSlug];
   const displayName =
+    demoDisplayFullName(auth.myProfile?.fullName).trim() ||
     auth.myProfile?.fullName?.trim() ||
     navAvatarName(auth.myProfile ?? undefined, auth.person.institutionalEmail);
 

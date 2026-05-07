@@ -21,10 +21,32 @@ export interface ConnectionThreadListView {
   updatedAt: Date;
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
+  counterpartyDepartmentCode: string | null;
+  counterpartyBatchYear: number | null;
   lastMessageBody: string;
   lastMessageAuthorPersonId: string;
   lastMessageCreatedAt: Date;
 }
+
+export type ConnectionMessageReplyToSnapshot = {
+  messageId: string;
+  authorPersonId: string;
+  body: string;
+};
+
+/** DB row shape for LIST / GET with optional parent snippet join. */
+type ConnectionMessageJoinedDbRow = {
+  id: string;
+  thread_id: string;
+  author_person_id: string;
+  body: string;
+  created_at: Date;
+  edited_at: Date | null;
+  reply_to_message_id: string | null;
+  reply_parent_id: string | null;
+  reply_parent_author_person_id: string | null;
+  reply_parent_body: string | null;
+};
 
 export interface ConnectionMessageView {
   id: string;
@@ -32,6 +54,8 @@ export interface ConnectionMessageView {
   authorPersonId: string;
   body: string;
   createdAt: Date;
+  editedAt: Date | null;
+  replyTo: ConnectionMessageReplyToSnapshot | null;
 }
 
 export type DisclosureKind = "institutional_email" | "personal_email" | "profile_link";
@@ -46,19 +70,45 @@ export interface ConnectionDisclosureView {
   createdAt: Date;
 }
 
-function mapMessage(row: {
+function mapPlainMessageReplyNull(row: {
   id: string;
   thread_id: string;
   author_person_id: string;
   body: string;
   created_at: Date;
+  edited_at: Date | null;
 }): ConnectionMessageView {
   return {
     id: row.id,
     threadId: row.thread_id,
     authorPersonId: row.author_person_id,
     body: row.body,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    editedAt: row.edited_at,
+    replyTo: null,
+  };
+}
+
+function mapJoinedMessage(row: ConnectionMessageJoinedDbRow): ConnectionMessageView {
+  const replyTo =
+    row.reply_to_message_id &&
+    row.reply_parent_id &&
+    row.reply_parent_author_person_id != null &&
+    row.reply_parent_body != null
+      ? {
+          messageId: row.reply_parent_id,
+          authorPersonId: row.reply_parent_author_person_id,
+          body: row.reply_parent_body,
+        }
+      : null;
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    authorPersonId: row.author_person_id,
+    body: row.body,
+    createdAt: row.created_at,
+    editedAt: row.edited_at,
+    replyTo,
   };
 }
 
@@ -84,6 +134,32 @@ function mapDisclosure(row: {
 
 export class ConnectionThreadRepo {
   constructor(private readonly db: PoolExecutor) {}
+
+  /** Full message row incl. quoted parent snippet for replies. */
+  async getMessageWithReplyJoin(threadId: string, messageId: string): Promise<ConnectionMessageView | null> {
+    const result = await this.db.query<ConnectionMessageJoinedDbRow>(
+      `
+      SELECT
+        m.id,
+        m.thread_id,
+        m.author_person_id,
+        m.body,
+        m.created_at,
+        m.edited_at,
+        m.reply_to_message_id,
+        rp.id AS reply_parent_id,
+        rp.author_person_id AS reply_parent_author_person_id,
+        rp.body AS reply_parent_body
+      FROM connection_messages m
+      LEFT JOIN connection_messages rp
+        ON rp.id = m.reply_to_message_id AND rp.thread_id = m.thread_id
+      WHERE m.thread_id = $1 AND m.id = $2
+      LIMIT 1
+      `,
+      [threadId, messageId]
+    );
+    return result.rows[0] ? mapJoinedMessage(result.rows[0]) : null;
+  }
 
   async findOpenThreadBetween(initiatorId: string, recipientId: string): Promise<ConnectionThreadRow | null> {
     const result = await this.db.query<ConnectionThreadRow>(
@@ -149,17 +225,20 @@ export class ConnectionThreadRepo {
         author_person_id: string;
         body: string;
         created_at: Date;
+        edited_at: Date | null;
       }>(
         `
         INSERT INTO connection_messages (thread_id, author_person_id, body)
         VALUES ($1, $2, $3)
-        RETURNING id, thread_id, author_person_id, body, created_at
+        RETURNING id, thread_id, author_person_id, body, created_at, edited_at
         `,
         [thread.id, initiatorId, firstMessageBody]
       );
       await client.query(`UPDATE connection_threads SET updated_at = now() WHERE id = $1`, [thread.id]);
       await client.query("COMMIT");
-      return { thread, message: mapMessage(m.rows[0]!) };
+      const first = m.rows[0]!;
+      const hydrated = await this.getMessageWithReplyJoin(thread.id, first.id);
+      return { thread, message: hydrated ?? mapPlainMessageReplyNull(first) };
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;
@@ -168,42 +247,97 @@ export class ConnectionThreadRepo {
     }
   }
 
-  async addMessage(threadId: string, authorId: string, body: string): Promise<ConnectionMessageView> {
+  async addMessage(threadId: string, authorId: string, body: string, replyToMessageId?: string | null): Promise<ConnectionMessageView> {
+    const replyId = replyToMessageId ?? null;
     const result = await this.db.query<{
       id: string;
       thread_id: string;
       author_person_id: string;
       body: string;
       created_at: Date;
+      edited_at: Date | null;
     }>(
       `
-      INSERT INTO connection_messages (thread_id, author_person_id, body)
-      VALUES ($1, $2, $3)
-      RETURNING id, thread_id, author_person_id, body, created_at
+      INSERT INTO connection_messages (thread_id, author_person_id, body, reply_to_message_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, thread_id, author_person_id, body, created_at, edited_at
       `,
-      [threadId, authorId, body]
+      [threadId, authorId, body, replyId]
     );
     await this.db.query(`UPDATE connection_threads SET updated_at = now() WHERE id = $1`, [threadId]);
-    return mapMessage(result.rows[0]!);
+    const row = result.rows[0]!;
+    const hydrated = await this.getMessageWithReplyJoin(threadId, row.id);
+    return hydrated ?? mapPlainMessageReplyNull(row);
   }
 
   async listMessages(threadId: string): Promise<ConnectionMessageView[]> {
+    const result = await this.db.query<ConnectionMessageJoinedDbRow>(
+      `
+      SELECT
+        m.id,
+        m.thread_id,
+        m.author_person_id,
+        m.body,
+        m.created_at,
+        m.edited_at,
+        m.reply_to_message_id,
+        rp.id AS reply_parent_id,
+        rp.author_person_id AS reply_parent_author_person_id,
+        rp.body AS reply_parent_body
+      FROM connection_messages m
+      LEFT JOIN connection_messages rp
+        ON rp.id = m.reply_to_message_id AND rp.thread_id = m.thread_id
+      WHERE m.thread_id = $1
+      ORDER BY m.created_at ASC, m.id ASC
+      `,
+      [threadId]
+    );
+    return result.rows.map(mapJoinedMessage);
+  }
+
+  async findMessageInThread(threadId: string, messageId: string): Promise<ConnectionMessageView | null> {
     const result = await this.db.query<{
       id: string;
       thread_id: string;
       author_person_id: string;
       body: string;
       created_at: Date;
+      edited_at: Date | null;
     }>(
       `
-      SELECT id, thread_id, author_person_id, body, created_at
+      SELECT id, thread_id, author_person_id, body, created_at, edited_at
       FROM connection_messages
-      WHERE thread_id = $1
-      ORDER BY created_at ASC, id ASC
+      WHERE thread_id = $1 AND id = $2
+      LIMIT 1
       `,
-      [threadId]
+      [threadId, messageId]
     );
-    return result.rows.map(mapMessage);
+    return result.rows[0] ? mapPlainMessageReplyNull(result.rows[0]) : null;
+  }
+
+  async editMessage(threadId: string, messageId: string, body: string): Promise<ConnectionMessageView | null> {
+    const result = await this.db.query<{
+      id: string;
+      thread_id: string;
+      author_person_id: string;
+      body: string;
+      created_at: Date;
+      edited_at: Date | null;
+    }>(
+      `
+      UPDATE connection_messages
+      SET body = $3, edited_at = now()
+      WHERE thread_id = $1 AND id = $2
+      RETURNING id, thread_id, author_person_id, body, created_at, edited_at
+      `,
+      [threadId, messageId, body]
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+    await this.db.query(`UPDATE connection_threads SET updated_at = now() WHERE id = $1`, [threadId]);
+    const hydrated = await this.getMessageWithReplyJoin(threadId, messageId);
+    return hydrated ?? mapPlainMessageReplyNull(result.rows[0]!);
   }
 
   async countMessages(threadId: string): Promise<number> {
@@ -351,6 +485,8 @@ export class ConnectionThreadRepo {
       updated_at: Date;
       counterparty_person_id: string;
       counterparty_full_name: string | null;
+      counterparty_department_code: string | null;
+      counterparty_batch_year: number | null;
       last_body: string;
       last_author_person_id: string;
       last_created_at: Date;
@@ -377,6 +513,8 @@ export class ConnectionThreadRepo {
           ELSE t.initiator_person_id
         END AS counterparty_person_id,
         cp.full_name AS counterparty_full_name,
+        COALESCE(dept.code::text, cp.department_code::text) AS counterparty_department_code,
+        COALESCE(cp.batch_year, cp.joining_year) AS counterparty_batch_year,
         lm.body AS last_body,
         lm.author_person_id AS last_author_person_id,
         lm.created_at AS last_created_at
@@ -388,6 +526,7 @@ export class ConnectionThreadRepo {
           ELSE t.initiator_person_id
         END
       )
+      LEFT JOIN departments dept ON dept.id = cp.department_id
       WHERE t.initiator_person_id = $1 OR t.recipient_person_id = $1
       ORDER BY t.updated_at DESC
       LIMIT $2
@@ -403,6 +542,8 @@ export class ConnectionThreadRepo {
       updatedAt: r.updated_at,
       counterpartyPersonId: r.counterparty_person_id,
       counterpartyFullName: r.counterparty_full_name,
+      counterpartyDepartmentCode: r.counterparty_department_code,
+      counterpartyBatchYear: r.counterparty_batch_year,
       lastMessageBody: r.last_body,
       lastMessageAuthorPersonId: r.last_author_person_id,
       lastMessageCreatedAt: r.last_created_at

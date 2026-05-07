@@ -4,7 +4,9 @@ export type TopCityPick = { city: string; country: string };
 export const LOCATION_LENS_TOP_CITIES_FALLBACK: TopCityPick[] = [
   { city: "Bengaluru", country: "India" },
   { city: "Mumbai", country: "India" },
+  { city: "Pune", country: "India" },
   { city: "Delhi", country: "India" },
+  { city: "Chennai", country: "India" },
   { city: "Hyderabad", country: "India" },
   { city: "San Francisco", country: "United States" },
   { city: "New York", country: "United States" },

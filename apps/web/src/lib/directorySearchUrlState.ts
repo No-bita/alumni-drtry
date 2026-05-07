@@ -79,3 +79,26 @@ export function countDirectoryFilterParams(d: DirectorySearchDraft): number {
   if (d.residenceCity) n++;
   return n;
 }
+
+/** Clears one facet for chip-dismiss UX (committed URL state). */
+export function clearDirectorySearchFacet(
+  d: DirectorySearchDraft,
+  key: keyof DirectorySearchDraft
+): DirectorySearchDraft {
+  switch (key) {
+    case "q":
+      return { ...d, q: "" };
+    case "batch":
+      return { ...d, batch: null };
+    case "dept":
+      return { ...d, dept: null };
+    case "company":
+      return { ...d, company: null };
+    case "occ":
+      return { ...d, occ: null };
+    case "residenceCountry":
+      return { ...d, residenceCountry: null };
+    case "residenceCity":
+      return { ...d, residenceCity: null };
+  }
+}

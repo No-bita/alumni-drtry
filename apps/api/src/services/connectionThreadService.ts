@@ -16,10 +16,10 @@ export const CONNECTION_NUDGE_MESSAGE_THRESHOLD = 4;
 export const CONNECTION_MESSAGE_MAX_LENGTH = 300;
 export const CONNECTION_MESSAGE_MIN_LENGTH = 1;
 export const CONNECTION_THREADS_LIST_LIMIT = 50;
-export const CONNECTION_THREAD_RETENTION_DAYS = 7;
 export const CONNECTION_THREAD_DELETION_WARNING_DAYS = 5;
 export const CONNECTION_REFERRAL_REPLY_PROMPT_THRESHOLD = 3;
 export const CONNECTION_REFERRAL_REPLY_CAP = 5;
+export const CONNECTION_MESSAGE_EDIT_WINDOW_MINUTES = 10;
 
 function isLinkedInPlatform(platform: string): boolean {
   return platform.toLowerCase().includes("linkedin");
@@ -53,7 +53,17 @@ export interface ConnectionThreadDetailView {
   /** The other participant (for titles / labels). */
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
-  messages: { id: string; authorPersonId: string; body: string; createdAt: string }[];
+  counterpartyDepartmentCode: string | null;
+  counterpartyDepartmentName: string | null;
+  counterpartyBatchYear: number | null;
+  messages: {
+    id: string;
+    authorPersonId: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    replyTo: { messageId: string; authorPersonId: string; body: string } | null;
+  }[];
   disclosures: {
     id: string;
     personId: string;
@@ -110,10 +120,6 @@ export class ConnectionThreadService {
     return messageCount > dismissedAfter;
   }
 
-  private async runMessageRetentionSweep(): Promise<void> {
-    await this.threadRepo.purgeExpiredMessages(CONNECTION_THREAD_RETENTION_DAYS);
-  }
-
   private computeDeletionWarning(messages: ConnectionMessageView[]): string | null {
     if (messages.length === 0) return null;
     const now = Date.now();
@@ -159,7 +165,6 @@ export class ConnectionThreadService {
     initialMessage: string,
     kind: "general" | "referral" = "general"
   ): Promise<{ threadId: string; reusedThread: boolean }> {
-    await this.runMessageRetentionSweep();
     if (initiatorId === recipientPersonId) {
       throw new AppError(400, "CONNECTION_THREAD_SELF", "You cannot message yourself.");
     }
@@ -194,12 +199,10 @@ export class ConnectionThreadService {
   }
 
   async listThreadsForPerson(personId: string): Promise<ConnectionThreadListView[]> {
-    await this.runMessageRetentionSweep();
     return this.threadRepo.listThreadsForPerson(personId, CONNECTION_THREADS_LIST_LIMIT);
   }
 
   async getThreadDetail(personId: string, threadId: string): Promise<ConnectionThreadDetailView> {
-    await this.runMessageRetentionSweep();
     const thread = await this.assertParticipant(threadId, personId);
     const [messages, disclosures, messageCount, person, dismissed, counterparty, referralReplyCount] = await Promise.all([
       this.threadRepo.listMessages(threadId),
@@ -214,6 +217,22 @@ export class ConnectionThreadService {
     ]);
     assertActivePerson(person);
     assertActivePerson(counterparty);
+
+    const counterpartyProfile = await this.personRepo.findProfileById(counterparty.id);
+    const counterpartyDeptCode =
+      counterpartyProfile?.departmentCode ??
+      counterpartyProfile?.parsedDepartmentCode ??
+      counterparty.department_code;
+    const counterpartyDeptName =
+      counterpartyProfile?.departmentName ??
+      counterpartyProfile?.parsedDepartmentName ??
+      counterparty.department_name;
+    const counterpartyYear =
+      counterpartyProfile?.batchYear ??
+      counterparty.batch_year ??
+      counterpartyProfile?.parsedJoiningYear ??
+      counterparty.joining_year ??
+      null;
 
     const viewerHasDisclosure = await this.threadRepo.hasDisclosureFromPerson(threadId, personId);
     const showShareNudge = this.computeShowNudge(messageCount, viewerHasDisclosure, dismissed);
@@ -237,11 +256,16 @@ export class ConnectionThreadService {
       },
       counterpartyPersonId: counterparty.id,
       counterpartyFullName: counterparty.full_name,
+      counterpartyDepartmentCode: counterpartyDeptCode,
+      counterpartyDepartmentName: counterpartyDeptName,
+      counterpartyBatchYear: counterpartyYear,
       messages: messages.map((m) => ({
         id: m.id,
         authorPersonId: m.authorPersonId,
         body: m.body,
-        createdAt: m.createdAt.toISOString()
+        createdAt: m.createdAt.toISOString(),
+        editedAt: m.editedAt ? m.editedAt.toISOString() : null,
+        replyTo: m.replyTo,
       })),
       disclosures: disclosures.map((d) => ({
         id: d.id,
@@ -261,11 +285,22 @@ export class ConnectionThreadService {
     };
   }
 
-  async addMessage(personId: string, threadId: string, body: string): Promise<ConnectionMessageView> {
-    await this.runMessageRetentionSweep();
+  async addMessage(
+    personId: string,
+    threadId: string,
+    body: string,
+    replyToMessageId?: string | null
+  ): Promise<ConnectionMessageView> {
     const thread = await this.assertParticipant(threadId, personId);
     if (thread.status !== "open") {
       throw new AppError(409, "CONNECTION_THREAD_CLOSED", "This conversation is closed.");
+    }
+    const replyParentId = replyToMessageId?.trim() ?? null;
+    if (replyParentId) {
+      const parent = await this.threadRepo.findMessageInThread(threadId, replyParentId);
+      if (!parent) {
+        throw new AppError(400, "CONNECTION_REPLY_PARENT_NOT_FOUND", "Could not reply to that message.");
+      }
     }
     if (thread.kind === "referral") {
       const referralReplyCount = await this.threadRepo.countMessagesByAuthor(threadId, thread.recipient_person_id);
@@ -279,7 +314,7 @@ export class ConnectionThreadService {
       }
     }
     const text = this.normalizeMessage(body);
-    const message = await this.threadRepo.addMessage(threadId, personId, text);
+    const message = await this.threadRepo.addMessage(threadId, personId, text, replyParentId);
     if (thread.kind === "referral" && personId === thread.recipient_person_id) {
       const updatedReferralReplyCount = await this.threadRepo.countMessagesByAuthor(threadId, thread.recipient_person_id);
       if (updatedReferralReplyCount >= CONNECTION_REFERRAL_REPLY_CAP) {
@@ -287,6 +322,34 @@ export class ConnectionThreadService {
       }
     }
     return message;
+  }
+
+  async editMessage(personId: string, threadId: string, messageId: string, body: string): Promise<ConnectionMessageView> {
+    const thread = await this.assertParticipant(threadId, personId);
+    if (thread.status !== "open") {
+      throw new AppError(409, "CONNECTION_THREAD_CLOSED", "This conversation is closed.");
+    }
+    const existingMessage = await this.threadRepo.findMessageInThread(threadId, messageId);
+    if (!existingMessage) {
+      throw new AppError(404, "CONNECTION_MESSAGE_NOT_FOUND", "Message not found.");
+    }
+    if (existingMessage.authorPersonId !== personId) {
+      throw new AppError(403, "CONNECTION_MESSAGE_EDIT_FORBIDDEN", "You can only edit your own messages.");
+    }
+    const editWindowMs = CONNECTION_MESSAGE_EDIT_WINDOW_MINUTES * 60 * 1000;
+    if (Date.now() - existingMessage.createdAt.getTime() > editWindowMs) {
+      throw new AppError(
+        409,
+        "CONNECTION_MESSAGE_EDIT_WINDOW_EXPIRED",
+        `Messages can only be edited within ${CONNECTION_MESSAGE_EDIT_WINDOW_MINUTES} minutes.`
+      );
+    }
+    const text = this.normalizeMessage(body);
+    const edited = await this.threadRepo.editMessage(threadId, messageId, text);
+    if (!edited) {
+      throw new AppError(404, "CONNECTION_MESSAGE_NOT_FOUND", "Message not found.");
+    }
+    return edited;
   }
 
   async dismissNudge(personId: string, threadId: string): Promise<void> {

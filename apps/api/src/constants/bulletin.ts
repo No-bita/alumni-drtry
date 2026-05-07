@@ -1,6 +1,13 @@
 /** Intentcast post body (create / update). */
 export const BULLETIN_CONTENT_MAX_LENGTH = 2000;
 
+/**
+ * General intentcasts (guidance / mentorship / collaboration): first non-empty line = headline, rest = details.
+ * Hiring posts use structured copy — limits are not applied to that category.
+ */
+export const BULLETIN_TITLE_MAX_CHARS = 120;
+export const BULLETIN_DESCRIPTION_MAX_CHARS = 1800;
+
 /** Reply message to an intentcast. */
 export const BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH = 2000;
 

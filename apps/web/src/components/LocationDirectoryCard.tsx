@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { api, type SearchProfileView } from "../api/client";
+import { demoDisplayFullName } from "../lib/demoProfile";
 
 type LocationDirectoryCardProps = {
   profile: SearchProfileView;
@@ -26,7 +27,8 @@ function tintFromName(name: string): string {
 
 export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }: LocationDirectoryCardProps) {
   const loc = residenceLine(profile);
-  const tint = tintFromName(profile.fullName || profile.id);
+  const displayName = demoDisplayFullName(profile.fullName) || (profile.fullName ?? "").trim() || profile.id;
+  const tint = tintFromName(displayName || profile.id);
 
   const handleClick = () => {
     if (!searchSessionId) return;
@@ -41,15 +43,14 @@ export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }:
     <Link to={`/profiles/${profile.id}`} className="location-card" onClick={handleClick}>
       <div className="location-card__visual" style={{ background: tint }}>
         <Avatar
-          name={profile.fullName}
+          name={displayName}
           size="lg"
           tone="pastel"
           className="location-card__avatar"
-          departmentCode={profile.departmentCode ?? profile.parsedDepartmentCode}
         />
       </div>
       <div className="location-card__body">
-        <span className="location-card__name">{profile.fullName}</span>
+        <span className="location-card__name">{displayName}</span>
         <span className="location-card__role" title={loc ?? "Location not set"}>
           {loc ?? "Location not set"}
         </span>

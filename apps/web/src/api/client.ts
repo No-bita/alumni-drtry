@@ -216,6 +216,8 @@ export type ConnectionThreadListItem = {
   updatedAt: string;
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
+  counterpartyDepartmentCode?: string | null;
+  counterpartyBatchYear?: number | null;
   lastMessageBody: string;
   lastMessageAuthorPersonId: string;
   lastMessageCreatedAt: string;
@@ -227,6 +229,13 @@ export type AvailableDisclosureOption = {
   kind: "institutional_email" | "personal_email" | "profile_link";
   label: string;
   profileLinkId?: string;
+};
+
+/** Inline on thread messages */
+export type ConnectionThreadMessageReplyTo = {
+  messageId: string;
+  authorPersonId: string;
+  body: string;
 };
 
 /** GET /v1/connection-threads/:id */
@@ -242,7 +251,17 @@ export type ConnectionThreadDetailResponse = {
   kind: "general" | "referral";
   counterpartyPersonId: string;
   counterpartyFullName: string | null;
-  messages: { id: string; authorPersonId: string; body: string; createdAt: string }[];
+  counterpartyDepartmentCode?: string | null;
+  counterpartyDepartmentName?: string | null;
+  counterpartyBatchYear?: number | null;
+  messages: {
+    id: string;
+    authorPersonId: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    replyTo: ConnectionThreadMessageReplyTo | null;
+  }[];
   disclosures: {
     id: string;
     personId: string;
@@ -359,6 +378,8 @@ export type PublicProfileView = {
   fullName: string;
   departmentCode: string | null;
   departmentName: string | null;
+  degreeCode?: string | null;
+  degreeName?: string | null;
   batchYear: number | null;
   parsedJoiningYear: number | null;
   bio: string | null;

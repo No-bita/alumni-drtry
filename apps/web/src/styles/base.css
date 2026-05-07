@@ -29,11 +29,58 @@ body {
   flex-direction: column;
 }
 
+html[data-app-shell="sidebar"] #root {
+  padding-left: var(--nav-sidebar-width);
+  padding-top: var(--nav-height);
+}
+
+@media (max-width: 767px) {
+  html[data-app-shell="sidebar"] {
+    --nav-sidebar-width: 82px;
+  }
+
+  html[data-app-shell="sidebar"] .nav-sidebar__logo {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  html[data-app-shell="sidebar"] .nav-sidebar__link-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  html[data-app-shell="sidebar"] .nav-sidebar__link {
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
 /* Display — Playfair */
 h1, h2, h3, .headline, .section-headline, .card-headline, .subheadline {
   font-family: var(--font-display);
   font-weight: 400;
   color: var(--ink);
+}
+
+/* App-wide request: section headers use modern grotesk sans-serif. */
+main h1,
+main h2,
+main h3,
+main h4,
+main .headline,
+main .section-headline,
+main .card-headline,
+main .subheadline {
+  font-family: var(--font-body);
 }
 
 h1, .page-headline {

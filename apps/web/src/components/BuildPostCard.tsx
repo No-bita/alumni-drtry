@@ -19,7 +19,6 @@ export type BuildPostCardProps = {
   posterName: string;
   posterCompany?: string;
   posterProfileId?: string;
-  posterDepartmentCode?: string | null;
   actions?: BuildPostCardAction[];
 };
 
@@ -35,7 +34,6 @@ export function BuildPostCard({
   posterName,
   posterCompany,
   posterProfileId,
-  posterDepartmentCode,
   actions = [],
 }: BuildPostCardProps) {
   return (
@@ -77,7 +75,7 @@ export function BuildPostCard({
             aria-label={`View ${posterName}'s profile`}
           >
             <div className="build-post-card__poster">
-              <Avatar name={posterName} size="sm" tone="pastel" departmentCode={posterDepartmentCode} />
+              <Avatar name={posterName} size="sm" tone="pastel" />
               <div className="build-post-card__poster-text">
                 <p className="build-post-card__poster-name">{posterName}</p>
                 {posterCompany ? <p className="build-post-card__poster-company">{posterCompany}</p> : null}
@@ -86,7 +84,7 @@ export function BuildPostCard({
           </Link>
         ) : (
           <div className="build-post-card__poster">
-            <Avatar name={posterName} size="sm" tone="pastel" departmentCode={posterDepartmentCode} />
+            <Avatar name={posterName} size="sm" tone="pastel" />
             <div className="build-post-card__poster-text">
               <p className="build-post-card__poster-name">{posterName}</p>
               {posterCompany ? <p className="build-post-card__poster-company">{posterCompany}</p> : null}

@@ -9,27 +9,46 @@
  */
 
 :root {
-  /* Colors */
-  --brick: #8b3a2a;
-  --brick-light: #c4703a;
-  --ochre: #c4955a;
-  --ochre-light: #e8c99a;
-  --cream: #f2ede4;
-  --cream-dark: #e8e0d4;
-  /** Main sand tone; also the middle (~42%) stop of the home sidebar outer column gradient. */
-  --home-sand: #f2efe6;
-  /**
-   * Sidebar outer column (`.home-dashboard__col--side`) vertical gradient — frosted bulletin sits inside.
-   * Top → bottom: warm paper → sand → slightly deeper warm gray.
+  /*
+   * Canonical palette — surfaces & brand
+   * Background cream · Card · Ink · Muted wash · Border · Primary · Accent · Gold
    */
-  --home-sidebar-shell-top: #fffcf7;
-  --home-sidebar-shell-bottom: #e4ded2;
-  --ink: #1c1410;
-  --ink-muted: #6b5e54;
-  --ink-faint: #a89a90;
-  --surface: #ffffff;
-  --rule: rgba(28, 20, 16, 0.1);
+  --palette-bg-cream: #f8f2e7;
+  --palette-card: #fcf8f0;
+  --palette-ink: #3a2a1e;
+  --palette-muted: #efe7d8;
+  --palette-border: #dccfbc;
+  /** Deep Chunar sandstone — darker field than #8A3A1E so the signed-in rail matches reference chrome */
+  --palette-primary: #5f2614;
+  --palette-accent: #c25a2e;
+  --palette-gold: #d49a4a;
+
+  /* Colors — app tokens (map to palette; keeps legacy names working across the repo) */
+  --brick: var(--palette-primary);
+  --brick-light: var(--palette-accent);
+  --ochre: var(--palette-gold);
+  --ochre-light: #e4bc78;
+  --cream: var(--palette-bg-cream);
+  --cream-dark: var(--palette-muted);
+  /** Main sand tone; middle stop of home sidebar outer column gradient. */
+  --home-sand: var(--palette-bg-cream);
+  /**
+   * Sidebar outer column gradient — warm paper → cream → muted wash.
+   */
+  --home-sidebar-shell-top: var(--palette-card);
+  --home-sidebar-shell-bottom: var(--palette-muted);
+  --ink: var(--palette-ink);
+  --ink-muted: rgba(58, 42, 30, 0.62);
+  --ink-faint: rgba(58, 42, 30, 0.42);
+  --ink-soft: rgba(58, 42, 30, 0.55);
+  --surface: var(--palette-card);
+  --rule: rgba(58, 42, 30, 0.11);
+  --border-muted: var(--palette-border);
   --olive: #3d5a2e;
+  /** IIT BHU institutional green — nav wordmark / accents; not default CTAs */
+  --palette-iit-bhu-green: var(--olive);
+  /** Lightened for WCAG-friendly accent on dark sandstone sidebar / ink top nav */
+  --palette-iit-bhu-green-on-dark: #bdd4b1;
 
   /* Semantic */
   /* Page bg aligned with home sidebar “outer shell” gradient mid stop (see --home-sand) */
@@ -39,16 +58,19 @@
   --color-cta-hover: var(--brick);
   --color-intentcast-bar: var(--brick);
   --color-chip-active-bg: var(--brick);
-  --color-prefill-bg: rgba(196, 149, 90, 0.08);
-  --color-prefill-border: rgba(196, 149, 90, 0.3);
+  --color-prefill-bg: rgba(212, 154, 74, 0.09);
+  --color-prefill-border: rgba(212, 154, 74, 0.28);
   --color-progress-fill: var(--brick);
-  --color-step-done-bg: #3d5a2e;
+  --color-step-done-bg: var(--brick-light);
   --badge-open-bg: #e8f5ee;
   --badge-open-text: #1a6b3c;
   --badge-hiring-bg: #fff0e6;
   --badge-hiring-text: #993c1d;
   --badge-research-bg: #eef0ff;
   --badge-research-text: #3c3489;
+  /** “Alumni” wordmark in nav — IIT BHU green */
+  --color-nav-brand-alumni-on-dark: var(--palette-iit-bhu-green-on-dark);
+  --color-nav-brand-alumni-on-light: var(--palette-iit-bhu-green);
 
   /* Typography — self-hosted variable fonts (see main.tsx imports); fallbacks match old Google Fonts stack */
   --font-display: "Playfair Display Variable", Georgia, serif;
@@ -94,17 +116,18 @@
   --radius-surface-md: 14px;
   --radius-surface-sm: 12px;
   --radius-button: 12px;
+  --size-cta-height: 44px;
   --radius-input: 12px;
   --radius-card: 14px;
   --radius-chip: 999px;
 
   /* Shadows — layered, soft (match bulletin) */
   --shadow-surface:
-    0 0 1px rgba(0, 0, 0, 0.04),
-    0 8px 32px rgba(28, 20, 16, 0.06),
-    0 2px 8px rgba(28, 20, 16, 0.04);
-  --shadow-surface-sm: 0 4px 24px rgba(28, 20, 16, 0.06), 0 1px 3px rgba(28, 20, 16, 0.04);
-  --shadow-surface-hover: 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 36px rgba(28, 20, 16, 0.08);
+    0 0 1px rgba(58, 42, 30, 0.05),
+    0 8px 32px rgba(58, 42, 30, 0.07),
+    0 2px 8px rgba(58, 42, 30, 0.05);
+  --shadow-surface-sm: 0 4px 24px rgba(58, 42, 30, 0.06), 0 1px 3px rgba(58, 42, 30, 0.05);
+  --shadow-surface-hover: 0 0 1px rgba(58, 42, 30, 0.05), 0 12px 36px rgba(58, 42, 30, 0.09);
 
   /* Borders */
   --border-default: 0.5px solid var(--rule);
@@ -112,7 +135,17 @@
   --nav-border: 0.5px solid rgba(242, 237, 228, 0.08);
 
   /* Nav */
-  --nav-height: 61px;
+  --nav-height: 78px;
+  /** Signed-in shell: primary links live in a fixed left rail; main column uses top toolbar only. */
+  --nav-sidebar-width: 264px;
+  /** Left rail — Chunar sandstone field + cream typography */
+  --nav-sidebar-bg: var(--palette-primary);
+  --nav-sidebar-text: rgba(248, 242, 231, 0.94);
+  --nav-sidebar-text-muted: rgba(248, 242, 231, 0.74);
+  --nav-sidebar-active-pill: rgba(255, 255, 255, 0.14);
+  --nav-sidebar-active-ring: rgba(255, 255, 255, 0.22);
+  --nav-sidebar-border: rgba(34, 16, 8, 0.35);
+  --nav-sidebar-link-hover-bg: rgba(255, 255, 255, 0.1);
 
   /* Progress bar */
   --progress-height: 2px;
@@ -131,10 +164,21 @@
   --ease-progress: 0.4s ease;
 
   /* Authenticated home dashboard (reference design) */
-  --home-cream: #fdfbf7;
+  --home-cream: var(--palette-card);
   --home-hero: #1a140f;
-  --home-gold: #c5a059;
-  --home-gold-dim: rgba(197, 160, 89, 0.55);
+  --home-gold: var(--palette-gold);
+  --home-gold-dim: rgba(212, 154, 74, 0.55);
   --home-hero-text: rgba(253, 251, 247, 0.88);
   --home-hero-muted: rgba(253, 251, 247, 0.58);
+  --home-ideal-canvas-bg: var(--palette-bg-cream);
+
+  /* Cities */
+  --cities-panel-bg: var(--palette-card);
+  --cities-panel-border: rgba(58, 42, 30, 0.09);
+  --cities-chip-bg: var(--palette-card);
+  --cities-chip-active-bg: rgba(212, 154, 74, 0.14);
+  --cities-chip-active-border: rgba(212, 154, 74, 0.42);
+  --cities-chip-text: rgba(58, 42, 30, 0.72);
+  --cities-popular-card-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(10, 9, 8, 0.25));
+  --cities-stat-muted: rgba(58, 42, 30, 0.62);
 }

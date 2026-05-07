@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
@@ -36,6 +36,16 @@ import {
 } from "../lib/parseHiringBulletin";
 import { buildIntentcastFeedQuery, buildVisibleIntentcasts } from "./bulletinFeedHelpers";
 import { patchIntentcastInFeedCache, prependIntentcastToFeedCache } from "./bulletinCacheHelpers";
+import { demoDisplayFullName } from "../lib/demoProfile";
+import { formatRelativeTime } from "../lib/formatRelativeTime";
+import {
+  formatBatchYearShort,
+  intentcastCategoryBadgeLabel,
+  intentcastCategoryToTone,
+  splitBulletinPostBody,
+  validateGeneralBulletinHeadlineDetails,
+} from "../lib/bulletinPostCardUtils";
+import { BulletinPostCard } from "./BulletinPostCard";
 import { useBulletinComposeState } from "./useBulletinComposeState";
 import { useBulletinDialogController } from "./useBulletinDialogController";
 
@@ -128,32 +138,9 @@ function bulletinHighlightIntentcastId(hash: string, domIdPrefix: string): strin
 const BULLETIN_AUTO_SCROLL_PX_PER_FRAME = 0.4;
 const BULLETIN_AUTO_SCROLL_WHEEL_PAUSE_MS = 12_000;
 
-function formatRelativeTime(iso: string): string {
-  const t = Date.now() - new Date(iso).getTime();
-  const s = Math.floor(t / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
-
 function safeFullName(fullName: string | null | undefined): string {
-  return (fullName ?? "").trim();
-}
-
-function firstNameFromFullName(fullName: string | null | undefined): string {
-  const t = safeFullName(fullName);
-  if (!t) return "";
-  return t.split(/\s+/)[0] ?? t;
-}
-
-/** Cohort label e.g. 2024 → '24 */
-function formatBatchYearShort(year: number): string {
-  const y = Math.floor(year) % 100;
-  return `'${String(y).padStart(2, "0")}`;
+  const raw = (fullName ?? "").trim();
+  return demoDisplayFullName(raw) || raw;
 }
 
 /** Dept code + batch for author tooltip (e.g. `CSE '21`). */
@@ -201,30 +188,6 @@ function hiringPostNeedsTrackVerification(content: string): boolean {
   const parsed = parseHiringBulletin(content);
   const source = parsed?.description ?? content;
   return /Role track:\s*Other\b/i.test(source);
-}
-
-/** Short byline: First name, DEPT 'YY · time */
-function formatBulletinAuthorByline(ic: IntentcastFeedItem): string {
-  const first = firstNameFromFullName(ic.authorFullName);
-  const dept = ic.authorDepartmentCode?.trim().toUpperCase() ?? "";
-  const batch =
-    ic.authorBatchYear != null && Number.isFinite(ic.authorBatchYear)
-      ? formatBatchYearShort(ic.authorBatchYear)
-      : "";
-
-  let core = first || "Alum";
-  if (dept && batch) {
-    core = `${first}, ${dept} ${batch}`;
-  } else if (dept) {
-    core = `${first}, ${dept}`;
-  } else if (batch) {
-    core = `${first} ${batch}`;
-  }
-
-  if (ic.createdAt) {
-    return `${core} · ${formatRelativeTime(ic.createdAt)}`;
-  }
-  return core;
 }
 
 function intentcastIsOpen(ic: IntentcastFeedItem): boolean {
@@ -358,7 +321,6 @@ function CareerOpportunityPosterRow({
         size="sm"
         tone="pastel"
         className="career-opportunity-card__avatar"
-        departmentCode={ic.authorDepartmentCode}
       />
       <span className="career-opportunity-card__posted-by">
         Posted by {postedByShortLabel(authorName || "Alumni")}
@@ -381,7 +343,6 @@ function CareerOpportunityPosterRow({
               size="sm"
               tone="pastel"
               className="career-opportunity-card__avatar"
-              departmentCode={ic.authorDepartmentCode}
             />
           </Link>
           <div id={tooltipId} className="career-opportunity-card__avatar-tooltip" role="tooltip">
@@ -890,6 +851,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [bulletinRestoreError, setBulletinRestoreError] = useState<string | null>(null);
     const [authorDeleteUndoTick, setAuthorDeleteUndoTick] = useState(0);
     const [archivedRepliesPostId, setArchivedRepliesPostId] = useState<string | null>(null);
+    const [inlineRepliesPostId, setInlineRepliesPostId] = useState<string | null>(null);
     const deleteDialogOpen = Boolean(deleteConfirmIntentcastId);
     const composeDialogOpen = postOpen;
 
@@ -912,48 +874,23 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         : String(archivedRepliesQuery.error)
       : null;
 
-    const careerReplyTargets = useMemo(
-      () =>
-        showInlineAuthorReplies && personId
-          ? intentcasts.filter(
-              (ic) =>
-                ic.authorPersonId === personId &&
-                ic.responseCount > 0 &&
-                !intentcastIsAuthorRemoved(ic)
-            )
-          : [],
-      [showInlineAuthorReplies, personId, intentcasts]
-    );
-
-    const careerReplyQueries = useQueries({
-      queries: careerReplyTargets.map((ic) => ({
-        queryKey: queryKeys.intentcasts.responses(ic.id),
-        queryFn: ({ signal }) =>
-          assertApiGet<{ responses: IntentcastResponseItem[] }>(
-            `/v1/intentcasts/${ic.id}/responses`,
-            signal
-          ),
-        enabled: showInlineAuthorReplies && careerReplyTargets.length > 0,
-      })),
+    const inlineRepliesQuery = useQuery({
+      queryKey: queryKeys.intentcasts.responses(inlineRepliesPostId ?? ""),
+      queryFn: ({ signal }) =>
+        assertApiGet<{ responses: IntentcastResponseItem[] }>(
+          `/v1/intentcasts/${inlineRepliesPostId!}/responses`,
+          signal
+        ),
+      enabled: Boolean(showInlineAuthorReplies && inlineRepliesPostId),
+      retry: false,
     });
-
-    const careerInlineReplies = useMemo(() => {
-      const out: Record<string, IntentcastResponseItem[]> = {};
-      careerReplyTargets.forEach((ic, i) => {
-        const q = careerReplyQueries[i];
-        if (q?.data?.responses) out[ic.id] = q.data.responses;
-      });
-      return out;
-    }, [careerReplyTargets, careerReplyQueries]);
-
-    const careerInlineRepliesError = useMemo(() => {
-      for (const q of careerReplyQueries) {
-        if (q.isError) {
-          return q.error instanceof Error ? q.error.message : String(q.error);
-        }
-      }
-      return null;
-    }, [careerReplyQueries]);
+    const inlineReplies = inlineRepliesQuery.data?.responses ?? [];
+    const inlineRepliesLoading = inlineRepliesQuery.isPending;
+    const inlineRepliesError = inlineRepliesQuery.isError
+      ? inlineRepliesQuery.error instanceof Error
+        ? inlineRepliesQuery.error.message
+        : String(inlineRepliesQuery.error)
+      : null;
 
     useEffect(() => {
       onComposeOpenChange?.(postOpen);
@@ -1135,6 +1072,13 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         setEditError(`Post must be at most ${BULLETIN_POST_MAX_LENGTH} characters.`);
         return;
       }
+      if (existing.category !== "hiring") {
+        const headlineDetailsErr = validateGeneralBulletinHeadlineDetails(content);
+        if (headlineDetailsErr) {
+          setEditError(headlineDetailsErr);
+          return;
+        }
+      }
       setEditError(null);
       setEditSubmitting(true);
       const { data, error } = await api.patch<{ intentcast: IntentcastFeedItem }>(
@@ -1213,9 +1157,13 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       setArchivedRepliesPostId(ic.id);
     };
 
+    const toggleInlineReplies = (intentcastId: string) => {
+      setInlineRepliesPostId((prev) => (prev === intentcastId ? null : intentcastId));
+    };
+
     const hiringPreviewAuthor =
       auth.status === "authenticated"
-        ? (auth.myProfile?.fullName?.trim() || "You")
+        ? demoDisplayFullName(auth.myProfile?.fullName).trim() || auth.myProfile?.fullName?.trim() || "You"
         : "You";
 
     const handlePostIntentcast = async () => {
@@ -1508,12 +1456,67 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         !authorRemoved &&
         !viewerHasReplied;
 
+      const usesHiringCareerShell = layout === "career" && ic.category === "hiring";
+      const listItemClass =
+        isEditing || usesHiringCareerShell
+          ? `home-dashboard__bulletin-card${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`
+          : `home-dashboard__bulletin-item${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`;
+
+      const splitBody = splitBulletinPostBody(ic.content);
+      const cardPostedRelative = ic.createdAt ? formatRelativeTime(ic.createdAt) : null;
+      const cardTone = intentcastCategoryToTone(ic.category);
+      const cardBadge = intentcastCategoryBadgeLabel(ic.category);
+
+      const standardCardFooter =
+        (!isOwnPost && showReply && respondTargetId !== ic.id) || (isOwnPost && !authorRemoved) ? (
+          <div className="bb-post-card__footer-row">
+            {!isOwnPost && showReply && respondTargetId !== ic.id ? (
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => {
+                  setRespondTargetId(ic.id);
+                  setRespondMessage("");
+                  setRespondError(null);
+                  setEditIntentcastId(null);
+                  setEditError(null);
+                }}
+              >
+                Reply
+              </button>
+            ) : null}
+            {isOwnPost && !authorRemoved ? (
+              <div className="home-dashboard__bulletin-card-actions">
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="home-dashboard__bulletin-edit"
+                    onClick={() => {
+                      setEditIntentcastId(ic.id);
+                      setEditContent(ic.content);
+                      setEditError(null);
+                      setRespondTargetId(null);
+                      setBulletinDeleteError(null);
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="home-dashboard__bulletin-delete"
+                  disabled={deleteSubmittingId === ic.id}
+                  onClick={() => setDeleteConfirmIntentcastId(ic.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : undefined;
+
       return (
-        <li
-          key={ic.id}
-          id={`${domIdPrefix}-${ic.id}`}
-          className={`home-dashboard__bulletin-card${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`}
-        >
+        <li key={ic.id} id={`${domIdPrefix}-${ic.id}`} className={listItemClass}>
           {isEditing ? (
             <>
               <textarea
@@ -1611,12 +1614,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                         className="home-dashboard__bulletin-archived-reply-avatar-link"
                                         aria-label={`View ${replyName}'s profile`}
                                       >
-                                        <Avatar
-                                          name={replyName}
-                                          size="sm"
-                                          tone="pastel"
-                                          departmentCode={r.responderDepartmentCode}
-                                        />
+                                        <Avatar name={replyName} size="sm" tone="pastel" />
                                       </Link>
                                       <div className="home-dashboard__bulletin-archived-reply-body">
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
@@ -1651,19 +1649,26 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                   />
                   {showInlineAuthorReplies && isOwnPost && ic.responseCount > 0 && !authorRemoved ? (
                     <div className="career-post-replies" aria-label="Replies to your post">
-                      {careerInlineRepliesError ? (
+                      <button
+                        type="button"
+                        className="career-post-replies__toggle"
+                        onClick={() => toggleInlineReplies(ic.id)}
+                      >
+                        {inlineRepliesPostId === ic.id ? "Hide replies" : `Show replies (${ic.responseCount})`}
+                      </button>
+                      {inlineRepliesPostId === ic.id && inlineRepliesError ? (
                         <p className="home-dashboard__respond-error" role="alert">
-                          {careerInlineRepliesError}
+                          {inlineRepliesError}
                         </p>
                       ) : null}
-                      {!careerInlineReplies[ic.id] && !careerInlineRepliesError ? (
+                      {inlineRepliesPostId === ic.id && inlineRepliesLoading ? (
                         <p className="career-post-replies__status">Loading replies…</p>
                       ) : null}
-                      {careerInlineReplies[ic.id] && careerInlineReplies[ic.id].length > 0 ? (
+                      {inlineRepliesPostId === ic.id && inlineReplies.length > 0 ? (
                         <>
                           <h4 className="career-post-replies__title">Replies</h4>
                           <ul className="career-post-replies__list" role="list">
-                            {careerInlineReplies[ic.id].map((r) => {
+                            {inlineReplies.map((r) => {
                               const replyName = intentcastReplyDisplayName(r);
                               return (
                                 <li key={r.id} className="career-post-replies__item">
@@ -1673,12 +1678,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                       className="career-post-replies__avatar-link"
                                       aria-label={`View ${replyName}'s profile`}
                                     >
-                                      <Avatar
-                                        name={replyName}
-                                        size="sm"
-                                        tone="pastel"
-                                        departmentCode={r.responderDepartmentCode}
-                                      />
+                                      <Avatar name={replyName} size="sm" tone="pastel" />
                                     </Link>
                                     <div className="career-post-replies__body">
                                       <p className="career-post-replies__meta">
@@ -1752,12 +1752,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                         className="home-dashboard__bulletin-archived-reply-avatar-link"
                                         aria-label={`View ${replyName}'s profile`}
                                       >
-                                        <Avatar
-                                          name={replyName}
-                                          size="sm"
-                                          tone="pastel"
-                                          departmentCode={r.responderDepartmentCode}
-                                        />
+                                        <Avatar name={replyName} size="sm" tone="pastel" />
                                       </Link>
                                       <div className="home-dashboard__bulletin-archived-reply-body">
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
@@ -1779,8 +1774,20 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       ) : null}
                     </div>
                   ) : null}
-                  <p className="home-dashboard__bulletin-body">{ic.content}</p>
-                  <p className="home-dashboard__bulletin-meta">{formatBulletinAuthorByline(ic)}</p>
+                  <BulletinPostCard
+                    variant="stack"
+                    personProfileHref={`/profiles/${ic.authorPersonId}`}
+                    authorFullName={ic.authorFullName}
+                    departmentCode={ic.authorDepartmentCode}
+                    batchYear={ic.authorBatchYear ?? null}
+                    postedRelative={cardPostedRelative}
+                    postedAtIso={ic.createdAt ?? null}
+                    tone={cardTone}
+                    categoryBadgeLabel={cardBadge}
+                    title={splitBody.title.trim() ? splitBody.title : ic.content.trim()}
+                    summary={splitBody.summary}
+                    footer={standardCardFooter}
+                  />
                   {canEdit ? (
                     <p className="home-dashboard__bulletin-edit-hint">{formatEditWindowHint(ic.editableUntil)}</p>
                   ) : null}
@@ -1788,7 +1795,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               )}
             </>
           )}
-          {isOwnPost && !isEditing && !authorRemoved ? (
+          {isOwnPost && !isEditing && !authorRemoved && usesHiringCareerShell ? (
             <div className="home-dashboard__bulletin-card-actions">
               {canEdit ? (
                 <button
@@ -1854,7 +1861,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               </div>
             </div>
           ) : null}
-          {!isOwnPost && showReply && respondTargetId !== ic.id ? (
+          {!isOwnPost && showReply && respondTargetId !== ic.id && usesHiringCareerShell ? (
             <button
               type="button"
               className="home-dashboard__bulletin-reply"

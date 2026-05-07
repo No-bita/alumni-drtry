@@ -3,22 +3,21 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
+import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { Textarea } from "../components/Input";
 import {
   api,
   type AvailableDisclosureOption,
   type ConnectionThreadDetailResponse,
+  type ConnectionThreadMessageReplyTo,
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { assertApiGet } from "../lib/assertApiGet";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
-
-function formatThreadTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
-}
+import { demoDisplayFullName } from "../lib/demoProfile";
+import { formatThreadMessageTime, replySnippet } from "../lib/threadMessageFormat";
 
 function disclosureLabel(kind: string): string {
   switch (kind) {
@@ -35,13 +34,37 @@ function disclosureLabel(kind: string): string {
 
 export function ConnectionThread() {
   const { threadId } = useParams<{ threadId: string }>();
-  const navigate = useNavigate();
   const auth = useAuth();
-  const myPersonId = auth.status === "authenticated" ? auth.person.personId : null;
   const navName =
     auth.status === "authenticated" ? displayFirstNameFromEmail(auth.person.institutionalEmail) : undefined;
 
+  if (!threadId) {
+    return (
+      <>
+        <Nav variant="home" avatarName={navName} />
+        <p className="body-text" style={{ padding: "2rem var(--page-x)" }}>
+          Invalid conversation.
+        </p>
+      </>
+    );
+  }
+
+  return <ConnectionThreadBody key={threadId} threadId={threadId} navName={navName} />;
+}
+
+function ConnectionThreadBody({
+  threadId,
+  navName,
+}: {
+  threadId: string;
+  navName: string | undefined;
+}) {
+  const navigate = useNavigate();
+  const auth = useAuth();
+  const myPersonId = auth.status === "authenticated" ? auth.person.personId : null;
+
   const [composer, setComposer] = useState("");
+  const [pendingReplyParent, setPendingReplyParent] = useState<ConnectionThreadMessageReplyTo | null>(null);
   const [sending, setSending] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [selectedShare, setSelectedShare] = useState<Set<string>>(() => new Set());
@@ -70,15 +93,20 @@ export function ConnectionThread() {
 
   const sendMessage = async () => {
     if (!threadId || !composer.trim() || sending) return;
+    const trimmed = composer.trim();
+    const replySnapshot = pendingReplyParent;
     setSending(true);
     setActionError(null);
-    const { error } = await api.post(`/v1/connection-threads/${threadId}/messages`, { body: composer.trim() });
+    const payload: { body: string; replyToMessageId?: string } = { body: trimmed };
+    if (replySnapshot) payload.replyToMessageId = replySnapshot.messageId;
+    const { error } = await api.post(`/v1/connection-threads/${threadId}/messages`, payload);
     setSending(false);
     if (error) {
       setActionError(error.message ?? error.code);
       return;
     }
     setComposer("");
+    setPendingReplyParent(null);
     invalidateConnectionThreadQueries();
   };
 
@@ -144,17 +172,6 @@ export function ConnectionThread() {
     invalidateConnectionThreadQueries();
   };
 
-  if (!threadId) {
-    return (
-      <>
-        <Nav variant="home" avatarName={navName} />
-        <p className="body-text" style={{ padding: "2rem var(--page-x)" }}>
-          Invalid conversation.
-        </p>
-      </>
-    );
-  }
-
   if (loadError && !detail) {
     return (
       <>
@@ -197,8 +214,9 @@ export function ConnectionThread() {
     kind,
   } = detail;
   const isOpen = thread.status === "open";
-  const title = counterpartyFullName?.trim() || "Conversation";
-
+  const counterpartyDisplayName =
+    demoDisplayFullName(counterpartyFullName).trim() || counterpartyFullName?.trim() || "";
+  const title = counterpartyDisplayName || "Conversation";
   return (
     <>
       <Nav variant="home" avatarName={navName} />
@@ -208,6 +226,12 @@ export function ConnectionThread() {
             ← Back
           </button>
           <h1 className="connection-thread-page__title">{title}</h1>
+          <DeptBatchMeta
+            as="p"
+            className="connection-thread-page__meta dept-batch-meta"
+            departmentCode={detail.counterpartyDepartmentCode}
+            batchYear={detail.counterpartyBatchYear}
+          />
           <p className="connection-thread-page__sub">
             <Link to={`/profiles/${detail.counterpartyPersonId}`} className="home-dashboard__text-link">
               View profile
@@ -299,15 +323,41 @@ export function ConnectionThread() {
         <ul className="connection-thread-page__messages" aria-label="Messages">
           {messages.map((m) => {
             const mine = m.authorPersonId === myPersonId;
+            const replyTo = m.replyTo;
             return (
               <li
                 key={m.id}
                 className={`connection-thread-page__msg${mine ? " connection-thread-page__msg--mine" : ""}`}
               >
+                {replyTo ? (
+                  <div
+                    className="connection-thread-page__reply-quote"
+                    role="note"
+                    aria-label={`Quoted: ${replySnippet(replyTo.body)}`}
+                  >
+                    <span className="connection-thread-page__reply-quote-bar" aria-hidden />
+                    <p className="connection-thread-page__reply-quote-text">{replySnippet(replyTo.body)}</p>
+                  </div>
+                ) : null}
                 <p className="connection-thread-page__msg-body">{m.body}</p>
-                <time className="connection-thread-page__msg-time" dateTime={m.createdAt}>
-                  {formatThreadTime(m.createdAt)}
-                </time>
+                <div className="connection-thread-page__msg-meta-row">
+                  <time className="connection-thread-page__msg-time" dateTime={m.createdAt}>
+                    {formatThreadMessageTime(m.createdAt)}
+                  </time>
+                  <button
+                    type="button"
+                    className="connection-thread-page__msg-reply"
+                    onClick={() =>
+                      setPendingReplyParent({
+                        messageId: m.id,
+                        authorPersonId: m.authorPersonId,
+                        body: m.body,
+                      })
+                    }
+                  >
+                    Reply
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -345,6 +395,24 @@ export function ConnectionThread() {
 
         {isOpen ? (
           <div className="connection-thread-page__composer">
+            {pendingReplyParent ? (
+              <div className="connection-thread-page__reply-draft-banner">
+                <div className="connection-thread-page__reply-draft-text">
+                  <span className="connection-thread-page__reply-draft-label">Replying to</span>
+                  <span className="connection-thread-page__reply-draft-snippet">
+                    {replySnippet(pendingReplyParent.body)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="connection-thread-page__reply-draft-dismiss"
+                  aria-label="Cancel reply"
+                  onClick={() => setPendingReplyParent(null)}
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
             <Textarea
               label="Message"
               value={composer}
@@ -382,7 +450,7 @@ export function ConnectionThread() {
                 Choose what to share
               </h2>
               <p className="connection-thread-page__modal-desc">
-                Only what you select is visible to {counterpartyFullName?.trim() || "them"}. You can share more later.
+                Only what you select is visible to {counterpartyDisplayName || "them"}. You can share more later.
               </p>
               <ul className="connection-thread-page__share-options">
                 {availableDisclosures.map((opt) => (

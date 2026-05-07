@@ -1,5 +1,24 @@
 import type { SearchProfileRow } from "../repos/discoveryRepo.js";
 
+/** Normalize like discovery SQL: trim, lower, collapse internal whitespace. */
+function normalizeSearchWhitespace(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * True when the keyword query clearly matches the person's display name (substring or all tokens),
+ * even if SQL ranked the row as tier 2 (tier 0 is reserved for full-string name equality).
+ */
+export function queryMatchesProfileName(fullName: string | null | undefined, rawQuery: string | undefined): boolean {
+  const q = normalizeSearchWhitespace(rawQuery ?? "");
+  const name = normalizeSearchWhitespace(fullName ?? "");
+  if (!q || !name) return false;
+  if (name.includes(q)) return true;
+  const tokens = q.split(" ").filter((t) => t.length >= 2);
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => name.includes(t));
+}
+
 export interface MatchReasonContext {
   deptFilter?: string;
   batchCenter?: number;
@@ -28,7 +47,11 @@ export function buildMatchReasonKeys(row: SearchProfileRow, ctx: MatchReasonCont
       pushUnique("title_match");
     }
   } else if (ctx.hasKeywordQ) {
-    pushUnique("keyword_match");
+    if (queryMatchesProfileName(row.full_name, ctx.queryText)) {
+      pushUnique("name_match");
+    } else {
+      pushUnique("keyword_match");
+    }
   }
 
   if (ctx.deptFilter) {

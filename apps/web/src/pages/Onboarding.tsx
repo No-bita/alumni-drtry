@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -16,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
 import { assertApiGet } from "../lib/assertApiGet";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
+import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
@@ -582,11 +584,15 @@ export function Onboarding() {
     }
 
     if (selectedIntent === "hire") {
-      navigate(`/intent/career/opportunities?compose=1&${params.toString()}`, { replace: true });
+      navigate(`/intent/career?compose=1&${params.toString()}`, { replace: true });
       return;
     }
     if (selectedIntent === "build") {
-      navigate(`/intent/build?compose=1&${params.toString()}`, { replace: true });
+      if (isDevHubPagesEnabled) {
+        navigate(`/intent/build?compose=1&${params.toString()}`, { replace: true });
+      } else {
+        navigate(`/home?${params.toString()}`, { replace: true });
+      }
       return;
     }
     navigate(`/search?${params.toString()}`, { replace: true });
@@ -675,7 +681,7 @@ export function Onboarding() {
             minHeight: "calc(100vh - var(--nav-height))",
             display: "flex",
             alignItems: "flex-end",
-            backgroundImage: `url(${CAMPUS_IMAGE})`,
+            ...({ "--campus-hero-image": `url("${CAMPUS_IMAGE}")` } as CSSProperties),
           }}
         >
           <div className="campus-panel__content" style={{ paddingBottom: "4rem" }}>

@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { Nav } from "../components/Nav";
 import { Avatar } from "../components/Avatar";
 import { ReachOutCard } from "../components/ReachOutCard";
@@ -19,7 +20,7 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
-import { isDemoProfileBio } from "../lib/demoProfile";
+import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 
 function PencilIcon({ className }: { className?: string }) {
   return (
@@ -33,6 +34,34 @@ function PencilIcon({ className }: { className?: string }) {
       />
     </svg>
   );
+}
+
+function inferPlatformFromUrl(rawUrl: string): string {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, "");
+    if (host.includes("linkedin.")) return "LinkedIn";
+    if (host.includes("github.")) return "GitHub";
+    if (host === "x.com" || host.includes("twitter.")) return "X/Twitter";
+    if (host.includes("instagram.")) return "Instagram";
+    if (host.includes("youtube.")) return "YouTube";
+    const label = host.split(".")[0] ?? "Website";
+    return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Website";
+  } catch {
+    return "Website";
+  }
+}
+
+function normalizeProfileLinkUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const withScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withScheme);
+    if (!parsed.hostname) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function Profile() {
@@ -51,8 +80,7 @@ export function Profile() {
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
   const [draftResidenceCity, setDraftResidenceCity] = useState("");
   const [editLinks, setEditLinks] = useState<ProfileLinkView[]>([]);
-  const [newPlatform, setNewPlatform] = useState("");
-  const [newUrl, setNewUrl] = useState("");
+  const [newLinksText, setNewLinksText] = useState("");
   const [saving, setSaving] = useState(false);
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -128,8 +156,7 @@ export function Profile() {
       setDraftResidenceCountry(p.residenceCountry ?? "");
       setDraftResidenceCity(p.residenceCity ?? "");
     }
-    setNewPlatform("");
-    setNewUrl("");
+    setNewLinksText("");
     setIsEditing(true);
   }, [profileQuery.data]);
 
@@ -185,26 +212,53 @@ export function Profile() {
     queryClient,
   ]);
 
-  const handleAddLink = async (e: React.FormEvent) => {
+  const handleAddLinks = async (e: React.FormEvent) => {
     e.preventDefault();
-    const platform = newPlatform.trim();
-    const url = newUrl.trim();
-    if (!platform || !url) return;
-    setEditError(null);
-    setLinkBusyId("__add__");
-    const { data: created, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
-      platform,
-      url,
-      label: null,
-    });
-    setLinkBusyId(null);
-    if (error) {
-      setEditError(error.message ?? error.code);
+    if (editLinks.length >= 5) {
+      setEditError("You can add up to 5 links.");
       return;
     }
-    if (created?.link) setEditLinks((prev) => [...prev, created.link]);
-    setNewPlatform("");
-    setNewUrl("");
+    const rawItems = newLinksText
+      .split(/[\n,]/g)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (rawItems.length === 0) return;
+    const normalizedItems = rawItems
+      .map((item) => normalizeProfileLinkUrl(item))
+      .filter((item): item is string => Boolean(item));
+    if (normalizedItems.length === 0) {
+      setEditError("Add valid URLs (example: linkedin.com/in/username).");
+      return;
+    }
+    const uniqueUrls = [...new Set(normalizedItems)];
+    const remainingSlots = 5 - editLinks.length;
+    if (uniqueUrls.length > remainingSlots) {
+      setEditError(`You can add ${remainingSlots} more link${remainingSlots === 1 ? "" : "s"} (max 5).`);
+      return;
+    }
+    setEditError(null);
+    setLinkBusyId("__add__");
+    const createdLinks: ProfileLinkView[] = [];
+    for (const url of uniqueUrls) {
+      const platform = inferPlatformFromUrl(url);
+      const { data: created, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
+        platform,
+        url,
+        label: null,
+      });
+      if (error) {
+        setLinkBusyId(null);
+        setEditError(error.message ?? error.code);
+        if (createdLinks.length > 0) {
+          setEditLinks((prev) => [...prev, ...createdLinks]);
+        }
+        return;
+      }
+      if (created?.link) createdLinks.push(created.link);
+    }
+    setLinkBusyId(null);
+    if (createdLinks.length > 0) setEditLinks((prev) => [...prev, ...createdLinks]);
+    setNewLinksText("");
     await refetchAuth();
     if (id) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
@@ -264,14 +318,24 @@ export function Profile() {
   }
 
   const { profile, occupations, links } = data;
-  const batch = profile.batchYear ?? profile.parsedJoiningYear ?? "—";
+  const profileDisplayName =
+    demoDisplayFullName(profile.fullName) || profile.fullName?.trim() || "Profile";
+  const codeRawHero = profile.departmentCode;
+  const deptCodeHero = codeRawHero?.trim() ? codeRawHero : null;
+  const batchNumHero =
+    typeof profile.batchYear === "number" && Number.isFinite(profile.batchYear) ? profile.batchYear : null;
+  const degreeLabel =
+    profile.degreeName?.trim() ||
+    profile.degreeCode?.trim() ||
+    (isOwnProfile
+      ? auth.myProfile?.degreeName?.trim() || auth.myProfile?.degreeCode?.trim() || null
+      : null);
   const residenceCity = profile.residenceCity?.trim() ?? "";
   const residenceCountry = profile.residenceCountry?.trim() ?? "";
   const residenceLabel =
     residenceCity && residenceCountry
       ? `${residenceCity}, ${residenceCountry}`
       : residenceCity || residenceCountry;
-
   const displayLinks = isEditing ? editLinks : links;
 
   const navExtra =
@@ -305,26 +369,33 @@ export function Profile() {
                 ← Directory
               </Link>
               <div className="profile-page__hero-main">
-                <Avatar
-                  name={profile.fullName ?? "?"}
-                  size="lg"
-                  tone="pastel"
-                  departmentCode={profile.departmentCode}
-                />
+                <Avatar name={profileDisplayName} size="lg" tone="pastel" />
                 <div>
                   <h1 id="profile-hero-heading" className="home-dashboard__hero-title">
-                    {profile.fullName}
+                    {profileDisplayName}
                     {isDemoProfile ? <span className="badge badge--hiring profile-page__demo-badge">Demo</span> : null}
                   </h1>
                 </div>
               </div>
               <div className="profile-page__meta" role="list">
-                <span role="listitem">
-                  Batch <strong>{batch}</strong>
+                <span role="listitem" className="profile-page__meta-dept-batch">
+                  {deptCodeHero || batchNumHero != null ? (
+                    <DeptBatchMeta
+                      className="dept-batch-meta"
+                      departmentCode={deptCodeHero}
+                      batchYear={batchNumHero}
+                    />
+                  ) : (
+                    <>
+                      Dept / cohort <strong>—</strong>
+                    </>
+                  )}
                 </span>
-                <span role="listitem">
-                  Dept <strong>{profile.departmentName ?? profile.departmentCode ?? "—"}</strong>
-                </span>
+                {degreeLabel ? (
+                  <span role="listitem">
+                    Degree <strong>{degreeLabel}</strong>
+                  </span>
+                ) : null}
                 {residenceLabel ? (
                   <span role="listitem">
                     Residence <strong>{residenceLabel}</strong>
@@ -454,7 +525,7 @@ export function Profile() {
             {!isOwnProfile ? (
               <ReachOutCard
                 profileId={profile.id}
-                profileName={profile.fullName ?? "them"}
+                profileName={profileDisplayName}
                 onSubmit={handleReachOut}
                 status={contactStatus}
                 errorMessage={contactError}
@@ -490,11 +561,27 @@ export function Profile() {
                         No links yet.
                       </p>
                     )}
-                    <form className="profile-page__add-link" onSubmit={(e) => void handleAddLink(e)}>
-                      <Input label="Platform" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} placeholder="e.g. LinkedIn" />
-                      <Input label="URL" type="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://…" />
-                      <Button type="submit" variant="secondary" disabled={linkBusyId === "__add__" || !newPlatform.trim() || !newUrl.trim()}>
-                        {linkBusyId === "__add__" ? "Adding…" : "Add link"}
+                    <form className="profile-page__add-link" onSubmit={(e) => void handleAddLinks(e)}>
+                      <label className="ui-label" htmlFor="profile-links-input">
+                        Add links (up to 5 total)
+                      </label>
+                      <textarea
+                        id="profile-links-input"
+                        className="input profile-page__links-input"
+                        rows={3}
+                        placeholder="Paste links separated by comma or new line"
+                        value={newLinksText}
+                        onChange={(e) => setNewLinksText(e.target.value)}
+                      />
+                      <p className="body-text profile-page__muted-text profile-page__links-helper">
+                        Platform is detected automatically from each URL ({editLinks.length}/5 added).
+                      </p>
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        disabled={linkBusyId === "__add__" || !newLinksText.trim() || editLinks.length >= 5}
+                      >
+                        {linkBusyId === "__add__" ? "Adding…" : "Add links"}
                       </Button>
                     </form>
                   </>

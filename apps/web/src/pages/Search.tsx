@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { SearchResultRow } from "../components/SearchResultRow";
 import { DirectorySearchBar } from "../components/DirectorySearchBar";
+import { DirectoryFilterChipStrip } from "../components/DirectoryFilterChipStrip";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
 import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
 import { Spinner } from "../components/Spinner";
@@ -14,8 +15,10 @@ import { type SearchResult, type SearchProfileView } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
+import { cityIntentHrefForPick, tryAtPrefixedCityHubPick } from "../lib/cityIntentFromToolbar";
 import {
   buildSearchParamsFromDraft,
+  clearDirectorySearchFacet,
   countDirectoryFilterParams,
   draftMatchesUrl,
   draftsEqual,
@@ -25,27 +28,31 @@ import {
   type DirectorySearchDraft,
 } from "../lib/directorySearchUrlState";
 
-/** Directory results: 2 columns from this min-width; one column below (narrow phones). */
-const SEARCH_RESULTS_TWO_COL_MIN_PX = 720;
+/** Directory grid: 1 col (narrow) → 2 col (tablet) → 3 col (desktop, referral-style). */
+const SEARCH_RESULTS_TWO_COL_MIN_PX = 680;
+const SEARCH_RESULTS_THREE_COL_MIN_PX = 1080;
+
+function directoryResultsColumnCount(viewportWidth: number): 1 | 2 | 3 {
+  if (viewportWidth >= SEARCH_RESULTS_THREE_COL_MIN_PX) return 3;
+  if (viewportWidth >= SEARCH_RESULTS_TWO_COL_MIN_PX) return 2;
+  return 1;
+}
 
 export function Search() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [draft, setDraft] = useState(() => parseDirectorySearchFromParams(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const [resultsColumnCount, setResultsColumnCount] = useState(() =>
-    typeof window !== "undefined" &&
-    window.matchMedia(`(min-width: ${SEARCH_RESULTS_TWO_COL_MIN_PX}px)`).matches
-      ? 2
-      : 1
+  const [resultsColumnCount, setResultsColumnCount] = useState<1 | 2 | 3>(() =>
+    typeof window !== "undefined" ? directoryResultsColumnCount(window.innerWidth) : 1
   );
 
   useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${SEARCH_RESULTS_TWO_COL_MIN_PX}px)`);
-    const sync = () => setResultsColumnCount(mq.matches ? 2 : 1);
+    const sync = () => setResultsColumnCount(directoryResultsColumnCount(window.innerWidth));
     sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
   }, []);
 
   useEffect(() => {
@@ -61,6 +68,72 @@ export function Search() {
   const residenceCountry = applied.residenceCountry;
   const residenceCity = applied.residenceCity;
   const committedQ = normalizeQ(applied.q);
+
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  const urlCommitTimerRef = useRef<number | null>(null);
+
+  const cancelDebouncedUrlCommit = useCallback(() => {
+    if (urlCommitTimerRef.current != null) {
+      window.clearTimeout(urlCommitTimerRef.current);
+      urlCommitTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => cancelDebouncedUrlCommit(), [cancelDebouncedUrlCommit]);
+
+  const applyCommittedSearch = useCallback(
+    (next: DirectorySearchDraft) => {
+      const pick = tryAtPrefixedCityHubPick(next.q);
+      if (pick) {
+        cancelDebouncedUrlCommit();
+        navigate(cityIntentHrefForPick(pick));
+        setFiltersOpen(false);
+        return;
+      }
+      setSearchParams(buildSearchParamsFromDraft(next), { replace: true });
+    },
+    [navigate, setSearchParams, cancelDebouncedUrlCommit],
+  );
+
+  const scheduleDebouncedApplyCommittedSearch = useCallback(() => {
+    cancelDebouncedUrlCommit();
+    urlCommitTimerRef.current = window.setTimeout(() => {
+      urlCommitTimerRef.current = null;
+      applyCommittedSearch(draftRef.current);
+    }, 450);
+  }, [applyCommittedSearch, cancelDebouncedUrlCommit]);
+
+  const commitDraftPatchImmediate = useCallback(
+    (patch: Partial<DirectorySearchDraft>) => {
+      cancelDebouncedUrlCommit();
+      const next = { ...draftRef.current, ...patch };
+      draftRef.current = next;
+      setDraft(next);
+      applyCommittedSearch(next);
+    },
+    [applyCommittedSearch, cancelDebouncedUrlCommit],
+  );
+
+  const patchDraftTextField = useCallback(
+    (patch: Partial<Pick<DirectorySearchDraft, "company" | "residenceCity" | "residenceCountry">>) => {
+      const next = { ...draftRef.current, ...patch };
+      draftRef.current = next;
+      setDraft(next);
+      scheduleDebouncedApplyCommittedSearch();
+    },
+    [scheduleDebouncedApplyCommittedSearch],
+  );
+
+  const removeFacet = useCallback(
+    (key: keyof DirectorySearchDraft) => {
+      cancelDebouncedUrlCommit();
+      const next = clearDirectorySearchFacet(applied, key);
+      setSearchParams(buildSearchParamsFromDraft(next), { replace: true });
+    },
+    [applied, cancelDebouncedUrlCommit, setSearchParams],
+  );
 
   const buildQueryParams = useCallback(
     (cursor?: string | null) => {
@@ -114,7 +187,8 @@ export function Search() {
 
   const fetchingMain = searchQuery.isFetching && !searchQuery.isFetchingNextPage;
   const showMainSpinner = fetchingMain && results.length === 0 && !errorMessage;
-  const searchPending = !draftMatchesUrl(draft, searchParams);
+  /** Keyword-only pending — drawer filter edits use debounced/immediate URL commits without this banner. */
+  const searchPending = normalizeQ(draft.q) !== committedQ;
 
   const firstPage = searchQuery.data?.pages[0];
   const wideningSummary = firstPage?.wideningSummary ?? null;
@@ -130,7 +204,7 @@ export function Search() {
   );
 
   const listLayoutKey =
-    `${wideningSummary ?? ""}|${normalization?.applied ?? false}|${searchPending}|${showMainSpinner}|${errorMessage ?? ""}|${results.length}`;
+    `${wideningSummary ?? ""}|${normalization?.applied ?? false}|${searchPending}|${showMainSpinner}|${errorMessage ?? ""}|${results.length}|${resultsColumnCount}`;
 
   useLayoutEffect(() => {
     const el = resultsListAnchorRef.current;
@@ -144,51 +218,48 @@ export function Search() {
     update();
     const ro = new ResizeObserver(update);
     ro.observe(main);
-    window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => {
       ro.disconnect();
-      window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
   }, [listLayoutKey]);
 
   const virtualizer = useWindowVirtualizer({
     count: resultsRowCount,
-    estimateSize: () => (resultsColumnCount === 2 ? 96 : 92),
-    overscan: 10,
+    /** Approx row height (directory cards + grid gap); tune with `.search-page__virtual-row` / `.search-result-row`. */
+    estimateSize: () =>
+      resultsColumnCount === 3 ? 300 : resultsColumnCount === 2 ? 275 : 255,
+    overscan: 8,
     scrollMargin: listScrollMargin,
   });
 
-  const commitDraftToUrl = useCallback(() => {
-    setSearchParams(buildSearchParamsFromDraft(draft), { replace: true });
-  }, [draft, setSearchParams]);
+  const runCommittedSearchOrCityHub = useCallback(
+    (options?: { closeFilters?: boolean }) => {
+      cancelDebouncedUrlCommit();
+      applyCommittedSearch(draft);
+      if (options?.closeFilters) setFiltersOpen(false);
+    },
+    [draft, applyCommittedSearch, cancelDebouncedUrlCommit],
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    commitDraftToUrl();
+    runCommittedSearchOrCityHub();
   };
 
   const clearAllFilters = useCallback(() => {
+    cancelDebouncedUrlCommit();
     setDraft(EMPTY_DIRECTORY_SEARCH_DRAFT);
     setSearchParams(new URLSearchParams(), { replace: true });
     setFiltersOpen(false);
-  }, [setSearchParams]);
+  }, [cancelDebouncedUrlCommit, setSearchParams]);
 
   const canClear =
     !draftsEqual(draft, EMPTY_DIRECTORY_SEARCH_DRAFT) ||
     !draftMatchesUrl(EMPTY_DIRECTORY_SEARCH_DRAFT, searchParams);
 
-  const hasActiveFilters =
-    batch != null ||
-    !!dept ||
-    !!company ||
-    !!occ ||
-    !!residenceCountry ||
-    !!residenceCity ||
-    !!committedQ;
-
-  const filterCount = countDirectoryFilterParams(draft);
+  const filterCount = countDirectoryFilterParams(applied);
 
   const setDraftPatch = useCallback((patch: Partial<DirectorySearchDraft>) => {
     setDraft((d) => ({ ...d, ...patch }));
@@ -196,36 +267,44 @@ export function Search() {
 
   const searchSessionId = firstPage?.searchSessionId ?? null;
 
+  const toolbarDirectorySearch = (
+    <DirectorySearchBar
+      variant="directory"
+      keyword={draft.q}
+      onKeywordChange={(q) => setDraftPatch({ q })}
+      onSubmit={handleSearchSubmit}
+      filterCount={filterCount}
+      onOpenRefine={() => setFiltersOpen(true)}
+      keywordPlaceholder="@City for city hub — or name, role, company…"
+      autoFocusKeyword
+      inlineTrailingAction={{
+        label: "Clear all filters",
+        onClick: clearAllFilters,
+        disabled: !canClear,
+      }}
+      onNativeSearchCleared={clearAllFilters}
+    />
+  );
+
+  const toolbarLead = (
+    <div className="nav-app-toolbar__welcome">
+      <h1 className="nav-app-toolbar__welcome-title">Alumni directory</h1>
+    </div>
+  );
+
   return (
     <>
-      <Nav />
+      <Nav appToolbarLead={toolbarLead} appToolbarSearch={toolbarDirectorySearch} />
       <div className="search-page search-page--search-first">
-        <header className="search-page__hero">
-          <div className="search-page__hero-inner">
-            <h1 className="search-page__title search-page__title--hero">Alumni directory</h1>
-            <DirectorySearchBar
-              variant="directory"
-              keyword={draft.q}
-              onKeywordChange={(q) => setDraftPatch({ q })}
-              onSubmit={handleSearchSubmit}
-              filterCount={filterCount}
-              onOpenRefine={() => setFiltersOpen(true)}
-              keywordPlaceholder="Name, role, company…"
-              autoFocusKeyword
-              inlineTrailingAction={{
-                label: "Clear all filters",
-                onClick: clearAllFilters,
-                disabled: !canClear,
-              }}
-              onNativeSearchCleared={clearAllFilters}
-            />
-            {searchPending ? (
+        {searchPending ? (
+          <header className="search-page__hero">
+            <div className="search-page__hero-inner">
               <p className="search-page__pending search-page__pending--under-bar" role="status">
                 Press Search or Enter to run this search.
               </p>
-            ) : null}
-          </div>
-        </header>
+            </div>
+          </header>
+        ) : null}
 
         {wideningSummary ? (
           <div className="search-page__notice" role="status">
@@ -253,51 +332,18 @@ export function Search() {
             occupationTypeCode={draft.occ}
             residenceCountry={draft.residenceCountry}
             residenceCity={draft.residenceCity}
-            onBatchYearChange={(y) => setDraftPatch({ batch: y })}
-            onDepartmentChange={(code) => setDraftPatch({ dept: code })}
-            onCompanyNameChange={(v) => setDraftPatch({ company: v })}
-            onOccupationChange={(code) => setDraftPatch({ occ: code })}
-            onResidenceCountryChange={(v) => setDraftPatch({ residenceCountry: v })}
-            onResidenceCityChange={(v) => setDraftPatch({ residenceCity: v })}
+            onBatchYearChange={(y) => commitDraftPatchImmediate({ batch: y })}
+            onDepartmentChange={(code) => commitDraftPatchImmediate({ dept: code })}
+            onCompanyNameChange={(v) => patchDraftTextField({ company: v })}
+            onOccupationChange={(code) => commitDraftPatchImmediate({ occ: code })}
+            onResidenceCountryChange={(v) => patchDraftTextField({ residenceCountry: v })}
+            onResidenceCityChange={(v) => patchDraftTextField({ residenceCity: v })}
             onClearAll={canClear ? clearAllFilters : undefined}
-            onSearch={() => {
-              commitDraftToUrl();
-              setFiltersOpen(false);
-            }}
           />
         </DirectoryFilterDrawer>
 
         <main className="search-page__main">
-          <div className="search-page__toolbar">
-            <div className="search-page__toolbar-inner">
-              <p
-                className={`search-page__toolbar-meta${fetchingMain && !errorMessage ? " search-page__toolbar-meta--busy" : ""}`}
-              >
-                {errorMessage ? (
-                  <span className="search-page__error-inline">{errorMessage}</span>
-                ) : fetchingMain ? (
-                  <>
-                    <Spinner size="sm" />
-                    {results.length === 0 ? (
-                      <span>Searching…</span>
-                    ) : (
-                      <span>
-                        {results.length} result{results.length !== 1 ? "s" : ""}
-                        {hasActiveFilters ? " · filtered" : ""}
-                        <span className="search-page__updating-suffix"> · updating…</span>
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {results.length} result{results.length !== 1 ? "s" : ""}
-                    {hasActiveFilters ? " · filtered" : ""}
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-
+          <DirectoryFilterChipStrip applied={applied} onRemoveFacet={removeFacet} onAddFilters={() => setFiltersOpen(true)} />
           {showMainSpinner ? (
             <div className="search-page__loading" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending">
@@ -319,7 +365,7 @@ export function Search() {
                 title="No alumni match your search"
                 description={
                   <>
-                    Try another keyword, open <strong>Filter</strong> to adjust batch or department, or clear filters.
+                    Try another keyword, use <strong>Add filters</strong> below the toolbar, or clear filters.
                   </>
                 }
               />

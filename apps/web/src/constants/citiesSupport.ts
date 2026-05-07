@@ -1,3 +1,5 @@
+import { PLATFORM_DEMO_AUTHOR_IDS } from "./platformDemoPersonIds";
+
 export type CityEventItem = {
   id: string;
   city: string;
@@ -15,6 +17,11 @@ export type CityNeedItem = {
   city: string;
   country: string;
   type: CityNeedType;
+  askedByName: string;
+  askedByDepartmentCode: string;
+  askedByBatchYear: number;
+  /** Creator’s person/profile id (`/profiles/:id`). Required for Messaging + avatar links; mock rows use PLATFORM_DEMO_AUTHOR_IDS after seed. */
+  askedByPersonId?: string;
   title: string;
   description: string;
 };
@@ -58,12 +65,17 @@ export const CITY_EVENTS: CityEventItem[] = [
   },
 ];
 
+/** Static hub posts aligned with seeded platform demo alumni (`PLATFORM_DEMO_AUTHOR_IDS`). */
 export const CITY_NEEDS: CityNeedItem[] = [
   {
     id: "need-blr-flatmate-1",
     city: "Bengaluru",
     country: "India",
     type: "housing",
+    askedByName: "Rahul Sharma",
+    askedByDepartmentCode: "CSE",
+    askedByBatchYear: 2021,
+    askedByPersonId: PLATFORM_DEMO_AUTHOR_IDS[0],
     title: "Looking for flatmate near Koramangala",
     description: "Moving in next month. Need one roommate for a 2BHK, budget split around 28k each.",
   },
@@ -72,6 +84,10 @@ export const CITY_NEEDS: CityNeedItem[] = [
     city: "Bengaluru",
     country: "India",
     type: "accommodation",
+    askedByName: "Sneha Gupta",
+    askedByDepartmentCode: "CSE",
+    askedByBatchYear: 2020,
+    askedByPersonId: PLATFORM_DEMO_AUTHOR_IDS[1],
     title: "Need short stay for two weeks",
     description: "Visiting for onboarding. Seeking safe furnished stay near ORR.",
   },
@@ -80,23 +96,35 @@ export const CITY_NEEDS: CityNeedItem[] = [
     city: "Bengaluru",
     country: "India",
     type: "sports_activity",
+    askedByName: "Arjun Singh",
+    askedByDepartmentCode: "CSE",
+    askedByBatchYear: 2022,
+    askedByPersonId: PLATFORM_DEMO_AUTHOR_IDS[2],
     title: "Football group for Sunday mornings",
     description: "Looking to join a regular 6v6 game. Beginner-friendly preferred.",
   },
   {
-    id: "need-mum-neighborhood-1",
-    city: "Mumbai",
+    id: "need-blr-neighborhood-1",
+    city: "Bengaluru",
     country: "India",
     type: "city_help",
+    askedByName: "Vivek Tiwari",
+    askedByDepartmentCode: "ECE",
+    askedByBatchYear: 2021,
+    askedByPersonId: PLATFORM_DEMO_AUTHOR_IDS[3],
     title: "Advice on neighborhood for first move",
-    description: "Office in Lower Parel. Need commute-friendly and safe recommendations.",
+    description: "Office in Embassy Tech Village. Looking for commute-friendly and safe locality tips.",
   },
   {
-    id: "need-delhi-rental-1",
-    city: "Delhi",
+    id: "need-blr-rental-1",
+    city: "Bengaluru",
     country: "India",
     type: "housing",
-    title: "Seeking rental near IIT Delhi side",
+    askedByName: "Ananya Das",
+    askedByDepartmentCode: "CSE",
+    askedByBatchYear: 2019,
+    askedByPersonId: PLATFORM_DEMO_AUTHOR_IDS[4],
+    title: "Seeking rental near Indiranagar",
     description: "Looking for a 1RK/1BHK with decent metro access and quiet locality.",
   },
 ];

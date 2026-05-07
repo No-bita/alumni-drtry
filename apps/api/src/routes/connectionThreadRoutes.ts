@@ -5,6 +5,7 @@ import { AppError } from "../lib/errors.js";
 import type { DiscloseItemInput } from "../services/connectionThreadService.js";
 
 const uuidParam = z.object({ threadId: z.string().uuid() });
+const threadMessageParam = z.object({ threadId: z.string().uuid(), messageId: z.string().uuid() });
 
 const createThreadBodySchema = z.object({
   recipientPersonId: z.string().uuid(),
@@ -13,6 +14,10 @@ const createThreadBodySchema = z.object({
 });
 
 const postMessageBodySchema = z.object({
+  body: z.string().min(1).max(300),
+  replyToMessageId: z.string().uuid().optional()
+});
+const editMessageBodySchema = z.object({
   body: z.string().min(1).max(300)
 });
 
@@ -71,6 +76,8 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
         updatedAt: t.updatedAt.toISOString(),
         counterpartyPersonId: t.counterpartyPersonId,
         counterpartyFullName: t.counterpartyFullName,
+        counterpartyDepartmentCode: t.counterpartyDepartmentCode,
+        counterpartyBatchYear: t.counterpartyBatchYear,
         lastMessageBody: t.lastMessageBody,
         lastMessageAuthorPersonId: t.lastMessageAuthorPersonId,
         lastMessageCreatedAt: t.lastMessageCreatedAt.toISOString()
@@ -104,7 +111,8 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
       const msg = await app.connectionThreadService.addMessage(
         request.actor.personId,
         params.data.threadId,
-        parsed.data.body
+        parsed.data.body,
+        parsed.data.replyToMessageId ?? null
       );
       void app.adminMetricsService
         .logBetaUsageEvent({
@@ -121,8 +129,38 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
           id: msg.id,
           authorPersonId: msg.authorPersonId,
           body: msg.body,
-          createdAt: msg.createdAt.toISOString()
-        }
+          createdAt: msg.createdAt.toISOString(),
+          editedAt: msg.editedAt ? msg.editedAt.toISOString() : null,
+          replyTo: msg.replyTo,
+        },
+      });
+    }
+  );
+
+  app.patch(
+    "/v1/connection-threads/:threadId/messages/:messageId",
+    { preHandler: app.authenticate },
+    async (request, reply) => {
+      const params = threadMessageParam.safeParse(request.params);
+      const parsed = editMessageBodySchema.safeParse(request.body);
+      if (!params.success || !parsed.success) {
+        throw new AppError(400, "CONNECTION_THREAD_BAD_REQUEST", "Invalid body.");
+      }
+      const msg = await app.connectionThreadService.editMessage(
+        request.actor.personId,
+        params.data.threadId,
+        params.data.messageId,
+        parsed.data.body
+      );
+      return reply.code(200).send({
+        message: {
+          id: msg.id,
+          authorPersonId: msg.authorPersonId,
+          body: msg.body,
+          createdAt: msg.createdAt.toISOString(),
+          editedAt: msg.editedAt ? msg.editedAt.toISOString() : null,
+          replyTo: msg.replyTo,
+        },
       });
     }
   );

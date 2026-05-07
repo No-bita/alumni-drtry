@@ -2,8 +2,10 @@ import type { Pool } from "pg";
 import {
   BULLETIN_AUTHOR_DELETE_UNDO_MINUTES,
   BULLETIN_CONTENT_MAX_LENGTH,
+  BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_INTENTCAST_OPEN_DAYS,
-  BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH
+  BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH,
+  BULLETIN_TITLE_MAX_CHARS
 } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
 import {
@@ -15,6 +17,37 @@ import {
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import type { EmailSender } from "./emailSender.js";
+
+function splitBulletinHeadlineAndDetails(raw: string): { headline: string; details: string } {
+  const lines = raw.trim().split(/\r?\n/);
+  const idx = lines.findIndex((l) => l.trim().length > 0);
+  if (idx < 0) return { headline: "", details: "" };
+  const headlineRaw = lines[idx];
+  if (headlineRaw === undefined) return { headline: "", details: "" };
+  return {
+    headline: headlineRaw.trim(),
+    details: lines.slice(idx + 1).join("\n").trim()
+  };
+}
+
+function assertGeneralIntentcastHeadlineDetails(content: string, category: IntentcastCategory): void {
+  if (category === "hiring") return;
+  const { headline, details } = splitBulletinHeadlineAndDetails(content);
+  if (headline.length > BULLETIN_TITLE_MAX_CHARS) {
+    throw new AppError(
+      400,
+      "INTENTCAST_TITLE_TOO_LONG",
+      `Headline must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`
+    );
+  }
+  if (details.length > BULLETIN_DESCRIPTION_MAX_CHARS) {
+    throw new AppError(
+      400,
+      "INTENTCAST_DESCRIPTION_TOO_LONG",
+      `Details must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`
+    );
+  }
+}
 
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
@@ -72,6 +105,7 @@ export class IntentcastService {
         `Intentcast content must be at most ${BULLETIN_CONTENT_MAX_LENGTH} characters.`
       );
     }
+    assertGeneralIntentcastHeadlineDetails(content, input.category);
 
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
@@ -162,6 +196,11 @@ export class IntentcastService {
         `Intentcast content must be at most ${BULLETIN_CONTENT_MAX_LENGTH} characters.`
       );
     }
+    const effectiveCategory = input.category ?? existing.category;
+    if (nextContent !== undefined) {
+      assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
+    }
+
     const updated = await this.intentcastRepo.updateWithinEditWindow({
       intentcastId,
       authorPersonId,
