@@ -1,21 +1,34 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
-import { Avatar } from "../components/Avatar";
 import { useAuth } from "../contexts/AuthContext";
-import { type MyProfileView, type SearchProfileView, type SearchResult } from "../api/client";
+import {
+  type IntentcastFeedResponse,
+  type MyProfileView,
+  type SearchResult,
+} from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
+import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { queryKeys } from "../lib/queryKeys";
-import { BulletinPanel } from "../components/BulletinPanel";
-import { CampusMonthlyDigestSection } from "../components/CampusMonthlyDigestSection";
-import { ContactRequestsInbox } from "../components/ContactRequestsInbox";
+import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
-import { isDemoProfileBio } from "../lib/demoProfile";
+import {
+  HomeOpportunityRail,
+  HOME_OPPORTUNITY_RAIL_PAGE_SIZE,
+  type HomeOpportunityCategory,
+  type HomeOpportunityItem,
+} from "../components/HomeOpportunityRail";
+import { parseHiringBulletin, splitHiringDetailsForCard } from "../lib/parseHiringBulletin";
+import { HomeIntentHero } from "../components/HomeIntentHero";
+import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
+import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQuickActions";
+import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
+import { HomeCampusUpdatesPanel } from "../components/HomeCampusUpdatesPanel";
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
-  const fn = profile.fullName?.trim();
+  const fn = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim();
   if (fn) {
     const parts = fn.split(/\s+/);
     return parts[0] ?? fn;
@@ -23,55 +36,595 @@ function displayFirstName(profile: MyProfileView, email: string | undefined): st
   return displayFirstNameFromEmail(email);
 }
 
-/** Role and employer from directory headline (platform data only). */
-function batchmateRoleLine(row: SearchProfileView): string | null {
-  const r = row.headlineRoleTitle?.trim();
-  const o = row.headlineOrganizationName?.trim();
-  if (r && o) return `${r} · ${o}`;
-  if (r) return r;
-  if (o) return o;
-  return null;
+const QUICK_ACTIONS: HomeQuickActionLink[] = [
+  {
+    id: "directory",
+    title: "Find alumni",
+    description: "Search and connect with alumni",
+    href: "/search",
+  },
+  {
+    id: "referrals",
+    title: "Careers",
+    description: "Find referrals and roles—or post an opening for alumni.",
+    href: "/intent/career",
+  },
+  {
+    id: "cities",
+    title: "Moving to a city",
+    description: "Get help with stay, jobs and more",
+    href: "/intent/location",
+  },
+  {
+    id: "collaborators",
+    title: "Find collaborators",
+    description: "Match with alumni building in your space.",
+    href: "/intent/build",
+  },
+];
+
+const HOME_MOCK_OPPORTUNITIES: HomeOpportunityItem[] = [
+  {
+    id: "mock-op-1",
+    personId: "mock-person-1",
+    fullName: "Mandeep Singh",
+    departmentCode: "MET",
+    batchYear: 2025,
+    postedRelative: "3d ago",
+    title: "Looking for referral at Razorpay (Backend)",
+    summary: "2 years experience in backend systems. Open to Bangalore or remote.",
+    chips: ["Backend", "Bangalore", "Full-time"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-2",
+    personId: "mock-person-2",
+    fullName: "Sneha Gupta",
+    departmentCode: "CSE",
+    batchYear: 2024,
+    postedRelative: "1d ago",
+    title: "Referral for Product Manager roles",
+    summary: "3 years in product management. Looking for PM roles in Bangalore.",
+    chips: ["Product", "Bangalore", "Full-time"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-3",
+    personId: "mock-person-3",
+    fullName: "Rohit Verma",
+    departmentCode: "EE",
+    batchYear: 2023,
+    postedRelative: "5h ago",
+    title: "Referral for Data Scientist roles",
+    summary: "2.5 years in ML and analytics. Open to Bangalore and Hyderabad.",
+    chips: ["Data Science", "ML", "Full-time"],
+    category: "hiring",
+  },
+  {
+    id: "mock-op-4",
+    personId: "mock-person-4",
+    fullName: "Ananya Das",
+    departmentCode: "CHE",
+    batchYear: 2022,
+    postedRelative: "8h ago",
+    title: "Moving to Mumbai next month",
+    summary: "Looking for locality tips near Lower Parel and trusted rental leads.",
+    chips: ["Mumbai", "Relocation", "Housing"],
+    category: "moving_cities",
+  },
+  {
+    id: "mock-op-5",
+    personId: "mock-person-5",
+    fullName: "Priya Kapoor",
+    departmentCode: "ECE",
+    batchYear: 2024,
+    postedRelative: "2d ago",
+    title: "Internship referrals at early-stage infra SaaS teams",
+    summary:
+      "Screened interns last summer — happy to shortlist resumes for infra / backend-heavy roles. Prefer teams with clear mentorship and Bangalore or hybrid.",
+    chips: ["Internships", "Backend", "Bangalore"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-6",
+    personId: "mock-person-6",
+    fullName: "Arjun Mehta",
+    departmentCode: "MME",
+    batchYear: 2023,
+    postedRelative: "just now",
+    title: "Offering 30-minute mentorship: ops → founder path",
+    summary:
+      "Recently closed a Series A logistics startup. Alumni can DM for a sanity check on GTM motions, investor updates, or first manufacturing hires.",
+    chips: ["Mentorship", "Founders", "Logistics"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-7",
+    personId: "mock-person-7",
+    fullName: "Fatima Siddiqui",
+    departmentCode: "PIE",
+    batchYear: 2025,
+    postedRelative: "yesterday",
+    title: "Hiring 2 grads — growth analytics (SQL + dashboards)",
+    summary:
+      "Product-led B2C team in Noida. Looking for IIT BHU folks comfortable with experimentation readouts and funnel instrumentation; pairing with seniors on first projects.",
+    chips: ["Full-time", "Noida", "Analytics"],
+    category: "hiring",
+  },
+  {
+    id: "mock-op-8",
+    personId: "mock-person-8",
+    fullName: "Karan Bose",
+    departmentCode: "CSE",
+    batchYear: 2025,
+    postedRelative: "4h ago",
+    title: "Referrals open for backend / platform interns (fintech)",
+    summary:
+      "On the campus committee this cycle. Happy to internally route strong systems folks to two partner teams prioritizing Postgres, queues, and on-call rotations.",
+    chips: ["Campus", "Intern", "Bangalore"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-9",
+    personId: "mock-person-9",
+    fullName: "Meera Jain",
+    departmentCode: "EE",
+    batchYear: 2023,
+    postedRelative: "yesterday",
+    title: "L4 backend referrals — payments reconciliation pod",
+    summary:
+      "We are doubling the reconciliations surface. Looking for IIT BHU alumni with ledgers, retries, and idempotent APIs. Remote-friendly with India payroll.",
+    chips: ["L4+", "Payments", "Remote"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-10",
+    personId: "mock-person-10",
+    fullName: "Neel Chauhan",
+    departmentCode: "MET",
+    batchYear: 2022,
+    postedRelative: "Mon",
+    title: "Industrial IoT referrals for hardware + firmware teams",
+    summary:
+      "Two roles blending plant telemetry and gateway firmware. Comfortable cross-posting resumes to fabs with safety-critical culture and partner OEMs.",
+    chips: ["IoT", "Firmware", "Chennai"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-11",
+    personId: "mock-person-11",
+    fullName: "Sana Rahman",
+    departmentCode: "CHE",
+    batchYear: 2021,
+    postedRelative: "Tue",
+    title: "Process engineer referrals — battery materials pilot plant",
+    summary:
+      "Pilot line scaling electrolyte dosing. Interested in alum with reaction engineering plus vendor qualification experience; hybrid near Pune.",
+    chips: ["ChemE", "Pune", "Hybrid"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-12",
+    personId: "mock-person-12",
+    fullName: "Ritwik Sen",
+    departmentCode: "CSE",
+    batchYear: 2020,
+    postedRelative: "Fri",
+    title: "Mock interview slots: ML systems design (4 slots / month)",
+    summary:
+      "Staff ML at marketplace ads. Offering dry-runs covering feature stores, eval harnesses, and on-call anecdotes. Prefer written problem brief beforehand.",
+    chips: ["Mock interview", "ML", "Ads"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-13",
+    personId: "mock-person-13",
+    fullName: "Dia Khanna",
+    departmentCode: "PIE",
+    batchYear: 2024,
+    postedRelative: "Sat",
+    title: "Resume + story workshop for pivots into PM",
+    summary:
+      "Recently shipped a 0→1 campus product. Hosting 45-minute critiques focused on narratives and metrics—not generic templates—for three folks per month.",
+    chips: ["Product", "Workshop"],
+    category: "referrals",
+  },
+  {
+    id: "mock-op-14",
+    personId: "mock-person-14",
+    fullName: "Nikhil Rao",
+    departmentCode: "MME",
+    batchYear: 2019,
+    postedRelative: "Thu",
+    title: "Hiring contract TPM — factory digitization rollout",
+    summary:
+      "Need TPM to sequence MES rollout across two plants. Strong stakeholder wrangling, Hindi/English, travel ~30%. Six-month contract with extension path.",
+    chips: ["TPM", "Contract", "Travel"],
+    category: "hiring",
+  },
+  {
+    id: "mock-op-15",
+    personId: "mock-person-15",
+    fullName: "Tara Nambiar",
+    departmentCode: "ECE",
+    batchYear: 2022,
+    postedRelative: "Wed",
+    title: "Hiring embedded intern — motor control lab",
+    summary:
+      "Lab builds dyno rigs for EV drivetrain partners. Looking for someone comfortable with C on MCUs, basic Simulink, and tidy bring-up logs.",
+    chips: ["Intern", "Embedded", "Pune"],
+    category: "hiring",
+  },
+  {
+    id: "mock-op-16",
+    personId: "mock-person-16",
+    fullName: "Isha Reddy",
+    departmentCode: "ARCH",
+    batchYear: 2023,
+    postedRelative: "next week",
+    title: "Moving to Singapore — housing & commute sanity check",
+    summary:
+      "Employer near One-North. Seeking honest notes on HDB vs condo tradeoffs, typical deposit timelines, and alumni roommates chats if anyone is nearby.",
+    chips: ["Singapore", "Housing", "Relocation"],
+    category: "moving_cities",
+  },
+  {
+    id: "mock-op-17",
+    personId: "mock-person-17",
+    fullName: "Vivek Anand",
+    departmentCode: "PHY",
+    batchYear: 2026,
+    postedRelative: "Today",
+    title: "Referrals for quantitative research trainee programs",
+    summary:
+      "Rotational program blends stochastic modeling plus execution tooling. Keen to uplift folks with olympiad math appetite and disciplined backtesting notebooks.",
+    chips: ["Finance", "Research", "Mumbai"],
+    category: "referrals",
+  },
+];
+
+const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
+  {
+    id: "mock-person-1",
+    fullName: "Mandeep Singh",
+    departmentCode: "MET",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2025,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Backend engineer building reliability systems.",
+    headlineRoleTitle: "Software Engineer",
+    headlineOrganizationName: "Razorpay",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-2",
+    fullName: "Sneha Gupta",
+    departmentCode: "CSE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2024,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Product manager focused on B2B workflow tools.",
+    headlineRoleTitle: "Product Manager",
+    headlineOrganizationName: "Atlassian",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-3",
+    fullName: "Rohit Verma",
+    departmentCode: "EE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2023,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Data scientist building recommendations at scale.",
+    headlineRoleTitle: "Data Scientist",
+    headlineOrganizationName: "Swiggy",
+    residenceCountry: "India",
+    residenceCity: "Hyderabad",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-4",
+    fullName: "Ananya Das",
+    departmentCode: "CHE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2022,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Consultant helping teams scale operations.",
+    headlineRoleTitle: "Consultant",
+    headlineOrganizationName: "Bain & Company",
+    residenceCountry: "India",
+    residenceCity: "Mumbai",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-5",
+    fullName: "Priya Kapoor",
+    departmentCode: "ECE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2024,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Backend engineer leaning into distributed systems.",
+    headlineRoleTitle: "Software Engineer",
+    headlineOrganizationName: "Thoughtspot",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-6",
+    fullName: "Arjun Mehta",
+    departmentCode: "MME",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2023,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Founder-operator focused on fulfilment infra.",
+    headlineRoleTitle: "Co-founder & COO",
+    headlineOrganizationName: "Northline Freight",
+    residenceCountry: "India",
+    residenceCity: "Gurugram",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-7",
+    fullName: "Fatima Siddiqui",
+    departmentCode: "PIE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2025,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Growth analyst shipping experiments weekly.",
+    headlineRoleTitle: "Growth Analyst",
+    headlineOrganizationName: "NovaCart",
+    residenceCountry: "India",
+    residenceCity: "Noida",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-8",
+    fullName: "Karan Bose",
+    departmentCode: "CSE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2025,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Campus placements volunteer and internship mentor.",
+    headlineRoleTitle: "Software Engineer Intern",
+    headlineOrganizationName: "Cred",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-9",
+    fullName: "Meera Jain",
+    departmentCode: "EE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2023,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Backend engineer in payments infra.",
+    headlineRoleTitle: "Senior Engineer",
+    headlineOrganizationName: "Stripe",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-10",
+    fullName: "Neel Chauhan",
+    departmentCode: "MET",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2022,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "IoT gateways and plant connectivity.",
+    headlineRoleTitle: "Staff Engineer",
+    headlineOrganizationName: "Forbes Marshall",
+    residenceCountry: "India",
+    residenceCity: "Chennai",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-11",
+    fullName: "Sana Rahman",
+    departmentCode: "CHE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2021,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Scale-up chemist for advanced materials.",
+    headlineRoleTitle: "Process Lead",
+    headlineOrganizationName: "Log9 Materials",
+    residenceCountry: "India",
+    residenceCity: "Pune",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-12",
+    fullName: "Ritwik Sen",
+    departmentCode: "CSE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2020,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Ads ML systems and ranking.",
+    headlineRoleTitle: "Staff ML Engineer",
+    headlineOrganizationName: "Meta",
+    residenceCountry: "India",
+    residenceCity: "Bengaluru",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-13",
+    fullName: "Dia Khanna",
+    departmentCode: "PIE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2024,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "PM for student-facing workflows.",
+    headlineRoleTitle: "Product Manager",
+    headlineOrganizationName: "LeapScholar",
+    residenceCountry: "India",
+    residenceCity: "Gurugram",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-14",
+    fullName: "Nikhil Rao",
+    departmentCode: "MME",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2019,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Digitization PM across metal processing units.",
+    headlineRoleTitle: "Technical Program Manager",
+    headlineOrganizationName: "ArcelorIndia",
+    residenceCountry: "India",
+    residenceCity: "Jamshedpur",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-15",
+    fullName: "Tara Nambiar",
+    departmentCode: "ECE",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2022,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Embedded systems for traction labs.",
+    headlineRoleTitle: "Hardware Engineer II",
+    headlineOrganizationName: "Ola Electric",
+    residenceCountry: "India",
+    residenceCity: "Pune",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-16",
+    fullName: "Isha Reddy",
+    departmentCode: "ARCH",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2023,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Designer relocating for research studio work.",
+    headlineRoleTitle: "Architectural Designer",
+    headlineOrganizationName: "WOHA",
+    residenceCountry: "Singapore",
+    residenceCity: "Singapore",
+    matchReasons: [],
+  },
+  {
+    id: "mock-person-17",
+    fullName: "Vivek Anand",
+    departmentCode: "PHY",
+    departmentName: null,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: 2026,
+    parsedJoiningYear: null,
+    degreeCode: "btech",
+    degreeName: "B.Tech",
+    bio: "Quantitative research intern pipeline.",
+    headlineRoleTitle: "Research Associate",
+    headlineOrganizationName: "Nomura",
+    residenceCountry: "India",
+    residenceCity: "Mumbai",
+    matchReasons: [],
+  },
+];
+
+function classifyOpportunityCategory(content: string): HomeOpportunityCategory {
+  const hay = content.toLowerCase();
+  if (/\b(referral|refer|resume)\b/.test(hay)) return "referrals";
+  if (/\b(move|moving|relocate|city|housing|accommodation)\b/.test(hay)) return "moving_cities";
+  if (/\b(help|guide|mentor|support)\b/.test(hay)) return "referrals";
+  return "hiring";
 }
 
-/** Residence city and country when present on the profile. */
-function batchmateLocationLine(row: SearchProfileView): string | null {
-  const city = row.residenceCity?.trim();
-  const country = row.residenceCountry?.trim();
-  if (city && country) return `${city}, ${country}`;
-  if (city) return city;
-  if (country) return country;
-  return null;
-}
-
-function DashboardStateMessage({
-  title,
-  description,
-  action
-}: {
+function normalizeOpportunityCard(content: string): {
   title: string;
-  description: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="home-dashboard__state-block" role="status" aria-live="polite">
-      <p className="home-dashboard__state-title">{title}</p>
-      <p className="home-dashboard__state-copy">{description}</p>
-      {action ? <div className="home-dashboard__state-action">{action}</div> : null}
-    </div>
-  );
+  summary: string;
+  chips: string[];
+  category: HomeOpportunityCategory;
+} {
+  const parsed = parseHiringBulletin(content);
+  const baseCategory = classifyOpportunityCategory(content);
+  if (!parsed) {
+    return {
+      title: content.slice(0, 72),
+      summary: content.slice(0, 160),
+      chips: [],
+      category: baseCategory,
+    };
+  }
+  const body = splitHiringDetailsForCard(parsed.description);
+  const chips = [parsed.title, parsed.locationLine, parsed.experienceLabel ?? ""].filter(Boolean);
+  return {
+    title: `${parsed.title} at ${parsed.company}`,
+    summary: body.roleSummary || parsed.description.slice(0, 160),
+    chips,
+    category: baseCategory,
+  };
 }
-
-/*
-function profileCompletionPercent(profile: MyProfileView, hasOccupation: boolean): number {
-  let n = 0;
-  if (profile.fullName?.trim()) n++;
-  if (profile.departmentCode ?? profile.parsedDepartmentCode) n++;
-  if (hasOccupation) n++;
-  if (profile.residenceCountry?.trim() || profile.residenceCity?.trim()) n++;
-  if (profile.onboardingCompletedAt) n++;
-  return Math.round((n / 5) * 100);
-}
-*/
 
 /**
  * Signed-in home (`/home`): hero, batch snapshot, bulletin.
@@ -79,15 +632,19 @@ function profileCompletionPercent(profile: MyProfileView, hasOccupation: boolean
  */
 export function Home() {
   const auth = useAuth();
+  const navigate = useNavigate();
+  const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
-  /** From AuthContext / shared session query — same payload ProfileGate uses (no duplicate /v1/me or /v1/me/profile). */
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
-
+  const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("referrals");
+  const useDevMocks =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("mockHome") === "1";
   const authenticated = auth.status === "authenticated";
-
   const profileBatchYear = profile?.batchYear ?? null;
   const profileDeptLower = (() => {
-    const dc = profile?.departmentCode ?? profile?.parsedDepartmentCode;
+    const dc = profile?.departmentCode;
     return dc ? dc.toLowerCase() : "";
   })();
   const batchSnapshotEnabled = Boolean(
@@ -106,14 +663,12 @@ export function Home() {
     },
     enabled: batchSnapshotEnabled,
   });
-
-  /*
-  const hasCurrentOccupation = useMemo(
-    () => (occQuery.data?.occupations ?? []).some((o) => o.isCurrent),
-    [occQuery.data]
-  );
-  const completion = profileCompletionPercent(profile, hasCurrentOccupation);
-  */
+  const opportunitiesQuery = useQuery({
+    queryKey: ["home", "opportunity-rail"],
+    queryFn: ({ signal }) =>
+      assertApiGet<IntentcastFeedResponse>("/v1/intentcasts?limit=30&offset=0", signal),
+    enabled: authenticated,
+  });
 
   const batchMeta = useMemo(() => {
     if (!batchQuery.data || !authPersonId) return null;
@@ -133,40 +688,71 @@ export function Home() {
       empty: others.length === 0,
     };
   }, [batchQuery.data, authPersonId]);
+  const batchDirectorySearchHref = "/search";
+  const opportunityItems = useMemo(() => {
+    const liveItems = (opportunitiesQuery.data?.intentcasts ?? []).map((item): HomeOpportunityItem => {
+      const normalized = normalizeOpportunityCard(item.content);
+      return {
+        id: item.id,
+        personId: item.authorPersonId,
+        fullName: item.authorFullName,
+        departmentCode: item.authorDepartmentCode,
+        batchYear: item.authorBatchYear ?? null,
+        postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
+        postedAtIso: item.createdAt ?? undefined,
+        title: normalized.title,
+        summary: normalized.summary,
+        chips: normalized.chips,
+        category: normalized.category,
+      };
+    });
+    if (useDevMocks) return HOME_MOCK_OPPORTUNITIES;
+    return liveItems;
+  }, [opportunitiesQuery.data, useDevMocks]);
+  const viewModel = useMemo(() => {
+    const displayedCountFor = (category: Exclude<HomeOpportunityCategory, "all">) =>
+      Math.min(
+        HOME_OPPORTUNITY_RAIL_PAGE_SIZE,
+        opportunityItems.filter((item) => item.category === category).length
+      );
 
-  /** Same filters as the home batch snapshot — directory opens scoped to this cohort. */
-  const batchDirectorySearchHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (profileBatchYear != null) params.set("batch", String(profileBatchYear));
-    if (profileDeptLower) params.set("dept", profileDeptLower);
-    const qs = params.toString();
-    return qs ? `/search?${qs}` : "/search";
-  }, [profileBatchYear, profileDeptLower]);
-
-  /** Match bulletin column height to the Your Batch card (ResizeObserver; no inner batch scroll). */
-  const batchSectionRef = useRef<HTMLElement>(null);
-  const [batchSectionHeightPx, setBatchSectionHeightPx] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const el = batchSectionRef.current;
-    if (!el) return;
-    const sync = () => {
-      const h = Math.round(el.getBoundingClientRect().height);
-      setBatchSectionHeightPx(Number.isFinite(h) && h > 0 ? h : null);
+    return {
+      activeCategory,
+      viewAllHref: `/intent/career?tab=${activeCategory}`,
+      categoryCounts: {
+        referrals: displayedCountFor("referrals"),
+        moving_cities: displayedCountFor("moving_cities"),
+        hiring: displayedCountFor("hiring"),
+      },
     };
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    window.addEventListener("resize", sync);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", sync);
-    };
-  }, []);
+  }, [activeCategory, opportunityItems]);
 
-  const feedRowStyle: CSSProperties | undefined =
-    batchSectionHeightPx != null
-      ? ({ "--home-batch-section-height": `${batchSectionHeightPx}px` } as CSSProperties)
-      : undefined;
+  const toolbarSubtitle = useMemo(() => {
+    const referralCount = opportunityItems.filter((item) => item.category === "referrals").length;
+    if (useDevMocks && referralCount > 0) {
+      return `${Math.min(referralCount, 99)} alumni match your next move today.`;
+    }
+    if (referralCount > 0) {
+      return `${Math.min(referralCount, 99)} referral opportunities surfaced for you recently.`;
+    }
+    if (batchMeta && !batchMeta.empty) {
+      return `${batchMeta.countLabel} alumni from your batch are on the network.`;
+    }
+    return "Explore careers, cities, and the directory.";
+  }, [batchMeta, opportunityItems, useDevMocks]);
+
+  const homeHeroActions = useMemo(
+    (): HomeQuickAction[] => [
+      ...QUICK_ACTIONS,
+      {
+        id: "bulletin",
+        title: "Share on bulletin",
+        description: "Guidance, mentorship, or collaboration",
+        onActivate: () => bulletinFlowRef.current?.open(),
+      },
+    ],
+    []
+  );
 
   if (!profile) {
     return (
@@ -191,236 +777,50 @@ export function Home() {
     profile,
     auth.status === "authenticated" ? auth.person.institutionalEmail : undefined
   );
-  const batchYear = profile.batchYear;
-  const deptCodeRaw = profile.departmentCode ?? profile.parsedDepartmentCode;
-  const deptCodeForTitle = (deptCodeRaw ?? "").toUpperCase();
-  /** Prefer API department name; fall back to uppercase code. */
-  const deptForBatchHeading =
-    profile.departmentName?.trim() ||
-    profile.parsedDepartmentName?.trim() ||
-    (deptCodeRaw ? deptCodeForTitle : "");
-  const hasBatchDept = batchYear != null && !!deptCodeRaw;
-  const batchTitle =
-    batchYear != null && deptForBatchHeading
-      ? `${deptForBatchHeading} ${batchYear}`
-      : batchYear != null
-        ? String(batchYear)
-        : "Your batch";
-
-  const displayName = profile.fullName?.trim() || firstName;
-  const needsContactNudge = !profile.residenceCountry?.trim() || !profile.mobilePhone?.trim();
-  /** Preview grid: two columns, up to 6 profiles (compact cards). */
-  const batchList = batchMeta?.members.slice(0, 6) ?? [];
+  const displayName = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim() || firstName;
+  const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
+  const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
+  const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => {
+    if (category === "moving_cities") {
+      navigate("/intent/location");
+      return;
+    }
+    setActiveCategory(category);
+  };
 
   return (
     <>
-      <Nav variant="home" avatarName={displayName} />
-      <div className="home-dashboard">
-        <section className="home-dashboard__hero" aria-labelledby="home-hero-heading">
-          <div className="home-dashboard__hero-watermark" aria-hidden>
-            IIT BHU
+      <PostBulletinFlow ref={bulletinFlowRef} />
+      <Nav
+        variant="home"
+        avatarName={displayName}
+        appToolbarLead={
+          <div className="nav-app-toolbar__welcome">
+            <p id="home-toolbar-welcome" className="nav-app-toolbar__welcome-title">
+              Welcome back, {firstName}
+            </p>
+            <p className="nav-app-toolbar__welcome-sub">{toolbarSubtitle}</p>
           </div>
-          <div className="home-dashboard__hero-inner">
-            <div className="home-dashboard__hero-left">
-              <h1 id="home-hero-heading" className="home-dashboard__hero-title">
-                Hi, {firstName}
-              </h1>
-              <div className="home-dashboard__hero-actions">
-                <Link to={batchDirectorySearchHref} className="home-dashboard__hero-primary-action">
-                  Explore alumni
-                </Link>
-              </div>
-            </div>
+        }
+      />
+      <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
+        <div className="home-ideal__container">
+          <HomeIntentHero actions={homeHeroActions} />
+          <HomeOpportunityRail
+            items={opportunityItems}
+            activeCategory={viewModel.activeCategory}
+            onCategoryChange={handleOpportunityCategoryChange}
+            viewAllHref={viewModel.viewAllHref}
+            categoryCounts={viewModel.categoryCounts}
+          />
+          <div className="home-ideal__bottom-panels">
+            <HomeNetworkPanel
+              members={batchList}
+              directoryHref={batchDirectorySearchHref}
+            />
+            <HomeCampusUpdatesPanel />
           </div>
-        </section>
-
-        <div className="home-dashboard__toolbar">
-          <ContactRequestsInbox />
-          {needsContactNudge ? (
-            <section className="home-dashboard__profile-nudge" aria-labelledby="home-profile-nudge-heading">
-              <h2 id="home-profile-nudge-heading" className="home-dashboard__profile-nudge-title">
-                Complete your profile
-              </h2>
-              <p className="home-dashboard__profile-nudge-copy">
-                Add your residence city/country and mobile number so alumni can connect with you faster.
-              </p>
-              <Link
-                to={`/profiles/${profile.id}?edit=contact`}
-                className="home-dashboard__text-link home-dashboard__text-link--caps"
-              >
-                Add contact details →
-              </Link>
-            </section>
-          ) : null}
-          {/*
-          Profile completion nudge — disabled until layout/copy is reworked.
-          <section
-            className={`home-dashboard__profile-card${completion >= 100 ? " home-dashboard__profile-card--done" : ""}`}
-            aria-labelledby="home-profile-card-heading"
-          >
-            <h2 id="home-profile-card-heading" className="home-dashboard__profile-card-title">
-              Profile · {completion}% complete
-            </h2>
-            <div className="progress-bar home-dashboard__profile-progress">
-              <div className="progress-bar__fill" style={{ width: `${completion}%` }} />
-            </div>
-            {!hasCurrentOccupation ? (
-              <p className="home-dashboard__profile-hint">
-                Add your current occupation to appear in more searches and get better matches.
-              </p>
-            ) : !profile.onboardingCompletedAt ? (
-              <p className="home-dashboard__profile-hint">
-                Finish onboarding (contact & links) to complete your profile.
-              </p>
-            ) : (
-              <p className="home-dashboard__profile-hint">Your profile looks strong. Keep it updated as you grow.</p>
-            )}
-            <Link to={`/profiles/${profile.id}`} className="home-dashboard__text-link home-dashboard__text-link--caps">
-              Complete profile →
-            </Link>
-          </section>
-          */}
         </div>
-
-        <div className="home-dashboard__main home-dashboard__main--feed-row" style={feedRowStyle}>
-          <div className="home-dashboard__col home-dashboard__col--wide home-dashboard__col--batch-secondary">
-            <section
-              ref={batchSectionRef}
-              className="home-dashboard__batch"
-              aria-labelledby="home-batch-heading"
-            >
-              <div className="home-dashboard__surface-panel">
-                <header
-                  className={`home-dashboard__surface-header${batchMeta && !batchMeta.empty ? " home-dashboard__surface-header--split" : ""}`}
-                >
-                  <div className="home-dashboard__surface-header-main">
-                    <h2 id="home-batch-heading" className="home-dashboard__surface-title">
-                      Your Batch
-                    </h2>
-                  </div>
-                  {batchMeta && !batchMeta.empty ? (
-                    <Link to={batchDirectorySearchHref} className="home-dashboard__text-link">
-                      See all →
-                    </Link>
-                  ) : null}
-                </header>
-                <div className="home-dashboard__batch-body">
-                  {hasBatchDept ? (
-                    auth.status !== "authenticated" ? (
-                      <DashboardStateMessage
-                        title="Session not available"
-                        description="Refresh and try again to see batchmates from your cohort."
-                        action={
-                          <Link to="/login" className="home-dashboard__text-link">
-                            Sign in again →
-                          </Link>
-                        }
-                      />
-                    ) : batchMeta && !batchMeta.empty ? (
-                      <>
-                        <p className="home-dashboard__batch-summary">
-                          <span className="home-dashboard__batch-summary-strong">{batchMeta.countLabel} batchmates</span> are
-                          here
-                        </p>
-                        <ul className="home-dashboard__batch-grid" role="list">
-                          {batchList.map((row) => {
-                            const roleLine = batchmateRoleLine(row);
-                            const locationLine = batchmateLocationLine(row);
-                            const isDemo = isDemoProfileBio(row.bio);
-                            return (
-                              <li key={row.id} className="home-dashboard__batch-item">
-                                <Link
-                                  to={`/profiles/${row.id}`}
-                                  className="home-dashboard__batch-card home-dashboard__batch-card--compact"
-                                >
-                                  <span className="home-dashboard__batch-card-avatar">
-                                    <Avatar
-                                      name={row.fullName}
-                                      size="sm"
-                                      tone="pastel"
-                                      departmentCode={row.departmentCode ?? row.parsedDepartmentCode}
-                                    />
-                                  </span>
-                                  <span className="home-dashboard__batch-card-body">
-                                    <span className="home-dashboard__batch-name">
-                                      {row.fullName}
-                                      {isDemo ? (
-                                        <span className="badge badge--hiring home-dashboard__demo-badge">Demo</span>
-                                      ) : null}
-                                    </span>
-                                    {roleLine ? (
-                                      <span className="home-dashboard__batch-meta">{roleLine}</span>
-                                    ) : null}
-                                    {locationLine ? (
-                                      <span className="home-dashboard__batch-location">{locationLine}</span>
-                                    ) : null}
-                                  </span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                        <div className="home-dashboard__batch-cta">
-                          <p className="home-dashboard__batch-cta-line">
-                            Your batch is just the beginning.{" "}
-                            <Link to="/search" className="home-dashboard__text-link">
-                              Search all alumni →
-                            </Link>
-                          </p>
-                        </div>
-                      </>
-                    ) : batchMeta?.empty ? (
-                      <div className="home-dashboard__batch-empty">
-                        <p className="home-dashboard__batch-empty-text">
-                          <span className="home-dashboard__batch-empty-cohort">{batchTitle}</span>
-                          <span className="home-dashboard__batch-empty-sub">
-                            Be the first to bring your batch here by inviting classmates to join the platform.
-                          </span>
-                        </p>
-                        <p className="home-dashboard__batch-empty-foot">
-                          Share IIT BHU Alumni with your cohort so your batch network can start growing here.{" "}
-                          <Link to="/search" className="home-dashboard__text-link">
-                            Explore existing alumni
-                          </Link>
-                          .
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="home-dashboard__batch-loading" aria-label="Loading batch snapshot">
-                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line home-dashboard__skeleton--line-lg" />
-                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line" />
-                        <span className="home-dashboard__skeleton home-dashboard__skeleton--line home-dashboard__skeleton--line-sm" />
-                        <span className="home-dashboard__skeleton home-dashboard__skeleton--card" />
-                        <span className="home-dashboard__skeleton home-dashboard__skeleton--card" />
-                      </div>
-                    )
-                  ) : (
-                    <DashboardStateMessage
-                      title="Add your cohort details"
-                      description="Set your batch year and department so we can surface your closest alumni circle."
-                      action={
-                        <Link
-                          to={`/profiles/${profile.id}?edit=education`}
-                          className="home-dashboard__text-link"
-                        >
-                          Update profile →
-                        </Link>
-                      }
-                    />
-                  )}
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <aside className="home-dashboard__col home-dashboard__col--side home-dashboard__col--feed-only home-dashboard__col--bulletin-primary">
-            <div className="home-dashboard__bulletin-grow">
-              <BulletinPanel feedReady caption="" hideComposeCta />
-            </div>
-          </aside>
-        </div>
-
-        <CampusMonthlyDigestSection />
       </div>
     </>
   );
