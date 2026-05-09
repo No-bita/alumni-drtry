@@ -1,8 +1,9 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#150F08;overflow:hidden;}
-.wrap{position:relative;width:100%;background:#150F08;}
+/* Match apps/web login hero background (#1a1412) for seamless iframe blend */
+body{background:#1a1412;overflow:hidden;}
+.wrap{position:relative;width:100%;background:#1a1412;}
 .header{
   position:absolute;top:0;left:0;right:0;z-index:20;
   padding:1.75rem 2.5rem;
@@ -70,6 +71,7 @@ const destinations = [
   { name:'Mumbai',        lat:19.0, lon:72.8 },
   { name:'Zurich',        lat:47.4, lon:8.5 },
 ];
+const FEATURED_DESTINATION_LABELS = new Set(['Bengaluru', 'San Francisco', 'London']);
 
 const VARANASI = { lat: 25.3, lon: 82.97 };
 
@@ -103,7 +105,7 @@ async function init() {
   function drawBase() {
     ctx.clearRect(0, 0, W_px, H_px);
 
-    ctx.fillStyle = '#150F08';
+    ctx.fillStyle = '#1a1412';
     ctx.fillRect(0, 0, W_px, H_px);
 
     ctx.beginPath();
@@ -294,11 +296,25 @@ async function init() {
     ctx.shadowBlur = 0;
   }
 
+  function drawDestLabel(name, x, y, alpha) {
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.font = '500 9px "DM Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = `rgba(232, 208, 144, ${Math.min(0.95, alpha)})`;
+    ctx.shadowColor = 'rgba(21, 15, 8, 0.85)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(name, x, y - 8);
+    ctx.restore();
+  }
+
   const origin = project(VARANASI.lat, VARANASI.lon);
   const destPts = destinations.map(d => ({
     ...d,
     ...project(d.lat, d.lon)
   }));
+  const featuredDestPts = destPts.filter((d) => FEATURED_DESTINATION_LABELS.has(d.name));
 
   const maxDelay = destPts.length > 1
     ? ((destPts.length - 1) / destPts.length) * 0.5
@@ -315,6 +331,9 @@ async function init() {
     drawOriginLabel(origin.x, origin.y);
     destPts.forEach((dest) => {
       drawDestDot(dest.x, dest.y, 1);
+    });
+    featuredDestPts.forEach((dest) => {
+      drawDestLabel(dest.name, dest.x, dest.y, 1);
     });
   }
 
@@ -349,6 +368,11 @@ async function init() {
       const delay = i / destPts.length * 0.5;
       const arcDone = Math.max(0, (progress - delay) / 0.6);
       drawDestDot(dest.x, dest.y, Math.min(arcDone * 2, 1));
+    });
+    featuredDestPts.forEach((dest, i) => {
+      const delay = i / destPts.length * 0.5;
+      const arcDone = Math.max(0, (progress - delay) / 0.6);
+      drawDestLabel(dest.name, dest.x, dest.y, Math.min(arcDone * 2, 1));
     });
 
     requestAnimationFrame(frame);

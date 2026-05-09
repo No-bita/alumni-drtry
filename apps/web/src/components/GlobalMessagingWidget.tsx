@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { assertApiGet } from "../lib/assertApiGet";
@@ -107,6 +107,8 @@ export function GlobalMessagingWidget() {
   /** Thread id for which `pendingReplyParent` applies; avoids syncing via effects when switching chats. */
   const [pendingReplyThreadId, setPendingReplyThreadId] = useState<string | null>(null);
   const [activeRequestPreview, setActiveRequestPreview] = useState<string | null>(null);
+  const threadComposerRef = useRef<HTMLTextAreaElement | null>(null);
+  const draftComposerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const effectivePendingReply =
     pendingReplyParent && pendingReplyThreadId && activeThreadId === pendingReplyThreadId
@@ -122,6 +124,23 @@ export function GlobalMessagingWidget() {
     setActiveRequestPreview(null);
     setMode("collapsed");
   }
+
+  function autosizeComposer(textarea: HTMLTextAreaElement | null) {
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    const maxHeight = 260;
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }
+
+  useLayoutEffect(() => {
+    autosizeComposer(threadComposerRef.current);
+  }, [threadComposer, mode, activeThreadId]);
+
+  useLayoutEffect(() => {
+    autosizeComposer(draftComposerRef.current);
+  }, [composerText, mode, composerDraft]);
 
   const hiddenOnRoutes = useMemo(() => {
     const p = location.pathname;
@@ -278,7 +297,6 @@ export function GlobalMessagingWidget() {
     }
     setComposerDraft(null);
     setComposerText("");
-    setActiveRequestPreview(null);
     void queryClient.invalidateQueries({ queryKey: queryKeys.connectionThreads.list() });
     setActiveThreadId(data.threadId);
     setThreadComposer("");
@@ -305,7 +323,6 @@ export function GlobalMessagingWidget() {
     }));
     setThreadComposer("");
     clearPendingReplyDraft();
-    setActiveRequestPreview(null);
     setThreadSending(true);
     setThreadError(null);
     const messagePayload: { body: string; replyToMessageId?: string } = { body: optimisticBody };
@@ -512,7 +529,6 @@ export function GlobalMessagingWidget() {
                   <span className="global-messaging-widget__person-text">
                     <span className="global-messaging-widget__name-row">
                       <span className="global-messaging-widget__name">{counterpartyName}</span>
-                      <span className="global-messaging-widget__row-time">{formatThreadCompactTime(thread.updatedAt)}</span>
                     </span>
                     <span className="global-messaging-widget__preview">
                       {thread.lastMessageAuthorPersonId === myPersonId ? "You: " : ""}
@@ -521,6 +537,7 @@ export function GlobalMessagingWidget() {
                   </span>
                 </span>
                 <span className="global-messaging-widget__row-meta">
+                  <span className="global-messaging-widget__row-time">{formatThreadCompactTime(thread.updatedAt)}</span>
                   {unread ? <span className="global-messaging-widget__unread">1</span> : null}
                 </span>
               </button>
@@ -681,13 +698,24 @@ export function GlobalMessagingWidget() {
                     <>
                       <div className="global-messaging-widget__day-chip">Today</div>
                       <div className="global-messaging-widget__thread-messages">
-                        {mergedThreadMessages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={`global-messaging-widget__thread-row${
-                              message.authorPersonId === myPersonId ? " global-messaging-widget__thread-row--mine" : ""
-                            }`}
-                          >
+                        {mergedThreadMessages.map((message, idx) => (
+                          <div key={message.id}>
+                            {!effectivePendingReply &&
+                            activeRequestPreview &&
+                            idx === Math.max(0, mergedThreadMessages.length - 1) ? (
+                              <div className="global-messaging-widget__reply-draft-banner global-messaging-widget__reply-draft-banner--preview">
+                                <div className="global-messaging-widget__reply-draft-banner-text">
+                                  <span className="global-messaging-widget__reply-draft-snippet">
+                                    {replySnippet(activeRequestPreview, 58)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null}
+                            <div
+                              className={`global-messaging-widget__thread-row${
+                                message.authorPersonId === myPersonId ? " global-messaging-widget__thread-row--mine" : ""
+                              }`}
+                            >
                             {message.authorPersonId === myPersonId ? null : <Avatar name={selectedName} size="sm" />}
                             <div className="global-messaging-widget__thread-bubble-wrap">
                               {editingMessageId === message.id ? (
@@ -784,6 +812,7 @@ export function GlobalMessagingWidget() {
                               </span>
                             </div>
                           </div>
+                          </div>
                         ))}
                       </div>
                       <div className="global-messaging-widget__thread-footer">
@@ -805,32 +834,17 @@ export function GlobalMessagingWidget() {
                             </button>
                           </div>
                         ) : null}
-                        {!effectivePendingReply && activeRequestPreview ? (
-                          <div className="global-messaging-widget__reply-draft-banner">
-                            <div className="global-messaging-widget__reply-draft-banner-text">
-                              <span className="global-messaging-widget__reply-draft-snippet">
-                                {replySnippet(activeRequestPreview)}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              className="global-messaging-widget__reply-draft-dismiss"
-                              aria-label="Hide request preview"
-                              onClick={() => setActiveRequestPreview(null)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : null}
                         <div className="global-messaging-widget__composer-bar">
                           <button type="button" className="global-messaging-widget__composer-aux" aria-label="Add attachment">
                             +
                           </button>
                           <textarea
+                            ref={threadComposerRef}
                             className="global-messaging-widget__composer-inline"
                             rows={2}
                             value={threadComposer}
                             onChange={(event) => setThreadComposer(event.target.value)}
+                            onInput={(event) => autosizeComposer(event.currentTarget)}
                             placeholder="Type a message..."
                             onKeyDown={(event) => {
                               if (event.key === "Enter" && !event.shiftKey) {
@@ -859,20 +873,12 @@ export function GlobalMessagingWidget() {
                   <div className="global-messaging-widget__composer-body-spacer" />
                   <div className="global-messaging-widget__composer-footer">
                     {activeRequestPreview ? (
-                      <div className="global-messaging-widget__reply-draft-banner">
+                      <div className="global-messaging-widget__reply-draft-banner global-messaging-widget__reply-draft-banner--preview">
                         <div className="global-messaging-widget__reply-draft-banner-text">
                           <span className="global-messaging-widget__reply-draft-snippet">
                             {replySnippet(activeRequestPreview)}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          className="global-messaging-widget__reply-draft-dismiss"
-                          aria-label="Hide request preview"
-                          onClick={() => setActiveRequestPreview(null)}
-                        >
-                          ×
-                        </button>
                       </div>
                     ) : null}
                     <div className="global-messaging-widget__composer-bar">
@@ -880,10 +886,12 @@ export function GlobalMessagingWidget() {
                         +
                       </button>
                       <textarea
+                        ref={draftComposerRef}
                         className="global-messaging-widget__composer-inline"
                         rows={2}
                         value={composerText}
                         onChange={(event) => setComposerText(event.target.value)}
+                        onInput={(event) => autosizeComposer(event.currentTarget)}
                         placeholder="Type a message..."
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {

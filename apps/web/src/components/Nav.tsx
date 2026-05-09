@@ -7,6 +7,7 @@ import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
 import { Avatar } from "./Avatar";
 import { avatarLabelFromEmail } from "../lib/emailDisplayName";
+import { demoDisplayFullName } from "../lib/demoProfile";
 import {
   IconBell,
   IconBriefcase,
@@ -94,7 +95,6 @@ type NavUserMenuProps = {
   profileId?: string;
   /** Hide restricted links until onboarding is complete. */
   onboardingCompleted: boolean;
-  notificationCount: number;
   onSignOut: () => void | Promise<void>;
 };
 
@@ -103,7 +103,6 @@ function NavUserMenu({
   variant,
   profileId,
   onboardingCompleted,
-  notificationCount,
   onSignOut,
 }: NavUserMenuProps) {
   const isHome = variant === "home";
@@ -130,54 +129,23 @@ function NavUserMenu({
     };
   }, []);
 
-  const badgeLabel =
-    notificationCount > 0 ? `${formatNotificationBadgeCount(notificationCount)} notifications` : undefined;
-
   return (
     <details ref={menuRef} className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}`}>
       <summary className="nav__user-menu-summary">
         <span className="nav__user-menu-summary-inner">
           <Avatar name={name} size="sm" tone={isHome ? "pastel" : "default"} />
-          {notificationCount > 0 ? (
-            <span className="nav__count-badge nav__count-badge--avatar" aria-hidden>
-              {formatNotificationBadgeCount(notificationCount)}
-            </span>
-          ) : null}
         </span>
-        <span className="visually-hidden">
-          Account menu
-          {notificationCount > 0 ? `, ${notificationCount} notifications` : ""}
-        </span>
+        <span className="visually-hidden">Account menu</span>
       </summary>
       <div className="nav__user-menu-panel">
-        {onboardingCompleted ? (
-          <>
-            <button
-              type="button"
-              className="nav__user-menu-link nav__user-menu-link--row"
-              aria-label={badgeLabel ? `Notifications, ${notificationCount} items` : "Notifications"}
-              onClick={() => {
-                closeMenu();
-                openNotificationsPanel();
-              }}
-            >
-              <span>Notifications</span>
-              {notificationCount > 0 ? (
-                <span className="nav__count-badge" aria-hidden>
-                  {formatNotificationBadgeCount(notificationCount)}
-                </span>
-              ) : null}
-            </button>
-            {profileId ? (
-              <Link
-                to={`/profiles/${profileId}`}
-                className="nav__user-menu-link nav__user-menu-link--primary"
-                onClick={closeMenu}
-              >
-                Complete Profile
-              </Link>
-            ) : null}
-          </>
+        {onboardingCompleted && profileId ? (
+          <Link
+            to={`/profiles/${profileId}`}
+            className="nav__user-menu-link nav__user-menu-link--primary"
+            onClick={closeMenu}
+          >
+            Complete Profile
+          </Link>
         ) : null}
         <button
           type="button"
@@ -224,7 +192,12 @@ export function Nav({
 
   const resolvedAvatarName =
     auth.status === "authenticated"
-      ? (avatarName?.trim() || avatarLabelFromEmail(auth.person.institutionalEmail))
+      ? (
+          demoDisplayFullName(auth.myProfile?.fullName).trim() ||
+          auth.myProfile?.fullName?.trim() ||
+          avatarName?.trim() ||
+          avatarLabelFromEmail(auth.person.institutionalEmail)
+        )
       : "";
 
   const myProfileId =
@@ -277,7 +250,6 @@ export function Nav({
           variant={navUserMenuVariant}
           profileId={myProfileId}
           onboardingCompleted={onboardingCompleted}
-          notificationCount={notificationCount}
           onSignOut={handleSignOut}
         />
         {extraRight}

@@ -6,6 +6,7 @@ import { isInstitutionalEmailAllowed, normalizeEmail, parseAllowedDomains } from
 import { parseInstitutionalIdentity } from "../lib/emailParser.js";
 import { AppError } from "../lib/errors.js";
 import { AuthChallengeRepo } from "../repos/authChallengeRepo.js";
+import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { BetaAllowedEmailRepo } from "../repos/betaAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
@@ -88,6 +89,7 @@ export class AuthService {
   private readonly authChallengeRepo: AuthChallengeRepo;
   private readonly sessionRepo: SessionRepo;
   private readonly betaAllowedEmailRepo: BetaAllowedEmailRepo;
+  private readonly adminAllowedEmailRepo: AdminAllowedEmailRepo;
 
   constructor(
     private readonly pool: Pool,
@@ -97,6 +99,20 @@ export class AuthService {
     this.authChallengeRepo = new AuthChallengeRepo(pool);
     this.sessionRepo = new SessionRepo(pool);
     this.betaAllowedEmailRepo = new BetaAllowedEmailRepo(pool);
+    this.adminAllowedEmailRepo = new AdminAllowedEmailRepo(pool);
+  }
+
+  private async maybePromoteToAdminByAllowlist(
+    personRepo: PersonRepo,
+    personId: string,
+    institutionalEmail: string,
+    currentRole: "alumni" | "admin" | "super_admin"
+  ): Promise<"alumni" | "admin" | "super_admin"> {
+    if (currentRole !== "alumni") return currentRole;
+    const allowed = await this.adminAllowedEmailRepo.isAllowed(institutionalEmail);
+    if (!allowed) return currentRole;
+    const updated = await personRepo.updateAdminFields(personId, { role: "admin" });
+    return updated?.role ?? "admin";
   }
 
   async startAuth(input: StartAuthInput): Promise<StartAuthResult> {
@@ -235,6 +251,12 @@ export class AuthService {
         joiningYear: parsedIdentity.joiningYear,
         isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
       });
+      person.role = await this.maybePromoteToAdminByAllowlist(
+        personRepo,
+        person.id,
+        parsedIdentity.normalizedEmail,
+        person.role
+      );
 
       await personRepo.incrementAppLoginCount(person.id);
 
@@ -314,6 +336,12 @@ export class AuthService {
         joiningYear: parsedIdentity.joiningYear,
         isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
       });
+      person.role = await this.maybePromoteToAdminByAllowlist(
+        personRepo,
+        person.id,
+        parsedIdentity.normalizedEmail,
+        person.role
+      );
 
       await personRepo.incrementAppLoginCount(person.id);
 
@@ -367,7 +395,11 @@ export class AuthService {
     }
 
     if (env.BETA_REQUIRE_ALLOWLIST) {
-      const allowed = await this.betaAllowedEmailRepo.isAllowed(institutionalEmail);
+      const [betaAllowed, adminAllowed] = await Promise.all([
+        this.betaAllowedEmailRepo.isAllowed(institutionalEmail),
+        this.adminAllowedEmailRepo.isAllowed(institutionalEmail)
+      ]);
+      const allowed = betaAllowed || adminAllowed;
       if (!allowed) {
         throw new AppError(403, "AUTH_BETA_NOT_ALLOWED", "Your email is not yet approved for this beta.");
       }
@@ -393,6 +425,12 @@ export class AuthService {
         joiningYear: parsedIdentity.joiningYear,
         isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
       });
+      person.role = await this.maybePromoteToAdminByAllowlist(
+        personRepo,
+        person.id,
+        parsedIdentity.normalizedEmail,
+        person.role
+      );
 
       await personRepo.incrementAppLoginCount(person.id);
 
@@ -485,6 +523,12 @@ export class AuthService {
         joiningYear: parsedIdentity.joiningYear,
         isTestUser: isTestInstitutionalEmail(parsedIdentity.normalizedEmail)
       });
+      person.role = await this.maybePromoteToAdminByAllowlist(
+        personRepo,
+        person.id,
+        parsedIdentity.normalizedEmail,
+        person.role
+      );
 
       await personRepo.incrementAppLoginCount(person.id);
 

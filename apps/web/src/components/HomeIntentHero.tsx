@@ -3,9 +3,10 @@ import { HomeQuickActionCards } from "./HomeQuickActions";
 
 type HomeIntentHeroProps = {
   actions: HomeQuickAction[];
+  nudgeActionId?: string;
 };
 
-export function HomeIntentHero({ actions }: HomeIntentHeroProps) {
+export function HomeIntentHero({ actions, nudgeActionId }: HomeIntentHeroProps) {
   return (
     <section className="home-ideal__intent-hero" aria-labelledby="home-intent-hero-heading">
       <div className="home-ideal__intent-hero-head">
@@ -14,7 +15,7 @@ export function HomeIntentHero({ actions }: HomeIntentHeroProps) {
           <strong className="home-ideal__intent-hero-accent">right now?</strong>
         </h1>
       </div>
-      <HomeQuickActionCards actions={actions} variant="intentHero" />
+      <HomeQuickActionCards actions={actions} variant="intentHero" nudgeActionId={nudgeActionId} />
     </section>
   );
 }

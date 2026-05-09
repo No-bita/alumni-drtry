@@ -41,15 +41,6 @@ import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../comp
 import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
 
-const HERO_CITY_MARKERS = [
-  { city: "Toronto", top: "16%", left: "26%" },
-  { city: "London", top: "20%", left: "60%" },
-  { city: "Dubai", top: "46%", left: "78%" },
-  { city: "New York", top: "54%", left: "30%" },
-  { city: "Bengaluru", top: "62%", left: "52%" },
-  { city: "Singapore", top: "72%", left: "84%" },
-] as const;
-
 const DEFAULT_CITY_PICK: TopCityPick = { city: "Bengaluru", country: "India" };
 
 const HIGHLIGHT_CREATE_REQUEST_QUERY = "highlightCreateRequest";
@@ -254,13 +245,11 @@ export function LocationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const auth = useAuth();
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
-  const activeRequestsScrollRef = useRef<HTMLUListElement | null>(null);
   const upcomingEventsScrollRef = useRef<HTMLUListElement | null>(null);
   const requestsPanelRef = useRef<HTMLElement | null>(null);
   const sideStackRef = useRef<HTMLElement | null>(null);
   const composerPanelRef = useRef<HTMLElement | null>(null);
   const autoOpenRequestTimerRef = useRef<number | null>(null);
-  const [isRequestsHovered, setIsRequestsHovered] = useState(false);
   const [isEventsHovered, setIsEventsHovered] = useState(false);
 
   const topCitiesQuery = useQuery({
@@ -339,6 +328,22 @@ export function LocationPage() {
   const filteredNeeds = useMemo(
     () => cityNeeds.filter((item) => (activeNeed === "all" ? true : item.type === activeNeed)),
     [cityNeeds, activeNeed]
+  );
+  const requestTabCounts = useMemo(
+    () =>
+      cityNeeds.reduce<Record<CityNeedItem["type"], number>>(
+        (acc, item) => {
+          acc[item.type] += 1;
+          return acc;
+        },
+        {
+          housing: 0,
+          accommodation: 0,
+          sports_activity: 0,
+          city_help: 0,
+        }
+      ),
+    [cityNeeds]
   );
 
   const cityEvents = useMemo(
@@ -452,7 +457,6 @@ export function LocationPage() {
   }
 
   const requestTabs = [
-    { id: "all" as const, label: "All" },
     { id: "housing" as const, label: "Housing" },
     {
       id: "accommodation" as const,
@@ -463,7 +467,7 @@ export function LocationPage() {
       label: "Activities",
     },
     { id: "city_help" as const, label: "General" },
-  ];
+  ] as const;
 
   function selectCity(next: TopCityPick) {
     const nextPath = cityIntentPath(next.city);
@@ -471,26 +475,6 @@ export function LocationPage() {
       navigate(nextPath);
     }
   }
-
-  useEffect(() => {
-    const container = activeRequestsScrollRef.current;
-    if (!container || isRequestsHovered) return;
-    if (container.scrollHeight <= container.clientHeight) return;
-
-    const step = 0.4;
-    const tickMs = 30;
-    const timer = window.setInterval(() => {
-      if (!container.isConnected) return;
-      const bottomGap = container.scrollHeight - container.clientHeight - container.scrollTop;
-      if (bottomGap <= 1) {
-        container.scrollTop = 0;
-        return;
-      }
-      container.scrollTop += step;
-    }, tickMs);
-
-    return () => window.clearInterval(timer);
-  }, [filteredNeeds.length, isRequestsHovered]);
 
   useEffect(() => {
     const container = upcomingEventsScrollRef.current;
@@ -676,21 +660,6 @@ export function LocationPage() {
         }
       />
       <main className="cities-v2 cities-redesign">
-        <section className="cities-redesign__top cities-redesign__top--solo-map">
-          <div className="cities-redesign__hero-map" aria-hidden>
-            <div className="cities-redesign__hero-map-bg" />
-            {HERO_CITY_MARKERS.map((marker) => (
-              <span
-                key={marker.city}
-                className="cities-redesign__hero-marker"
-                style={{ top: marker.top, left: marker.left }}
-              >
-                {marker.city}
-              </span>
-            ))}
-          </div>
-        </section>
-
         <section className="cities-v2__popular ds-surface-card" aria-label="Popular cities">
           <>
             <ul className="cities-v2__popular-strip cities-v2__popular-strip--fill" style={cityStripGridStyle}>
@@ -765,17 +734,24 @@ export function LocationPage() {
               <h2 className="cities-redesign__section-title">
                 Active requests
               </h2>
-              <Link to="/intent/cities" className="cities-redesign__link">View all →</Link>
             </header>
             <div className="cities-redesign__tabs">
               {requestTabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
+                  aria-pressed={activeNeed === tab.id}
                   className={`cities-redesign__tab${activeNeed === tab.id ? " is-active" : ""}`}
-                  onClick={() => setActiveNeed(tab.id)}
+                  onClick={() => setActiveNeed((prev) => (prev === tab.id ? "all" : tab.id))}
                 >
+                  <span className={`cities-redesign__tab-icon cities-redesign__tab-icon--${tab.id}`} aria-hidden>
+                    {tab.id === "housing" ? <IconCity /> : null}
+                    {tab.id === "accommodation" ? <IconCity /> : null}
+                    {tab.id === "sports_activity" ? <IconUsers /> : null}
+                    {tab.id === "city_help" ? <IconHelp /> : null}
+                  </span>
                   {tab.label}
+                  <span className="cities-redesign__tab-count">{requestTabCounts[tab.id]}</span>
                 </button>
               ))}
             </div>
@@ -786,11 +762,8 @@ export function LocationPage() {
                 </p>
               ) : (
                 <ul
-                  ref={activeRequestsScrollRef}
                   className="cities-redesign__request-list cities-redesign__auto-scroll-list cities-redesign__auto-scroll-list--requests"
                   role="list"
-                  onMouseEnter={() => setIsRequestsHovered(true)}
-                  onMouseLeave={() => setIsRequestsHovered(false)}
                 >
                   {filteredNeeds.map((need) => {
                     const titleShown = capLocationRequestText(need.title, LOCATION_REQUEST_TITLE_MAX_CHARS);
@@ -868,7 +841,6 @@ export function LocationPage() {
               <article className="cities-redesign__panel">
                 <header className="cities-redesign__panel-head">
                   <h3>Upcoming events</h3>
-                  <Link to="/events" className="cities-redesign__link">View All →</Link>
                 </header>
                 <div className="cities-redesign__events-feed">
                   {cityEvents.length === 0 ? (
@@ -915,7 +887,6 @@ export function LocationPage() {
             <article className="cities-redesign__panel">
               <header className="cities-redesign__panel-head">
                 <h3>People in {selected.city}</h3>
-                <Link to="/search" className="cities-redesign__link">View All →</Link>
               </header>
               <div className="cities-redesign__people-feed">
                 {!selected.country.trim() ? (
@@ -1041,10 +1012,6 @@ export function LocationPage() {
           </div>
         </section>
 
-        <section className="cities-redesign__safe">
-          <p>This is a safe space for alumni. Be respectful and follow community guidelines.</p>
-          <Link to="/terms">Learn more →</Link>
-        </section>
         {composerMode ? (
           <div className="cities-redesign__composer-overlay" role="presentation" onClick={closeComposer}>
             <section

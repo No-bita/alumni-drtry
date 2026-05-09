@@ -4,6 +4,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,6 +46,8 @@ import {
   splitBulletinPostBody,
   validateGeneralBulletinHeadlineDetails,
 } from "../lib/bulletinPostCardUtils";
+import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
+import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { BulletinPostCard } from "./BulletinPostCard";
 import { useBulletinComposeState } from "./useBulletinComposeState";
 import { useBulletinDialogController } from "./useBulletinDialogController";
@@ -288,17 +291,6 @@ function intentcastReplyDisplayName(r: IntentcastResponseItem): string {
   return r.responderFullName?.trim() || "Alumni";
 }
 
-/** One-line context for delete confirmation (hiring shape or raw body). */
-function intentcastDeleteSummaryText(ic: IntentcastFeedItem): string {
-  const parsed = parseHiringBulletin(ic.content);
-  if (parsed) {
-    return `${parsed.company} — ${parsed.title}`;
-  }
-  const t = ic.content.trim().replace(/\s+/g, " ");
-  if (!t) return "This post";
-  return t.length > 88 ? `${t.slice(0, 88)}…` : t;
-}
-
 function CareerOpportunityPosterRow({
   ic,
   composePreview,
@@ -539,7 +531,7 @@ function FeedList({
   if (status === "loading") {
     return (
       <div className="home-dashboard__bulletin-state" role="status" aria-live="polite">
-        <p className="home-dashboard__bulletin-state-title">Loading bulletin</p>
+        <p className="home-dashboard__bulletin-state-title">Loading active requests</p>
         <p className="home-dashboard__bulletin-state-copy">Pulling the latest updates from alumni…</p>
       </div>
     );
@@ -547,7 +539,7 @@ function FeedList({
   if (status === "error") {
     return (
       <div className="home-dashboard__bulletin-state home-dashboard__bulletin-state--error">
-        <p className="home-dashboard__bulletin-state-title">Couldn’t load bulletin</p>
+        <p className="home-dashboard__bulletin-state-title">Couldn’t load active requests</p>
         <p className="home-dashboard__bulletin-state-copy">{errorMessage ?? "Please retry in a moment."}</p>
         <button type="button" className="home-dashboard__bulletin-state-action" onClick={onRetry}>
           Retry
@@ -566,71 +558,12 @@ function FeedList({
   return <>{children}</>;
 }
 
-function DeleteDialog({
-  open,
-  deleteDialogRef,
-  submitting,
-  title,
-  summary,
-  onRequestClose,
-  onConfirm,
-}: {
-  open: boolean;
-  deleteDialogRef: React.RefObject<HTMLDivElement | null>;
-  submitting: boolean;
-  title: string;
-  summary: string | null;
-  onRequestClose: () => void;
-  onConfirm: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      className="home-dashboard__bulletin-delete-overlay"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onRequestClose();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bulletin-delete-dialog-title"
-        aria-describedby="bulletin-delete-dialog-desc"
-        className="home-dashboard__bulletin-delete-dialog"
-        ref={deleteDialogRef}
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id="bulletin-delete-dialog-title" className="home-dashboard__bulletin-delete-dialog-title">
-          {title}
-        </h2>
-        {summary ? <p className="home-dashboard__bulletin-delete-dialog-summary">{summary}</p> : null}
-        <p id="bulletin-delete-dialog-desc" className="home-dashboard__bulletin-delete-dialog-desc">
-          This removes the post from the bulletin for everyone. You’ll still see a private copy here (and any replies)
-          until the <strong>date on the card</strong>, when we permanently delete it. By default that date is{" "}
-          <strong>{BULLETIN_AUTHOR_DELETE_RETENTION_DAYS} days</strong> after removal—you can also <strong>undo</strong>{" "}
-          for {BULLETIN_AUTHOR_DELETE_UNDO_MINUTES} minutes.
-        </p>
-        <div className="home-dashboard__bulletin-delete-dialog-actions">
-          <Button type="button" variant="secondary" onClick={onRequestClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button type="button" variant="primary" onClick={onConfirm} disabled={submitting}>
-            {submitting ? "Removing…" : "Remove post"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>(
   function BulletinPanel(
     {
       feedReady,
       domIdPrefix = "home-bulletin",
-      title = "Bulletin",
+      title = "Active Requests",
       caption = "What fellow alums are sharing",
       className,
       showPanelHeader = true,
@@ -653,6 +586,12 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
     const personId = authPersonId;
     const panelRootRef = useRef<HTMLElement | null>(null);
+    const composePreviewSurfaceRef = useRef<HTMLDivElement | null>(null);
+    const morphTargetIntentcastIdRef = useRef<string | null>(null);
+    const morphSourceRectRef = useRef<DOMRect | null>(null);
+    const [morphPostedIntentcast, setMorphPostedIntentcast] = useState<IntentcastFeedItem | null>(null);
+    const [morphRects, setMorphRects] = useState<{ from: DOMRect; to: DOMRect } | null>(null);
+    const [morphPhase, setMorphPhase] = useState<"idle" | "compressing" | "expanding">("idle");
 
     const highlightIntentcastId = useMemo(
       () => bulletinHighlightIntentcastId(location.hash, domIdPrefix),
@@ -753,14 +692,27 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       effectiveCategoryFilter,
     ]);
 
+    const bulletinFeedAwaitingFirstPage =
+      feedInfinite.isPending ||
+      (feedInfinite.isFetching && feedFlat.length === 0 && !feedInfinite.isError);
+    const awaitingHighlightForEmptyFeed =
+      Boolean(
+        highlightIntentcastId &&
+          showFeed &&
+          feedEnabled &&
+          (highlightQuery.isPending || highlightQuery.isFetching) &&
+          feedFlat.length === 0 &&
+          !highlightQuery.isError
+      );
+
     const bulletinFeedStatus: "loading" | "ready" | "error" = !showFeed
       ? "ready"
       : !feedEnabled
         ? "loading"
-        : feedInfinite.isPending && !feedInfinite.data
-          ? "loading"
-          : feedInfinite.isError
-            ? "error"
+        : feedInfinite.isError
+          ? "error"
+          : bulletinFeedAwaitingFirstPage || awaitingHighlightForEmptyFeed
+            ? "loading"
             : "ready";
 
     const bulletinFeedError =
@@ -904,14 +856,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       onCloseCompose: () => setPostOpen(false),
       onCloseDelete: () => setDeleteConfirmIntentcastId(null),
     });
-
-    const deleteConfirmIntentcast = useMemo(
-      () =>
-        deleteConfirmIntentcastId
-          ? (intentcasts.find((ic) => ic.id === deleteConfirmIntentcastId) ?? null)
-          : null,
-      [intentcasts, deleteConfirmIntentcastId]
-    );
 
     const hasAuthorDeleteUndoCandidate = useMemo(
       () =>
@@ -1128,7 +1072,26 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         `/v1/intentcasts/${intentcastId}`
       );
       setDeleteSubmittingId(null);
+      const handleDeleteUiCleanup = () => {
+        setDeleteConfirmIntentcastId(null);
+        if (editIntentcastId === intentcastId) cancelIntentcastEdit();
+        if (respondTargetId === intentcastId) {
+          setRespondTargetId(null);
+          setRespondMessage("");
+          setRespondError(null);
+        }
+        if (archivedRepliesPostId === intentcastId) {
+          setArchivedRepliesPostId(null);
+        }
+      };
       if (error || !data?.intentcast) {
+        if (error?.code === "INTENTCAST_ALREADY_REMOVED") {
+          handleDeleteUiCleanup();
+          void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(intentcastId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.responses(intentcastId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
+          return;
+        }
         setBulletinDeleteError(error?.message ?? error?.code ?? "Could not remove post.");
         return;
       }
@@ -1137,16 +1100,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(intentcastId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.responses(intentcastId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
-      setDeleteConfirmIntentcastId(null);
-      if (editIntentcastId === intentcastId) cancelIntentcastEdit();
-      if (respondTargetId === intentcastId) {
-        setRespondTargetId(null);
-        setRespondMessage("");
-        setRespondError(null);
-      }
-      if (archivedRepliesPostId === intentcastId) {
-        setArchivedRepliesPostId(null);
-      }
+      handleDeleteUiCleanup();
     };
 
     const toggleArchivedReplies = (ic: IntentcastFeedItem) => {
@@ -1187,14 +1141,63 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       }
       const matchesFilter =
         effectiveCategoryFilter == null || posted.category === effectiveCategoryFilter;
+      const sourceRect = composePreviewSurfaceRef.current?.getBoundingClientRect() ?? null;
+      const shouldAnimatePublish = matchesFilter && sourceRect != null;
+
+      if (shouldAnimatePublish && sourceRect) {
+        morphSourceRectRef.current = sourceRect;
+        morphTargetIntentcastIdRef.current = posted.id;
+        setMorphPostedIntentcast(posted);
+        setMorphRects({ from: sourceRect, to: sourceRect });
+        setMorphPhase("compressing");
+      }
+
       if (matchesFilter) {
         prependFeedIntentcast(posted);
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(posted.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
       resetComposeFields();
-      setPostOpen(false);
+      if (shouldAnimatePublish) {
+        window.setTimeout(() => {
+          setPostOpen(false);
+        }, 180);
+      } else {
+        setPostOpen(false);
+      }
     };
+
+    useLayoutEffect(() => {
+      if (morphPhase !== "compressing") return;
+      const intentcastId = morphTargetIntentcastIdRef.current;
+      const fromRect = morphSourceRectRef.current;
+      if (!intentcastId || !fromRect) return;
+      if (postOpen) return;
+
+      const targetEl = document.getElementById(`${domIdPrefix}-${intentcastId}`);
+      if (!targetEl) {
+        window.setTimeout(() => setMorphPhase("compressing"), 50);
+        return;
+      }
+      const toRect = targetEl.getBoundingClientRect();
+      setMorphRects({ from: fromRect, to: fromRect });
+      setMorphPhase("expanding");
+      window.requestAnimationFrame(() => {
+        setMorphRects({ from: fromRect, to: toRect });
+      });
+    }, [domIdPrefix, intentcasts, morphPhase, postOpen]);
+
+    useEffect(() => {
+      if (morphPhase !== "expanding") return;
+      const t = window.setTimeout(() => {
+        setMorphPhase("idle");
+        setMorphRects(null);
+        setMorphPostedIntentcast(null);
+        morphTargetIntentcastIdRef.current = null;
+        morphSourceRectRef.current = null;
+      }, 460);
+      return () => window.clearTimeout(t);
+    }, [morphPhase]);
     useImperativeHandle(ref, () => ({
       openCompose: () => {
         openCompose();
@@ -1410,6 +1413,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                             className="home-dashboard__bulletin-hiring-preview-surface"
                             role="region"
                             aria-labelledby={`${domIdPrefix}-hiring-live-preview`}
+                            ref={composePreviewSurfaceRef}
                           >
                             <CareerOpportunityCardBody
                               ic={hiringPreviewIntentcast(hiringPreviewAuthor, hiringPreviewBody)}
@@ -1432,7 +1436,12 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                         Cancel
                       </Button>
                       <Button type="button" variant="primary" onClick={() => void handlePostIntentcast()} disabled={postSubmitting}>
-                        {postSubmitting ? "Posting…" : "Post"}
+                        {postSubmitting ? (
+                          <span className="home-dashboard__publish-loader">
+                            <span className="home-dashboard__publish-loader-dot" aria-hidden />
+                            Publishing…
+                          </span>
+                        ) : "Post"}
                       </Button>
                     </div>
         </div>
@@ -1502,14 +1511,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     Edit
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  className="home-dashboard__bulletin-delete"
-                  disabled={deleteSubmittingId === ic.id}
-                  onClick={() => setDeleteConfirmIntentcastId(ic.id)}
-                >
-                  Delete
-                </button>
               </div>
             ) : null}
           </div>
@@ -1517,6 +1518,15 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
 
       return (
         <li key={ic.id} id={`${domIdPrefix}-${ic.id}`} className={listItemClass}>
+          {!isEditing && isOwnPost && !authorRemoved ? (
+            <div className="bulletin-own-menu bulletin-own-menu--floated">
+              <BulletinOwnPostMenu
+                detachDropdown
+                onRequestDelete={() => setDeleteConfirmIntentcastId(ic.id)}
+                deleteDisabled={deleteSubmittingId === ic.id}
+              />
+            </div>
+          ) : null}
           {isEditing ? (
             <>
               <textarea
@@ -1795,30 +1805,20 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               )}
             </>
           )}
-          {isOwnPost && !isEditing && !authorRemoved && usesHiringCareerShell ? (
+          {isOwnPost && !isEditing && !authorRemoved && usesHiringCareerShell && canEdit ? (
             <div className="home-dashboard__bulletin-card-actions">
-              {canEdit ? (
-                <button
-                  type="button"
-                  className="home-dashboard__bulletin-edit"
-                  onClick={() => {
-                    setEditIntentcastId(ic.id);
-                    setEditContent(ic.content);
-                    setEditError(null);
-                    setRespondTargetId(null);
-                    setBulletinDeleteError(null);
-                  }}
-                >
-                  Edit
-                </button>
-              ) : null}
               <button
                 type="button"
-                className="home-dashboard__bulletin-delete"
-                disabled={deleteSubmittingId === ic.id}
-                onClick={() => setDeleteConfirmIntentcastId(ic.id)}
+                className="home-dashboard__bulletin-edit"
+                onClick={() => {
+                  setEditIntentcastId(ic.id);
+                  setEditContent(ic.content);
+                  setEditError(null);
+                  setRespondTargetId(null);
+                  setBulletinDeleteError(null);
+                }}
               >
-                Delete
+                Edit
               </button>
             </div>
           ) : null}
@@ -1930,7 +1930,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     <div
                       ref={bulletinScrollRef}
                       className={`home-dashboard__bulletin-scroll${feedDisableAutoScroll ? "" : " home-dashboard__bulletin-scroll--auto"}`}
-                      aria-label="Bulletin posts"
+                      aria-label="Active requests"
                       onPointerEnter={() => {
                         bulletinAutoScrollPauseRef.current.pointerInside = true;
                       }}
@@ -1989,22 +1989,39 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 ) : null}
               </div>
               {renderComposeForm()}
-              <DeleteDialog
+              <BulletinDeleteIntentcastDialog
                 open={Boolean(deleteConfirmIntentcastId)}
                 deleteDialogRef={deleteDialogRef}
                 submitting={deleteSubmittingId === deleteConfirmIntentcastId}
-                title={
-                  deleteConfirmIntentcast?.category === "hiring"
-                    ? "Remove this hiring post?"
-                    : "Remove this bulletin post?"
-                }
-                summary={deleteConfirmIntentcast ? intentcastDeleteSummaryText(deleteConfirmIntentcast) : null}
                 onRequestClose={() => setDeleteConfirmIntentcastId(null)}
                 onConfirm={() => {
                   if (!deleteConfirmIntentcastId) return;
                   void executeDeleteIntentcast(deleteConfirmIntentcastId);
                 }}
               />
+              {morphPostedIntentcast && morphRects ? (
+                <div
+                  aria-hidden
+                  className={`home-dashboard__publish-morph home-dashboard__publish-morph--${morphPhase}`}
+                  style={{
+                    left: morphRects.from.left,
+                    top: morphRects.from.top,
+                    width: morphRects.from.width,
+                    height: morphRects.from.height,
+                    transform:
+                      morphPhase === "compressing"
+                        ? "translate3d(0,0,0) scale(0.94)"
+                        : morphPhase === "expanding"
+                          ? `translate3d(${morphRects.to.left - morphRects.from.left}px, ${morphRects.to.top - morphRects.from.top}px, 0) scale(1)`
+                          : "translate3d(0,0,0) scale(1)",
+                  }}
+                >
+                  <CareerOpportunityCardBody
+                    ic={morphPostedIntentcast}
+                    parsed={parseHiringBulletin(morphPostedIntentcast.content)}
+                  />
+                </div>
+              ) : null}
             </section>
     );
   }

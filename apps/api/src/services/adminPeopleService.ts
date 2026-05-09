@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
+import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
 import { BetaAllowedEmailRepo } from "../repos/betaAllowedEmailRepo.js";
 import type { PersonRole, PersonRow } from "../repos/personRepo.js";
@@ -46,6 +47,16 @@ export interface BetaAllowedEmailView {
   updatedAt: Date;
 }
 
+export interface AdminAllowedEmailView {
+  id: string;
+  email: string;
+  status: "active" | "revoked";
+  notes: string | null;
+  addedByPersonId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 function toAdminView(row: PersonRow): AdminPersonView {
   return {
     id: row.id,
@@ -70,11 +81,13 @@ export class AdminPeopleService {
   private readonly personRepo: PersonRepo;
   private readonly sessionRepo: SessionRepo;
   private readonly betaAllowedEmailRepo: BetaAllowedEmailRepo;
+  private readonly adminAllowedEmailRepo: AdminAllowedEmailRepo;
 
   constructor(private readonly pool: Pool) {
     this.personRepo = new PersonRepo(pool);
     this.sessionRepo = new SessionRepo(pool);
     this.betaAllowedEmailRepo = new BetaAllowedEmailRepo(pool);
+    this.adminAllowedEmailRepo = new AdminAllowedEmailRepo(pool);
   }
 
   async getPerson(personId: string): Promise<AdminPersonView> {
@@ -168,6 +181,50 @@ export class AdminPeopleService {
     const row = await this.betaAllowedEmailRepo.revoke(normalized);
     if (!row) {
       throw new AppError(404, "BETA_ALLOWED_EMAIL_NOT_FOUND", "Allowed email not found.");
+    }
+    return {
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async listAdminAllowedEmails(): Promise<AdminAllowedEmailView[]> {
+    const rows = await this.adminAllowedEmailRepo.list();
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async addAdminAllowedEmail(email: string, actorPersonId: string, notes: string | null): Promise<AdminAllowedEmailView> {
+    const normalized = normalizeEmail(email);
+    const row = await this.adminAllowedEmailRepo.upsertActive(normalized, actorPersonId, notes);
+    return {
+      id: row.id,
+      email: row.email_normalized,
+      status: row.status,
+      notes: row.notes,
+      addedByPersonId: row.added_by_person_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async revokeAdminAllowedEmail(email: string): Promise<AdminAllowedEmailView> {
+    const normalized = normalizeEmail(email);
+    const row = await this.adminAllowedEmailRepo.revoke(normalized);
+    if (!row) {
+      throw new AppError(404, "ADMIN_ALLOWED_EMAIL_NOT_FOUND", "Admin allowed email not found.");
     }
     return {
       id: row.id,

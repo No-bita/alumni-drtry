@@ -4,6 +4,8 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
+import { Eyebrow } from "../components/Eyebrow";
+import { LandingWorldMap } from "../components/LandingWorldMap";
 import { api } from "../api/client";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
@@ -215,6 +217,47 @@ export function Login() {
     void completeLogin(undefined);
   }, [googleResume, completeLogin]);
 
+  const loginMarketingShell = (
+    <section className="auth-merged">
+      <div className="auth-merged__hero">
+        <div className="auth-merged__hero-copy">
+          <Eyebrow>IIT BHU Alumni Network</Eyebrow>
+          <h1 className="auth-merged__title">
+            <span className="auth-merged__title-nowrap">
+              Stay <span className="auth-merged__title-accent">connected.</span>
+            </span>
+          </h1>
+          <div className="auth-merged__stats" aria-label="Network highlights">
+            <div className="auth-merged__stat">
+              <span className="auth-merged__stat-value">412</span>
+              <span className="auth-merged__stat-label">alumni active this week</span>
+            </div>
+            <div className="auth-merged__stat">
+              <span className="auth-merged__stat-value">38</span>
+              <span className="auth-merged__stat-label">referrals completed recently</span>
+            </div>
+            <div className="auth-merged__stat">
+              <span className="auth-merged__stat-value">27</span>
+              <span className="auth-merged__stat-label">cities connected</span>
+            </div>
+            <div className="auth-merged__stat">
+              <span className="auth-merged__stat-value">8</span>
+              <span className="auth-merged__stat-label">new requests today</span>
+            </div>
+          </div>
+        </div>
+        <LandingWorldMap className="auth-merged__map" />
+        <blockquote className="auth-merged__quote">
+          <p>
+            Got a referral in 3 days through an alum I hadn’t spoken to in 10 years. That’s the power of this
+            network.
+          </p>
+          <cite>Arjun ’17, Product Manager</cite>
+        </blockquote>
+      </div>
+    </section>
+  );
+
   const handleOtpDigitChange = (index: number, value: string) => {
     const cleaned = value.replace(/\D/g, "");
     if (cleaned === "") {
@@ -350,255 +393,232 @@ export function Login() {
   }
 
   if (phase === "sent") {
-    return (
-      <>
-        <Nav hideSignInLink hideSignOut />
-        <div className="login-gate-sent">
-          {showSuccessVideo && prefersReduceMotion ? (
-            <span className="visually-hidden" role="status" aria-live="polite">
-              Signed in. Continuing…
-            </span>
-          ) : (
-            <>
-              <LankaGate phase="waiting" />
-              <p
-                className="eyebrow"
-                style={{
-                  marginBottom: 8,
-                  textTransform: "none",
-                  letterSpacing: "0.04em",
-                  lineHeight: 1.35,
-                }}
-              >
-                Lanka Bechyu! Lanka Bechyu! Lanka Bechyu
-              </p>
-              <h2 className="section-headline" style={{ marginBottom: 12 }}>
-                We&apos;ve sent you a code
-              </h2>
-              {passwordEnabledForEmail ? (
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => setSentAuthMethod("otp")}
-                    aria-pressed={sentAuthMethod === "otp"}
-                    style={{ opacity: sentAuthMethod === "otp" ? 1 : 0.75 }}
-                  >
-                    OTP
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => setSentAuthMethod("password")}
-                    aria-pressed={sentAuthMethod === "password"}
-                    style={{ opacity: sentAuthMethod === "password" ? 1 : 0.75 }}
-                  >
-                    Password
-                  </button>
+    const sentCard = (
+      <div className="auth-merged__card auth-merged__card--sent">
+        {showSuccessVideo && prefersReduceMotion ? (
+          <span className="visually-hidden" role="status" aria-live="polite">
+            Signed in. Continuing…
+          </span>
+        ) : (
+          <>
+            <LankaGate phase="waiting" />
+            <p className="auth-merged__code-kicker">Lanka Bechyu! Lanka Bechyu! Lanka Bechyu</p>
+            <h2 className="section-headline auth-merged__card-title">We&apos;ve sent you a code</h2>
+            <p className="auth-merged__card-subtitle">
+              Check your inbox for the one-time code. You can also open the magic link in the email.
+            </p>
+            {passwordEnabledForEmail ? (
+              <div className="auth-merged__toggle-row">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setSentAuthMethod("otp")}
+                  aria-pressed={sentAuthMethod === "otp"}
+                  style={{ opacity: sentAuthMethod === "otp" ? 1 : 0.75 }}
+                >
+                  OTP
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setSentAuthMethod("password")}
+                  aria-pressed={sentAuthMethod === "password"}
+                  style={{ opacity: sentAuthMethod === "password" ? 1 : 0.75 }}
+                >
+                  Password
+                </button>
+              </div>
+            ) : null}
+            {sentAuthMethod === "password" && passwordEnabledForEmail ? (
+              <form className="login-gate-sent__otp" onSubmit={handlePasswordSubmit}>
+                <label htmlFor="login-password-field">Password</label>
+                <Input
+                  id="login-password-field"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+                {passwordError ? (
+                  <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{passwordError}</p>
+                ) : null}
+                <Button type="submit" variant="primary" style={{ marginTop: 16, width: "100%" }} disabled={passwordSubmitting}>
+                  {passwordSubmitting ? "Checking…" : "Sign in"}
+                </Button>
+              </form>
+            ) : (
+              <form className="login-gate-sent__otp" onSubmit={handleOtpSubmit}>
+                <label htmlFor="login-otp-0">One-time code</label>
+                <div className="login-gate-sent__otp-cells" onPaste={handleOtpPaste} role="group" aria-label="One-time code">
+                  {otpDigits.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={(el) => {
+                        otpInputRefs.current[i] = el;
+                      }}
+                      id={i === 0 ? "login-otp-0" : undefined}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete={i === 0 ? "one-time-code" : "off"}
+                      maxLength={1}
+                      className="input login-gate-sent__otp-cell"
+                      value={digit}
+                      onChange={(e) => handleOtpDigitChange(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                      disabled={otpSubmitting}
+                      aria-invalid={!!otpError}
+                    />
+                  ))}
                 </div>
-              ) : null}
-              {sentAuthMethod === "password" && passwordEnabledForEmail ? (
-                <form className="login-gate-sent__otp" onSubmit={handlePasswordSubmit}>
-                  <label htmlFor="login-password-field">Password</label>
-                  <Input
-                    id="login-password-field"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                  />
-                  {passwordError ? (
-                    <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{passwordError}</p>
-                  ) : null}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    style={{ marginTop: 16, width: "100%" }}
-                    disabled={passwordSubmitting}
-                  >
-                    {passwordSubmitting ? "Checking…" : "Sign in"}
-                  </Button>
-                </form>
-              ) : (
-                <form className="login-gate-sent__otp" onSubmit={handleOtpSubmit}>
-                  <label htmlFor="login-otp-0">One-time code</label>
-                  <div
-                    className="login-gate-sent__otp-cells"
-                    onPaste={handleOtpPaste}
-                    role="group"
-                    aria-label="One-time code"
-                  >
-                    {otpDigits.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => {
-                          otpInputRefs.current[i] = el;
-                        }}
-                        id={i === 0 ? "login-otp-0" : undefined}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete={i === 0 ? "one-time-code" : "off"}
-                        maxLength={1}
-                        className="input login-gate-sent__otp-cell"
-                        value={digit}
-                        onChange={(e) => handleOtpDigitChange(i, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                        disabled={otpSubmitting}
-                        aria-invalid={!!otpError}
-                      />
-                    ))}
-                  </div>
-                  {otpError && (
-                    <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{otpError}</p>
-                  )}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    style={{ marginTop: 16, width: "100%" }}
-                    disabled={!challengeId || otpSubmitting}
-                  >
-                    {otpSubmitting ? "Checking…" : "enter"}
-                  </Button>
-                </form>
-              )}
-              <p className="small-note" style={{ marginTop: 20 }}>
-                You can still open the magic link in your inbox — either path signs you in.
-              </p>
-              <Button
-                variant="back"
-                onClick={() => {
-                  setPhase("form");
-                  setError(null);
-                  setChallengeId(null);
-                  loginCompleteRef.current = false;
-                  sessionPrefetchRef.current = null;
-                  setShowSuccessVideo(false);
-                  setOtpDigits(emptyOtpDigits());
-                  setOtpError(null);
-                  setPassword("");
-                  setPasswordError(null);
-                  setPasswordEnabledForEmail(false);
-                  setSentAuthMethod("otp");
-                }}
-                style={{ marginTop: 24 }}
-              >
-                Use a different email
-              </Button>
-            </>
-          )}
-        </div>
-      </>
+                {otpError && <p style={{ color: "var(--brick)", fontSize: 13, marginTop: 10 }}>{otpError}</p>}
+                <Button type="submit" variant="primary" style={{ marginTop: 16, width: "100%" }} disabled={!challengeId || otpSubmitting}>
+                  {otpSubmitting ? "Checking…" : "Enter code"}
+                </Button>
+              </form>
+            )}
+            <Button
+              variant="back"
+              onClick={() => {
+                setPhase("form");
+                setError(null);
+                setChallengeId(null);
+                loginCompleteRef.current = false;
+                sessionPrefetchRef.current = null;
+                setShowSuccessVideo(false);
+                setOtpDigits(emptyOtpDigits());
+                setOtpError(null);
+                setPassword("");
+                setPasswordError(null);
+                setPasswordEnabledForEmail(false);
+                setSentAuthMethod("otp");
+              }}
+              style={{ marginTop: 24 }}
+            >
+              Use a different email
+            </Button>
+          </>
+        )}
+      </div>
+    );
+    return (
+      <div className="auth-login-page">
+        <Nav hideSignInLink hideSignOut />
+        {loginMarketingShell}
+        <div className="auth-merged__card-mount">{sentCard}</div>
+      </div>
     );
   }
 
   if (phase === "sending") {
     return (
-      <>
+      <div className="auth-login-page">
         <Nav hideSignInLink hideSignOut />
-        <div
-          style={{
-            maxWidth: 420,
-            margin: "4rem auto",
-            padding: "0 var(--page-x)",
-          }}
-        >
-          <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
-            <div className="login-sending__spinner" aria-hidden />
-            <p className="login-sending__line">
-              {BETA_INVITE_AUTH_ENABLED ? "Signing you in…" : "Hang tight — we’re sending your sign-in link."}
-            </p>
+        {loginMarketingShell}
+        <div className="auth-merged__card-mount">
+          <div className="auth-merged__card">
+            <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
+              <div className="login-sending__spinner" aria-hidden />
+              <p className="login-sending__line">
+                {BETA_INVITE_AUTH_ENABLED ? "Signing you in…" : "Hang tight — we’re sending your sign-in link."}
+              </p>
+            </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (googleResume) {
     return (
-      <>
+      <div className="auth-login-page">
         <Nav hideSignInLink hideSignOut />
-        <div
-          style={{
-            maxWidth: 420,
-            margin: "4rem auto",
-            padding: "0 var(--page-x)",
-          }}
-        >
-          <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
-            <div className="login-sending__spinner" aria-hidden />
-            <p className="login-sending__line">Signing you in…</p>
+        {loginMarketingShell}
+        <div className="auth-merged__card-mount">
+          <div className="auth-merged__card">
+            <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
+              <div className="login-sending__spinner" aria-hidden />
+              <p className="login-sending__line">Signing you in…</p>
+            </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="auth-login-page">
       <Nav hideSignInLink hideSignOut />
-      <div
-        style={{
-          maxWidth: 420,
-          margin: "4rem auto",
-          padding: "0 var(--page-x)",
-        }}
-      >
-        <h2 className="section-headline" style={{ marginBottom: 16 }}>
-          {BETA_INVITE_AUTH_ENABLED ? "Beta sign in" : "Use your insti email ID to log in"}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <Input
-            type="email"
-            placeholder="you@iitbhu.ac.in"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (BETA_INVITE_AUTH_ENABLED) {
-                setBetaInviteStepUnlocked(false);
-                setInviteCode("");
-                setShowBetaWaitlistCta(false);
-              }
-            }}
-            required
-            autoComplete="email"
-            style={{ marginBottom: 16 }}
-          />
-          {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
+      {loginMarketingShell}
+      <div className="auth-merged__card-mount">
+        <div className="auth-merged__card">
+          <div className="auth-merged__card-heading">
+            <span className="auth-merged__card-icon" aria-hidden>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.65"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="2.25" y="5" width="19.5" height="14" rx="2.25" />
+                <path d="M3 7.5 12 13l9-5.5" />
+              </svg>
+            </span>
+            <h2 className="section-headline auth-merged__card-title">
+              {BETA_INVITE_AUTH_ENABLED ? "Beta sign in" : "Continue with your IIT BHU email"}
+            </h2>
+          </div>
+          <form onSubmit={handleSubmit}>
             <Input
-              type="password"
-              placeholder="Invite code"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
+              type="email"
+              placeholder="you@iitbhu.ac.in"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (BETA_INVITE_AUTH_ENABLED) {
+                  setBetaInviteStepUnlocked(false);
+                  setInviteCode("");
+                  setShowBetaWaitlistCta(false);
+                }
+              }}
               required
-              autoComplete="off"
+              autoComplete="email"
               style={{ marginBottom: 16 }}
             />
-          ) : null}
-          {error && (
-            <p style={{ color: "var(--brick)", fontSize: 13, marginBottom: 12 }}>
-              {error}
-            </p>
-          )}
-          {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
-            <p style={{ marginBottom: 12, fontSize: 13 }}>
-              Join beta waitlist:{" "}
-              <a href={BETA_FORM_LINK} target="_blank" rel="noreferrer">
-                fill this Google form
-              </a>
-              .
-            </p>
-          ) : null}
-          <Button type="submit" variant="primary" style={{ width: "100%" }}>
-            {BETA_INVITE_AUTH_ENABLED
-              ? betaInviteStepUnlocked
-                ? "Enter beta"
-                : "Continue"
-              : "Send magic link"}
-          </Button>
-        </form>
+            {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
+              <Input
+                type="password"
+                placeholder="Invite code"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                required
+                autoComplete="off"
+                style={{ marginBottom: 16 }}
+              />
+            ) : null}
+            {error && <p className="auth-merged__error">{error}</p>}
+            {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
+              <p className="auth-merged__waitlist">
+                Join beta waitlist:{" "}
+                <a href={BETA_FORM_LINK} target="_blank" rel="noreferrer">
+                  fill this Google form
+                </a>
+                .
+              </p>
+            ) : null}
+            <Button type="submit" variant="primary" style={{ width: "100%" }}>
+              {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
+            </Button>
+          </form>
+          <p className="auth-merged__footnote">Exclusive for IIT BHU alumni.</p>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,0 +1,23 @@
+{
+  "artifact": "claudemap",
+  "artifactVersion": "0.2.1",
+  "artifactRoot": "/Users/aaryanshah/.npm/_npx/706ea47e71616d11/node_modules/@quinnaho/claudemap/.npm-bundle/claudemap-codex",
+  "assistant": "codex",
+  "generatedAt": "2026-04-20T19:40:08.742Z",
+  "installedAt": "2026-04-26T19:46:52.924Z",
+  "managedPaths": [
+    ".agents/skills/codexmap-runtime",
+    ".codex/agents/claudemap-architect.toml",
+    ".codex/claudemap-install.json"
+  ],
+  "mode": "install",
+  "publicCommands": [
+    "setup-claudemap",
+    "open-claudemap",
+    "create-map",
+    "refresh",
+    "explain",
+    "show"
+  ],
+  "version": 2
+}

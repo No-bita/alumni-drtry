@@ -418,3 +418,47 @@ export type ProfileResponse = {
   occupations: OccupationView[];
   links: ProfileLinkView[];
 };
+
+/** GET /v1/admin/metrics */
+export type AdminMetricsResponse = {
+  metrics: {
+    totalPeople: number;
+    profileCompletedCount: number;
+    searchableCount: number;
+    searchVolume: number;
+    betaAuthFunnel: {
+      attempts: number;
+      successes: number;
+      failures: number;
+      rateLimited: number;
+      attempts24h: number;
+      successes24h: number;
+      failures24h: number;
+      rateLimited24h: number;
+    };
+    betaUsage: {
+      searchExecuted24h: number;
+      profileViewed24h: number;
+      profileClicked24h: number;
+      threadCreated24h: number;
+      threadMessageSent24h: number;
+      intentcastPosted24h: number;
+      intentcastResponded24h: number;
+    };
+  };
+};
+
+/** GET /v1/admin/allowed-admin-emails */
+export type AdminAllowedEmail = {
+  id: string;
+  email: string;
+  status: "active" | "revoked";
+  notes: string | null;
+  addedByPersonId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminAllowedEmailsResponse = {
+  emails: AdminAllowedEmail[];
+};

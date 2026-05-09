@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  type IntentcastFeedItem,
   type IntentcastFeedResponse,
   type MyProfileView,
   type SearchResult,
@@ -16,10 +17,11 @@ import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import {
   HomeOpportunityRail,
-  HOME_OPPORTUNITY_RAIL_PAGE_SIZE,
+  normalizeHomeOpportunityCategory,
   type HomeOpportunityCategory,
   type HomeOpportunityItem,
 } from "../components/HomeOpportunityRail";
+import { extractBulletinUiCategory, splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import { parseHiringBulletin, splitHiringDetailsForCard } from "../lib/parseHiringBulletin";
 import { HomeIntentHero } from "../components/HomeIntentHero";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
@@ -46,19 +48,19 @@ const QUICK_ACTIONS: HomeQuickActionLink[] = [
   {
     id: "referrals",
     title: "Careers",
-    description: "Find referrals and roles—or post an opening for alumni.",
+    description: "Referrals, Resumes or Mocks",
     href: "/intent/career",
   },
   {
     id: "cities",
-    title: "Moving to a city",
-    description: "Get help with stay, jobs and more",
+    title: "Relocation",
+    description: "Housing, Flatmates, or Sports",
     href: "/intent/location",
   },
   {
     id: "collaborators",
-    title: "Find collaborators",
-    description: "Match with alumni building in your space.",
+    title: "Startups",
+    description: "Cofounders, Fundraising or First users",
     href: "/intent/build",
   },
 ];
@@ -592,28 +594,33 @@ const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
   },
 ];
 
-function classifyOpportunityCategory(content: string): HomeOpportunityCategory {
-  const hay = content.toLowerCase();
-  if (/\b(referral|refer|resume)\b/.test(hay)) return "referrals";
-  if (/\b(move|moving|relocate|city|housing|accommodation)\b/.test(hay)) return "moving_cities";
-  if (/\b(help|guide|mentor|support)\b/.test(hay)) return "referrals";
-  return "hiring";
+function mapIntentcastCategoryToHomeCategory(category: IntentcastFeedItem["category"]): HomeOpportunityCategory {
+  if (category === "hiring") return "hiring";
+  if (category === "guidance") return "guidance";
+  if (category === "mentorship") return "careers";
+  return "startups";
 }
 
-function normalizeOpportunityCard(content: string): {
+function normalizeOpportunityCard(content: string, category: IntentcastFeedItem["category"]): {
   title: string;
   summary: string;
   chips: string[];
   category: HomeOpportunityCategory;
 } {
-  const parsed = parseHiringBulletin(content);
-  const baseCategory = classifyOpportunityCategory(content);
+  const mappedFromPrefix = extractBulletinUiCategory(content);
+  const sanitizedContent = stripBulletinUiCategory(content);
+  const mappedCategory = mappedFromPrefix ?? mapIntentcastCategoryToHomeCategory(category);
+  const parsed = parseHiringBulletin(sanitizedContent);
   if (!parsed) {
+    const relocationHint = /\b(move|moving|relocate|relocation|city|housing|accommodation)\b/i.test(sanitizedContent);
+    const { title: headline, summary: detail } = splitBulletinPostBody(sanitizedContent);
+    const titleLine = headline.slice(0, 72);
+    const detailLine = detail ? detail.trim().slice(0, 160) : "";
     return {
-      title: content.slice(0, 72),
-      summary: content.slice(0, 160),
+      title: titleLine,
+      summary: detailLine,
       chips: [],
-      category: baseCategory,
+      category: relocationHint ? "relocation" : mappedCategory,
     };
   }
   const body = splitHiringDetailsForCard(parsed.description);
@@ -622,7 +629,7 @@ function normalizeOpportunityCard(content: string): {
     title: `${parsed.title} at ${parsed.company}`,
     summary: body.roleSummary || parsed.description.slice(0, 160),
     chips,
-    category: baseCategory,
+    category: mappedCategory,
   };
 }
 
@@ -632,11 +639,11 @@ function normalizeOpportunityCard(content: string): {
  */
 export function Home() {
   const auth = useAuth();
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
-  const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("referrals");
+  const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("all");
   const useDevMocks =
     import.meta.env.DEV &&
     typeof window !== "undefined" &&
@@ -666,9 +673,18 @@ export function Home() {
   const opportunitiesQuery = useQuery({
     queryKey: ["home", "opportunity-rail"],
     queryFn: ({ signal }) =>
-      assertApiGet<IntentcastFeedResponse>("/v1/intentcasts?limit=30&offset=0", signal),
+      assertApiGet<IntentcastFeedResponse>(
+        "/v1/intentcasts?limit=30&offset=0&excludeAuthorSoftDeleted=true",
+        signal
+      ),
     enabled: authenticated,
   });
+
+  const opportunitiesFeedLoading =
+    authenticated &&
+    !useDevMocks &&
+    (opportunitiesQuery.isPending ||
+      (opportunitiesQuery.isFetching && (opportunitiesQuery.data?.intentcasts.length ?? 0) === 0));
 
   const batchMeta = useMemo(() => {
     if (!batchQuery.data || !authPersonId) return null;
@@ -691,7 +707,7 @@ export function Home() {
   const batchDirectorySearchHref = "/search";
   const opportunityItems = useMemo(() => {
     const liveItems = (opportunitiesQuery.data?.intentcasts ?? []).map((item): HomeOpportunityItem => {
-      const normalized = normalizeOpportunityCard(item.content);
+      const normalized = normalizeOpportunityCard(item.content, item.category);
       return {
         id: item.id,
         personId: item.authorPersonId,
@@ -710,30 +726,43 @@ export function Home() {
     return liveItems;
   }, [opportunitiesQuery.data, useDevMocks]);
   const viewModel = useMemo(() => {
-    const displayedCountFor = (category: Exclude<HomeOpportunityCategory, "all">) =>
-      Math.min(
-        HOME_OPPORTUNITY_RAIL_PAGE_SIZE,
-        opportunityItems.filter((item) => item.category === category).length
-      );
+    const totalCountFor = (category: Exclude<HomeOpportunityCategory, "all">) =>
+      opportunityItems.filter((item) => normalizeHomeOpportunityCategory(item.category) === category).length;
 
     return {
       activeCategory,
-      viewAllHref: `/intent/career?tab=${activeCategory}`,
       categoryCounts: {
-        referrals: displayedCountFor("referrals"),
-        moving_cities: displayedCountFor("moving_cities"),
-        hiring: displayedCountFor("hiring"),
+        careers: totalCountFor("careers"),
+        hiring: totalCountFor("hiring"),
+        relocation: totalCountFor("relocation"),
+        startups: totalCountFor("startups"),
+        guidance: totalCountFor("guidance"),
       },
     };
   }, [activeCategory, opportunityItems]);
+  const activeOpportunityCount =
+    viewModel.activeCategory === "all"
+      ? viewModel.categoryCounts.careers +
+        viewModel.categoryCounts.hiring +
+        viewModel.categoryCounts.relocation +
+        viewModel.categoryCounts.startups +
+        viewModel.categoryCounts.guidance
+      : viewModel.categoryCounts[viewModel.activeCategory];
+  const shouldNudgeShareOnBulletin = !opportunitiesFeedLoading && activeOpportunityCount === 0;
 
   const toolbarSubtitle = useMemo(() => {
-    const referralCount = opportunityItems.filter((item) => item.category === "referrals").length;
-    if (useDevMocks && referralCount > 0) {
-      return `${Math.min(referralCount, 99)} alumni match your next move today.`;
+    const activeRequestCount = opportunityItems.filter(
+      (item) =>
+        item.category === "careers" ||
+        item.category === "guidance" ||
+        item.category === "startups" ||
+        item.category === "relocation"
+    ).length;
+    if (useDevMocks && activeRequestCount > 0) {
+      return `${Math.min(activeRequestCount, 99)} active requests in your network right now.`;
     }
-    if (referralCount > 0) {
-      return `${Math.min(referralCount, 99)} referral opportunities surfaced for you recently.`;
+    if (activeRequestCount > 0) {
+      return `${Math.min(activeRequestCount, 99)} active requests surfaced for you recently.`;
     }
     if (batchMeta && !batchMeta.empty) {
       return `${batchMeta.countLabel} alumni from your batch are on the network.`;
@@ -780,17 +809,25 @@ export function Home() {
   const displayName = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim() || firstName;
   const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
   const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
-  const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => {
-    if (category === "moving_cities") {
-      navigate("/intent/location");
-      return;
-    }
-    setActiveCategory(category);
+  const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => setActiveCategory(category);
+  const handleBulletinPublishSuccess = (posted: IntentcastFeedItem) => {
+    queryClient.setQueryData<IntentcastFeedResponse>(["home", "opportunity-rail"], (prev) => {
+      if (!prev) return prev;
+      const withoutDup = prev.intentcasts.filter((item) => item.id !== posted.id);
+      return {
+        ...prev,
+        intentcasts: [posted, ...withoutDup].slice(0, 30),
+      };
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["home", "opportunity-rail"],
+      refetchType: "active",
+    });
   };
 
   return (
     <>
-      <PostBulletinFlow ref={bulletinFlowRef} />
+      <PostBulletinFlow ref={bulletinFlowRef} onPublishSuccess={handleBulletinPublishSuccess} />
       <Nav
         variant="home"
         avatarName={displayName}
@@ -805,13 +842,14 @@ export function Home() {
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
-          <HomeIntentHero actions={homeHeroActions} />
+          <HomeIntentHero actions={homeHeroActions} nudgeActionId={shouldNudgeShareOnBulletin ? "bulletin" : undefined} />
           <HomeOpportunityRail
             items={opportunityItems}
             activeCategory={viewModel.activeCategory}
             onCategoryChange={handleOpportunityCategoryChange}
-            viewAllHref={viewModel.viewAllHref}
             categoryCounts={viewModel.categoryCounts}
+            opportunitiesFeedLoading={opportunitiesFeedLoading}
+            viewerPersonId={authPersonId}
           />
           <div className="home-ideal__bottom-panels">
             <HomeNetworkPanel

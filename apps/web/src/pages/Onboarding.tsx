@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
-import { StepTabs } from "../components/StepTabs";
 import { Chip } from "../components/Chip";
 import {
   api,
@@ -28,21 +27,12 @@ import { CAMPUS_IMAGE } from "../constants/images";
 const JOIN_YEAR_MIN = 1960;
 const joinYearMax = () => new Date().getUTCFullYear() + 1;
 
-const STEPS = [
-  { id: 0, name: "Welcome" },
-  { id: 1, name: "Confirm details" },
-  { id: 2, name: "Occupation" },
-  { id: 3, name: "Intent" },
-];
-
-const ONBOARDING_STEP_COUNT = 3;
-
 type OnboardingIntent = "referrals" | "hire" | "build" | "mentor" | "explore";
 
 const ONBOARDING_INTENTS: { id: OnboardingIntent; label: string; hint: string }[] = [
   { id: "referrals", label: "Get referrals", hint: "Find alumni and reach out quickly." },
   { id: "hire", label: "Hire", hint: "Post open roles to the alumni network." },
-  { id: "build", label: "Build", hint: "Find collaborators for projects." },
+  { id: "build", label: "Startups", hint: "Find startup collaborators for projects." },
   { id: "mentor", label: "Mentor", hint: "Discover alumni and offer guidance." },
   { id: "explore", label: "Explore alumni", hint: "Browse the directory by cohort and context." },
 ];
@@ -68,6 +58,14 @@ type OccupationWritePayload = {
   organizationName: string | null;
   description: string | null;
 };
+
+type Step2Question =
+  | { id: "occupation"; label: string }
+  | { id: "followup"; label: string; field: keyof OccupationFollowUp }
+  | { id: "residenceCountry"; label: string }
+  | { id: "residenceCity"; label: string }
+  | { id: "mobileCountryCode"; label: string }
+  | { id: "mobilePhone"; label: string };
 
 const OCCUPATION_FOLLOW_UP_LABELS: Partial<Record<string, { title: string; fields: Array<keyof OccupationFollowUp> }>> =
   {
@@ -140,10 +138,26 @@ function buildOccupationWritePayload(code: string, detail: OccupationFollowUp | 
   };
 }
 
-function departmentLabel(code: string | null): string {
-  if (!code) return "—";
-  const d = DEPARTMENTS.find((x) => x.code === code);
-  return d?.label ?? code;
+function occupationFollowUpValidationError(code: string, detail: OccupationFollowUp | undefined): string | null {
+  const config = OCCUPATION_FOLLOW_UP_LABELS[code];
+  if (!config) return null;
+  const normalized = detail ?? emptyFollowUp();
+  if (config.fields.includes("company") && !normalized.company.trim()) {
+    return `Please add company for ${config.title.replace(" details", "").toLowerCase()}.`;
+  }
+  if (config.fields.includes("role") && !normalized.role.trim()) {
+    return `Please add role for ${config.title.replace(" details", "").toLowerCase()}.`;
+  }
+  if (config.fields.includes("university") && !normalized.university.trim()) {
+    return "Please add university for PhD / Research.";
+  }
+  if (config.fields.includes("industry") && !normalized.industry.trim()) {
+    return "Please add industry for your venture.";
+  }
+  if (config.fields.includes("other") && !normalized.other.trim()) {
+    return "Please add details for Other.";
+  }
+  return null;
 }
 
 function departmentInVocab(code: string | null): boolean {
@@ -157,9 +171,7 @@ export function Onboarding() {
   const authPerson = auth.status === "authenticated" ? auth.person : null;
   const authMyProfile = auth.status === "authenticated" ? auth.myProfile : undefined;
   const authMyProfileError = auth.status === "authenticated" ? auth.myProfileError : undefined;
-  const [searchParams] = useSearchParams();
-  const stepParam = searchParams.get("step");
-  const stepIndex = stepParam ? Math.min(3, Math.max(0, parseInt(stepParam, 10))) : 0;
+  const [stepIndex, setStepIndex] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [batchYear, setBatchYear] = useState<number | null>(null);
@@ -185,6 +197,41 @@ export function Onboarding() {
   const navigate = useNavigate();
   const [gate, setGate] = useState<"loading" | "allow" | "redirect">("loading");
   const [welcomeProfile, setWelcomeProfile] = useState<MyProfileView | null>(null);
+  const [stepRenderVersion, setStepRenderVersion] = useState(0);
+  const [step1QuestionIndex, setStep1QuestionIndex] = useState(0);
+  const [step2QuestionIndex, setStep2QuestionIndex] = useState(0);
+
+  const activeOccupationCode = useMemo(
+    () => [...selectedOccupationCodes][0] ?? null,
+    [selectedOccupationCodes]
+  );
+  const activeOccupationFollowUpConfig = activeOccupationCode
+    ? OCCUPATION_FOLLOW_UP_LABELS[activeOccupationCode]
+    : undefined;
+  const step1QuestionCount = 6;
+  const step2Questions = useMemo<Step2Question[]>(() => {
+    const questions: Step2Question[] = [{ id: "occupation", label: "What best describes your current role?" }];
+    if (activeOccupationFollowUpConfig) {
+      for (const field of activeOccupationFollowUpConfig.fields) {
+        const labelByField: Record<keyof OccupationFollowUp, string> = {
+          company: "Company",
+          role: "Role",
+          university: "University",
+          industry: "Industry",
+          other: "Please specify",
+        };
+        questions.push({ id: "followup", label: labelByField[field], field });
+      }
+    }
+    questions.push(
+      { id: "residenceCountry", label: "Current country of residence" },
+      { id: "residenceCity", label: "Current city of residence" },
+      { id: "mobileCountryCode", label: "Country code" },
+      { id: "mobilePhone", label: "Mobile number" }
+    );
+    return questions;
+  }, [activeOccupationFollowUpConfig]);
+  const step2CurrentQuestion = step2Questions[step2QuestionIndex];
 
   const occQuery = useQuery({
     queryKey: queryKeys.me.occupations(),
@@ -331,12 +378,23 @@ export function Onboarding() {
   const gradYear4 = joinYear + 4;
   const gradYear5 = joinYear + 5;
 
-  const showTabs = stepIndex > 0 && stepIndex < 4;
-
   const goTo = (step: number) => {
     setSaveError(null);
-    navigate(`/onboarding?step=${step}`);
+    setStepIndex((prev) => {
+      const next = Math.min(3, Math.max(0, step));
+      if (next !== prev) setStepRenderVersion((v) => v + 1);
+      return next;
+    });
   };
+
+  useEffect(() => {
+    if (stepIndex !== 1) setStep1QuestionIndex(0);
+    if (stepIndex !== 2) setStep2QuestionIndex(0);
+  }, [stepIndex]);
+
+  useEffect(() => {
+    setStep2QuestionIndex((prev) => Math.min(prev, Math.max(0, step2Questions.length - 1)));
+  }, [step2Questions.length]);
 
   const NULLABLE_PATCH_KEYS = new Set([
     "bio",
@@ -429,6 +487,57 @@ export function Onboarding() {
     goTo(2);
   };
 
+  const step1QuestionError = (questionIndex: number): string | null => {
+    switch (questionIndex) {
+      case 0:
+        return firstName.trim() ? null : "Please enter your first name.";
+      case 1:
+        return lastName.trim() ? null : "Please enter your last name.";
+      case 2:
+        return departmentCode ? null : "Please select your department.";
+      case 3:
+        return degreeCode ? null : "Please select your degree.";
+      case 4: {
+        const joinT = joinYearText.trim();
+        if (!joinT) return "Please enter your year of joining.";
+        const y = Number(joinT);
+        if (!Number.isInteger(y) || y < JOIN_YEAR_MIN || y > joinYearMax()) {
+          return "Please enter a valid year you joined.";
+        }
+        return null;
+      }
+      case 5:
+        return batchYear != null ? null : "Please select your graduation year.";
+      default:
+        return null;
+    }
+  };
+
+  const step2QuestionError = (question: Step2Question): string | null => {
+    if (question.id === "occupation") {
+      return selectedOccupationCodes.size > 0 ? null : "Please select your occupation type.";
+    }
+    if (question.id === "followup") {
+      const detail = occupationFollowUps[activeOccupationCode ?? ""] ?? emptyFollowUp();
+      const value = detail[question.field].trim();
+      if (!value) return `Please add ${question.label.toLowerCase()}.`;
+      return null;
+    }
+    if (question.id === "residenceCountry") {
+      return residenceCountry.trim() ? null : "Please enter your current country of residence.";
+    }
+    if (question.id === "residenceCity") {
+      return residenceCity.trim() ? null : "Please enter your current city of residence.";
+    }
+    if (question.id === "mobileCountryCode") {
+      return mobileCountryCode.trim() ? null : "Please enter your country code.";
+    }
+    const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
+    if (!compactPhone) return "Please enter your mobile number.";
+    if (compactPhone.length !== 10) return "Please enter a valid 10-digit mobile number.";
+    return null;
+  };
+
   const handleStep2Next = async () => {
     const nextResidenceCountry = residenceCountry.trim();
     const nextResidenceCity = residenceCity.trim();
@@ -459,31 +568,17 @@ export function Onboarding() {
       setSaveError("Please select your occupation type.");
       return;
     }
-
-    for (const code of selectedOccupationCodes) {
-      const config = OCCUPATION_FOLLOW_UP_LABELS[code];
-      if (!config) continue;
-      const detail = occupationFollowUps[code] ?? emptyFollowUp();
-      if (config.fields.includes("company") && !detail.company.trim()) {
-        setSaveError(`Please add company for ${config.title.replace(" details", "").toLowerCase()}.`);
-        return;
-      }
-      if (config.fields.includes("role") && !detail.role.trim()) {
-        setSaveError(`Please add role for ${config.title.replace(" details", "").toLowerCase()}.`);
-        return;
-      }
-      if (config.fields.includes("university") && !detail.university.trim()) {
-        setSaveError("Please add university for PhD / Research.");
-        return;
-      }
-      if (config.fields.includes("industry") && !detail.industry.trim()) {
-        setSaveError("Please add industry for your venture.");
-        return;
-      }
-      if (config.fields.includes("other") && !detail.other.trim()) {
-        setSaveError("Please add details for Other.");
-        return;
-      }
+    if (!activeOccupationCode) {
+      setSaveError("Please select your occupation type.");
+      return;
+    }
+    const followUpError = occupationFollowUpValidationError(
+      activeOccupationCode,
+      occupationFollowUps[activeOccupationCode]
+    );
+    if (followUpError) {
+      setSaveError(followUpError);
+      return;
     }
 
     const toCreate = [...selectedOccupationCodes].filter((code) => !existingOccupationCodes.has(code));
@@ -582,20 +677,16 @@ export function Onboarding() {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("onboarding.intent", selectedIntent);
     }
-
-    if (selectedIntent === "hire") {
-      navigate(`/intent/career?compose=1&${params.toString()}`, { replace: true });
-      return;
-    }
-    if (selectedIntent === "build") {
-      if (isDevHubPagesEnabled) {
-        navigate(`/intent/build?compose=1&${params.toString()}`, { replace: true });
-      } else {
-        navigate(`/home?${params.toString()}`, { replace: true });
-      }
-      return;
-    }
-    navigate(`/search?${params.toString()}`, { replace: true });
+    const query = params.toString();
+    const destination =
+      selectedIntent === "hire"
+        ? `/intent/career?compose=1&${query}`
+        : selectedIntent === "build"
+          ? isDevHubPagesEnabled
+            ? `/intent/build?compose=1&${query}`
+            : `/home?${query}`
+          : `/search?${query}`;
+    navigate(destination, { replace: true });
   };
 
   const toggleOccupation = (code: string) => {
@@ -638,6 +729,49 @@ export function Onboarding() {
     });
   };
 
+  const advanceStep1Question = () => {
+    const err = step1QuestionError(step1QuestionIndex);
+    if (err) {
+      setSaveError(err);
+      return;
+    }
+    setSaveError(null);
+    if (step1QuestionIndex < step1QuestionCount - 1) {
+      setStep1QuestionIndex((i) => i + 1);
+      return;
+    }
+    void handleStep1Next();
+  };
+
+  const advanceStep2Question = () => {
+    if (!step2CurrentQuestion) return;
+    const err = step2QuestionError(step2CurrentQuestion);
+    if (err) {
+      setSaveError(err);
+      return;
+    }
+    setSaveError(null);
+    if (step2QuestionIndex < step2Questions.length - 1) {
+      setStep2QuestionIndex((i) => i + 1);
+      return;
+    }
+    void handleStep2Next();
+  };
+
+  const handleStep1FieldEnter = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (saving) return;
+    advanceStep1Question();
+  };
+
+  const handleStep2FieldEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (saving) return;
+    advanceStep2Question();
+  };
+
   if (gate === "loading") {
     return (
       <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
@@ -652,485 +786,130 @@ export function Onboarding() {
     return <Navigate to="/home" replace />;
   }
 
-  if (stepIndex === 0) {
-    if (auth.status === "loading" && welcomeProfile) {
-      return (
-        <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-          <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-            Loading…
-          </p>
-        </div>
-      );
-    }
-    if (auth.status === "authenticated" && welcomeProfile) {
-      const email = welcomeProfile.institutionalEmail ?? auth.person.institutionalEmail;
-      return (
-        <OnboardingWelcome
-          profile={welcomeProfile}
-          email={email}
-          onBegin={() => navigate("/onboarding?step=1")}
-        />
-      );
-    }
+  if (auth.status === "authenticated" && welcomeProfile) {
     return (
-      <>
-        <Nav hideIntentNav />
-        <div
-          className="campus-panel"
-          style={{
-            minHeight: "calc(100vh - var(--nav-height))",
-            display: "flex",
-            alignItems: "flex-end",
-            ...({ "--campus-hero-image": `url("${CAMPUS_IMAGE}")` } as CSSProperties),
-          }}
-        >
-          <div className="campus-panel__content" style={{ paddingBottom: "4rem" }}>
-            <p className="eyebrow" style={{ marginBottom: 8 }}>
-              Welcome back
-            </p>
-            <h1 className="page-headline" style={{ color: "var(--cream)", marginBottom: 12 }}>
-              Complete your profile, <span className="italic-accent">we remember you</span>.
-            </h1>
-            <p style={{ color: "rgba(242,237,228,0.8)", marginBottom: 24 }}>
-              A few details help other alumni find and connect with you.
-            </p>
-            <Button variant="primary" onClick={() => navigate("/onboarding?step=1")}>
-              Get started
-            </Button>
+      <OnboardingWelcome
+        onBegin={() => goTo(1)}
+        showBeginButton={stepIndex === 0}
+      >
+        {stepIndex > 0 ? (
+          <div key={`onboarding-step-${stepIndex}-${stepRenderVersion}`} className="onboarding-flow__panel">
+            <div className="onboarding-welcome__inline-question">
+              {stepIndex === 1 ? (
+                <>
+                  <p className="onboarding-welcome__inline-progress">Question {step1QuestionIndex + 1} of {step1QuestionCount}</p>
+                  <p className="onboarding-welcome__inline-label">
+                    {step1QuestionIndex === 0 ? "First name *" : null}
+                    {step1QuestionIndex === 1 ? "Last name *" : null}
+                    {step1QuestionIndex === 2 ? "Department *" : null}
+                    {step1QuestionIndex === 3 ? "Degree *" : null}
+                    {step1QuestionIndex === 4 ? "Year you joined (first year of programme) *" : null}
+                    {step1QuestionIndex === 5 ? "Which year did you graduate? *" : null}
+                  </p>
+                  {step1QuestionIndex === 0 ? <input className="onboarding-welcome__inline-input" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
+                  {step1QuestionIndex === 1 ? <input className="onboarding-welcome__inline-input" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
+                  {step1QuestionIndex === 2 ? (
+                    <select ref={departmentSelectRef} className="onboarding-welcome__inline-select" value={departmentCode ?? ""} onChange={(e) => setDepartmentCode(e.target.value || null)} onKeyDown={handleStep1FieldEnter}>
+                      <option value="">Select department</option>
+                      {departmentCode && !departmentInVocab(departmentCode) ? <option value={departmentCode}>{parsedDeptLabel ?? departmentCode} (from email)</option> : null}
+                      {DEPARTMENTS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+                    </select>
+                  ) : null}
+                  {step1QuestionIndex === 3 ? (
+                    <select className="onboarding-welcome__inline-select" value={degreeCode ?? ""} onChange={(e) => setDegreeCode(e.target.value || null)} onKeyDown={handleStep1FieldEnter}>
+                      {DEGREES.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+                    </select>
+                  ) : null}
+                  {step1QuestionIndex === 4 ? <input className="onboarding-welcome__inline-input onboarding-welcome__inline-input--narrow" type="number" inputMode="numeric" min={JOIN_YEAR_MIN} max={joinYearMax()} step={1} value={joinYearText} onChange={(e) => onJoinYearTextChange(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
+                  {step1QuestionIndex === 5 ? (
+                    <div className="onboarding-welcome__inline-options">
+                      <button type="button" className={`onboarding-welcome__inline-option ${batchYear === gradYear4 ? "onboarding-welcome__inline-option--active" : ""}`} onClick={() => pickProgram(4)}>{gradYear4} (4-year)</button>
+                      <button type="button" className={`onboarding-welcome__inline-option ${batchYear === gradYear5 ? "onboarding-welcome__inline-option--active" : ""}`} onClick={() => pickProgram(5)}>{gradYear5} (5-year)</button>
+                    </div>
+                  ) : null}
+                  {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
+                  <div className="onboarding-welcome__inline-actions">
+                    <Button type="button" variant="back" onClick={() => { setSaveError(null); if (step1QuestionIndex > 0) { setStep1QuestionIndex((i) => i - 1); return; } goTo(0); }} disabled={saving}>Back</Button>
+                    <Button variant="primary" disabled={saving} onClick={advanceStep1Question}>{saving ? "Saving…" : step1QuestionIndex < step1QuestionCount - 1 ? "Next" : "Looks right →"}</Button>
+                  </div>
+                </>
+              ) : null}
+              {stepIndex === 2 ? (
+                <>
+                  <p className="onboarding-welcome__inline-progress">Question {step2QuestionIndex + 1} of {step2Questions.length}</p>
+                  <p className="onboarding-welcome__inline-label">
+                    {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role? *" : null}
+                    {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
+                    {step2CurrentQuestion?.id === "residenceCountry" ? "Current country of residence *" : null}
+                    {step2CurrentQuestion?.id === "residenceCity" ? "Current city of residence *" : null}
+                    {step2CurrentQuestion?.id === "mobileCountryCode" ? "Country code *" : null}
+                    {step2CurrentQuestion?.id === "mobilePhone" ? "Mobile number *" : null}
+                  </p>
+                  {step2CurrentQuestion?.id === "occupation" ? (
+                    <div className="onboarding-welcome__inline-options onboarding-welcome__inline-options--stack">
+                      {OCCUPATION_OPTIONS.map(({ label, code }) => <Chip key={code} active={selectedOccupationCodes.has(code)} onClick={() => toggleOccupation(code)}>{label}</Chip>)}
+                    </div>
+                  ) : null}
+                  {step2CurrentQuestion?.id === "followup" ? <input className="onboarding-welcome__inline-input" autoComplete={step2CurrentQuestion.field === "company" || step2CurrentQuestion.field === "university" ? "organization" : "off"} value={activeOccupationCode ? (occupationFollowUps[activeOccupationCode] ?? emptyFollowUp())[step2CurrentQuestion.field] : ""} onChange={(e) => { if (!activeOccupationCode) return; updateOccupationFollowUp(activeOccupationCode, step2CurrentQuestion.field, e.target.value); }} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "residenceCountry" ? <input className="onboarding-welcome__inline-input" autoComplete="country-name" value={residenceCountry} onChange={(e) => setResidenceCountry(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "residenceCity" ? <input className="onboarding-welcome__inline-input" autoComplete="address-level2" value={residenceCity} onChange={(e) => setResidenceCity(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "mobileCountryCode" ? <input className="onboarding-welcome__inline-input onboarding-welcome__inline-input--narrow" autoComplete="tel-country-code" inputMode="tel" value={mobileCountryCode} onChange={(e) => setMobileCountryCode(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "mobilePhone" ? <input className="onboarding-welcome__inline-input" autoComplete="tel-national" inputMode="tel" value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
+                  <div className="onboarding-welcome__inline-actions">
+                    <Button variant="back" onClick={() => { setSaveError(null); if (step2QuestionIndex > 0) { setStep2QuestionIndex((i) => i - 1); return; } goTo(1); }} disabled={saving}>Back</Button>
+                    <Button variant="primary" onClick={advanceStep2Question} disabled={saving}>{saving ? "Saving…" : step2QuestionIndex < step2Questions.length - 1 ? "Next" : "Continue"}</Button>
+                  </div>
+                </>
+              ) : null}
+              {stepIndex === 3 ? (
+                <>
+                  <p className="onboarding-welcome__inline-progress">Final question</p>
+                  <p className="onboarding-welcome__inline-label">What would you like to do? *</p>
+                  <div className="onboarding-welcome__inline-options onboarding-welcome__inline-options--intent">
+                    {ONBOARDING_INTENTS.map((intent) => <button key={intent.id} type="button" className={`onboarding-welcome__inline-option ${selectedIntent === intent.id ? "onboarding-welcome__inline-option--active" : ""}`} onClick={() => setSelectedIntent(intent.id)}>{intent.label}</button>)}
+                  </div>
+                  {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
+                  <div className="onboarding-welcome__inline-actions">
+                    <Button variant="back" onClick={() => goTo(2)} disabled={saving}>Back</Button>
+                    <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>{saving ? "Saving…" : "Continue"}</Button>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </>
+        ) : null}
+      </OnboardingWelcome>
     );
   }
 
   return (
     <>
       <Nav hideIntentNav />
-      {showTabs && (
-        <StepTabs
-          className="step-tabs--onboarding-gold"
-          steps={STEPS.slice(1, 4).map((s) => ({
-            id: s.id,
-            name: s.name,
-            done: s.id < stepIndex,
-          }))}
-          current={stepIndex}
-          onStepClick={goTo}
-        />
-      )}
-      {stepIndex === 1 ? (
-        <div className="onboarding-confirm">
-          <div className="onboarding-confirm__split">
-            <div className="onboarding-confirm__left onboarding-confirm__left--form">
-              <form
-                id="onboarding-step1-form"
-                className="onboarding-confirm__form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void handleStep1Next();
-                }}
-              >
-                <div className="onboarding-confirm__name-row">
-                  <div className="onboarding-confirm__field onboarding-confirm__field--inline">
-                    <label className="onboarding-confirm__label" htmlFor="onboarding-first">
-                      First name *
-                    </label>
-                    <input
-                      id="onboarding-first"
-                      name="firstName"
-                      className="onboarding-confirm__input"
-                      autoComplete="given-name"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </div>
-                  <div className="onboarding-confirm__field onboarding-confirm__field--inline">
-                    <label className="onboarding-confirm__label" htmlFor="onboarding-last">
-                      Last name *
-                    </label>
-                    <input
-                      id="onboarding-last"
-                      name="lastName"
-                      className="onboarding-confirm__input"
-                      autoComplete="family-name"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="onboarding-confirm__field">
-                  <span className="onboarding-confirm__label" id="onboarding-dept-label">
-                    Department *
-                  </span>
-                  {!departmentPickerOpen && departmentCode ? (
-                    <>
-                      <button
-                        type="button"
-                        className="onboarding-confirm__dept-summary"
-                        aria-label={`Department ${
-                          departmentInVocab(departmentCode)
-                            ? departmentLabel(departmentCode)
-                            : parsedDeptLabel ?? departmentLabel(departmentCode)
-                        }. Click to change.`}
-                        onClick={() => setDepartmentPickerOpen(true)}
-                      >
-                        <span className="onboarding-confirm__dept-summary-text">
-                          {departmentInVocab(departmentCode)
-                            ? departmentLabel(departmentCode)
-                            : parsedDeptLabel ?? departmentLabel(departmentCode)}
-                        </span>
-                        <span className="onboarding-confirm__dept-summary-action">Change</span>
-                      </button>
-                      {(parsedDeptLabel ?? departmentLabel(departmentCode)) && (
-                        <p className="onboarding-confirm__hint">
-                          <span aria-hidden>↳</span> From email: {parsedDeptLabel ?? departmentLabel(departmentCode)}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <select
-                        ref={departmentSelectRef}
-                        id="onboarding-dept"
-                        name="departmentCode"
-                        className="onboarding-confirm__select"
-                        value={departmentCode ?? ""}
-                        onChange={(e) => setDepartmentCode(e.target.value || null)}
-                        aria-labelledby="onboarding-dept-label"
-                      >
-                        <option value="">Select department</option>
-                        {departmentCode && !departmentInVocab(departmentCode) && (
-                          <option value={departmentCode}>
-                            {parsedDeptLabel ?? departmentCode} (from email)
-                          </option>
-                        )}
-                        {DEPARTMENTS.map((d) => (
-                          <option key={d.code} value={d.code}>
-                            {d.label}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="onboarding-confirm__hint">
-                        <span aria-hidden>↳</span> Choose the department that matches your programme.
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="onboarding-confirm__field">
-                  <label className="onboarding-confirm__label" htmlFor="onboarding-degree">
-                    Degree *
-                  </label>
-                  <select
-                    id="onboarding-degree"
-                    name="degreeCode"
-                    className="onboarding-confirm__select"
-                    value={degreeCode ?? ""}
-                    onChange={(e) => setDegreeCode(e.target.value || null)}
-                  >
-                    {DEGREES.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="onboarding-confirm__field">
-                  <label className="onboarding-confirm__label" htmlFor="onboarding-join-year">
-                    Year you joined (first year of programme) *
-                  </label>
-                  <input
-                    id="onboarding-join-year"
-                    name="joinYear"
-                    className="onboarding-confirm__input onboarding-confirm__input--narrow"
-                    type="number"
-                    inputMode="numeric"
-                    min={JOIN_YEAR_MIN}
-                    max={joinYearMax()}
-                    step={1}
-                    value={joinYearText}
-                    onChange={(e) => onJoinYearTextChange(e.target.value)}
-                  />
-                  <p className="onboarding-confirm__hint">
-                    <span aria-hidden>↳</span> Graduation choices below follow this year (+4 or +5).
-                  </p>
-                </div>
-                <div className="onboarding-confirm__field">
-                  <span className="onboarding-confirm__label" id="onboarding-grad-label">
-                    Which year did you graduate? *
-                  </span>
-                  <div
-                    className="onboarding-confirm__year-cards"
-                    role="group"
-                    aria-labelledby="onboarding-grad-label"
-                  >
-                    <button
-                      type="button"
-                      className={`onboarding-confirm__year-card ${
-                        batchYear === gradYear4 ? "onboarding-confirm__year-card--active" : ""
-                      }`}
-                      onClick={() => pickProgram(4)}
-                    >
-                      <span className="onboarding-confirm__year-num">{gradYear4}</span>
-                      <span className="onboarding-confirm__year-sub">4-year programme</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`onboarding-confirm__year-card ${
-                        batchYear === gradYear5 ? "onboarding-confirm__year-card--active" : ""
-                      }`}
-                      onClick={() => pickProgram(5)}
-                    >
-                      <span className="onboarding-confirm__year-num">{gradYear5}</span>
-                      <span className="onboarding-confirm__year-sub">5-year programme</span>
-                    </button>
-                  </div>
-                </div>
-                {saveError && (
-                  <p className="onboarding-confirm__error" role="alert">
-                    {saveError}
-                  </p>
-                )}
-              </form>
-            </div>
-            <aside className="onboarding-confirm__right onboarding-confirm__right--quote" aria-label="About this step">
-              <p className="onboarding-confirm__left-eyebrow">Confirm your details</p>
-              <h2 className="onboarding-confirm__left-headline">
-                We prefilled what we could from your email. Use the form to fix anything.
-              </h2>
-              <p className="onboarding-confirm__left-note">
-                Nothing is saved until you choose <strong>Looks right</strong>.
-              </p>
-            </aside>
-          </div>
-          <footer className="onboarding-confirm__footer">
-            <Button type="button" variant="back" onClick={() => goTo(0)} disabled={saving}>
-              Back
-            </Button>
-            <Button
-              type="submit"
-              form="onboarding-step1-form"
-              variant="primary"
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Looks right →"}
-            </Button>
-          </footer>
+      <div
+        className="campus-panel"
+        style={{
+          minHeight: "calc(100vh - var(--nav-height))",
+          display: "flex",
+          alignItems: "flex-end",
+          ...({ "--campus-hero-image": `url("${CAMPUS_IMAGE}")` } as CSSProperties),
+        }}
+      >
+        <div className="campus-panel__content" style={{ paddingBottom: "4rem" }}>
+          <p className="eyebrow" style={{ marginBottom: 8 }}>
+            Welcome back
+          </p>
+          <h1 className="page-headline" style={{ color: "var(--cream)", marginBottom: 12 }}>
+            Complete your profile, <span className="italic-accent">we remember you</span>.
+          </h1>
+          <p style={{ color: "rgba(242,237,228,0.8)", marginBottom: 24 }}>
+            A few details help other alumni find and connect with you.
+          </p>
+          <Button variant="primary" onClick={() => goTo(1)}>
+            Get started
+          </Button>
         </div>
-      ) : stepIndex === 2 ? (
-        <section className="onboarding-occupation" aria-labelledby="onboarding-occupation-heading">
-          <div className="onboarding-occupation__panel">
-            <p className="onboarding-occupation__step-label">Step 2 of {ONBOARDING_STEP_COUNT}</p>
-            <h2 id="onboarding-occupation-heading" className="onboarding-occupation__title">
-              Occupation type
-            </h2>
-            <p className="onboarding-occupation__sub">
-              What best describes your current role? Select one option. *
-            </p>
-            <div className="onboarding-occupation__chips" role="group" aria-label="Occupation choices">
-              {OCCUPATION_OPTIONS.map(({ label, code }) => (
-                <Chip key={code} active={selectedOccupationCodes.has(code)} onClick={() => toggleOccupation(code)}>
-                  {label}
-                </Chip>
-              ))}
-            </div>
-            {[...selectedOccupationCodes]
-              .filter((code) => OCCUPATION_FOLLOW_UP_LABELS[code])
-              .map((code) => {
-                const config = OCCUPATION_FOLLOW_UP_LABELS[code];
-                if (!config) return null;
-                const detail = occupationFollowUps[code] ?? emptyFollowUp();
-                return (
-                  <div
-                    key={`followup-${code}`}
-                    className="onboarding-occupation__contact-grid onboarding-occupation__contact-grid--conditional"
-                  >
-                    {config.fields.includes("company") && (
-                      <div className="onboarding-occupation__field">
-                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-company`}>
-                          Company *
-                        </label>
-                        <input
-                          id={`onboarding-${code}-company`}
-                          name={`${code}Company`}
-                          className="onboarding-occupation__input"
-                          autoComplete="organization"
-                          placeholder="Enter company name"
-                          value={detail.company}
-                          onChange={(e) => updateOccupationFollowUp(code, "company", e.target.value)}
-                        />
-                      </div>
-                    )}
-                    {config.fields.includes("role") && (
-                      <div className="onboarding-occupation__field">
-                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-role`}>
-                          Role *
-                        </label>
-                        <input
-                          id={`onboarding-${code}-role`}
-                          name={`${code}Role`}
-                          className="onboarding-occupation__input"
-                          placeholder="Enter your role"
-                          value={detail.role}
-                          onChange={(e) => updateOccupationFollowUp(code, "role", e.target.value)}
-                        />
-                      </div>
-                    )}
-                    {config.fields.includes("university") && (
-                      <div className="onboarding-occupation__field">
-                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-university`}>
-                          University *
-                        </label>
-                        <input
-                          id={`onboarding-${code}-university`}
-                          name={`${code}University`}
-                          className="onboarding-occupation__input"
-                          autoComplete="organization"
-                          placeholder="Enter university name"
-                          value={detail.university}
-                          onChange={(e) => updateOccupationFollowUp(code, "university", e.target.value)}
-                        />
-                      </div>
-                    )}
-                    {config.fields.includes("industry") && (
-                      <div className="onboarding-occupation__field">
-                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-industry`}>
-                          Industry *
-                        </label>
-                        <input
-                          id={`onboarding-${code}-industry`}
-                          name={`${code}Industry`}
-                          className="onboarding-occupation__input"
-                          placeholder="e.g., FinTech"
-                          value={detail.industry}
-                          onChange={(e) => updateOccupationFollowUp(code, "industry", e.target.value)}
-                        />
-                      </div>
-                    )}
-                    {config.fields.includes("other") && (
-                      <div className="onboarding-occupation__field">
-                        <label className="onboarding-occupation__label" htmlFor={`onboarding-${code}-other`}>
-                          Please specify *
-                        </label>
-                        <input
-                          id={`onboarding-${code}-other`}
-                          name={`${code}Other`}
-                          className="onboarding-occupation__input"
-                          placeholder="Tell us your current role"
-                          value={detail.other}
-                          onChange={(e) => updateOccupationFollowUp(code, "other", e.target.value)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            <div className="onboarding-occupation__contact-grid">
-              <div className="onboarding-occupation__field">
-                <label className="onboarding-occupation__label" htmlFor="onboarding-residence-country">
-                  Current country of residence *
-                </label>
-                <input
-                  id="onboarding-residence-country"
-                  name="residenceCountry"
-                  className="onboarding-occupation__input"
-                  autoComplete="country-name"
-                  placeholder="e.g., India"
-                  value={residenceCountry}
-                  onChange={(e) => setResidenceCountry(e.target.value)}
-                />
-              </div>
-              {residenceCountry.trim() && (
-                <div className="onboarding-occupation__field">
-                  <label className="onboarding-occupation__label" htmlFor="onboarding-residence-city">
-                    Current city of residence *
-                  </label>
-                  <input
-                    id="onboarding-residence-city"
-                    name="residenceCity"
-                    className="onboarding-occupation__input"
-                    autoComplete="address-level2"
-                    placeholder="e.g., Dubai"
-                    value={residenceCity}
-                    onChange={(e) => setResidenceCity(e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="onboarding-occupation__field onboarding-occupation__field--full">
-                <label className="onboarding-occupation__label" htmlFor="onboarding-mobile-phone">
-                  Mobile number *
-                </label>
-                <div className="onboarding-occupation__mobile-row">
-                  <label className="visually-hidden" htmlFor="onboarding-mobile-country-code">
-                    Country code
-                  </label>
-                  <input
-                    id="onboarding-mobile-country-code"
-                    name="mobileCountryCode"
-                    className="onboarding-occupation__input onboarding-occupation__input--country-code"
-                    autoComplete="tel-country-code"
-                    inputMode="tel"
-                    placeholder="+91"
-                    value={mobileCountryCode}
-                    onChange={(e) => setMobileCountryCode(e.target.value)}
-                  />
-                  <input
-                    id="onboarding-mobile-phone"
-                    name="mobilePhone"
-                    className="onboarding-occupation__input"
-                    autoComplete="tel-national"
-                    inputMode="tel"
-                    placeholder="e.g., 98765 43210"
-                    value={mobilePhone}
-                    onChange={(e) => setMobilePhone(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            {saveError && <p className="onboarding-occupation__error">{saveError}</p>}
-            <div className="onboarding-occupation__footer">
-              <Button variant="back" onClick={() => goTo(1)} disabled={saving}>
-                Back
-              </Button>
-              <Button variant="primary" onClick={() => void handleStep2Next()} disabled={saving}>
-                {saving ? "Saving…" : "Next"}
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="onboarding-occupation" aria-labelledby="onboarding-intent-heading">
-          <div className="onboarding-occupation__panel">
-            <p className="onboarding-occupation__step-label">Step 3 of {ONBOARDING_STEP_COUNT}</p>
-            <h2 id="onboarding-intent-heading" className="onboarding-occupation__title">
-              What would you like to do? *
-            </h2>
-            <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
-              {ONBOARDING_INTENTS.map((intent) => (
-                <button
-                  key={intent.id}
-                  type="button"
-                  className={`onboarding-intent-card${
-                    selectedIntent === intent.id ? " onboarding-intent-card--active" : ""
-                  }`}
-                  onClick={() => setSelectedIntent(intent.id)}
-                >
-                  <span className="onboarding-intent-card__label">{intent.label}</span>
-                  <span className="onboarding-intent-card__hint">{intent.hint}</span>
-                </button>
-              ))}
-            </div>
-            {saveError && <p className="onboarding-occupation__error">{saveError}</p>}
-            <div className="onboarding-occupation__footer">
-              <Button variant="back" onClick={() => goTo(2)} disabled={saving}>
-                Back
-              </Button>
-              <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>
-                {saving ? "Saving…" : "Continue"}
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
+      </div>
     </>
   );
 }

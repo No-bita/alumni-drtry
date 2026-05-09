@@ -9,6 +9,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { PageStateBlock } from "../components/PageStateBlock";
 import {
+  type AdminAllowedEmailsResponse,
+  type AdminMetricsResponse,
   api,
   type CreateConnectionThreadResponse,
   type MeLinksResponse,
@@ -84,10 +86,15 @@ export function Profile() {
   const [saving, setSaving] = useState(false);
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [adminEmailDraft, setAdminEmailDraft] = useState("");
+  const [adminNotesDraft, setAdminNotesDraft] = useState("");
+  const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
+  const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
   const editLinksHydratedRef = useRef(false);
 
   const isOwnProfile =
     auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
+  const isAdminViewer = auth.status === "authenticated" && auth.person.role !== "alumni";
 
   const profileQuery = useQuery({
     queryKey: queryKeys.profiles.detail(id ?? ""),
@@ -103,6 +110,32 @@ export function Profile() {
     queryKey: queryKeys.me.links(),
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
     enabled: Boolean(isOwnProfile && isEditing),
+  });
+
+  const adminMetricsQuery = useQuery({
+    queryKey: ["admin-metrics", "profile-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await api.get<AdminMetricsResponse>("/v1/admin/metrics");
+      if (error || !data) {
+        throw new Error(error?.message ?? error?.code ?? "Could not load admin metrics.");
+      }
+      return data.metrics;
+    },
+    enabled: Boolean(isOwnProfile && isAdminViewer),
+    staleTime: 60_000,
+  });
+
+  const adminAllowedEmailsQuery = useQuery({
+    queryKey: ["admin-allowed-emails", "profile-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await api.get<AdminAllowedEmailsResponse>("/v1/admin/allowed-admin-emails");
+      if (error || !data) {
+        throw new Error(error?.message ?? error?.code ?? "Could not load admin allowed emails.");
+      }
+      return data.emails;
+    },
+    enabled: Boolean(isOwnProfile && isAdminViewer),
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -283,20 +316,7 @@ export function Profile() {
     }
   };
 
-  if (loading) {
-    return (
-      <>
-        <Nav variant="home" avatarName={navAvatarName} />
-        <div className="home-dashboard profile-page">
-          <div className="profile-page__loading">
-            <PageStateBlock title="Loading profile" description="Please wait a moment." />
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (profileQuery.isError || !data) {
+  if (profileQuery.isError || (!loading && !data)) {
     return (
       <>
         <Nav variant="home" avatarName={navAvatarName} />
@@ -317,26 +337,63 @@ export function Profile() {
     );
   }
 
-  const { profile, occupations, links } = data;
+  const profile = data?.profile;
+  const occupations = data?.occupations ?? [];
+  const links = data?.links ?? [];
   const profileDisplayName =
-    demoDisplayFullName(profile.fullName) || profile.fullName?.trim() || "Profile";
-  const codeRawHero = profile.departmentCode;
+    demoDisplayFullName(profile?.fullName ?? "") || profile?.fullName?.trim() || "Profile";
+  const codeRawHero = profile?.departmentCode;
   const deptCodeHero = codeRawHero?.trim() ? codeRawHero : null;
   const batchNumHero =
-    typeof profile.batchYear === "number" && Number.isFinite(profile.batchYear) ? profile.batchYear : null;
+    typeof profile?.batchYear === "number" && Number.isFinite(profile.batchYear) ? profile.batchYear : null;
   const degreeLabel =
-    profile.degreeName?.trim() ||
-    profile.degreeCode?.trim() ||
+    profile?.degreeName?.trim() ||
+    profile?.degreeCode?.trim() ||
     (isOwnProfile
       ? auth.myProfile?.degreeName?.trim() || auth.myProfile?.degreeCode?.trim() || null
       : null);
-  const residenceCity = profile.residenceCity?.trim() ?? "";
-  const residenceCountry = profile.residenceCountry?.trim() ?? "";
+  const residenceCity = profile?.residenceCity?.trim() ?? "";
+  const residenceCountry = profile?.residenceCountry?.trim() ?? "";
   const residenceLabel =
     residenceCity && residenceCountry
       ? `${residenceCity}, ${residenceCountry}`
       : residenceCity || residenceCountry;
   const displayLinks = isEditing ? editLinks : links;
+  const adminMetrics = adminMetricsQuery.data;
+  const adminAllowedEmails = adminAllowedEmailsQuery.data ?? [];
+
+  const addAdminAllowedEmail = useCallback(async () => {
+    const institutionalEmail = adminEmailDraft.trim();
+    if (!institutionalEmail) return;
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails", {
+      institutionalEmail,
+      notes: adminNotesDraft.trim() || null,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    setAdminEmailDraft("");
+    setAdminNotesDraft("");
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery, adminEmailDraft, adminNotesDraft]);
+
+  const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails/revoke", {
+      institutionalEmail,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery]);
 
   const navExtra =
     isOwnProfile && !isEditing ? (
@@ -372,8 +429,8 @@ export function Profile() {
                 <Avatar name={profileDisplayName} size="lg" tone="pastel" />
                 <div>
                   <h1 id="profile-hero-heading" className="home-dashboard__hero-title">
-                    {profileDisplayName}
-                    {isDemoProfile ? <span className="badge badge--hiring profile-page__demo-badge">Demo</span> : null}
+                    {loading ? <span className="profile-page__skeleton-line profile-page__skeleton-line--title" /> : profileDisplayName}
+                    {!loading && isDemoProfile ? <span className="badge badge--hiring profile-page__demo-badge">Demo</span> : null}
                   </h1>
                 </div>
               </div>
@@ -385,6 +442,8 @@ export function Profile() {
                       departmentCode={deptCodeHero}
                       batchYear={batchNumHero}
                     />
+                  ) : loading ? (
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--meta" />
                   ) : (
                     <>
                       Dept / cohort <strong>—</strong>
@@ -401,9 +460,9 @@ export function Profile() {
                     Residence <strong>{residenceLabel}</strong>
                   </span>
                 ) : null}
-                {isOwnProfile && profile.mobilePhone ? (
+                {isOwnProfile && profile?.mobilePhone ? (
                   <span role="listitem">
-                    Mobile <strong>{profile.mobilePhone}</strong>
+                    Mobile <strong>{profile?.mobilePhone}</strong>
                   </span>
                 ) : null}
               </div>
@@ -419,27 +478,33 @@ export function Profile() {
               </p>
             ) : null}
 
-            {profile.residenceCountry ||
-            profile.residenceCity ||
-            (isOwnProfile && (profile.personalEmail || profile.mobilePhone)) ||
+            {loading ||
+            profile?.residenceCountry ||
+            profile?.residenceCity ||
+            (isOwnProfile && (profile?.personalEmail || profile?.mobilePhone)) ||
             (isOwnProfile && isEditing) ? (
               <article className="home-dashboard__card">
                 <h2 className="profile-page__section-title">About</h2>
                 {/* Bio field/display removed — restore Textarea + draftBio + PATCH `bio` if needed */}
-                {isOwnProfile && !isEditing && (profile.personalEmail || profile.mobilePhone) ? (
+                {loading ? (
+                  <div className="profile-page__skeleton-block">
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                  </div>
+                ) : isOwnProfile && !isEditing && (profile?.personalEmail || profile?.mobilePhone) ? (
                   <div className="body-text profile-page__contact-summary">
-                    {profile.personalEmail ? (
+                    {profile?.personalEmail ? (
                       <p className="profile-page__contact-row">
                         <span className="profile-page__contact-label">Personal email</span>
                         <br />
-                        {profile.personalEmail}
+                        {profile?.personalEmail}
                       </p>
                     ) : null}
-                    {profile.mobilePhone ? (
+                    {profile?.mobilePhone ? (
                       <p className="profile-page__contact-row profile-page__contact-row--last">
                         <span className="profile-page__contact-label">Mobile</span>
                         <br />
-                        {profile.mobilePhone}
+                        {profile?.mobilePhone}
                       </p>
                     ) : null}
                   </div>
@@ -477,11 +542,18 @@ export function Profile() {
               </article>
             ) : null}
 
-            {occupations.length > 0 ? (
+            {loading || occupations.length > 0 ? (
               <article className="home-dashboard__card">
                 <h2 className="profile-page__section-title">Experience</h2>
-                <ul className="profile-page__exp-list">
-                  {occupations.map((occ) => (
+                {loading ? (
+                  <div className="profile-page__skeleton-block">
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                  </div>
+                ) : (
+                  <ul className="profile-page__exp-list">
+                    {occupations.map((occ) => (
                     <li key={occ.id} className="profile-page__exp-item">
                       <span
                         className={`profile-page__exp-dot ${occ.isCurrent ? "profile-page__exp-dot--current" : "profile-page__exp-dot--past"}`}
@@ -500,8 +572,9 @@ export function Profile() {
                         </div>
                       </div>
                     </li>
-                  ))}
-                </ul>
+                    ))}
+                  </ul>
+                )}
               </article>
             ) : null}
 
@@ -519,10 +592,137 @@ export function Profile() {
                 </p>
               </article>
             ) : null}
+
+            {isOwnProfile && isAdminViewer ? (
+              <article className="home-dashboard__card profile-page__analytics-card">
+                <div className="profile-page__analytics-header">
+                  <h2 className="profile-page__section-title">Admin analytics dashboard</h2>
+                  <button
+                    type="button"
+                    className="nav__profile-edit nav__profile-edit--ghost"
+                    onClick={() => void adminMetricsQuery.refetch()}
+                    disabled={adminMetricsQuery.isFetching}
+                  >
+                    {adminMetricsQuery.isFetching ? "Refreshing…" : "Refresh"}
+                  </button>
+                </div>
+
+                {adminMetricsQuery.isPending ? (
+                  <p className="body-text profile-page__muted-text">Loading analytics…</p>
+                ) : adminMetricsQuery.isError || !adminMetrics ? (
+                  <p className="body-text profile-page__error-text">
+                    Could not load admin analytics right now.
+                  </p>
+                ) : (
+                  <div className="profile-page__analytics-grid">
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Directory totals</h3>
+                      <ul className="profile-page__analytics-list">
+                        <li><span>Total people</span><strong>{adminMetrics.totalPeople}</strong></li>
+                        <li><span>Profiles completed</span><strong>{adminMetrics.profileCompletedCount}</strong></li>
+                        <li><span>Searchable profiles</span><strong>{adminMetrics.searchableCount}</strong></li>
+                        <li><span>All-time searches</span><strong>{adminMetrics.searchVolume}</strong></li>
+                      </ul>
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Beta auth funnel</h3>
+                      <ul className="profile-page__analytics-list">
+                        <li><span>Invite attempts (total)</span><strong>{adminMetrics.betaAuthFunnel.attempts}</strong></li>
+                        <li><span>Invite success (total)</span><strong>{adminMetrics.betaAuthFunnel.successes}</strong></li>
+                        <li><span>Invite failures (total)</span><strong>{adminMetrics.betaAuthFunnel.failures}</strong></li>
+                        <li><span>Rate limited (total)</span><strong>{adminMetrics.betaAuthFunnel.rateLimited}</strong></li>
+                        <li><span>Attempts (24h)</span><strong>{adminMetrics.betaAuthFunnel.attempts24h}</strong></li>
+                        <li><span>Success (24h)</span><strong>{adminMetrics.betaAuthFunnel.successes24h}</strong></li>
+                        <li><span>Failures (24h)</span><strong>{adminMetrics.betaAuthFunnel.failures24h}</strong></li>
+                        <li><span>Rate limited (24h)</span><strong>{adminMetrics.betaAuthFunnel.rateLimited24h}</strong></li>
+                      </ul>
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Tracked usage (last 24h)</h3>
+                      <ul className="profile-page__analytics-list">
+                        <li><span>Searches executed</span><strong>{adminMetrics.betaUsage.searchExecuted24h}</strong></li>
+                        <li><span>Profiles viewed</span><strong>{adminMetrics.betaUsage.profileViewed24h}</strong></li>
+                        <li><span>Profiles clicked</span><strong>{adminMetrics.betaUsage.profileClicked24h}</strong></li>
+                        <li><span>Threads created</span><strong>{adminMetrics.betaUsage.threadCreated24h}</strong></li>
+                        <li><span>Thread messages sent</span><strong>{adminMetrics.betaUsage.threadMessageSent24h}</strong></li>
+                        <li><span>Intentcasts posted</span><strong>{adminMetrics.betaUsage.intentcastPosted24h}</strong></li>
+                        <li><span>Intentcasts responded</span><strong>{adminMetrics.betaUsage.intentcastResponded24h}</strong></li>
+                      </ul>
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Admin email allowlist</h3>
+                      <form
+                        className="profile-page__admin-allowlist-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void addAdminAllowedEmail();
+                        }}
+                      >
+                        <Input
+                          label="Institutional email"
+                          type="email"
+                          value={adminEmailDraft}
+                          onChange={(event) => setAdminEmailDraft(event.target.value)}
+                          placeholder="name@itbhu.ac.in"
+                        />
+                        <Input
+                          label="Notes (optional)"
+                          type="text"
+                          value={adminNotesDraft}
+                          onChange={(event) => setAdminNotesDraft(event.target.value)}
+                          placeholder="Why admin access is needed"
+                        />
+                        <Button type="submit" variant="secondary" disabled={adminAllowlistBusy || !adminEmailDraft.trim()}>
+                          {adminAllowlistBusy ? "Saving…" : "Add admin email"}
+                        </Button>
+                      </form>
+
+                      {adminAllowlistError ? (
+                        <p className="body-text profile-page__error-text">{adminAllowlistError}</p>
+                      ) : null}
+
+                      {adminAllowedEmailsQuery.isPending ? (
+                        <p className="body-text profile-page__muted-text">Loading admin emails…</p>
+                      ) : adminAllowedEmailsQuery.isError ? (
+                        <p className="body-text profile-page__error-text">Could not load admin email allowlist.</p>
+                      ) : adminAllowedEmails.length === 0 ? (
+                        <p className="body-text profile-page__muted-text">No admin emails added yet.</p>
+                      ) : (
+                        <ul className="profile-page__analytics-list profile-page__admin-allowlist-list">
+                          {adminAllowedEmails.map((entry) => (
+                            <li key={entry.id}>
+                              <span>
+                                {entry.email}
+                                {entry.status === "revoked" ? " (revoked)" : ""}
+                              </span>
+                              {entry.status === "active" ? (
+                                <button
+                                  type="button"
+                                  className="profile-page__link-remove"
+                                  disabled={adminAllowlistBusy}
+                                  onClick={() => void revokeAdminAllowedEmail(entry.email)}
+                                >
+                                  Revoke
+                                </button>
+                              ) : (
+                                <span className="profile-page__muted-label">Inactive</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                  </div>
+                )}
+              </article>
+            ) : null}
           </div>
 
           <aside className="home-dashboard__col home-dashboard__col--side">
-            {!isOwnProfile ? (
+            {!loading && !isOwnProfile && profile ? (
               <ReachOutCard
                 profileId={profile.id}
                 profileName={profileDisplayName}
@@ -531,12 +731,17 @@ export function Profile() {
                 errorMessage={contactError}
               />
             ) : null}
-            {displayLinks.length > 0 || isOwnProfile ? (
+            {loading || displayLinks.length > 0 || isOwnProfile ? (
               <div className="home-dashboard__card">
                 <span className="eyebrow profile-page__links-eyebrow">
                   Links
                 </span>
-                {isOwnProfile && isEditing ? (
+                {loading ? (
+                  <div className="profile-page__skeleton-block">
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
+                  </div>
+                ) : isOwnProfile && isEditing ? (
                   <>
                     {editLinks.length > 0 ? (
                       <ul className="profile-page__links-editor">

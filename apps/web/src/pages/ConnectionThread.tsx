@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
-import { Textarea } from "../components/Input";
 import {
   api,
   type AvailableDisclosureOption,
@@ -413,17 +412,23 @@ function ConnectionThreadBody({
                 </button>
               </div>
             ) : null}
-            <Textarea
-              label="Message"
-              value={composer}
-              onChange={(e) => setComposer(e.target.value)}
-              rows={3}
-              placeholder="Write a message…"
-              maxLength={300}
-            />
-            <p className="connection-thread-page__composer-counter" aria-live="polite">
-              {composer.length} / 300
-            </p>
+            <label className="ui-label input-field__label" htmlFor="connection-thread-composer">
+              Message
+            </label>
+            <div className="connection-thread-page__composer-input-wrap">
+              <textarea
+                id="connection-thread-composer"
+                className="input input--textarea connection-thread-page__composer-input"
+                value={composer}
+                onChange={(e) => setComposer(e.target.value)}
+                rows={3}
+                placeholder="Write a message..."
+                maxLength={300}
+              />
+              <span className="connection-thread-page__composer-counter" aria-live="polite">
+                {composer.length} / 300
+              </span>
+            </div>
             <div className="connection-thread-page__composer-actions">
               <Button type="button" variant="primary" disabled={sending || !composer.trim()} onClick={() => void sendMessage()}>
                 {sending ? "Sending…" : "Send"}

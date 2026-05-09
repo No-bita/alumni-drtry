@@ -8,7 +8,6 @@ import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onb
 import { isDevHubPagesEnabled } from "./lib/devHubPages";
 
 /** Each `import()` becomes its own JS chunk; only the current route’s page loads (no static `pages/*` imports here). */
-const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const AuthVerify = lazy(() => import("./pages/AuthVerify").then((m) => ({ default: m.AuthVerify })));
 const Search = lazy(() => import("./pages/Search").then((m) => ({ default: m.Search })));
@@ -150,7 +149,7 @@ function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/auth/verify" element={<AuthVerify />} />
         <Route

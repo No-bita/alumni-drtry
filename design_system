@@ -1,0 +1,182 @@
+```json
+{
+  "design_system_name": "IITBHU Alumni UI System",
+  "version": "1.0",
+
+  "principles": [
+    "action_first_design",
+    "minimal_cognitive_load",
+    "human_centered_interaction",
+    "warm_and_trustworthy_visuals",
+    "consistent_component_reuse"
+  ],
+
+  "colors": {
+    "background": {
+      "primary": "#F7F5F2",
+      "card": "#FFFFFF",
+      "border": "#E7E3DD"
+    },
+    "text": {
+      "heading": "#1F1A17",
+      "body": "#5F5A56",
+      "muted": "#9A948E"
+    },
+    "actions": {
+      "primary": "#3B1F14",
+      "primary_hover": "#2A140D",
+      "accent": "#C65D3B"
+    },
+    "semantic": {
+      "success": "#DFF3E6",
+      "warning": "#FBE9D7",
+      "info": "#E8F0FE"
+    }
+  },
+
+  "typography": {
+    "heading": {
+      "font": "serif",
+      "weight": "semibold"
+    },
+    "body": {
+      "font": "sans-serif",
+      "weight": "regular"
+    },
+    "rules": [
+      "max_two_lines_description",
+      "clear_hierarchy",
+      "avoid_dense_text_blocks"
+    ]
+  },
+
+  "spacing": {
+    "grid_unit": 8,
+    "card_padding": 24,
+    "section_spacing": 32,
+    "element_gap": 16
+  },
+
+  "icons": {
+    "style_rules": [
+      "rounded_edges",
+      "outline_or_soft_fill",
+      "no_gradients",
+      "medium_stroke",
+      "minimal_detail"
+    ],
+    "primary": [
+      { "name": "referral", "symbol": "briefcase_arrow" },
+      { "name": "help", "symbol": "chat_bubble" },
+      { "name": "people", "symbol": "users" },
+      { "name": "city", "symbol": "building" },
+      { "name": "project", "symbol": "blocks" }
+    ],
+    "contextual": [
+      { "name": "location", "symbol": "pin" },
+      { "name": "time", "symbol": "clock" },
+      { "name": "company", "symbol": "office" },
+      { "name": "education", "symbol": "cap" }
+    ],
+    "interaction": [
+      { "name": "help_action", "symbol": "heart_hand" },
+      { "name": "connect", "symbol": "message" },
+      { "name": "bookmark", "symbol": "bookmark" }
+    ]
+  },
+
+  "components": {
+    "action_card": {
+      "elements": ["icon", "title", "subtitle"],
+      "style": {
+        "radius": 16,
+        "padding": 20,
+        "background": "soft",
+        "hover": "slight_elevation"
+      }
+    },
+
+    "request_card": {
+      "elements": [
+        "avatar",
+        "title",
+        "meta",
+        "description",
+        "tags",
+        "primary_cta",
+        "secondary_cta"
+      ],
+      "rules": [
+        "title_is_primary",
+        "max_two_lines_description",
+        "always_show_cta",
+        "show_human_identity"
+      ]
+    },
+
+    "person_card": {
+      "elements": [
+        "avatar",
+        "name",
+        "role_company",
+        "badges",
+        "cta"
+      ]
+    },
+
+    "project_card": {
+      "elements": [
+        "stage_tag",
+        "title",
+        "description",
+        "skills_needed",
+        "contributors",
+        "cta"
+      ]
+    }
+  },
+
+  "interaction_rules": [
+    "one_primary_cta_per_card",
+    "avoid_multiple_competing_actions",
+    "prefer_click_over_typing",
+    "show_value_before_input",
+    "reduce_user_decision_points"
+  ],
+
+  "layout_patterns": {
+    "home": [
+      "action_hero",
+      "opportunities_feed",
+      "network_growth",
+      "resources"
+    ],
+    "careers": [
+      "intent_input",
+      "matching_results",
+      "connection_cta"
+    ],
+    "cities": [
+      "city_header",
+      "primary_actions",
+      "live_requests",
+      "people",
+      "events_secondary"
+    ],
+    "build": [
+      "action_hero",
+      "project_feed",
+      "contribution_panel"
+    ]
+  },
+
+  "prompt_template": {
+    "base": "Design a modern web app UI with soft beige background, rounded cards, minimal shadows, clean typography, and action-first layout. Prioritize clarity, whitespace, and human-centered interaction. Avoid clutter, gradients, and excessive decoration.",
+    "modifiers": {
+      "careers": "Focus on people discovery and referral actions.",
+      "cities": "Focus on community requests and local interactions.",
+      "build": "Focus on collaboration and project discovery."
+    }
+  }
+}
+```
