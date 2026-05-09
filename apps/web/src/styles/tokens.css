@@ -172,6 +172,28 @@
   --home-hero-muted: rgba(253, 251, 247, 0.58);
   --home-ideal-canvas-bg: var(--palette-bg-cream);
 
+  /** Frosted glass dashboard shells — `.home-dashboard__bulletin-panel` + location hub request chips (idle) */
+  --home-frost-bg: rgba(253, 251, 247, 0.3);
+  --home-frost-border: rgba(255, 255, 255, 0.4);
+  --home-frost-shadow:
+    0 0 1px rgba(0, 0, 0, 0.04),
+    0 4px 18px rgba(28, 20, 16, 0.05),
+    0 1px 4px rgba(28, 20, 16, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --home-frost-backdrop: saturate(165%) blur(20px);
+
+  /** Location hub city strip + Active requests chips — selected (shared gradient/border/shadow) */
+  --location-hub-pick-selected-border: rgba(197, 160, 89, 0.45);
+  --location-hub-pick-selected-bg: linear-gradient(168deg, rgba(250, 239, 219, 0.98) 0%, rgba(245, 231, 205, 0.97) 100%);
+  --location-hub-pick-selected-shadow:
+    inset 0 1px 0 rgba(255, 251, 244, 0.72),
+    0 12px 30px rgba(28, 20, 16, 0.11);
+  --location-hub-pick-selected-shadow-hover:
+    inset 0 1px 0 rgba(255, 251, 244, 0.74),
+    0 16px 36px rgba(28, 20, 16, 0.14);
+  --location-hub-pick-selected-icon-ring: rgba(197, 160, 89, 0.32);
+  --location-hub-pick-selected-icon-fill: rgba(245, 231, 205, 0.86);
+
   /* Cities */
   --cities-panel-bg: var(--palette-card);
   --cities-panel-border: rgba(58, 42, 30, 0.09);

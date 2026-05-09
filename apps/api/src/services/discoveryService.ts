@@ -209,6 +209,7 @@ export class DiscoveryService {
       residenceCountry: input.residenceCountry?.trim() || undefined,
       residenceCity: input.residenceCity?.trim() || undefined,
       requireResidence: input.requireResidence === true,
+      ...(input.viewerPersonId ? { viewerPersonId: input.viewerPersonId } : {}),
       limit: input.limit,
       cursor: decodedCursor
     };

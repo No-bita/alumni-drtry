@@ -46,6 +46,17 @@ Set these where the API runs (e.g. host env, `.env`, or platform config).
 
 Copy from `apps/api/.env.example` and fill production values. Run **migrations** once before first start: `npm run migrate` (uses `DATABASE_URL`).
 
+### Local API using the production database
+
+To run `npm run dev` in `apps/api` against the **same** Postgres instance as production:
+
+1. Set `DATABASE_URL` in `apps/api/.env` to the production connection string (from Neon or Railway). Use a **public** reachable host from your machine (e.g. Neon pooler, or Railway `DATABASE_PUBLIC_URL`), not an internal Railway hostname.
+2. Set `AUTH_SECRET_PEPPER` to the **exact** production value. The database stores hashes derived from this pepper; a mismatch breaks logins and sessions.
+3. Keep `DATABASE_POOL_MAX` low (e.g. `5`) so local dev does not open too many connections against the shared cluster.
+4. Set `CORS_ORIGIN` and `MAGIC_LINK_BASE_URL` to your local web origin (e.g. `http://localhost:5173`) while testing from Vite.
+
+**Risk:** local scripts, bugs, or `npm run migrate` can alter production data. Prefer a database backup or a staging clone unless the whole team intentionally shares one DB.
+
 ---
 
 ## 4. Web: environment variables (production)

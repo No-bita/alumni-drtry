@@ -214,11 +214,20 @@ export function GlobalMessagingWidget() {
 
       if (!("recipientPersonId" in detail)) return;
 
+      const kind = detail.kind ?? "referral";
+      const trimmedProvided = detail.initialMessage?.trim() ?? "";
+      const effectiveInitialMessage =
+        trimmedProvided.length > 0
+          ? detail.initialMessage
+          : kind === "referral"
+            ? "Hi — I'd like to connect about a referral."
+            : "Hi — reaching out from the alumni directory.";
+
       const normalized = {
         recipientPersonId: detail.recipientPersonId,
         recipientName: detail.recipientName,
-        initialMessage: detail.initialMessage,
-        kind: detail.kind ?? "referral",
+        initialMessage: effectiveInitialMessage,
+        kind,
         recipientDepartmentCode: detail.recipientDepartmentCode ?? null,
         recipientDepartmentName: detail.recipientDepartmentName ?? null,
         recipientBatchYear: detail.recipientBatchYear ?? null,

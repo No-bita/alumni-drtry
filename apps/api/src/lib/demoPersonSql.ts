@@ -1,6 +1,7 @@
 /**
  * SQL boolean expression: whether a person row is a demo/test alumni for UI badges.
  * Matches `people.is_test_user` plus institutional local-part prefixes used by seed scripts.
+ * TS equivalent for policy checks: `demoPersonProfile.ts` → `personRowIsDemoProfile`.
  *
  * @param tableAlias — Postgres alias for `people` (e.g. `p`, `auth_p`)
  */

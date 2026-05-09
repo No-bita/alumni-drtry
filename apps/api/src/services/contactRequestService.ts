@@ -7,6 +7,7 @@ import {
   type ContactRequestView
 } from "../repos/contactRequestRepo.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
+import { personRowIsDemoProfile } from "../lib/demoPersonProfile.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import type { EmailSender } from "./emailSender.js";
 
@@ -64,7 +65,8 @@ export class ContactRequestService {
     }
 
     const maxOut = env.CONTACT_REQUEST_MAX_PER_SENDER_WINDOW;
-    if (maxOut > 0) {
+    const recipientIsDemo = personRowIsDemoProfile(recipient);
+    if (maxOut > 0 && !recipientIsDemo) {
       const recent = await this.contactRequestRepo.countOutgoingCreatedInWindow(
         senderPersonId,
         env.CONTACT_REQUEST_WINDOW_MINUTES

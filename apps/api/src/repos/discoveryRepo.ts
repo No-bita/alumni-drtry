@@ -17,7 +17,8 @@ export interface SearchProfilesInput {
   residenceCity?: string;
   /** Require both non-empty residence city and country. */
   requireResidence?: boolean;
-  /** Omit this person from results (e.g. current viewer). */
+  /** Omit this person from ranked hits (directory UX: never surface “your own” card). */
+  viewerPersonId?: string;
   limit: number;
   /** Keyset cursor (rule-based sort). */
   cursor?: SearchRankCursor;
@@ -221,6 +222,11 @@ export class DiscoveryRepo {
       "p.suspended_at IS NULL",
       "p.full_name IS NOT NULL"
     ];
+
+    if (input.viewerPersonId) {
+      const viewerPh = bind(input.viewerPersonId);
+      whereInner.push(`p.id <> ${viewerPh}::uuid`);
+    }
 
     if (input.batch !== undefined) {
       if (input.batchWidened) {

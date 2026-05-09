@@ -55,6 +55,8 @@ npm run migrate
 npm run dev
 ```
 
+To use the **same database as production** when running the API locally, set `DATABASE_URL` (and matching `AUTH_SECRET_PEPPER`) per `apps/api/.env.example` and [docs/deployment.md](docs/deployment.md) (“Local API using the production database”). Use a modest `DATABASE_POOL_MAX` against hosted Postgres.
+
 Start the web app:
 
 ```bash

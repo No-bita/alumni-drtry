@@ -776,7 +776,7 @@ export function Home() {
       ...QUICK_ACTIONS,
       {
         id: "bulletin",
-        title: "Share on bulletin",
+        title: "Share with alumni",
         description: "Guidance, mentorship, or collaboration",
         onActivate: () => bulletinFlowRef.current?.open(),
       },

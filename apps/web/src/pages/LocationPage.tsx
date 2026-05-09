@@ -741,7 +741,9 @@ export function LocationPage() {
                   key={tab.id}
                   type="button"
                   aria-pressed={activeNeed === tab.id}
-                  className={`cities-redesign__tab${activeNeed === tab.id ? " is-active" : ""}`}
+                  className={`cities-redesign__tab location-page__request-tab${
+                    activeNeed === tab.id ? " location-page__request-tab--selected is-active" : ""
+                  }`}
                   onClick={() => setActiveNeed((prev) => (prev === tab.id ? "all" : tab.id))}
                 >
                   <span className={`cities-redesign__tab-icon cities-redesign__tab-icon--${tab.id}`} aria-hidden>

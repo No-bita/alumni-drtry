@@ -8592,15 +8592,11 @@ button.career-referrals-v3__matching-pill--editable:active {
 .home-dashboard__inbox-panel {
   padding: var(--space-md) var(--space-md-lg);
   border-radius: var(--radius-panel);
-  background: rgba(253, 251, 247, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0 0 1px rgba(0, 0, 0, 0.04),
-    0 4px 18px rgba(28, 20, 16, 0.05),
-    0 1px 4px rgba(28, 20, 16, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  backdrop-filter: saturate(165%) blur(20px);
-  -webkit-backdrop-filter: saturate(165%) blur(20px);
+  background: var(--home-frost-bg);
+  border: 1px solid var(--home-frost-border);
+  box-shadow: var(--home-frost-shadow);
+  backdrop-filter: var(--home-frost-backdrop);
+  -webkit-backdrop-filter: var(--home-frost-backdrop);
 }
 
 .home-dashboard__surface-header,
@@ -15610,11 +15606,19 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   gap: 10px;
 }
 
-.cities-redesign__tab {
-  border: 1px solid rgba(58, 42, 30, 0.12);
-  background: #efe7d8;
+/**
+ * Location hub — Active requests filter chips (`LocationPage.tsx`).
+ * Idle: same frost tokens as `.home-dashboard__bulletin-panel`.
+ * Selected: matches `.cities-v2__city-pick--selected` (via `--location-hub-pick-*`).
+ */
+.location-page__request-tab.cities-redesign__tab {
+  border: 1px solid var(--home-frost-border);
+  background: var(--home-frost-bg);
+  box-shadow: var(--home-frost-shadow);
+  backdrop-filter: var(--home-frost-backdrop);
+  -webkit-backdrop-filter: var(--home-frost-backdrop);
   color: var(--ink);
-  border-radius: 10px;
+  border-radius: 18px;
   font-size: 13px;
   font-weight: 600;
   padding: 10px 14px;
@@ -15624,20 +15628,52 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  transition:
+    transform 140ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 140ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 140ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 140ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.cities-redesign__tab.is-active {
-  background: #f2e8d8;
-  border-color: rgba(196, 149, 90, 0.42);
-  color: var(--ink);
+.location-page__request-tab.cities-redesign__tab:hover:not(.location-page__request-tab--selected):not(.is-active) {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.56);
+}
+
+.location-page__request-tab.cities-redesign__tab:focus-visible {
+  outline: 2px solid rgba(22, 38, 30, 0.45);
+  outline-offset: 2px;
+}
+
+.location-page__request-tab--selected.cities-redesign__tab,
+.location-page__request-tab.is-active.cities-redesign__tab {
+  border-color: var(--location-hub-pick-selected-border);
+  background: var(--location-hub-pick-selected-bg);
+  box-shadow: var(--location-hub-pick-selected-shadow);
+  transform: translateY(-1px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.location-page__request-tab--selected.cities-redesign__tab:hover,
+.location-page__request-tab.is-active.cities-redesign__tab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--location-hub-pick-selected-shadow-hover);
 }
 
 .cities-redesign__tab-icon {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    border-color 140ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 140ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .cities-redesign__tab-icon svg {
@@ -15658,6 +15694,17 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   color: #7d5c2f;
 }
 
+.location-page__request-tab--selected .cities-redesign__tab-icon,
+.location-page__request-tab.is-active .cities-redesign__tab-icon {
+  border-color: var(--location-hub-pick-selected-icon-ring);
+  background: var(--location-hub-pick-selected-icon-fill);
+}
+
+.location-page__request-tab--selected .cities-redesign__tab-icon svg,
+.location-page__request-tab.is-active .cities-redesign__tab-icon svg {
+  color: var(--home-gold);
+}
+
 .cities-redesign__tab-count {
   display: inline-flex;
   align-items: center;
@@ -15665,12 +15712,18 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   min-width: 26px;
   height: 24px;
   border-radius: 9px;
+  margin-left: 6px;
   background: rgba(92, 72, 54, 0.08);
   color: rgba(28, 20, 16, 0.72);
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  margin-left: 2px;
+}
+
+.location-page__request-tab--selected .cities-redesign__tab-count,
+.location-page__request-tab.is-active .cities-redesign__tab-count {
+  background: rgba(197, 160, 89, 0.12);
+  color: rgba(58, 42, 30, 0.82);
 }
 
 .cities-redesign__requests-feed {
@@ -16484,23 +16537,19 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 /** Selected city card should match quick-action card language (no dark inversion). */
 .cities-v2__city-pick--selected {
-  border-color: rgba(197, 160, 89, 0.45);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 251, 244, 0.72),
-    0 12px 30px rgba(28, 20, 16, 0.11);
+  border-color: var(--location-hub-pick-selected-border);
+  box-shadow: var(--location-hub-pick-selected-shadow);
   transform: translateY(-1px);
 }
 
 .cities-v2__city-pick--selected,
 .cities-v2__city-pick--selected:hover {
-  background: linear-gradient(168deg, rgba(250, 239, 219, 0.98) 0%, rgba(245, 231, 205, 0.97) 100%);
+  background: var(--location-hub-pick-selected-bg);
 }
 
 .cities-v2__city-pick--selected:hover {
   transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 251, 244, 0.74),
-    0 16px 36px rgba(28, 20, 16, 0.14);
+  box-shadow: var(--location-hub-pick-selected-shadow-hover);
 }
 
 .cities-v2__city-pick--selected .cities-v2__city-pick-icon svg {
@@ -16512,14 +16561,9 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 .cities-v2__city-pick--selected .cities-v2__city-pick-icon {
-  border: 1px solid rgba(197, 160, 89, 0.32);
+  border: 1px solid var(--location-hub-pick-selected-icon-ring);
   border-radius: 10px;
-  background: rgba(245, 231, 205, 0.86);
-}
-
-.cities-redesign__tab span {
-  margin-left: 3px;
-  color: #8b7965;
+  background: var(--location-hub-pick-selected-icon-fill);
 }
 
 .cities-v2__stats-panel {
