@@ -156,6 +156,14 @@ export async function createApp() {
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 
+  app.get("/", async (_request, reply) =>
+    reply.code(200).send({
+      service: "alumni-platform-api",
+      healthz: "/healthz",
+      apiPrefix: "/v1"
+    })
+  );
+
   app.get("/healthz", async (_request, reply) => {
     try {
       await pool.query("SELECT 1");

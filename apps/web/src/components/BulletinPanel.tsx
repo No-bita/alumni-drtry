@@ -47,6 +47,7 @@ import {
   validateGeneralBulletinHeadlineDetails,
 } from "../lib/bulletinPostCardUtils";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
+import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { BulletinPostCard } from "./BulletinPostCard";
 import { useBulletinComposeState } from "./useBulletinComposeState";
@@ -72,6 +73,7 @@ function hiringPreviewIntentcast(authorFullName: string, content: string): Inten
     editableUntil: now,
     responseCount: 0,
     viewerHasResponded: false,
+    authorIsDemo: false,
   };
 }
 
@@ -314,8 +316,11 @@ function CareerOpportunityPosterRow({
         tone="pastel"
         className="career-opportunity-card__avatar"
       />
-      <span className="career-opportunity-card__posted-by">
-        Posted by {postedByShortLabel(authorName || "Alumni")}
+      <span className="career-opportunity-card__posted-by-row">
+        <span className="career-opportunity-card__posted-by">
+          Posted by {postedByShortLabel(authorName || "Alumni")}
+        </span>
+        {ic.authorIsDemo ? <DemoAuthorBadge /> : null}
       </span>
     </>
   );
@@ -352,8 +357,11 @@ function CareerOpportunityPosterRow({
           className="career-opportunity-card__poster-text-link"
           aria-label={`View ${displayName}'s profile`}
         >
-          <span className="career-opportunity-card__posted-by">
-            Posted by {postedByShortLabel(authorName || "Alumni")}
+          <span className="career-opportunity-card__posted-by-row">
+            <span className="career-opportunity-card__posted-by">
+              Posted by {postedByShortLabel(authorName || "Alumni")}
+            </span>
+            {ic.authorIsDemo ? <DemoAuthorBadge /> : null}
           </span>
         </Link>
       </div>
@@ -1628,7 +1636,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                       </Link>
                                       <div className="home-dashboard__bulletin-archived-reply-body">
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
-                                          {r.responderFullName}
+                                          <span className="bulletin-reply-meta__lead">
+                                            <span>{r.responderFullName}</span>
+                                            {r.responderIsDemo ? <DemoAuthorBadge /> : null}
+                                          </span>
                                           {r.responderDepartmentCode
                                             ? ` · ${r.responderDepartmentCode.toUpperCase()}`
                                             : ""}
@@ -1692,7 +1703,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                     </Link>
                                     <div className="career-post-replies__body">
                                       <p className="career-post-replies__meta">
-                                        {r.responderFullName}
+                                        <span className="bulletin-reply-meta__lead">
+                                          <span>{r.responderFullName}</span>
+                                          {r.responderIsDemo ? <DemoAuthorBadge /> : null}
+                                        </span>
                                         {r.responderDepartmentCode ? ` · ${r.responderDepartmentCode.toUpperCase()}` : ""}
                                         {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
                                       </p>
@@ -1766,7 +1780,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                       </Link>
                                       <div className="home-dashboard__bulletin-archived-reply-body">
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
-                                          {r.responderFullName}
+                                          <span className="bulletin-reply-meta__lead">
+                                            <span>{r.responderFullName}</span>
+                                            {r.responderIsDemo ? <DemoAuthorBadge /> : null}
+                                          </span>
                                           {r.responderDepartmentCode
                                             ? ` · ${r.responderDepartmentCode.toUpperCase()}`
                                             : ""}
@@ -1792,6 +1809,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     batchYear={ic.authorBatchYear ?? null}
                     postedRelative={cardPostedRelative}
                     postedAtIso={ic.createdAt ?? null}
+                    authorIsDemo={Boolean(ic.authorIsDemo)}
                     tone={cardTone}
                     categoryBadgeLabel={cardBadge}
                     title={splitBody.title.trim() ? splitBody.title : ic.content.trim()}

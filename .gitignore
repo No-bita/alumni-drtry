@@ -16,3 +16,4 @@ dist-ssr/
 # IDE (optional; uncomment if you want these ignored)
 # .vscode/
 # .idea/
+.vercel

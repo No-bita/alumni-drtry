@@ -674,7 +674,7 @@ export function Home() {
     queryKey: ["home", "opportunity-rail"],
     queryFn: ({ signal }) =>
       assertApiGet<IntentcastFeedResponse>(
-        "/v1/intentcasts?limit=30&offset=0&excludeAuthorSoftDeleted=true",
+        "/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true",
         signal
       ),
     enabled: authenticated,
@@ -716,6 +716,7 @@ export function Home() {
         batchYear: item.authorBatchYear ?? null,
         postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
         postedAtIso: item.createdAt ?? undefined,
+        authorIsDemo: item.authorIsDemo === true,
         title: normalized.title,
         summary: normalized.summary,
         chips: normalized.chips,
@@ -816,7 +817,7 @@ export function Home() {
       const withoutDup = prev.intentcasts.filter((item) => item.id !== posted.id);
       return {
         ...prev,
-        intentcasts: [posted, ...withoutDup].slice(0, 30),
+        intentcasts: [posted, ...withoutDup].slice(0, 48),
       };
     });
     void queryClient.invalidateQueries({

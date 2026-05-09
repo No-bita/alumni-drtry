@@ -36,6 +36,36 @@ const DEMO_HEADLINES: { role: string; org: string }[] = [
   { role: "MS candidate", org: "Georgia Tech" },
 ];
 
+/** Matches DEMO_HEADLINES length — used for residence filters + FTS on directory search. */
+const DEMO_LOCATIONS: { city: string; country: string }[] = [
+  { city: "Pune", country: "India" },
+  { city: "Mumbai", country: "India" },
+  { city: "Jamshedpur", country: "India" },
+  { city: "Jamnagar", country: "India" },
+  { city: "Bengaluru", country: "India" },
+  { city: "Gurugram", country: "India" },
+  { city: "Bengaluru", country: "India" },
+  { city: "Atlanta", country: "United States" },
+];
+
+const DEMO_SKILLS: string[] = [
+  "Materials characterization, quality systems, supplier audits",
+  "Thin films, microscopy, academic publishing",
+  "Operations analytics, spreadsheets, stakeholder reporting",
+  "Process safety, plant trials, documentation",
+  "Failure analysis, metallography, lab instrumentation",
+  "Client delivery, slide decks, stakeholder workshops",
+  "Early-stage systems, hiring loops, technical roadmap",
+  "Graduate coursework, research proposals, scientific writing",
+];
+
+function demoBio(role: string, org: string): string {
+  return (
+    `[DEMO] ${role} focused profile anchored at ${org}. Seeded batch cohort demo for directory search — ` +
+    `materials-adjacent background, realistic headline org linkage, and residence fields for geographic filters.`
+  );
+}
+
 function parseArgs(): { dept: string; year: number; count: number } {
   const argv = process.argv.slice(2);
   let dept = "mst";
@@ -90,6 +120,11 @@ async function main() {
     }
     const occupationTypeId = occType.rows[0]!.id;
 
+    const degreeRow = await client.query<{ id: string }>(
+      `SELECT id FROM degrees WHERE lower(code) = lower('btech') AND is_active IS NOT FALSE LIMIT 1`
+    );
+    const degreeId = degreeRow.rows[0]?.id ?? null;
+
     const del = await client.query(
       `
       DELETE FROM people
@@ -101,12 +136,41 @@ async function main() {
       console.log(`Removed ${del.rowCount} previous batch-demo rows.`);
     }
 
+    const orgNames = Array.from(
+      new Set(
+        Array.from({ length: count }, (_, i) => DEMO_HEADLINES[i % DEMO_HEADLINES.length]!.org.trim())
+      )
+    );
+    for (const orgName of orgNames) {
+      await client.query(
+        `
+        INSERT INTO organizations (name, approval_status, created_by_person_id)
+        VALUES ($1, 'approved', NULL::uuid)
+        ON CONFLICT (name)
+        DO UPDATE SET approval_status = 'approved', updated_at = now()
+        `,
+        [orgName]
+      );
+    }
+
+    const organizationRows = await client.query<{ id: string; name: string }>(
+      `SELECT id, name::text AS name FROM organizations WHERE name = ANY($1::citext[])`,
+      [orgNames]
+    );
+    const orgIdByName = new Map(organizationRows.rows.map((r) => [r.name.toLowerCase(), r.id]));
+
     const inserted: string[] = [];
     for (let i = 0; i < count; i++) {
       const local = `batchdemo.${dept}${year}.${String(i + 1).padStart(2, "0")}`;
       const email = `${local}@iitbhu.ac.in`;
       const fullName = DEMO_NAMES[i % DEMO_NAMES.length]!;
       const hl = DEMO_HEADLINES[i % DEMO_HEADLINES.length]!;
+      const loc = DEMO_LOCATIONS[i % DEMO_LOCATIONS.length]!;
+      const skills = DEMO_SKILLS[i % DEMO_SKILLS.length]!;
+      const orgId = orgIdByName.get(hl.org.toLowerCase());
+      if (!orgId) {
+        throw new Error(`Missing organization id for "${hl.org}" after upsert.`);
+      }
 
       const ins = await client.query<{ id: string }>(
         `
@@ -115,16 +179,31 @@ async function main() {
           role,
           full_name,
           department_id,
+          degree_id,
           batch_year,
+          bio,
+          skills_text,
+          residence_city,
+          residence_country,
           is_test_user,
           profile_completed_at,
           onboarding_completed_at,
           updated_at
         )
-        VALUES ($1, 'alumni', $2, $3::uuid, $4, TRUE, now(), now(), now())
+        VALUES ($1, 'alumni', $2, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, TRUE, now(), now(), now())
         RETURNING id
         `,
-        [email, fullName, departmentId, year]
+        [
+          email,
+          fullName,
+          departmentId,
+          degreeId,
+          year,
+          demoBio(hl.role, hl.org),
+          skills,
+          loc.city,
+          loc.country,
+        ]
       );
       const personId = ins.rows[0]!.id;
 
@@ -140,14 +219,23 @@ async function main() {
           created_at,
           updated_at
         )
-        VALUES ($1::uuid, $2::uuid, NULL, $3, $4, TRUE, now(), now())
+        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, TRUE, now(), now())
         `,
         [
           personId,
           occupationTypeId,
-          `${hl.role} · ${hl.org}`,
-          "Seeded for local batch directory testing.",
+          orgId,
+          hl.role,
+          "[DEMO] Seeded occupation for batch-demo directory listings (linked employer for search filters).",
         ]
+      );
+
+      await client.query(
+        `
+        INSERT INTO profile_links (person_id, platform, url, label, created_at, updated_at)
+        VALUES ($1::uuid, 'linkedin', $2, 'LinkedIn', now(), now())
+        `,
+        [personId, `https://www.linkedin.com/in/${local.replace(/\./g, "-")}/`]
       );
       inserted.push(email);
     }

@@ -99,6 +99,11 @@ const envSchema = z.object({
   AUTH_BYPASS_EMAIL: optionalEmailSchema,
   /** Days author keeps a soft-deleted bulletin post + replies before hard delete. */
   INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+  /**
+   * In-process intentcast expiry/purge interval (ms). If unset: off except production defaults to 1h.
+   * Set to `0` to disable the scheduler in production (use an external cron instead).
+   */
+  INTENTCAST_EXPIRY_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
 
   /** Max contact requests a sender may create within CONTACT_REQUEST_WINDOW_MINUTES. 0 = no limit. */
   CONTACT_REQUEST_MAX_PER_SENDER_WINDOW: z.coerce.number().int().min(0).max(500).default(25),

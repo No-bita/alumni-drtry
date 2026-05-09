@@ -1,0 +1,8 @@
+[build]
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+preDeployCommand = ["npm run migrate"]
+startCommand = "npm run start"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 100

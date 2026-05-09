@@ -27,6 +27,7 @@ import {
   parseDirectorySearchFromParams,
   type DirectorySearchDraft,
 } from "../lib/directorySearchUrlState";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
 /** Directory grid: 1 col (narrow) → 2 col (tablet) → 3 col (desktop, referral-style). */
 const SEARCH_RESULTS_TWO_COL_MIN_PX = 680;
@@ -43,6 +44,7 @@ export function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [draft, setDraft] = useState(() => parseDirectorySearchFromParams(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const lastZeroResultKeyRef = useRef<string | null>(null);
 
   const [resultsColumnCount, setResultsColumnCount] = useState<1 | 2 | 3>(() =>
     typeof window !== "undefined" ? directoryResultsColumnCount(window.innerWidth) : 1
@@ -112,6 +114,10 @@ export function Search() {
       draftRef.current = next;
       setDraft(next);
       applyCommittedSearch(next);
+      trackBetaUsageEvent("search_filters_changed", {
+        source: "immediate_commit",
+        patchKeys: Object.keys(patch),
+      });
     },
     [applyCommittedSearch, cancelDebouncedUrlCommit],
   );
@@ -122,6 +128,10 @@ export function Search() {
       draftRef.current = next;
       setDraft(next);
       scheduleDebouncedApplyCommittedSearch();
+      trackBetaUsageEvent("search_filters_changed", {
+        source: "text_field",
+        patchKeys: Object.keys(patch),
+      });
     },
     [scheduleDebouncedApplyCommittedSearch],
   );
@@ -131,6 +141,10 @@ export function Search() {
       cancelDebouncedUrlCommit();
       const next = clearDirectorySearchFacet(applied, key);
       setSearchParams(buildSearchParamsFromDraft(next), { replace: true });
+      trackBetaUsageEvent("search_filters_changed", {
+        source: "facet_remove",
+        key,
+      });
     },
     [applied, cancelDebouncedUrlCommit, setSearchParams],
   );
@@ -253,7 +267,36 @@ export function Search() {
     setDraft(EMPTY_DIRECTORY_SEARCH_DRAFT);
     setSearchParams(new URLSearchParams(), { replace: true });
     setFiltersOpen(false);
+    trackBetaUsageEvent("search_filters_changed", { source: "clear_all" });
   }, [cancelDebouncedUrlCommit, setSearchParams]);
+
+  useEffect(() => {
+    if (fetchingMain || Boolean(errorMessage) || results.length !== 0) return;
+    const key = searchQueryKey.join("|");
+    if (lastZeroResultKeyRef.current === key) return;
+    lastZeroResultKeyRef.current = key;
+    trackBetaUsageEvent("search_zero_results", {
+      q: committedQ,
+      dept,
+      batch,
+      company,
+      occ,
+      residenceCountry,
+      residenceCity,
+    });
+  }, [
+    batch,
+    committedQ,
+    company,
+    dept,
+    errorMessage,
+    fetchingMain,
+    occ,
+    residenceCity,
+    residenceCountry,
+    results.length,
+    searchQueryKey,
+  ]);
 
   const canClear =
     !draftsEqual(draft, EMPTY_DIRECTORY_SEARCH_DRAFT) ||
@@ -421,7 +464,10 @@ export function Search() {
                 <div className="search-page__load-more">
                   <Button
                     variant="secondary"
-                    onClick={() => void searchQuery.fetchNextPage()}
+                    onClick={() => {
+                      trackBetaUsageEvent("search_load_more_clicked", { resultsCount: results.length });
+                      void searchQuery.fetchNextPage();
+                    }}
                     disabled={searchQuery.isFetchingNextPage}
                   >
                     {searchQuery.isFetchingNextPage ? (

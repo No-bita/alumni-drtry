@@ -3,6 +3,7 @@ import {
   BULLETIN_INTENTCAST_OPEN_DAYS
 } from "../constants/bulletin.js";
 import type { DbExecutor } from "../db/types.js";
+import { personIsDemoSql } from "../lib/demoPersonSql.js";
 
 export type IntentcastStatus = "open" | "closed";
 export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "guidance";
@@ -29,6 +30,7 @@ interface IntentcastFeedRow {
   author_delete_purge_at: Date | null;
   response_count: number;
   viewer_has_responded: boolean;
+  author_is_demo: boolean;
 }
 
 export interface IntentcastFeedView {
@@ -55,6 +57,8 @@ export interface IntentcastFeedView {
   responseCount: number;
   /** True when the current viewer has already submitted a reply (one reply per post per user). */
   viewerHasResponded: boolean;
+  /** Demo/test alumni author — matches `people.is_test_user` or demo institutional email prefixes. */
+  authorIsDemo: boolean;
 }
 
 export interface IntentcastFeedResult {
@@ -93,6 +97,7 @@ interface IntentcastResponseViewRow extends IntentcastResponseRow {
   responder_full_name: string;
   responder_department_code: string | null;
   responder_department_name: string | null;
+  responder_is_demo: boolean;
 }
 
 export interface IntentcastResponseView {
@@ -104,6 +109,7 @@ export interface IntentcastResponseView {
   responderDepartmentName: string | null;
   message: string;
   createdAt: Date;
+  responderIsDemo: boolean;
 }
 
 export interface CreateIntentcastInput {
@@ -187,7 +193,8 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     authorSoftDeletedAt: row.author_soft_deleted_at,
     authorDeletePurgeAt: row.author_delete_purge_at,
     responseCount: Number(row.response_count),
-    viewerHasResponded: Boolean(row.viewer_has_responded)
+    viewerHasResponded: Boolean(row.viewer_has_responded),
+    authorIsDemo: Boolean(row.author_is_demo)
   };
 }
 
@@ -200,7 +207,8 @@ function mapResponseRow(row: IntentcastResponseViewRow): IntentcastResponseView 
     responderDepartmentCode: row.responder_department_code,
     responderDepartmentName: row.responder_department_name,
     message: row.message,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    responderIsDemo: Boolean(row.responder_is_demo)
   };
 }
 
@@ -335,9 +343,11 @@ export class IntentcastRepo {
           FROM intentcast_responses r_v
           WHERE r_v.intentcast_id = i.id
             AND r_v.responder_person_id = ${viewerPh}
-        ) AS viewer_has_responded
+        ) AS viewer_has_responded,
+        ${personIsDemoSql("p")} AS author_is_demo
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
+      LEFT JOIN people vp ON vp.id = ${viewerPh}::uuid
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN LATERAL (
         SELECT o.role_title, org.name::text AS org_name
@@ -352,11 +362,12 @@ export class IntentcastRepo {
       /* Bulletin feed ordering — document in docs/bulletin-feed-ranking.md; update when this changes. */
       ORDER BY
         CASE
+          WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
           WHEN (
             (SELECT COUNT(*)::int FROM intentcast_responses r WHERE r.intentcast_id = i.id) = 0
             AND i.created_at >= (now() - interval '48 hours')
-          ) THEN 0
-          ELSE 1
+          ) THEN 1
+          ELSE 2
         END ASC,
         i.created_at DESC,
         i.id DESC
@@ -416,7 +427,8 @@ export class IntentcastRepo {
             WHERE r_v.intentcast_id = i.id
               AND r_v.responder_person_id = $2::uuid
           )
-        ) AS viewer_has_responded
+        ) AS viewer_has_responded,
+        ${personIsDemoSql("p")} AS author_is_demo
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
       LEFT JOIN departments d ON d.id = p.department_id
@@ -478,7 +490,8 @@ export class IntentcastRepo {
           FROM intentcast_responses r_v
           WHERE r_v.intentcast_id = i.id
             AND r_v.responder_person_id = $2::uuid
-        ) AS viewer_has_responded
+        ) AS viewer_has_responded,
+        ${personIsDemoSql("p")} AS author_is_demo
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
       LEFT JOIN departments d ON d.id = p.department_id
@@ -674,7 +687,8 @@ export class IntentcastRepo {
         r.updated_at,
         p.full_name AS responder_full_name,
         COALESCE(d.code, p.department_code) AS responder_department_code,
-        COALESCE(d.name, p.department_name) AS responder_department_name
+        COALESCE(d.name, p.department_name) AS responder_department_name,
+        ${personIsDemoSql("p")} AS responder_is_demo
       FROM intentcast_responses r
       JOIN people p ON p.id = r.responder_person_id
       LEFT JOIN departments d ON d.id = p.department_id

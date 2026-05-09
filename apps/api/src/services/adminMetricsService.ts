@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { AdminMetrics } from "../repos/adminMetricsRepo.js";
 import { AdminMetricsRepo } from "../repos/adminMetricsRepo.js";
+import type { BetaUsageEventType } from "../lib/betaUsageEventTypes.js";
 
 export class AdminMetricsService {
   private readonly repo: AdminMetricsRepo;
@@ -29,14 +30,7 @@ export class AdminMetricsService {
   }
 
   async logBetaUsageEvent(input: {
-    eventType:
-      | "search_executed"
-      | "profile_viewed"
-      | "profile_clicked"
-      | "thread_created"
-      | "thread_message_sent"
-      | "intentcast_posted"
-      | "intentcast_responded";
+    eventType: BetaUsageEventType;
     personId: string | null;
     route: string;
     metadata?: Record<string, unknown>;

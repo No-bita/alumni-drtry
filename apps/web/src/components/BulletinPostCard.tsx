@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
+import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import type { BulletinCardTone } from "../lib/bulletinPostCardUtils";
 import { demoDisplayFullName } from "../lib/demoProfile";
 
@@ -22,6 +23,8 @@ export type BulletinPostCardProps = {
   title: string;
   summary: string | null;
   chips?: string[];
+  /** Demo/test alumni author — shows a compact Demo badge next to the name. */
+  authorIsDemo?: boolean;
   footer?: ReactNode;
   /** Own-post overflow (e.g. kebab menu) — top-right of header, with card hover affordance in CSS */
   ownerActions?: ReactNode;
@@ -41,6 +44,7 @@ export function BulletinPostCard({
   title,
   summary,
   chips,
+  authorIsDemo = false,
   footer,
   ownerActions,
   className,
@@ -60,7 +64,10 @@ export function BulletinPostCard({
         <Link to={personProfileHref} className="bb-post-card__person">
           <Avatar name={displayAuthorName} size="sm" tone="pastel" />
           <span className="bb-post-card__person-text">
-            <span className="bb-post-card__name">{displayAuthorName}</span>
+            <span className="bb-post-card__name-row">
+              <span className="bb-post-card__name">{displayAuthorName}</span>
+              {authorIsDemo ? <DemoAuthorBadge /> : null}
+            </span>
             <DeptBatchMeta
               className="bb-post-card__meta dept-batch-meta"
               departmentCode={departmentCode}

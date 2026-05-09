@@ -1,10 +1,17 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { BETA_USAGE_EVENT_TYPES } from "../lib/betaUsageEventTypes.js";
 
 const betaUsageExportQuery = z.object({
   format: z.enum(["json", "csv"]).default("json"),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(24),
   limit: z.coerce.number().int().min(1).max(50_000).default(10_000)
+});
+
+const betaUsageEventBody = z.object({
+  eventType: z.enum(BETA_USAGE_EVENT_TYPES),
+  route: z.string().trim().min(1).max(256),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 function toCsv(rows: Array<{
@@ -39,6 +46,26 @@ function toCsv(rows: Array<{
 
 export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
   const adminPreHandlers = [app.authenticate, app.requireAdmin];
+  const usageEventPreHandlers = [app.authenticate];
+
+  app.post(
+    "/v1/analytics/beta-usage-event",
+    { preHandler: usageEventPreHandlers },
+    async (request, reply) => {
+      const parsed = betaUsageEventBody.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ code: "BETA_USAGE_EVENT_BAD_REQUEST", message: "Invalid event payload." });
+      }
+      const actor = request.actor ?? null;
+      await app.adminMetricsService.logBetaUsageEvent({
+        eventType: parsed.data.eventType,
+        personId: actor?.personId ?? null,
+        route: parsed.data.route,
+        metadata: parsed.data.metadata ?? {},
+      });
+      return reply.code(202).send({ ok: true });
+    }
+  );
 
   app.get(
     "/v1/admin/metrics",

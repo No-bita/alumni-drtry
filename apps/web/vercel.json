@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/v1/(.*)",
-      "destination": "https://alumni-drtry-production.up.railway.app/v1/$1"
+      "destination": "https://alumni-api-production.up.railway.app/v1/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

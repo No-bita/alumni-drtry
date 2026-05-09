@@ -24,14 +24,16 @@ Exact predicates live in `listFeed()` — **do not duplicate them here verbatim*
 
 Posts are **not** ranked by likes, replies, or category popularity. Order is deterministic:
 
-1. **Primary — boost “unanswered and recent”**  
-   Posts with **zero responses** and **`created_at` within the last 48 hours** sort **before** all other posts.  
-   (In SQL this is a `CASE` expression: that group = `0`, everything else = `1`, ascending.)
+1. **Primary — demo viewer + demo author**  
+   When the **viewer** matches demo/test alumni (`personIsDemoSql` on the viewer’s `people` row) **and** the **author** is also demo/test, those intentcasts sort **first**. This keeps seeded batch-demo bulletin posts visible on Home for demo accounts without changing ordering for normal production viewers.
 
-2. **Secondary — recency**  
+2. **Secondary — boost “unanswered and recent”**  
+   Among remaining rows: posts with **zero responses** and **`created_at` within the last 48 hours** sort **before** older or already-replied posts.
+
+3. **Tertiary — recency**  
    Within each group: **`created_at DESC`** (newest first).
 
-3. **Tie-break**  
+4. **Tie-break**  
    **`id DESC`** for stable ordering when timestamps match.
 
 ## Pagination

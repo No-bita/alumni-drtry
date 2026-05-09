@@ -17,6 +17,8 @@ import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
 import { demoDisplayFullName } from "../lib/demoProfile";
 import { formatThreadMessageTime, replySnippet } from "../lib/threadMessageFormat";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import { DemoAuthorBadge } from "../components/DemoAuthorBadge";
 
 function disclosureLabel(kind: string): string {
   switch (kind) {
@@ -168,6 +170,7 @@ function ConnectionThreadBody({
       setActionError(error.message ?? error.code);
       return;
     }
+    trackBetaUsageEvent("thread_closed", { status, threadId });
     invalidateConnectionThreadQueries();
   };
 
@@ -340,19 +343,23 @@ function ConnectionThreadBody({
                 ) : null}
                 <p className="connection-thread-page__msg-body">{m.body}</p>
                 <div className="connection-thread-page__msg-meta-row">
-                  <time className="connection-thread-page__msg-time" dateTime={m.createdAt}>
-                    {formatThreadMessageTime(m.createdAt)}
-                  </time>
+                  <span className="connection-thread-page__msg-meta-lead">
+                    <time className="connection-thread-page__msg-time" dateTime={m.createdAt}>
+                      {formatThreadMessageTime(m.createdAt)}
+                    </time>
+                    {m.authorIsDemo ? <DemoAuthorBadge /> : null}
+                  </span>
                   <button
                     type="button"
                     className="connection-thread-page__msg-reply"
-                    onClick={() =>
+                    onClick={() => {
+                      trackBetaUsageEvent("message_reply_started", { threadId, messageId: m.id });
                       setPendingReplyParent({
                         messageId: m.id,
                         authorPersonId: m.authorPersonId,
                         body: m.body,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Reply
                   </button>

@@ -63,6 +63,7 @@ export interface ConnectionThreadDetailView {
     createdAt: string;
     editedAt: string | null;
     replyTo: { messageId: string; authorPersonId: string; body: string } | null;
+    authorIsDemo: boolean;
   }[];
   disclosures: {
     id: string;
@@ -266,6 +267,7 @@ export class ConnectionThreadService {
         createdAt: m.createdAt.toISOString(),
         editedAt: m.editedAt ? m.editedAt.toISOString() : null,
         replyTo: m.replyTo,
+        authorIsDemo: m.authorIsDemo,
       })),
       disclosures: disclosures.map((d) => ({
         id: d.id,

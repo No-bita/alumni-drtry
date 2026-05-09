@@ -23,6 +23,7 @@ export type HomeOpportunityItem = {
   /** Relative posted time (footer, right) */
   postedRelative?: string | null;
   postedAtIso?: string | null;
+  authorIsDemo?: boolean;
   title: string;
   summary: string;
   chips: string[];
@@ -211,6 +212,7 @@ export function HomeOpportunityRail({
                     batchYear={item.batchYear}
                     postedRelative={item.postedRelative ?? null}
                     postedAtIso={item.postedAtIso ?? null}
+                    authorIsDemo={Boolean(item.authorIsDemo)}
                     tone={homeOpportunityTone(item.category)}
                     categoryBadgeLabel={homeOpportunityBadgeLabel(item.category)}
                     title={item.title}

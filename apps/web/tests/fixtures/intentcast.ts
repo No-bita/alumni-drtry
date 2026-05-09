@@ -21,6 +21,7 @@ export function makeIntentcast(overrides: Partial<IntentcastFeedItem> = {}): Int
     authorDeletePurgeAt: null,
     responseCount: 0,
     viewerHasResponded: false,
+    authorIsDemo: false,
     ...overrides,
   };
 }

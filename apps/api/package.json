@@ -11,6 +11,10 @@
     "migrate": "tsx src/db/migrate.ts",
     "auth:hash-password": "tsx scripts/generate-password-hash.ts",
     "seed:platform-mock": "tsx scripts/seed-platform-mock-data.ts",
+    "clear-person-analytics": "tsx scripts/clear-person-analytics-by-email.ts",
+    "delete-person-full": "tsx scripts/delete-person-full-by-email.ts",
+    "delete-e2e-alumni": "tsx scripts/delete-all-e2e-test-alumni.ts",
+    "beta:hash-invite-code": "tsx scripts/hash-beta-invite-code.ts",
     "job:intentcasts:expire": "tsx src/jobs/expireIntentcasts.ts",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/index.js",
@@ -25,12 +29,12 @@
     "dotenv": "^16.4.5",
     "fastify": "^5.8.5",
     "pg": "^8.13.1",
+    "tsx": "^4.19.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^4.1.5"
   }

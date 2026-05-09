@@ -42,9 +42,9 @@ export function HomeNetworkPanel({
       </div>
       <p className="home-ideal__panel-copy">Strengthen your batch network and stay connected.</p>
       <div className="home-ideal__panel-actions">
-        <Link to="/search" className="btn btn--primary">
+        <button type="button" className="btn btn--primary">
           Invite batchmates
-        </Link>
+        </button>
         <Link to={directoryHref} className="btn btn--secondary">
           View all alumni
         </Link>

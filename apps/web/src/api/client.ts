@@ -261,6 +261,7 @@ export type ConnectionThreadDetailResponse = {
     createdAt: string;
     editedAt: string | null;
     replyTo: ConnectionThreadMessageReplyTo | null;
+    authorIsDemo?: boolean;
   }[];
   disclosures: {
     id: string;
@@ -350,6 +351,8 @@ export type IntentcastFeedItem = {
   responseCount: number;
   /** True when the signed-in user has already replied (at most one reply per post). */
   viewerHasResponded: boolean;
+  /** Author is demo/test alumni (`is_test_user` or batchdemo/platformdemo email prefixes). */
+  authorIsDemo?: boolean;
 };
 
 /** GET /v1/intentcasts/:id/responses (author only) */
@@ -362,6 +365,7 @@ export type IntentcastResponseItem = {
   responderDepartmentName: string | null;
   message: string;
   createdAt: string;
+  responderIsDemo?: boolean;
 };
 
 export type IntentcastFeedResponse = {
@@ -426,6 +430,14 @@ export type AdminMetricsResponse = {
     profileCompletedCount: number;
     searchableCount: number;
     searchVolume: number;
+    directoryMix: {
+      betaProfiles: number;
+      demoProfiles: number;
+      adminProfiles: number;
+      testProfiles: number;
+      betaProfilesCompleted: number;
+      betaProfilesSearchable: number;
+    };
     betaAuthFunnel: {
       attempts: number;
       successes: number;
@@ -440,10 +452,30 @@ export type AdminMetricsResponse = {
       searchExecuted24h: number;
       profileViewed24h: number;
       profileClicked24h: number;
+      onboardingStarted24h: number;
+      onboardingCompleted24h: number;
+      searchZeroResults24h: number;
       threadCreated24h: number;
       threadMessageSent24h: number;
       intentcastPosted24h: number;
       intentcastResponded24h: number;
+    };
+    betaFunnel24h: {
+      authSuccesses: number;
+      onboardingStarted: number;
+      onboardingCompleted: number;
+      searchesExecuted: number;
+      profilesClicked: number;
+      highIntentActions: number;
+    };
+    betaKpis: {
+      onboardingCompletionRate24h: number;
+      discoveryCtr24h: number;
+      connectionConversionRate24h: number;
+      intentcastResponseRate24h: number;
+      activeUsers24h: number;
+      activeUsers7d: number;
+      repeatUsers7d: number;
     };
   };
 };
@@ -460,5 +492,10 @@ export type AdminAllowedEmail = {
 };
 
 export type AdminAllowedEmailsResponse = {
+  emails: AdminAllowedEmail[];
+};
+
+/** GET /v1/admin/beta/allowed-emails */
+export type BetaAllowedEmailsResponse = {
   emails: AdminAllowedEmail[];
 };

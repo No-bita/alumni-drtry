@@ -577,7 +577,7 @@ export function Login() {
           <form onSubmit={handleSubmit}>
             <Input
               type="email"
-              placeholder="you@iitbhu.ac.in"
+              placeholder="you@itbhu.ac.in"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);

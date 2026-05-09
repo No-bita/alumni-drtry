@@ -16,26 +16,16 @@ import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
 import { assertApiGet } from "../lib/assertApiGet";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
-import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
 import { CAMPUS_IMAGE } from "../constants/images";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
 const JOIN_YEAR_MIN = 1960;
 const joinYearMax = () => new Date().getUTCFullYear() + 1;
-
-type OnboardingIntent = "referrals" | "hire" | "build" | "mentor" | "explore";
-
-const ONBOARDING_INTENTS: { id: OnboardingIntent; label: string; hint: string }[] = [
-  { id: "referrals", label: "Get referrals", hint: "Find alumni and reach out quickly." },
-  { id: "hire", label: "Hire", hint: "Post open roles to the alumni network." },
-  { id: "build", label: "Startups", hint: "Find startup collaborators for projects." },
-  { id: "mentor", label: "Mentor", hint: "Discover alumni and offer guidance." },
-  { id: "explore", label: "Explore alumni", hint: "Browse the directory by cohort and context." },
-];
 
 const OCCUPATION_OPTIONS: { label: string; code: string }[] = [
   { label: "Full/Part time employment", code: "employment" },
@@ -165,6 +155,117 @@ function departmentInVocab(code: string | null): boolean {
   return DEPARTMENTS.some((x) => x.code === code);
 }
 
+type OnboardingDropdownOption = { value: string; label: string };
+
+type OnboardingSearchSelectProps = {
+  value: string | null;
+  options: OnboardingDropdownOption[];
+  placeholder: string;
+  onChange: (value: string | null) => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onAdvanceEnter?: () => void;
+};
+
+function OnboardingSearchSelect({
+  value,
+  options,
+  placeholder,
+  onChange,
+  inputRef,
+  onAdvanceEnter,
+}: OnboardingSearchSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const selectedLabel = useMemo(
+    () => options.find((option) => option.value === value)?.label ?? "",
+    [options, value]
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(normalized));
+  }, [options, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
+
+  return (
+    <div className="onboarding-welcome__search-select" ref={rootRef}>
+      <div className="onboarding-welcome__search-select-control">
+        <input
+          ref={inputRef}
+          className="onboarding-welcome__inline-select onboarding-welcome__search-select-input"
+          value={open ? query : selectedLabel}
+          placeholder={placeholder}
+          onFocus={() => setOpen(true)}
+          onChange={(event) => {
+            setOpen(true);
+            setQuery(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              setQuery("");
+              return;
+            }
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            if (open) {
+              const top = filteredOptions[0];
+              if (top) {
+                onChange(top.value);
+                setOpen(false);
+                setQuery("");
+              }
+              return;
+            }
+            onAdvanceEnter?.();
+          }}
+        />
+        <span className="onboarding-welcome__search-select-icon" aria-hidden>
+          ⌕
+        </span>
+      </div>
+      {open ? (
+        <div className="onboarding-welcome__search-select-panel" role="listbox">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`onboarding-welcome__search-select-option${value === option.value ? " onboarding-welcome__search-select-option--active" : ""}`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                  setQuery("");
+                }}
+              >
+                {option.label}
+              </button>
+            ))
+          ) : (
+            <p className="onboarding-welcome__search-select-empty">No matches found</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function Onboarding() {
   const queryClient = useQueryClient();
   const auth = useAuth();
@@ -182,7 +283,7 @@ export function Onboarding() {
   const [parsedDeptLabel, setParsedDeptLabel] = useState<string | null>(null);
   /** When false, show parsed department as a summary; user taps to open the vocab dropdown. */
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(true);
-  const departmentSelectRef = useRef<HTMLSelectElement>(null);
+  const departmentSelectRef = useRef<HTMLInputElement>(null);
   const [selectedOccupationCodes, setSelectedOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationCodes, setExistingOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationsByCode, setExistingOccupationsByCode] = useState<Map<string, MyOccupationView>>(new Map());
@@ -191,7 +292,6 @@ export function Onboarding() {
   const [residenceCity, setResidenceCity] = useState("");
   const [mobileCountryCode, setMobileCountryCode] = useState("");
   const [mobilePhone, setMobilePhone] = useState("");
-  const [selectedIntent, setSelectedIntent] = useState<OnboardingIntent | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -200,6 +300,9 @@ export function Onboarding() {
   const [stepRenderVersion, setStepRenderVersion] = useState(0);
   const [step1QuestionIndex, setStep1QuestionIndex] = useState(0);
   const [step2QuestionIndex, setStep2QuestionIndex] = useState(0);
+  const analyticsStartedRef = useRef(false);
+  const step1ProgressRef = useRef(0);
+  const step2ProgressRef = useRef(0);
 
   const activeOccupationCode = useMemo(
     () => [...selectedOccupationCodes][0] ?? null,
@@ -232,6 +335,14 @@ export function Onboarding() {
     return questions;
   }, [activeOccupationFollowUpConfig]);
   const step2CurrentQuestion = step2Questions[step2QuestionIndex];
+  const step1QuestionId = useMemo(() => {
+    if (step1QuestionIndex === 0) return "first_name";
+    if (step1QuestionIndex === 1) return "last_name";
+    if (step1QuestionIndex === 2) return "department";
+    if (step1QuestionIndex === 3) return "degree";
+    if (step1QuestionIndex === 4) return "join_year";
+    return "graduation_year";
+  }, [step1QuestionIndex]);
 
   const occQuery = useQuery({
     queryKey: queryKeys.me.occupations(),
@@ -377,20 +488,83 @@ export function Onboarding() {
 
   const gradYear4 = joinYear + 4;
   const gradYear5 = joinYear + 5;
+  const departmentOptions = useMemo<OnboardingDropdownOption[]>(() => {
+    const normalized = departmentCode?.trim().toLowerCase() ?? "";
+    const vocabOptions = DEPARTMENTS.map((department) => ({
+      value: department.code,
+      label: department.label,
+    }));
+    if (normalized && !departmentInVocab(normalized)) {
+      return [
+        { value: normalized, label: `${parsedDeptLabel ?? normalized} (from email)` },
+        ...vocabOptions,
+      ];
+    }
+    return vocabOptions;
+  }, [departmentCode, parsedDeptLabel]);
+  const degreeOptions = useMemo<OnboardingDropdownOption[]>(
+    () => DEGREES.map((degree) => ({ value: degree.code, label: degree.label })),
+    []
+  );
 
   const goTo = (step: number) => {
     setSaveError(null);
     setStepIndex((prev) => {
-      const next = Math.min(3, Math.max(0, step));
+      const next = Math.min(2, Math.max(0, step));
       if (next !== prev) setStepRenderVersion((v) => v + 1);
       return next;
     });
+  };
+
+  const handleOnboardingStart = () => {
+    if (!analyticsStartedRef.current) {
+      analyticsStartedRef.current = true;
+      trackBetaUsageEvent("onboarding_started", { source: "welcome_start" });
+    }
+    goTo(1);
   };
 
   useEffect(() => {
     if (stepIndex !== 1) setStep1QuestionIndex(0);
     if (stepIndex !== 2) setStep2QuestionIndex(0);
   }, [stepIndex]);
+
+  useEffect(() => {
+    if (stepIndex !== 1) return;
+    if (step1QuestionIndex <= step1ProgressRef.current) return;
+    step1ProgressRef.current = step1QuestionIndex;
+    trackBetaUsageEvent("onboarding_step_advanced", {
+      stage: "profile",
+      questionId: step1QuestionId,
+      questionIndex: step1QuestionIndex + 1,
+    });
+  }, [stepIndex, step1QuestionId, step1QuestionIndex]);
+
+  useEffect(() => {
+    if (stepIndex !== 2) return;
+    if (step2QuestionIndex <= step2ProgressRef.current) return;
+    step2ProgressRef.current = step2QuestionIndex;
+    trackBetaUsageEvent("onboarding_step_advanced", {
+      stage: "occupation_contact",
+      questionId: step2CurrentQuestion?.id ?? "unknown",
+      questionIndex: step2QuestionIndex + 1,
+    });
+  }, [step2CurrentQuestion?.id, step2QuestionIndex, stepIndex]);
+
+  useEffect(() => {
+    if (!saveError) return;
+    const questionId =
+      stepIndex === 1
+        ? step1QuestionId
+        : stepIndex === 2
+          ? (step2CurrentQuestion?.id ?? "unknown")
+          : "unknown";
+    trackBetaUsageEvent("onboarding_validation_error", {
+      stepIndex,
+      questionId,
+      message: saveError,
+    });
+  }, [saveError, step1QuestionId, step2CurrentQuestion?.id, stepIndex]);
 
   useEffect(() => {
     setStep2QuestionIndex((prev) => Math.min(prev, Math.max(0, step2Questions.length - 1)));
@@ -658,35 +832,13 @@ export function Onboarding() {
       markMinimumProfileComplete: true,
     });
     if (errMin) return;
-    goTo(3);
-  };
-
-  const handleStep3Finish = async () => {
-    if (!selectedIntent) {
-      setSaveError("Please select what you are here for.");
-      return;
-    }
-    setSaveError(null);
     const errDone = await saveProfile({ markOnboardingComplete: true });
     if (errDone) return;
-
-    const params = new URLSearchParams();
-    params.set("fromOnboarding", "1");
-    params.set("intent", selectedIntent);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("onboarding.intent", selectedIntent);
-    }
-    const query = params.toString();
-    const destination =
-      selectedIntent === "hire"
-        ? `/intent/career?compose=1&${query}`
-        : selectedIntent === "build"
-          ? isDevHubPagesEnabled
-            ? `/intent/build?compose=1&${query}`
-            : `/home?${query}`
-          : `/search?${query}`;
-    navigate(destination, { replace: true });
+    trackBetaUsageEvent("onboarding_completed", {
+      totalStep1Questions: step1QuestionCount,
+      totalStep2Questions: step2Questions.length,
+    });
+    navigate("/home?fromOnboarding=1", { replace: true });
   };
 
   const toggleOccupation = (code: string) => {
@@ -772,6 +924,52 @@ export function Onboarding() {
     advanceStep2Question();
   };
 
+  const handleInlineEnterAdvance = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter") return;
+    if (event.defaultPrevented) return;
+    if (saving) return;
+    const target = event.target;
+    if (target instanceof HTMLButtonElement) return;
+    if (target instanceof HTMLTextAreaElement) return;
+    if (target instanceof HTMLInputElement) return;
+    event.preventDefault();
+    if (stepIndex === 1) {
+      advanceStep1Question();
+      return;
+    }
+    if (stepIndex === 2) {
+      advanceStep2Question();
+      return;
+    }
+  };
+
+  useEffect(() => {
+    if (stepIndex <= 0) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter") return;
+      if (event.repeat) return;
+      if (event.defaultPrevented) return;
+      if (saving) return;
+      const target = event.target;
+      if (target instanceof HTMLTextAreaElement) return;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLButtonElement && activeElement.classList.contains("btn")) {
+        return;
+      }
+      event.preventDefault();
+      if (stepIndex === 1) {
+        advanceStep1Question();
+        return;
+      }
+      if (stepIndex === 2) {
+        advanceStep2Question();
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [saving, stepIndex, step1QuestionIndex, step2QuestionIndex, step2CurrentQuestion]);
+
   if (gate === "loading") {
     return (
       <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
@@ -789,36 +987,45 @@ export function Onboarding() {
   if (auth.status === "authenticated" && welcomeProfile) {
     return (
       <OnboardingWelcome
-        onBegin={() => goTo(1)}
+        onBegin={handleOnboardingStart}
         showBeginButton={stepIndex === 0}
       >
         {stepIndex > 0 ? (
           <div key={`onboarding-step-${stepIndex}-${stepRenderVersion}`} className="onboarding-flow__panel">
-            <div className="onboarding-welcome__inline-question">
+            <div className="onboarding-welcome__inline-question" onKeyDown={handleInlineEnterAdvance}>
               {stepIndex === 1 ? (
                 <>
-                  <p className="onboarding-welcome__inline-progress">Question {step1QuestionIndex + 1} of {step1QuestionCount}</p>
-                  <p className="onboarding-welcome__inline-label">
-                    {step1QuestionIndex === 0 ? "First name *" : null}
-                    {step1QuestionIndex === 1 ? "Last name *" : null}
-                    {step1QuestionIndex === 2 ? "Department *" : null}
-                    {step1QuestionIndex === 3 ? "Degree *" : null}
-                    {step1QuestionIndex === 4 ? "Year you joined (first year of programme) *" : null}
-                    {step1QuestionIndex === 5 ? "Which year did you graduate? *" : null}
-                  </p>
+                  <div className="onboarding-welcome__question-head">
+                    <span className="onboarding-welcome__question-index">{step1QuestionIndex + 1}</span>
+                    <p className="onboarding-welcome__inline-label">
+                      {step1QuestionIndex === 0 ? "What is your first name?" : null}
+                      {step1QuestionIndex === 1 ? "What is your last name?" : null}
+                      {step1QuestionIndex === 2 ? "Which department were you in?" : null}
+                      {step1QuestionIndex === 3 ? "Which degree did you complete?" : null}
+                      {step1QuestionIndex === 4 ? "Which year did you join IIT BHU?" : null}
+                      {step1QuestionIndex === 5 ? "Which year did you graduate?" : null}
+                    </p>
+                  </div>
                   {step1QuestionIndex === 0 ? <input className="onboarding-welcome__inline-input" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 1 ? <input className="onboarding-welcome__inline-input" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 2 ? (
-                    <select ref={departmentSelectRef} className="onboarding-welcome__inline-select" value={departmentCode ?? ""} onChange={(e) => setDepartmentCode(e.target.value || null)} onKeyDown={handleStep1FieldEnter}>
-                      <option value="">Select department</option>
-                      {departmentCode && !departmentInVocab(departmentCode) ? <option value={departmentCode}>{parsedDeptLabel ?? departmentCode} (from email)</option> : null}
-                      {DEPARTMENTS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-                    </select>
+                    <OnboardingSearchSelect
+                      inputRef={departmentSelectRef}
+                      value={departmentCode}
+                      options={departmentOptions}
+                      placeholder="Type or select an option"
+                      onChange={setDepartmentCode}
+                      onAdvanceEnter={advanceStep1Question}
+                    />
                   ) : null}
                   {step1QuestionIndex === 3 ? (
-                    <select className="onboarding-welcome__inline-select" value={degreeCode ?? ""} onChange={(e) => setDegreeCode(e.target.value || null)} onKeyDown={handleStep1FieldEnter}>
-                      {DEGREES.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-                    </select>
+                    <OnboardingSearchSelect
+                      value={degreeCode}
+                      options={degreeOptions}
+                      placeholder="Type or select an option"
+                      onChange={setDegreeCode}
+                      onAdvanceEnter={advanceStep1Question}
+                    />
                   ) : null}
                   {step1QuestionIndex === 4 ? <input className="onboarding-welcome__inline-input onboarding-welcome__inline-input--narrow" type="number" inputMode="numeric" min={JOIN_YEAR_MIN} max={joinYearMax()} step={1} value={joinYearText} onChange={(e) => onJoinYearTextChange(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 5 ? (
@@ -830,21 +1037,23 @@ export function Onboarding() {
                   {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
                   <div className="onboarding-welcome__inline-actions">
                     <Button type="button" variant="back" onClick={() => { setSaveError(null); if (step1QuestionIndex > 0) { setStep1QuestionIndex((i) => i - 1); return; } goTo(0); }} disabled={saving}>Back</Button>
-                    <Button variant="primary" disabled={saving} onClick={advanceStep1Question}>{saving ? "Saving…" : step1QuestionIndex < step1QuestionCount - 1 ? "Next" : "Looks right →"}</Button>
+                    <Button variant="primary" disabled={saving} onClick={advanceStep1Question}>{saving ? "Saving…" : step1QuestionIndex < step1QuestionCount - 1 ? "OK" : "Looks right →"}</Button>
                   </div>
                 </>
               ) : null}
               {stepIndex === 2 ? (
                 <>
-                  <p className="onboarding-welcome__inline-progress">Question {step2QuestionIndex + 1} of {step2Questions.length}</p>
-                  <p className="onboarding-welcome__inline-label">
-                    {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role? *" : null}
+                  <div className="onboarding-welcome__question-head">
+                    <span className="onboarding-welcome__question-index">{step2QuestionIndex + 1}</span>
+                    <p className="onboarding-welcome__inline-label">
+                    {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role?" : null}
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
-                    {step2CurrentQuestion?.id === "residenceCountry" ? "Current country of residence *" : null}
-                    {step2CurrentQuestion?.id === "residenceCity" ? "Current city of residence *" : null}
-                    {step2CurrentQuestion?.id === "mobileCountryCode" ? "Country code *" : null}
-                    {step2CurrentQuestion?.id === "mobilePhone" ? "Mobile number *" : null}
-                  </p>
+                    {step2CurrentQuestion?.id === "residenceCountry" ? "What is your current country of residence?" : null}
+                    {step2CurrentQuestion?.id === "residenceCity" ? "What is your current city of residence?" : null}
+                    {step2CurrentQuestion?.id === "mobileCountryCode" ? "What is your country code?" : null}
+                    {step2CurrentQuestion?.id === "mobilePhone" ? "What is your mobile number?" : null}
+                    </p>
+                  </div>
                   {step2CurrentQuestion?.id === "occupation" ? (
                     <div className="onboarding-welcome__inline-options onboarding-welcome__inline-options--stack">
                       {OCCUPATION_OPTIONS.map(({ label, code }) => <Chip key={code} active={selectedOccupationCodes.has(code)} onClick={() => toggleOccupation(code)}>{label}</Chip>)}
@@ -858,21 +1067,7 @@ export function Onboarding() {
                   {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
                   <div className="onboarding-welcome__inline-actions">
                     <Button variant="back" onClick={() => { setSaveError(null); if (step2QuestionIndex > 0) { setStep2QuestionIndex((i) => i - 1); return; } goTo(1); }} disabled={saving}>Back</Button>
-                    <Button variant="primary" onClick={advanceStep2Question} disabled={saving}>{saving ? "Saving…" : step2QuestionIndex < step2Questions.length - 1 ? "Next" : "Continue"}</Button>
-                  </div>
-                </>
-              ) : null}
-              {stepIndex === 3 ? (
-                <>
-                  <p className="onboarding-welcome__inline-progress">Final question</p>
-                  <p className="onboarding-welcome__inline-label">What would you like to do? *</p>
-                  <div className="onboarding-welcome__inline-options onboarding-welcome__inline-options--intent">
-                    {ONBOARDING_INTENTS.map((intent) => <button key={intent.id} type="button" className={`onboarding-welcome__inline-option ${selectedIntent === intent.id ? "onboarding-welcome__inline-option--active" : ""}`} onClick={() => setSelectedIntent(intent.id)}>{intent.label}</button>)}
-                  </div>
-                  {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
-                  <div className="onboarding-welcome__inline-actions">
-                    <Button variant="back" onClick={() => goTo(2)} disabled={saving}>Back</Button>
-                    <Button variant="primary" onClick={() => void handleStep3Finish()} disabled={saving}>{saving ? "Saving…" : "Continue"}</Button>
+                    <Button variant="primary" onClick={advanceStep2Question} disabled={saving}>{saving ? "Saving…" : step2QuestionIndex < step2Questions.length - 1 ? "OK" : "Continue"}</Button>
                   </div>
                 </>
               ) : null}

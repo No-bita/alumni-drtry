@@ -62,6 +62,20 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   }
 }
 
+function IconAnalytics({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 19.5h16M7 16v-5m5 5V6m5 10v-8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type NavProps = {
   right?: React.ReactNode;
   /**
@@ -204,6 +218,11 @@ export function Nav({
     auth.status === "authenticated" && auth.myProfile?.id ? auth.myProfile.id : undefined;
   const onboardingCompleted =
     auth.status === "authenticated" ? Boolean(auth.myProfile?.onboardingCompletedAt) : false;
+  const isAdminUser = auth.status === "authenticated" && auth.person.role !== "alumni";
+  const analyticsHref = myProfileId ? `/profiles/${myProfileId}#admin-analytics` : "/home";
+  const analyticsActive = myProfileId != null &&
+    location.pathname === `/profiles/${myProfileId}` &&
+    location.hash === "#admin-analytics";
 
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 
@@ -323,6 +342,17 @@ export function Nav({
                   </li>
                 );
               })}
+              {isAdminUser && myProfileId ? (
+                <li>
+                  <Link
+                    to={analyticsHref}
+                    className={`nav-sidebar__link${analyticsActive ? " nav-sidebar__link--active" : ""}`.trim()}
+                  >
+                    <IconAnalytics className="nav-sidebar__icon" />
+                    <span className="nav-sidebar__link-label">Analytics</span>
+                  </Link>
+                </li>
+              ) : null}
             </ul>
           </nav>
         </aside>

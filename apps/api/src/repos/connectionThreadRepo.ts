@@ -1,4 +1,5 @@
 import type { PoolExecutor } from "../db/types.js";
+import { personIsDemoSql } from "../lib/demoPersonSql.js";
 
 export type ConnectionThreadStatus = "open" | "closed" | "declined";
 
@@ -46,6 +47,7 @@ type ConnectionMessageJoinedDbRow = {
   reply_parent_id: string | null;
   reply_parent_author_person_id: string | null;
   reply_parent_body: string | null;
+  author_is_demo: boolean;
 };
 
 export interface ConnectionMessageView {
@@ -56,6 +58,8 @@ export interface ConnectionMessageView {
   createdAt: Date;
   editedAt: Date | null;
   replyTo: ConnectionMessageReplyToSnapshot | null;
+  /** Message author is demo/test alumni (for UI badge). */
+  authorIsDemo: boolean;
 }
 
 export type DisclosureKind = "institutional_email" | "personal_email" | "profile_link";
@@ -86,6 +90,7 @@ function mapPlainMessageReplyNull(row: {
     createdAt: row.created_at,
     editedAt: row.edited_at,
     replyTo: null,
+    authorIsDemo: false,
   };
 }
 
@@ -109,6 +114,7 @@ function mapJoinedMessage(row: ConnectionMessageJoinedDbRow): ConnectionMessageV
     createdAt: row.created_at,
     editedAt: row.edited_at,
     replyTo,
+    authorIsDemo: Boolean(row.author_is_demo),
   };
 }
 
@@ -149,8 +155,10 @@ export class ConnectionThreadRepo {
         m.reply_to_message_id,
         rp.id AS reply_parent_id,
         rp.author_person_id AS reply_parent_author_person_id,
-        rp.body AS reply_parent_body
+        rp.body AS reply_parent_body,
+        ${personIsDemoSql("auth_p")} AS author_is_demo
       FROM connection_messages m
+      JOIN people auth_p ON auth_p.id = m.author_person_id
       LEFT JOIN connection_messages rp
         ON rp.id = m.reply_to_message_id AND rp.thread_id = m.thread_id
       WHERE m.thread_id = $1 AND m.id = $2
@@ -283,8 +291,10 @@ export class ConnectionThreadRepo {
         m.reply_to_message_id,
         rp.id AS reply_parent_id,
         rp.author_person_id AS reply_parent_author_person_id,
-        rp.body AS reply_parent_body
+        rp.body AS reply_parent_body,
+        ${personIsDemoSql("auth_p")} AS author_is_demo
       FROM connection_messages m
+      JOIN people auth_p ON auth_p.id = m.author_person_id
       LEFT JOIN connection_messages rp
         ON rp.id = m.reply_to_message_id AND rp.thread_id = m.thread_id
       WHERE m.thread_id = $1

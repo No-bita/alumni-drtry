@@ -132,6 +132,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
           createdAt: msg.createdAt.toISOString(),
           editedAt: msg.editedAt ? msg.editedAt.toISOString() : null,
           replyTo: msg.replyTo,
+          authorIsDemo: msg.authorIsDemo,
         },
       });
     }
@@ -160,6 +161,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
           createdAt: msg.createdAt.toISOString(),
           editedAt: msg.editedAt ? msg.editedAt.toISOString() : null,
           replyTo: msg.replyTo,
+          authorIsDemo: msg.authorIsDemo,
         },
       });
     }

@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { Nav } from "../components/Nav";
@@ -11,6 +11,7 @@ import { PageStateBlock } from "../components/PageStateBlock";
 import {
   type AdminAllowedEmailsResponse,
   type AdminMetricsResponse,
+  type BetaAllowedEmailsResponse,
   api,
   type CreateConnectionThreadResponse,
   type MeLinksResponse,
@@ -23,6 +24,7 @@ import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
 import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
 function PencilIcon({ className }: { className?: string }) {
   return (
@@ -87,9 +89,11 @@ export function Profile() {
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [adminEmailDraft, setAdminEmailDraft] = useState("");
-  const [adminNotesDraft, setAdminNotesDraft] = useState("");
   const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
   const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
+  const [betaEmailDraft, setBetaEmailDraft] = useState("");
+  const [betaAllowlistBusy, setBetaAllowlistBusy] = useState(false);
+  const [betaAllowlistError, setBetaAllowlistError] = useState<string | null>(null);
   const editLinksHydratedRef = useRef(false);
 
   const isOwnProfile =
@@ -138,6 +142,19 @@ export function Profile() {
     staleTime: 60_000,
   });
 
+  const betaAllowedEmailsQuery = useQuery({
+    queryKey: ["beta-allowed-emails", "profile-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await api.get<BetaAllowedEmailsResponse>("/v1/admin/beta/allowed-emails");
+      if (error || !data) {
+        throw new Error(error?.message ?? error?.code ?? "Could not load beta allowed emails.");
+      }
+      return data.emails;
+    },
+    enabled: Boolean(isOwnProfile && isAdminViewer),
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     if (!isEditing) {
       editLinksHydratedRef.current = false;
@@ -152,6 +169,7 @@ export function Profile() {
 
   const handleReachOut = async (message: string) => {
     if (!id) return;
+    trackBetaUsageEvent("profile_reachout_started", { profileId: id });
     setContactStatus("sending");
     setContactError(null);
     const { data, error } = await api.post<CreateConnectionThreadResponse>("/v1/connection-threads", {
@@ -170,6 +188,7 @@ export function Profile() {
       return;
     }
     setContactStatus("idle");
+    trackBetaUsageEvent("profile_reachout_submitted", { profileId: id });
     invalidateConnectionThreadQueries();
     navigate(`/connections/${threadId}`);
   };
@@ -360,7 +379,20 @@ export function Profile() {
       : residenceCity || residenceCountry;
   const displayLinks = isEditing ? editLinks : links;
   const adminMetrics = adminMetricsQuery.data;
-  const adminAllowedEmails = adminAllowedEmailsQuery.data ?? [];
+  const adminAllowedEmails = useMemo(
+    () =>
+      [...(adminAllowedEmailsQuery.data ?? [])].sort((a, b) =>
+        a.email.localeCompare(b.email, undefined, { sensitivity: "base" })
+      ),
+    [adminAllowedEmailsQuery.data]
+  );
+  const betaAllowedEmails = useMemo(
+    () =>
+      [...(betaAllowedEmailsQuery.data ?? [])].sort((a, b) =>
+        a.email.localeCompare(b.email, undefined, { sensitivity: "base" })
+      ),
+    [betaAllowedEmailsQuery.data]
+  );
 
   const addAdminAllowedEmail = useCallback(async () => {
     const institutionalEmail = adminEmailDraft.trim();
@@ -369,7 +401,6 @@ export function Profile() {
     setAdminAllowlistError(null);
     const { error } = await api.post("/v1/admin/allowed-admin-emails", {
       institutionalEmail,
-      notes: adminNotesDraft.trim() || null,
     });
     setAdminAllowlistBusy(false);
     if (error) {
@@ -377,9 +408,8 @@ export function Profile() {
       return;
     }
     setAdminEmailDraft("");
-    setAdminNotesDraft("");
     await adminAllowedEmailsQuery.refetch();
-  }, [adminAllowedEmailsQuery, adminEmailDraft, adminNotesDraft]);
+  }, [adminAllowedEmailsQuery, adminEmailDraft]);
 
   const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
     setAdminAllowlistBusy(true);
@@ -394,6 +424,37 @@ export function Profile() {
     }
     await adminAllowedEmailsQuery.refetch();
   }, [adminAllowedEmailsQuery]);
+
+  const addBetaAllowedEmail = useCallback(async () => {
+    const institutionalEmail = betaEmailDraft.trim();
+    if (!institutionalEmail) return;
+    setBetaAllowlistBusy(true);
+    setBetaAllowlistError(null);
+    const { error } = await api.post("/v1/admin/beta/allowed-emails", {
+      institutionalEmail,
+    });
+    setBetaAllowlistBusy(false);
+    if (error) {
+      setBetaAllowlistError(error.message ?? error.code);
+      return;
+    }
+    setBetaEmailDraft("");
+    await betaAllowedEmailsQuery.refetch();
+  }, [betaAllowedEmailsQuery, betaEmailDraft]);
+
+  const revokeBetaAllowedEmail = useCallback(async (institutionalEmail: string) => {
+    setBetaAllowlistBusy(true);
+    setBetaAllowlistError(null);
+    const { error } = await api.post("/v1/admin/beta/allowed-emails/revoke", {
+      institutionalEmail,
+    });
+    setBetaAllowlistBusy(false);
+    if (error) {
+      setBetaAllowlistError(error.message ?? error.code);
+      return;
+    }
+    await betaAllowedEmailsQuery.refetch();
+  }, [betaAllowedEmailsQuery]);
 
   const navExtra =
     isOwnProfile && !isEditing ? (
@@ -594,7 +655,7 @@ export function Profile() {
             ) : null}
 
             {isOwnProfile && isAdminViewer ? (
-              <article className="home-dashboard__card profile-page__analytics-card">
+              <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
                 <div className="profile-page__analytics-header">
                   <h2 className="profile-page__section-title">Admin analytics dashboard</h2>
                   <button
@@ -615,13 +676,23 @@ export function Profile() {
                   </p>
                 ) : (
                   <div className="profile-page__analytics-grid">
+                    <p className="body-text profile-page__muted-text profile-page__analytics-scope-note">
+                      Usage, funnel, and KPI rows below count only <strong>beta alumni</strong> (real profiles), excluding demo
+                      bios, e2e test users, and admin accounts. Directory totals show the full split.
+                    </p>
                     <section className="profile-page__analytics-section">
                       <h3 className="profile-page__analytics-title">Directory totals</h3>
                       <ul className="profile-page__analytics-list">
                         <li><span>Total people</span><strong>{adminMetrics.totalPeople}</strong></li>
-                        <li><span>Profiles completed</span><strong>{adminMetrics.profileCompletedCount}</strong></li>
-                        <li><span>Searchable profiles</span><strong>{adminMetrics.searchableCount}</strong></li>
-                        <li><span>All-time searches</span><strong>{adminMetrics.searchVolume}</strong></li>
+                        <li><span>Beta alumni profiles</span><strong>{adminMetrics.directoryMix.betaProfiles}</strong></li>
+                        <li><span>Demo profiles</span><strong>{adminMetrics.directoryMix.demoProfiles}</strong></li>
+                        <li><span>Admin profiles</span><strong>{adminMetrics.directoryMix.adminProfiles}</strong></li>
+                        <li><span>Test (e2e) alumni</span><strong>{adminMetrics.directoryMix.testProfiles}</strong></li>
+                        <li><span>Beta — profiles completed</span><strong>{adminMetrics.directoryMix.betaProfilesCompleted}</strong></li>
+                        <li><span>Beta — searchable</span><strong>{adminMetrics.directoryMix.betaProfilesSearchable}</strong></li>
+                        <li><span>All profiles completed</span><strong>{adminMetrics.profileCompletedCount}</strong></li>
+                        <li><span>All searchable profiles</span><strong>{adminMetrics.searchableCount}</strong></li>
+                        <li><span>All-time searches (all users)</span><strong>{adminMetrics.searchVolume}</strong></li>
                       </ul>
                     </section>
 
@@ -640,15 +711,43 @@ export function Profile() {
                     </section>
 
                     <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Tracked usage (last 24h)</h3>
+                      <h3 className="profile-page__analytics-title">Tracked usage — beta only (last 24h)</h3>
                       <ul className="profile-page__analytics-list">
+                        <li><span>Onboarding started</span><strong>{adminMetrics.betaUsage.onboardingStarted24h}</strong></li>
+                        <li><span>Onboarding completed</span><strong>{adminMetrics.betaUsage.onboardingCompleted24h}</strong></li>
                         <li><span>Searches executed</span><strong>{adminMetrics.betaUsage.searchExecuted24h}</strong></li>
+                        <li><span>Zero-result searches</span><strong>{adminMetrics.betaUsage.searchZeroResults24h}</strong></li>
                         <li><span>Profiles viewed</span><strong>{adminMetrics.betaUsage.profileViewed24h}</strong></li>
                         <li><span>Profiles clicked</span><strong>{adminMetrics.betaUsage.profileClicked24h}</strong></li>
                         <li><span>Threads created</span><strong>{adminMetrics.betaUsage.threadCreated24h}</strong></li>
                         <li><span>Thread messages sent</span><strong>{adminMetrics.betaUsage.threadMessageSent24h}</strong></li>
                         <li><span>Intentcasts posted</span><strong>{adminMetrics.betaUsage.intentcastPosted24h}</strong></li>
                         <li><span>Intentcasts responded</span><strong>{adminMetrics.betaUsage.intentcastResponded24h}</strong></li>
+                      </ul>
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Beta funnel (last 24h)</h3>
+                      <ul className="profile-page__analytics-list">
+                        <li><span>Auth success</span><strong>{adminMetrics.betaFunnel24h.authSuccesses}</strong></li>
+                        <li><span>Onboarding started</span><strong>{adminMetrics.betaFunnel24h.onboardingStarted}</strong></li>
+                        <li><span>Onboarding completed</span><strong>{adminMetrics.betaFunnel24h.onboardingCompleted}</strong></li>
+                        <li><span>Searches executed</span><strong>{adminMetrics.betaFunnel24h.searchesExecuted}</strong></li>
+                        <li><span>Profiles clicked</span><strong>{adminMetrics.betaFunnel24h.profilesClicked}</strong></li>
+                        <li><span>High-intent actions</span><strong>{adminMetrics.betaFunnel24h.highIntentActions}</strong></li>
+                      </ul>
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Core beta KPIs</h3>
+                      <ul className="profile-page__analytics-list">
+                        <li><span>Onboarding completion rate (24h)</span><strong>{adminMetrics.betaKpis.onboardingCompletionRate24h}%</strong></li>
+                        <li><span>Discovery CTR (24h)</span><strong>{adminMetrics.betaKpis.discoveryCtr24h}%</strong></li>
+                        <li><span>Connection conversion (24h)</span><strong>{adminMetrics.betaKpis.connectionConversionRate24h}%</strong></li>
+                        <li><span>Intentcast response rate (24h)</span><strong>{adminMetrics.betaKpis.intentcastResponseRate24h}%</strong></li>
+                        <li><span>Active users (24h)</span><strong>{adminMetrics.betaKpis.activeUsers24h}</strong></li>
+                        <li><span>Active users (7d)</span><strong>{adminMetrics.betaKpis.activeUsers7d}</strong></li>
+                        <li><span>Repeat users (7d)</span><strong>{adminMetrics.betaKpis.repeatUsers7d}</strong></li>
                       </ul>
                     </section>
 
@@ -667,13 +766,6 @@ export function Profile() {
                           value={adminEmailDraft}
                           onChange={(event) => setAdminEmailDraft(event.target.value)}
                           placeholder="name@itbhu.ac.in"
-                        />
-                        <Input
-                          label="Notes (optional)"
-                          type="text"
-                          value={adminNotesDraft}
-                          onChange={(event) => setAdminNotesDraft(event.target.value)}
-                          placeholder="Why admin access is needed"
                         />
                         <Button type="submit" variant="secondary" disabled={adminAllowlistBusy || !adminEmailDraft.trim()}>
                           {adminAllowlistBusy ? "Saving…" : "Add admin email"}
@@ -704,6 +796,63 @@ export function Profile() {
                                   className="profile-page__link-remove"
                                   disabled={adminAllowlistBusy}
                                   onClick={() => void revokeAdminAllowedEmail(entry.email)}
+                                >
+                                  Revoke
+                                </button>
+                              ) : (
+                                <span className="profile-page__muted-label">Inactive</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <section className="profile-page__analytics-section">
+                      <h3 className="profile-page__analytics-title">Beta user allowlist</h3>
+                      <form
+                        className="profile-page__admin-allowlist-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void addBetaAllowedEmail();
+                        }}
+                      >
+                        <Input
+                          label="Institutional email"
+                          type="email"
+                          value={betaEmailDraft}
+                          onChange={(event) => setBetaEmailDraft(event.target.value)}
+                          placeholder="name@itbhu.ac.in"
+                        />
+                        <Button type="submit" variant="secondary" disabled={betaAllowlistBusy || !betaEmailDraft.trim()}>
+                          {betaAllowlistBusy ? "Saving…" : "Add beta user"}
+                        </Button>
+                      </form>
+
+                      {betaAllowlistError ? (
+                        <p className="body-text profile-page__error-text">{betaAllowlistError}</p>
+                      ) : null}
+
+                      {betaAllowedEmailsQuery.isPending ? (
+                        <p className="body-text profile-page__muted-text">Loading beta users…</p>
+                      ) : betaAllowedEmailsQuery.isError ? (
+                        <p className="body-text profile-page__error-text">Could not load beta user allowlist.</p>
+                      ) : betaAllowedEmails.length === 0 ? (
+                        <p className="body-text profile-page__muted-text">No beta users added yet.</p>
+                      ) : (
+                        <ul className="profile-page__analytics-list profile-page__admin-allowlist-list">
+                          {betaAllowedEmails.map((entry) => (
+                            <li key={entry.id}>
+                              <span>
+                                {entry.email}
+                                {entry.status === "revoked" ? " (revoked)" : ""}
+                              </span>
+                              {entry.status === "active" ? (
+                                <button
+                                  type="button"
+                                  className="profile-page__link-remove"
+                                  disabled={betaAllowlistBusy}
+                                  onClick={() => void revokeBetaAllowedEmail(entry.email)}
                                 >
                                   Revoke
                                 </button>

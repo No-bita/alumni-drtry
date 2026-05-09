@@ -392,6 +392,25 @@ input[type="reset"]:not(:disabled) {
   white-space: nowrap;
 }
 
+.nav__onboarding-exit {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.9);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.nav__onboarding-exit:hover {
+  color: rgba(252, 248, 240, 1);
+}
+
 /* Signed-in sidebar shell — vertical primary nav + cream toolbar */
 .nav-sidebar {
   position: fixed;
@@ -876,6 +895,43 @@ input[type="reset"]:not(:disabled) {
 .chip--sm {
   padding: 4px 10px;
   font-size: 12px;
+}
+
+.chip--demo-badge {
+  cursor: default;
+  pointer-events: none;
+  flex-shrink: 0;
+  opacity: 0.94;
+}
+
+.chip--demo-badge:hover {
+  border-color: var(--border-default);
+  color: var(--ink-muted);
+  background: var(--cream);
+}
+
+.bb-post-card__name-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bulletin-reply-meta__lead {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.career-opportunity-card__posted-by-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 /* Inputs */
@@ -9621,6 +9677,14 @@ button.career-referrals-v3__matching-pill--editable:active {
   margin-top: 4px;
 }
 
+.connection-thread-page__msg-meta-lead {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
 .connection-thread-page__msg-reply {
   border: 0;
   background: transparent;
@@ -12359,35 +12423,140 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   margin-top: 1rem;
 }
 
-.onboarding-welcome__inline-question {
-  max-width: 720px;
-  display: grid;
-  gap: 12px;
+.onboarding-welcome--questions .onboarding-welcome__right {
+  min-height: calc(100vh - 88px);
+  justify-content: center;
+  padding: 0;
 }
 
-.onboarding-welcome__inline-progress {
-  margin: 0;
-  color: rgba(242, 237, 228, 0.62);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.onboarding-welcome--questions .onboarding-welcome__inline-flow {
+  margin-top: 0;
+}
+
+.onboarding-welcome__inline-question {
+  max-width: 860px;
+  display: grid;
+  gap: 18px;
+}
+
+.onboarding-welcome__question-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.onboarding-welcome__question-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(252, 248, 240, 0.18);
+  color: rgba(252, 248, 240, 0.95);
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 8px;
+  flex-shrink: 0;
 }
 
 .onboarding-welcome__inline-label {
   margin: 0;
   color: rgba(252, 248, 240, 0.95);
-  font-size: 1.05rem;
+  font-size: clamp(2.3rem, 3.8vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  font-family: var(--font-display);
 }
 
 .onboarding-welcome__inline-input,
 .onboarding-welcome__inline-select {
   width: 100%;
-  max-width: 560px;
-  border-radius: 12px;
-  border: 1px solid rgba(242, 237, 228, 0.22);
-  background: rgba(255, 255, 255, 0.04);
+  max-width: 760px;
+  border: 0;
+  border-bottom: 1px solid rgba(242, 237, 228, 0.36);
+  background: transparent;
   color: rgba(252, 248, 240, 0.95);
-  padding: 11px 13px;
+  padding: 12px 0 14px;
+  font-size: 2rem;
+  line-height: 1.25;
+  font-family: var(--font-display);
+}
+
+.onboarding-welcome__search-select {
+  width: 100%;
+  max-width: 760px;
+  position: relative;
+}
+
+.onboarding-welcome__search-select-control {
+  position: relative;
+}
+
+.onboarding-welcome__search-select-input {
+  padding-right: 44px;
+}
+
+.onboarding-welcome__search-select-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(252, 248, 240, 0.72);
+  font-size: 1.45rem;
+  pointer-events: none;
+}
+
+.onboarding-welcome__search-select-panel {
+  margin-top: 12px;
+  width: 100%;
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid rgba(252, 248, 240, 0.12);
+  border-radius: 14px;
+  background: rgba(72, 42, 34, 0.86);
+  backdrop-filter: blur(8px);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.onboarding-welcome__search-select-option {
+  border: 1px solid rgba(252, 248, 240, 0.1);
+  border-radius: 12px;
+  background: rgba(252, 248, 240, 0.08);
+  color: rgba(252, 248, 240, 0.98);
+  text-align: left;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 12px 18px;
+}
+
+.onboarding-welcome__search-select-option--active {
+  border-color: rgba(212, 154, 74, 0.55);
+  background: rgba(212, 154, 74, 0.18);
+}
+
+.onboarding-welcome__search-select-empty {
+  margin: 0;
+  color: rgba(252, 248, 240, 0.72);
+  font-size: 1rem;
+  padding: 12px 6px;
+}
+
+.onboarding-welcome__inline-input::placeholder,
+.onboarding-welcome__inline-select:invalid {
+  color: rgba(252, 248, 240, 0.5);
+}
+
+.onboarding-welcome__inline-input:focus,
+.onboarding-welcome__inline-select:focus {
+  outline: none;
+  border-bottom-color: rgba(252, 248, 240, 0.9);
 }
 
 .onboarding-welcome__inline-input--narrow {
@@ -12397,41 +12566,49 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .onboarding-welcome__inline-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px;
   max-width: 760px;
 }
 
-.onboarding-welcome__inline-options--intent {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(242, 237, 228, 0.22);
-  border-radius: 12px;
-  padding: 10px;
-}
-
-.onboarding-welcome__inline-options--stack,
-.onboarding-welcome__inline-options--intent {
+.onboarding-welcome__inline-options--stack {
   display: grid;
   grid-template-columns: 1fr;
   width: 100%;
   max-width: 560px;
+  gap: 12px;
 }
 
 .onboarding-welcome__inline-options--stack .chip {
+  border: 1px solid rgba(252, 248, 240, 0.1);
+  background: rgba(252, 248, 240, 0.08);
+  color: rgba(252, 248, 240, 0.98);
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.01em;
   width: 100%;
   justify-content: flex-start;
 }
 
-.onboarding-welcome__inline-options--intent .onboarding-welcome__inline-option {
-  width: 100%;
-  text-align: left;
+.onboarding-welcome__inline-options--stack .chip--active {
+  border-color: rgba(212, 154, 74, 0.8);
+  background: rgba(212, 154, 74, 0.14);
 }
 
 .onboarding-welcome__inline-option {
-  border: 1px solid rgba(242, 237, 228, 0.22);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(252, 248, 240, 0.92);
-  border-radius: 999px;
-  padding: 8px 12px;
+  border: 1px solid rgba(252, 248, 240, 0.1);
+  background: rgba(252, 248, 240, 0.08);
+  color: rgba(252, 248, 240, 0.98);
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .onboarding-welcome__inline-option--active {
@@ -12443,7 +12620,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .onboarding-welcome-page .btn--back {
@@ -12457,6 +12634,39 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .onboarding-welcome__inline-error {
   margin: 0;
   color: #ffb6ab;
+}
+
+.onboarding-welcome__start-shell {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.onboarding-welcome__start-subtitle {
+  margin: 0;
+  max-width: 720px;
+  text-align: center;
+  color: rgba(252, 248, 240, 0.7);
+  font-size: 1.03rem;
+  line-height: 1.45;
+}
+
+.onboarding-welcome__start-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onboarding-welcome__start-enter {
+  color: rgba(252, 248, 240, 0.68);
+  font-size: 0.92rem;
+}
+
+.onboarding-welcome__start-time {
+  margin: 0;
+  color: rgba(252, 248, 240, 0.62);
+  font-size: 0.98rem;
 }
 
 .onboarding-welcome__verified {
@@ -12522,6 +12732,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: rgba(252, 248, 240, 0.96);
   margin: 0 0 1.45rem;
   text-wrap: balance;
+  text-align: center;
 }
 
 .onboarding-welcome__headline-name {
@@ -12545,7 +12756,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 }
 
 .btn--onboarding-welcome {
-  align-self: flex-start;
+  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -17447,6 +17658,13 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 .profile-page__analytics-grid {
   display: grid;
   gap: 0.9rem;
+}
+
+.profile-page__analytics-scope-note {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(15, 23, 42, 0.62);
 }
 
 .profile-page__analytics-section {
