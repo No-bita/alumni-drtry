@@ -755,6 +755,7 @@ export function Home() {
     const activeRequestCount = opportunityItems.filter(
       (item) =>
         item.category === "careers" ||
+        item.category === "hiring" ||
         item.category === "guidance" ||
         item.category === "startups" ||
         item.category === "relocation"

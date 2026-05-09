@@ -479,7 +479,12 @@ export function CareerPage() {
           ) : null}
         </div>
       </div>
-      <PostRoleHiringFlow ref={hiringFlowRef} onPublishSuccessNotice={setHiringNotice} />
+      <PostRoleHiringFlow
+        ref={hiringFlowRef}
+        onPublishSuccess={() => {
+          setHiringNotice("Role published — it appears under Hiring on Home and in Career Opportunities.");
+        }}
+      />
     </div>
   );
 }

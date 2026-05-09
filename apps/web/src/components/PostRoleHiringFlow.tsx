@@ -1,11 +1,20 @@
 import { forwardRef, useCallback, useImperativeHandle, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "./Button";
 import { HomeOpportunityRail, type HomeOpportunityItem } from "./HomeOpportunityRail";
 import { useAuth } from "../contexts/AuthContext";
+import { api, type IntentcastFeedItem } from "../api/client";
+import { BULLETIN_POST_MAX_LENGTH } from "../constants/bulletin";
+import {
+  buildHiringBulletinContent,
+  validateHiringBulletinFields,
+  type HiringBulletinComposeFields,
+} from "../lib/parseHiringBulletin";
+import { queryKeys } from "../lib/queryKeys";
 
 export type PostRoleHiringFlowProps = {
-  /** Called after user publishes (still placeholder until backend is wired). */
-  onPublishSuccessNotice?: (message: string) => void;
+  /** After successful `POST /v1/intentcasts` (same bulletin feed as Home “Active requests”). */
+  onPublishSuccess?: (intentcast: IntentcastFeedItem) => void;
 };
 
 export type PostRoleHiringFlowHandle = {
@@ -29,13 +38,40 @@ const INITIAL_HIRING_FORM = {
   hiringManagerNote: "",
 };
 
+function hiringFormToComposeFields(form: typeof INITIAL_HIRING_FORM): HiringBulletinComposeFields {
+  const summary = form.summary.trim();
+  const parts: string[] = [];
+  parts.push(`${form.employmentType.trim()}.`);
+  if (summary) parts.push(summary);
+  const skills = form.skills.trim();
+  if (skills) parts.push(`Skills: ${skills}.`);
+  const exp = form.experienceLevel.trim();
+  if (exp) parts.push(`${exp} experience.`);
+  const comp = form.compensation.trim();
+  if (comp) parts.push(`Compensation: ${comp}.`);
+  const apply = form.applyMethod.trim();
+  if (apply) parts.push(`Steps to apply: ${apply}.`);
+  const jd = form.jdFileName.trim();
+  if (jd) parts.push(`JD file: ${jd}.`);
+  const note = form.hiringManagerNote.trim();
+  if (note) parts.push(note);
+  return {
+    company: form.company.trim(),
+    title: form.roleTitle.trim(),
+    location: form.location.trim(),
+    details: parts.join(" ").replace(/\s+/g, " ").trim(),
+  };
+}
+
 export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleHiringFlowProps>(
-  function PostRoleHiringFlow({ onPublishSuccessNotice }, ref) {
+  function PostRoleHiringFlow({ onPublishSuccess }, ref) {
     const auth = useAuth();
+    const queryClient = useQueryClient();
     const [hiringOpen, setHiringOpen] = useState(false);
     const [hiringStep, setHiringStep] = useState<HiringStep>("essentials");
     const [hiringError, setHiringError] = useState<string | null>(null);
     const [hiringForm, setHiringForm] = useState({ ...INITIAL_HIRING_FORM });
+    const [submitting, setSubmitting] = useState(false);
 
     const essentialsValid = Boolean(
       hiringForm.roleTitle.trim() &&
@@ -98,18 +134,50 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
         return;
       }
       if (hiringStep === "details") {
+        const summary = hiringForm.summary.trim();
+        if (summary.length < 10) {
+          setHiringError("Add a role summary (at least 10 characters) before preview.");
+          return;
+        }
         setHiringError(null);
         setHiringStep("preview");
       }
-    }, [essentialsValid, hiringStep]);
+    }, [essentialsValid, hiringForm.summary, hiringStep]);
 
-    const publishHiringPost = useCallback(() => {
-      onPublishSuccessNotice?.("Hiring post drafted successfully. Connect backend publish next if required.");
+    const publishHiringPost = useCallback(async () => {
+      const compose = hiringFormToComposeFields(hiringForm);
+      const fieldErr = validateHiringBulletinFields(compose);
+      if (fieldErr) {
+        setHiringError(fieldErr);
+        return;
+      }
+      const content = buildHiringBulletinContent(compose).trim();
+      if (content.length < 10) {
+        setHiringError("Post is too short — add a bit more detail.");
+        return;
+      }
+      if (content.length > BULLETIN_POST_MAX_LENGTH) {
+        setHiringError(`Post is too long — shorten details (max ${BULLETIN_POST_MAX_LENGTH} characters).`);
+        return;
+      }
+      setHiringError(null);
+      setSubmitting(true);
+      const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
+        category: "hiring",
+        content,
+      });
+      setSubmitting(false);
+      if (apiErr || !data?.intentcast) {
+        setHiringError(apiErr?.message ?? apiErr?.code ?? "Could not publish hiring post.");
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
+      void queryClient.invalidateQueries({ queryKey: ["home", "opportunity-rail"], refetchType: "active" });
+      onPublishSuccess?.(data.intentcast);
       setHiringOpen(false);
       setHiringStep("essentials");
-      setHiringError(null);
       setHiringForm({ ...INITIAL_HIRING_FORM });
-    }, [onPublishSuccessNotice]);
+    }, [hiringForm, onPublishSuccess, queryClient]);
 
     useImperativeHandle(
       ref,
@@ -319,8 +387,13 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                       </Button>
                       {hiringStep === "preview" ? (
                         <>
-                          <Button type="button" variant="secondary" onClick={publishHiringPost}>
-                            Publish role
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={submitting}
+                            onClick={() => void publishHiringPost()}
+                          >
+                            {submitting ? "Publishing…" : "Publish role"}
                           </Button>
                         </>
                       ) : (
