@@ -11,6 +11,10 @@ Last updated: March 8, 2026
 | 3 | Contact | Alumni can reach each other meaningfully | Code complete, runtime verification pending |
 | 4 | Admin | Platform can be maintained and kept clean | In progress alongside Phase 2 |
 
+## Phase 1 verification
+
+Foundation auth (domain allowlist, email parsing, OTP/magic link, person bootstrap, sessions) is exercised by **API tests** under [`apps/api/tests/`](../apps/api/tests/) — including auth flows and e2e coverage — alongside the modules wired in [`apps/api/src/app.ts`](../apps/api/src/app.ts) (`authRoutes`, `authService`, domain helpers). The retired prose checklist was replaced by those living tests and this roadmap table.
+
 ## Phase 1 Tasks
 
 | Task | What | Output | Status |

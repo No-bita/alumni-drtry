@@ -177,7 +177,7 @@ Prioritize **fewer round-trips**, **smaller hot paths**, **deduplicated data**, 
 
 - [`web-app-optimizations.md`](./web-app-optimizations.md) — bundle, virtualization, rendering.
 - [`directory-search.md`](./directory-search.md) — search contract and indexes.
-- [`production-readiness.md`](./production-readiness.md) — ops and security context.
+- [`production-shipping-checklist.md`](./production-shipping-checklist.md) — launch buckets; **Implementation reference** for session cookies, audits, search query shape.
 
 ---
 

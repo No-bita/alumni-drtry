@@ -102,6 +102,6 @@ Before deploying:
 - [Data flow](docs/data-flow.md)
 - [API contracts](docs/api-contracts.md)
 - [Decisions](docs/decisions.md)
-- [MVP Roadmap](docs/mvp-roadmap.md)
-- [Phase 1 Verification](docs/phase1-verification.md)
+- [MVP Roadmap](docs/mvp-roadmap.md) — phase scope; Phase 1 behaviour covered by API tests (see **Phase 1 verification** in that doc)
 - [Bulletin feed ranking](docs/bulletin-feed-ranking.md)
+- [Docs index](docs/README.md) — grouped links to architecture, launch, product, ops

@@ -1,7 +1,7 @@
 # Web app optimizations (`apps/web`)
 
-For **cost-focused** reduction of API/DB traffic (deduping, sampling, backend writes), see `[cost-and-request-optimizations.md](./cost-and-request-optimizations.md)`.
-For concrete SLOs, budgets, and rollout cadence, see `[performance-benchmarks.md](./performance-benchmarks.md)`.
+For **cost-focused** reduction of API/DB traffic (deduping, sampling, backend writes), see [cost-and-request-optimizations.md](./cost-and-request-optimizations.md).
+For concrete SLOs, budgets, and rollout cadence, see [performance-benchmarks.md](./performance-benchmarks.md).
 
 This document lists **possible** optimizations for the IIT BHU Alumni **Vite + React 19 + React Router** frontend. Items are grounded in the current codebase so you can prioritize by impact, effort, and risk.
 

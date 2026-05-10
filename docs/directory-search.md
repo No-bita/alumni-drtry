@@ -1,6 +1,6 @@
 # Directory search (`GET /v1/search`)
 
-Operational reference for the alumni directory: **canonical API contract**, **what is implemented today**, and **target behaviour** (Phase 1). Product and ranking design live in [`directory-search-implementation-plan.md`](./directory-search-implementation-plan.md).
+Operational reference for the alumni directory: **canonical API contract**, **what is implemented today**, and **Phase 1 target behaviour** (ranking, filters, widening — summarized below). Older standalone planning docs were retired; **Roadmap alignment** tracks shipped vs deferred work.
 
 ---
 
@@ -20,13 +20,13 @@ Single naming scheme — use these in new clients, URLs, and docs. **`company` i
 | `limit` | int | Default **20**, min **1**, max **100**. |
 | `cursor` | string | Opaque keyset cursor from `pageInfo.nextCursor`. |
 
-**Not in Phase 1:** `GET /v1/search/preview`, `GET /v1/search/distribution` (Discovery) — see implementation plan.
+**Not in Phase 1:** `GET /v1/search/preview`, `GET /v1/search/distribution` (Discovery) — deferred.
 
 ---
 
 ## Target behaviour (Phase 1 — not fully shipped)
 
-Summarized from [`directory-search-implementation-plan.md`](./directory-search-implementation-plan.md):
+Product target (rule rank, intent, diversity, richer analytics, etc.):
 
 | Area | Target |
 |------|--------|
@@ -90,7 +90,7 @@ A row is returned only if **all** hold (see `DiscoveryRepo.searchProfiles`):
 
 ## Performance and indexes
 
-- **Single query** for results (no N+1). See [`production-readiness.md`](./production-readiness.md).
+- **Single query** for results (no N+1). See [`production-shipping-checklist.md`](./production-shipping-checklist.md) → **Implementation reference** → Directory search.
 - **`search_log`:** each successful search logs via `AdminMetricsService.logSearch()`; admin metrics expose **`searchVolume`**.
 - **Discovery analytics tables** (migration **`015_discovery_analytics.sql`**): session + click events for tuning (separate from `search_log`).
 - **Indexes:** `004_phase3_discovery.sql`, `008_directory_search_indexes.sql` (GIN FTS on people profile, occupations, organization names; filter paths).
@@ -111,8 +111,8 @@ For slow queries: `EXPLAIN (ANALYZE, BUFFERS)` on representative URLs; `ANALYZE`
 | Track | Status |
 |-------|--------|
 | Baseline (`GET /v1/search`, filters, `q` FTS, cursor, `search_log`, **canonical query params**) | **Shipped** |
-| Phase 1 (plan): intent, primary/soft filters, progressive widening, rule rank, normalization, diversity, analytics, `matchReasons` | **Partially shipped** — strict batch/dept/**company** (when set), soft `occ`, ±1 batch widen, normalize MVP (flag), `matchReasons`, analytics schema + write path; intent UI, diversity, dashboards — see plan |
-| Weighted numeric scoring, preview, Discovery distribution | **Later / deferred** per plan |
+| Phase 1 target: intent, primary/soft filters, progressive widening, rule rank, normalization, diversity, analytics, `matchReasons` | **Partially shipped** — strict batch/dept/**company** (when set), soft `occ`, ±1 batch widen, normalize MVP (flag), `matchReasons`, analytics schema + write path; intent UI, diversity, dashboards — deferred |
+| Weighted numeric scoring, preview, Discovery distribution | **Later / deferred** |
 
 ---
 

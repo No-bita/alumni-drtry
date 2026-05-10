@@ -1,12 +1,12 @@
 # Production shipping checklist
 
-Use this before pointing real users at production. It complements the status table in [`production-readiness.md`](./production-readiness.md). Items are grouped into **three buckets**: **A** is blocking for a safe launch (security, prod correctness, migrations, auth/email, health checks, canonical routing/CORS/cookies, data-loss risks). **B** is strongly recommended—verify before launch when practical, but not treated as hard gate for every team. **C** is polish and tech debt you can schedule after ship when builds and runtime behavior are already acceptable. Walk **A** completely; skim **B** for your risk tolerance; park **C** with owners and dates so it does not silently slip.
+Use this before pointing real users at production. Items are grouped into **three buckets**: **A** is blocking for a safe launch (security, prod correctness, migrations, auth/email, health checks, canonical routing/CORS/cookies, data-loss risks). **B** is strongly recommended—verify before launch when practical, but not treated as hard gate for every team. **C** is polish and tech debt you can schedule after ship when builds and runtime behavior are already acceptable. Walk **A** completely; skim **B** for your risk tolerance; park **C** with owners and dates so it does not silently slip.
 
 ---
 
 ## Release run order (skim)
 
-1. Pre-release: CI/build gates for API + Web (**A**); dependency posture and lint polish (**B** / **C** — see [`production-readiness.md`](./production-readiness.md)).
+1. Pre-release: CI/build gates for API + Web (**A**); dependency posture and lint polish (**B** / **C**).
 2. Configure API + Web env on hosts (`apps/api/src/config/env.ts`, `.env.example` files) — **A** details below.
 3. Apply Postgres migrations on the production DB (`npm run migrate`; Railway **`preDeployCommand`** if applicable) — **A**.
 4. Deploy API → verify **`GET /healthz`** — **A**.
@@ -66,7 +66,7 @@ Template: `apps/web/.env.example`. Match repo reality: **canonical production** 
 ### Security and privileged accounts
 
 - [ ] API is served **over HTTPS** so session cookies receive **`Secure`** (**`apps/api/src/routes/authRoutes.ts`** when **`NODE_ENV=production`**).
-- [ ] Production session cookie **`SameSite`** stance documented ([`production-readiness.md`](./production-readiness.md)).
+- [ ] Production session cookie **`SameSite`** stance documented ([Implementation reference](#implementation-reference) below).
 - [ ] **TLS everywhere** for user-facing API and web.
 - [ ] **Super admin:** migration **`007_super_admin.sql`** seeds an operator—confirm ownership, rotation, and that credentials never ship client-side.
 - [ ] If **`DISCOVERY_ANALYTICS_ENABLED`**: **`discovery_search_sessions`** (and related) — retention and internal access meet policy.
@@ -127,12 +127,12 @@ Strongly recommended before launch; not strict blockers if you consciously accep
 
 ### Dependency and lint posture
 
-- [ ] API dependency posture reviewed: `cd apps/api && npm audit` (see [`production-readiness.md`](./production-readiness.md)).
+- [ ] API dependency posture reviewed: `cd apps/api && npm audit` (review findings; remediate or accept — see [Implementation reference](#implementation-reference)).
 - [ ] Web: `cd apps/web && npm run lint` passes locally or in CI (if green is not yet enforced in CI, treat as **B**; see **C** if build passes without lint).
 
 ### Environment tuning — API
 
-- [ ] **Session:** **`SESSION_COOKIE_NAME`**, **`SESSION_SLIDING_HOURS`**, **`SESSION_HARD_CAP_HOURS`**, **`SESSION_TOUCH_MIN_INTERVAL_SECONDS`** reviewed for UX ([`production-readiness.md`](./production-readiness.md)).
+- [ ] **Session:** **`SESSION_COOKIE_NAME`**, **`SESSION_SLIDING_HOURS`**, **`SESSION_HARD_CAP_HOURS`**, **`SESSION_TOUCH_MIN_INTERVAL_SECONDS`** reviewed for UX ([Implementation reference](#implementation-reference)).
 - [ ] **Rate limits:** **`AUTH_START_*`**, **`OTP_TTL_MINUTES`**, **`MAGIC_LINK_TTL_MINUTES`**, **`AUTH_CHALLENGE_MAX_ATTEMPTS`**, **`CONTACT_REQUEST_*`**, **`DISCOVERY_READ_*`**, **`BETA_INVITE_*`** reviewed vs traffic ([Abuse limits and scaling](#abuse-limits-and-scaling) below).
 - [ ] **Discovery:** **`DISCOVERY_SEARCH_STATEMENT_TIMEOUT_MS`**, **`DISCOVERY_NORMALIZE_QUERY`**, **`DISCOVERY_ANALYTICS_ENABLED`** set intentionally.
 - [ ] **`SENTRY_DSN`** set when using Sentry ([`observability-checklist.md`](./observability-checklist.md)).
@@ -194,9 +194,44 @@ Polish and tech debt that does **not** block a safe ship once **A** is satisfied
 
 ## Related docs
 
-- [`production-readiness.md`](./production-readiness.md) — session cookies, CORS note, audits, search query shape.
 - [`deployment.md`](./deployment.md) — platform wiring, cookies, Node/Vercel/Railway; §8 short go-live list cross-links here for bucketed detail.
 - [`observability-checklist.md`](./observability-checklist.md) — health checks, Sentry, logs.
 - [`neon-setup.md`](./neon-setup.md) — database connection and SSL.
 - [`directory-search.md`](./directory-search.md) — search contract and behavior.
 - [`beta-analytics-launch.md`](./beta-analytics-launch.md) — beta usage analytics launch notes.
+
+---
+
+## Implementation reference
+
+Technical notes folded in from the retired **`production-readiness`** doc. Session defaults **change over time** — confirm in **`apps/api/src/routes/authRoutes.ts`** (verify / cookie attach paths).
+
+### Session cookies (production)
+
+- **`httpOnly: true`** — not accessible from JS (XSS mitigation).
+- **`secure: true`** when `NODE_ENV === "production"` — HTTPS only.
+- **`sameSite: "strict"`** when `NODE_ENV === "production"` — not sent on cross-site navigations (CSRF stance).
+- In development, **`sameSite: "lax"`** and **`secure: false`** so local HTTP and magic-link redirects work.
+
+Cookies are set from **`POST /v1/auth/verify`** and **`GET /v1/auth/verify`** (magic-link callback).
+
+### Dependency audit
+
+Run periodically on the API tree:
+
+```bash
+cd apps/api && npm audit
+```
+
+Treat findings by severity and exploitability; remediate with **`npm audit fix`** / upgrades or document accepted risk (also tracked under bucket **C**).
+
+### Directory search — query shape (no N+1)
+
+For **`GET /v1/search`** (e.g. `limit=20`):
+
+1. **`DiscoveryRepo.searchProfiles()`** — **one** `SELECT` with JOINs (including headline occupation via **`LATERAL`** in the same statement).
+2. **`AdminMetricsService.logSearch()`** — **one** `INSERT` into **`search_log`**.
+
+**Total: two queries** regardless of page size (see [`directory-search.md`](./directory-search.md) for contract, eligibility, indexes).
+
+**Volume:** coarse signal via **`GET /v1/admin/metrics`** → **`searchVolume`**; add DB or APM latency if search becomes hot.
