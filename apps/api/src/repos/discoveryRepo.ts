@@ -178,27 +178,45 @@ export class DiscoveryRepo {
 
   /**
    * (City, country) pairs from profiles, same visibility as directory search
-   * (not deleted/suspended, has display name). Requires non-empty city and country.
+   * (not deleted/suspended, has display name, onboarding-complete profile). Requires non-empty city and country.
    * Ordered by alumni count descending.
    */
   async listResidenceCityAggregates(limit: number): Promise<ResidenceCityAggregateRow[]> {
     const lim = Math.min(Math.max(limit, 1), 120);
     const result = await this.db.query<{ city: string; country: string; count: string | number }>(
       `
-      SELECT
-        min(btrim(p.residence_city)) AS city,
-        min(btrim(p.residence_country)) AS country,
-        count(*)::int AS count
-      FROM people p
-      WHERE p.deleted_at IS NULL
-        AND p.suspended_at IS NULL
-        AND p.full_name IS NOT NULL
-        AND p.residence_city IS NOT NULL
-        AND btrim(p.residence_city) <> ''
-        AND p.residence_country IS NOT NULL
-        AND btrim(p.residence_country) <> ''
-      GROUP BY lower(btrim(p.residence_city)), lower(btrim(p.residence_country))
-      ORDER BY count(*) DESC, min(btrim(p.residence_city)) ASC, min(btrim(p.residence_country)) ASC
+      SELECT city, country, cnt AS count FROM (
+        SELECT
+          cp.city_label AS city,
+          cp.country AS country,
+          count(*)::int AS cnt
+        FROM people p
+        INNER JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id
+        WHERE p.deleted_at IS NULL
+          AND p.suspended_at IS NULL
+          AND p.full_name IS NOT NULL
+          AND p.profile_completed_at IS NOT NULL
+        GROUP BY cp.id
+
+        UNION ALL
+
+        SELECT
+          min(btrim(p.residence_city)) AS city,
+          min(btrim(p.residence_country)) AS country,
+          count(*)::int AS cnt
+        FROM people p
+        WHERE p.deleted_at IS NULL
+          AND p.suspended_at IS NULL
+          AND p.full_name IS NOT NULL
+          AND p.profile_completed_at IS NOT NULL
+          AND p.residence_canonical_place_id IS NULL
+          AND p.residence_city IS NOT NULL
+          AND btrim(p.residence_city) <> ''
+          AND p.residence_country IS NOT NULL
+          AND btrim(p.residence_country) <> ''
+        GROUP BY lower(btrim(p.residence_city)), lower(btrim(p.residence_country))
+      ) combined
+      ORDER BY cnt DESC, city ASC, country ASC
       LIMIT $1
       `,
       [lim]
@@ -220,7 +238,8 @@ export class DiscoveryRepo {
     const whereInner: string[] = [
       "p.deleted_at IS NULL",
       "p.suspended_at IS NULL",
-      "p.full_name IS NOT NULL"
+      "p.full_name IS NOT NULL",
+      "p.profile_completed_at IS NOT NULL"
     ];
 
     if (input.viewerPersonId) {
@@ -264,12 +283,31 @@ export class DiscoveryRepo {
 
     if (input.residenceCountry?.trim()) {
       const ph = bind(input.residenceCountry.trim().toLowerCase());
-      whereInner.push(`strpos(lower(trim(COALESCE(p.residence_country, ''))), ${ph}) > 0`);
+      whereInner.push(`(
+        strpos(lower(trim(COALESCE(p.residence_country, ''))), ${ph}) > 0
+        OR EXISTS (
+          SELECT 1 FROM canonical_places cp
+          WHERE cp.id = p.residence_canonical_place_id
+            AND strpos(lower(trim(COALESCE(cp.country, ''))), ${ph}) > 0
+        )
+      )`);
     }
 
     if (input.residenceCity?.trim()) {
       const ph = bind(input.residenceCity.trim().toLowerCase());
-      whereInner.push(`strpos(lower(trim(COALESCE(p.residence_city, ''))), ${ph}) > 0`);
+      whereInner.push(`(
+        strpos(lower(trim(COALESCE(p.residence_city, ''))), ${ph}) > 0
+        OR EXISTS (
+          SELECT 1 FROM canonical_places cp
+          WHERE cp.id = p.residence_canonical_place_id
+            AND strpos(lower(trim(COALESCE(cp.city_label, ''))), ${ph}) > 0
+        )
+        OR EXISTS (
+          SELECT 1 FROM place_aliases pa
+          WHERE pa.canonical_place_id = p.residence_canonical_place_id
+            AND strpos(pa.alias_normalized, ${ph}) > 0
+        )
+      )`);
     }
 
     if (input.requireResidence) {
@@ -477,7 +515,14 @@ export class DiscoveryRepo {
     };
   }
 
-  async findPublicProfileBaseById(profileId: string): Promise<PublicProfileBaseView | null> {
+  /**
+   * Public profile row for directory visibility rules. Others only see onboarding-complete profiles;
+   * the viewer may always load their own row (including while onboarding).
+   */
+  async findPublicProfileBaseById(
+    profileId: string,
+    viewerPersonId: string | null
+  ): Promise<PublicProfileBaseView | null> {
     const result = await this.db.query<PublicProfileBaseRow>(
       `
       SELECT
@@ -504,9 +549,13 @@ export class DiscoveryRepo {
         AND p.deleted_at IS NULL
         AND p.suspended_at IS NULL
         AND p.full_name IS NOT NULL
+        AND (
+          p.profile_completed_at IS NOT NULL
+          OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
+        )
       LIMIT 1
       `,
-      [profileId]
+      [profileId, viewerPersonId]
     );
     const row = result.rows[0];
     return row ? mapPublicRow(row) : null;

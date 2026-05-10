@@ -22,6 +22,8 @@ You need **two deploy targets**: one for the API (Node process) and one for the 
 - **API host**: any Node 20+ runtime (VM, Docker, Railway, Render, Fly.io, etc.). Must be reachable over HTTPS in production.
 - **Web host**: static hosting (Vercel, Netlify, Cloudflare Pages, S3+CloudFront, etc.) or serve `dist/` from the same domain as the API (e.g. same server, different path).
 
+**Canonical production web:** host the SPA on **Vercel** (`apps/web`). The repo’s `apps/web/vercel.json` rewrites `/v1/*` to the Railway API (`https://alumni-api-production.up.railway.app/v1/$1`), so the browser calls same-origin `/v1/...` and the edge proxies to the API.
+
 ---
 
 ## 3. API: environment variables (production)
@@ -61,13 +63,23 @@ To run `npm run dev` in `apps/api` against the **same** Postgres instance as pro
 
 ## 4. Web: environment variables (production)
 
-Only one build-time variable (Vite):
+Vite exposes optional build-time variables via `VITE_*`.
 
 | Variable | Required | Notes |
 |----------|----------|--------|
-| `VITE_API_URL` | Yes | API base URL, e.g. `https://api.yourdomain.com`. Requests go here; no proxy in production. |
+| `VITE_API_URL` | **No** (canonical) | Leave **unset or empty** for the default production path: the SPA calls relative `/v1/...`, and Vercel rewrites those requests to Railway (see `apps/web/vercel.json`). |
 
 Build: `cd apps/web && npm run build`. Deploy the `dist/` folder.
+
+### Deployment modes for the web ↔ API boundary
+
+**(A) Canonical — same-origin `/v1` via Vercel (default)**  
+Leave `VITE_API_URL` empty. The browser only talks to your SPA origin; paths under `/v1` are rewritten server-side to the Railway API. Cookies stay first-party from the browser’s perspective, and you avoid cross-origin fetches for API traffic. Still set `CORS_ORIGIN` on the API to your real frontend origin(s); the upstream API continues to validate `Origin` as usual.
+
+**(B) Optional — browser calls the API host directly**  
+Use this when you are **not** terminating `/v1` on the SPA host (no rewrite). Point `VITE_API_URL` at the full API origin at build time (e.g. `https://api.yourdomain.com`) **and** configure the API’s `CORS_ORIGIN` to match your deployed web origin, per the root README production checklist. Expect stricter cookie rules when the API is on a different site than the SPA unless you align domains (`COOKIE_DOMAIN`, HTTPS, `SameSite=None; Secure`, etc.).
+
+**Note:** The bundled client resolves production API requests to same-origin `/v1` by default (`apps/web/src/api/client.ts`). If you rely on a separate API origin without rewrites, ensure your build actually emits requests to that base (for example by adjusting how `API_BASE_URL` is derived for production) so `VITE_API_URL` takes effect.
 
 ---
 
@@ -82,9 +94,10 @@ Build: `cd apps/web && npm run build`. Deploy the `dist/` folder.
 
 **Web**
 
-1. Set `VITE_API_URL` to your API URL.
-2. In `apps/web`: `npm install --omit=dev`, `npm run build`.
-3. Upload `dist/` to your static host or serve it (e.g. nginx, Vercel, Netlify).
+1. Deploy `apps/web` on **Vercel** (or another static host). For the canonical setup, commit **`apps/web/vercel.json`**, which rewrites `/v1/*` → `https://alumni-api-production.up.railway.app/v1/$1` (change the destination when your Railway URL changes).
+2. Leave **`VITE_API_URL` empty** so production builds use relative `/v1` behind that rewrite. If you use mode (B) instead, set `VITE_API_URL` at build time and align API `CORS_ORIGIN` with your web origin (see §4).
+3. In `apps/web`: `npm install --omit=dev`, `npm run build`.
+4. Vercel serves `dist/` automatically from the linked project; other hosts upload `dist/` or serve it behind nginx, Netlify, etc.
 
 **Post-deploy**
 
@@ -95,11 +108,9 @@ Build: `cd apps/web && npm run build`. Deploy the `dist/` folder.
 
 ## 6. Cookie / CORS and same-origin
 
-- In **production**, API and web usually live on different origins (e.g. `api.yourdomain.com` and `app.yourdomain.com`).
-- Set **CORS**: `CORS_ORIGIN` must include the exact web origin so the browser allows requests.
-- Cookies are set by the API on its domain. For the web to send cookies to the API:
-  - Either use **same-site cookies** and ensure the API sets `SameSite=None; Secure` if cross-origin (and that the frontend calls the API with `credentials: "include"` — already done).
-  - Or put API and web under one domain (e.g. `app.yourdomain.com` and `app.yourdomain.com/api` with a reverse proxy) and set `COOKIE_DOMAIN=.yourdomain.com` so the cookie is sent to both.
+- **Canonical Vercel setup:** the browser issues same-origin requests to `https://<your-app>/v1/...`; Vercel proxies them to Railway. Configure **`CORS_ORIGIN`** on the API for your SPA’s public URL anyway so preflight and origin checks match how you deploy.
+- **Split-origin setups** (direct API host from the browser): API and web live on different sites (e.g. `api.yourdomain.com` vs `app.yourdomain.com`). Set **`CORS_ORIGIN`** to the exact web origin(s). Cookies are scoped to the API host unless you share a parent domain (`COOKIE_DOMAIN`) and HTTPS/`SameSite` align with your hosting choices.
+- For cross-site API calls, the API typically sets `SameSite=None; Secure` where needed; the frontend already uses `credentials: "include"` where applicable.
 
 ---
 
@@ -114,10 +125,13 @@ No Dockerfile is in the repo yet. You can add:
 
 ## 8. Checklist before go-live
 
+For the full **bucketed** pre-launch list (must-pass vs nice-to-have vs post-launch), see [`production-shipping-checklist.md`](production-shipping-checklist.md).
+
 - [ ] `NODE_ENV=production` for API
 - [ ] `CORS_ORIGIN` set to real frontend origin(s)
 - [ ] `MAGIC_LINK_BASE_URL` set to frontend URL so magic links open the app
-- [ ] `VITE_API_URL` set so the frontend calls the real API
+- [ ] Web: **`VITE_API_URL` left empty** (canonical Vercel rewrite to Railway) **or**, if using direct API calls, **`VITE_API_URL`** set at build with API **`CORS_ORIGIN`** matching the web origin (see §4)
+- [ ] Web: **`vercel.json`** rewrites `/v1/*` to the live Railway API URL (or equivalent proxy in front of static hosting)
 - [ ] `EMAIL_PROVIDER=resend` and Resend keys set so sign-in emails are sent
 - [ ] `AUTH_SECRET_PEPPER` strong and kept secret
 - [ ] Migrations run on the production DB
