@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
 import { NAV_INTENT_LABELS, NAV_INTENT_SLUGS, type NavIntentSlug } from "../constants/intents";
+import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
 import { Avatar } from "./Avatar";
@@ -232,9 +233,11 @@ export function Nav({
   const showIntentNav =
     auth.status === "authenticated" && !hideSignOut && !hideIntentNav;
 
-  const intentNavSlugs = NAV_INTENT_SLUGS.filter(
-    (slug) => isDevHubPagesEnabled || (slug !== "events" && slug !== "build")
-  );
+  const intentNavSlugs = NAV_INTENT_SLUGS.filter((slug) => {
+    if (slug === "events") return isDevHubPagesEnabled;
+    if (slug === "build") return isBuildIntentPageEnabled;
+    return true;
+  });
 
   useEffect(() => {
     if (!showIntentNav) {

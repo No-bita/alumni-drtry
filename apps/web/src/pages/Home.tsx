@@ -29,6 +29,7 @@ import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQui
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeCampusUpdatesPanel } from "../components/HomeCampusUpdatesPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
+import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
   const fn = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim();
@@ -785,18 +786,20 @@ export function Home() {
     return "Explore careers, cities, and the directory.";
   }, [batchMeta, opportunityIntentcasts, useDevMocks]);
 
-  const homeHeroActions = useMemo(
-    (): HomeQuickAction[] => [
-      ...QUICK_ACTIONS,
+  const homeHeroActions = useMemo((): HomeQuickAction[] => {
+    const links = isBuildIntentPageEnabled
+      ? QUICK_ACTIONS
+      : QUICK_ACTIONS.filter((a) => a.id !== "collaborators");
+    return [
+      ...links,
       {
         id: "bulletin",
         title: "Share with alumni",
         description: "Guidance, mentorship, or collaboration",
         onActivate: () => bulletinFlowRef.current?.open(),
       },
-    ],
-    []
-  );
+    ];
+  }, []);
 
   if (!profile) {
     return (

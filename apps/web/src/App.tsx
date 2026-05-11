@@ -5,6 +5,7 @@ import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
+import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "./lib/devHubPages";
 
 /** Each `import()` becomes its own JS chunk; only the current route’s page loads (no static `pages/*` imports here). */
@@ -245,7 +246,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                {isDevHubPagesEnabled ? <BuildPage /> : <Navigate to="/home" replace />}
+                {isBuildIntentPageEnabled ? <BuildPage /> : <Navigate to="/home" replace />}
               </ProfileGate>
             </RequireAuth>
           }
