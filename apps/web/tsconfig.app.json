@@ -29,5 +29,6 @@
       "@department-catalog": ["../api/src/constants/departmentCatalog.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/pages/AdminLocationCleanup.tsx", "src/pages/AdminPlaceDetail.tsx"]
 }

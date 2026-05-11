@@ -4,9 +4,19 @@ import type { BulletinUiCategory } from "./bulletinPostCardUtils";
 /** Bulletin categories supported by the general post wizard (hiring uses its own compose path). */
 export type BulletinGeneralCategory = BulletinUiCategory;
 
+/**
+ * Careers hub panels: same Compose → Preview chrome.
+ * - Find referrals → UI `careers` → API `mentorship`
+ * - Can help → UI `guidance` → API `guidance` (hidden from Careers activity until enabled)
+ */
+export type CareersBulletinPreset = "referralSeeking" | "canHelp";
+
 export type PostBulletinOpenOptions = {
   /** Initial category when the modal opens */
   category?: BulletinGeneralCategory;
+  careersPreset?: CareersBulletinPreset;
+  /** @deprecated Prefer {@link PostBulletinOpenOptions.careersPreset} `"referralSeeking"`. */
+  referralSeeking?: boolean;
 };
 
 export type PostBulletinFlowHandleShape = {
@@ -20,7 +30,7 @@ export type PostBulletinFlowHandleShape = {
  * @example
  * const ref = useRef<PostBulletinFlowHandle>(null);
  * <button type="button" onClick={bulletinFlowOpener(ref)}>Post</button>
- * <button type="button" onClick={bulletinFlowOpener(ref, { category: 'mentorship' })}>Offer mentorship</button>
+ * <button type="button" onClick={bulletinFlowOpener(ref, { category: 'guidance' })}>Offer guidance</button>
  */
 export function bulletinFlowOpener(
   ref: RefObject<PostBulletinFlowHandleShape | null>,

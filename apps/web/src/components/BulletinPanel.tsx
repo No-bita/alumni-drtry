@@ -415,8 +415,6 @@ function CareerOpportunityCardBody({
   const showFallbackDescription = Boolean(parsed.description.trim()) && !hasStructured;
 
   const chipTrack = inferHiringTrackChip(parsed);
-  const rawLocation = parsed.locationLine.trim();
-  const chipLocation = rawLocation ? `Location - ${rawLocation}` : "";
   const chipYoE = parsed.experienceLabel?.trim();
   const chipComp = parsed.salaryLabel?.trim();
 
@@ -425,9 +423,6 @@ function CareerOpportunityCardBody({
       <div className="career-opportunity-card__top">
         <div className="career-opportunity-card__chips" aria-label="Role highlights">
           {chipTrack ? <span className="career-opportunity-card__chip">{chipTrack}</span> : null}
-          {chipLocation ? (
-            <span className="career-opportunity-card__chip">{chipLocation}</span>
-          ) : null}
           {chipYoE ? <span className="career-opportunity-card__chip">{chipYoE}</span> : null}
           {chipComp ? <span className="career-opportunity-card__chip">{chipComp}</span> : null}
         </div>

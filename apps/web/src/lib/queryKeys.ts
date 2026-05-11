@@ -30,6 +30,8 @@ export const queryKeys = {
     batchSnapshot: (personId: string, batchYear: number, dept: string) =>
       ["home", "batch-snapshot", personId, batchYear, dept] as const,
     campusMonthly: () => ["home", "campus-monthly"] as const,
+    /** Bulletin replies to the viewer’s posts — Home Active Requests “Replies” tab. */
+    receivedBulletinReplies: () => ["home", "bulletin-replies-received"] as const,
   },
   auth: {
     all: ["auth"] as const,
@@ -63,6 +65,10 @@ export const queryKeys = {
         requireResidence,
       ] as const,
     residenceCities: (limit: number) => ["directory", "residence-cities", limit] as const,
+  },
+  career: {
+    /** Careers activity feed — excludes guidance server-side (`excludeCategories=guidance`). */
+    intentFeed: () => ["career", "intent-feed", "exclude-guidance"] as const,
   },
   intentcasts: {
     all: ["intentcasts"] as const,

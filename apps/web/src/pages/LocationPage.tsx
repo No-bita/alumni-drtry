@@ -636,7 +636,7 @@ export function LocationPage() {
         title: eventForm.title.trim(),
         startsAtLabel: formatEventStartsAtLabel(eventForm.date, eventForm.time),
         venue: eventForm.venue.trim(),
-        attendeesLabel: "New event",
+        attendeeCount: 0,
       },
       ...prev,
     ]);
@@ -864,17 +864,12 @@ export function LocationPage() {
                             className="cities-redesign__event-link"
                             aria-label={`View details for ${event.title}`}
                           >
-                            <div className="cities-redesign__event-thumb" aria-hidden />
                             <div>
                               <p className="cities-redesign__event-title">{event.title}</p>
                               <p className="cities-redesign__event-meta">{event.startsAtLabel} · {event.venue}</p>
                               <p className="cities-redesign__event-attendees">
-                                <span className="cities-redesign__attendee-avatars" aria-hidden>
-                                  <span />
-                                  <span />
-                                  <span />
-                                </span>
-                                Alumni attending
+                                {event.attendeeCount}{" "}
+                                {event.attendeeCount === 1 ? "alumnus" : "alumni"} attending
                               </p>
                             </div>
                           </Link>

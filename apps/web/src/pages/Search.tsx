@@ -5,7 +5,7 @@ import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { SearchResultRow } from "../components/SearchResultRow";
-import { DirectorySearchBar } from "../components/DirectorySearchBar";
+import { CareerStyleSearchToolbar } from "../components/CareerStyleSearchToolbar";
 import { DirectoryFilterChipStrip } from "../components/DirectoryFilterChipStrip";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
 import { DirectoryFiltersForm } from "../components/DirectoryFiltersForm";
@@ -14,7 +14,7 @@ import { PageStateBlock } from "../components/PageStateBlock";
 import { type SearchResult, type SearchProfileView } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
-import { DIRECTORY_INFINITE_QUERY_OPTIONS } from "../constants/directorySearch";
+import { DIRECTORY_INFINITE_QUERY_OPTIONS, DIRECTORY_KEYWORD_MAX_LENGTH } from "../constants/directorySearch";
 import { cityIntentHrefForPick, tryAtPrefixedCityHubPick } from "../lib/cityIntentFromToolbar";
 import {
   buildSearchParamsFromDraft,
@@ -257,11 +257,6 @@ export function Search() {
     [draft, applyCommittedSearch, cancelDebouncedUrlCommit],
   );
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    runCommittedSearchOrCityHub();
-  };
-
   const clearAllFilters = useCallback(() => {
     cancelDebouncedUrlCommit();
     setDraft(EMPTY_DIRECTORY_SEARCH_DRAFT);
@@ -308,26 +303,20 @@ export function Search() {
     setDraft((d) => ({ ...d, ...patch }));
   }, []);
 
-  const searchSessionId = firstPage?.searchSessionId ?? null;
-
-  const toolbarDirectorySearch = (
-    <DirectorySearchBar
-      variant="directory"
-      keyword={draft.q}
-      onKeywordChange={(q) => setDraftPatch({ q })}
-      onSubmit={handleSearchSubmit}
-      filterCount={filterCount}
-      onOpenRefine={() => setFiltersOpen(true)}
-      keywordPlaceholder="@City for city hub — or name, role, company…"
-      autoFocusKeyword
-      inlineTrailingAction={{
-        label: "Clear all filters",
-        onClick: clearAllFilters,
-        disabled: !canClear,
-      }}
-      onNativeSearchCleared={clearAllFilters}
-    />
+  /** Full directory reset when keyword is cleared (native × or deleting text): URL drives results. */
+  const onDirectoryKeywordChange = useCallback(
+    (q: string) => {
+      const prevQ = draftRef.current.q;
+      if (q === "" && prevQ.trim() !== "") {
+        clearAllFilters();
+        return;
+      }
+      setDraftPatch({ q });
+    },
+    [clearAllFilters, setDraftPatch],
   );
+
+  const searchSessionId = firstPage?.searchSessionId ?? null;
 
   const toolbarLead = (
     <div className="nav-app-toolbar__welcome">
@@ -337,7 +326,7 @@ export function Search() {
 
   return (
     <>
-      <Nav appToolbarLead={toolbarLead} appToolbarSearch={toolbarDirectorySearch} />
+      <Nav appToolbarLead={toolbarLead} appToolbarSearch={null} />
       <div className="search-page search-page--search-first">
         {searchPending ? (
           <header className="search-page__hero">
@@ -386,7 +375,31 @@ export function Search() {
         </DirectoryFilterDrawer>
 
         <main className="search-page__main">
-          <DirectoryFilterChipStrip applied={applied} onRemoveFacet={removeFacet} onAddFilters={() => setFiltersOpen(true)} />
+          <section className="search-page__career-toolbar" aria-label="Directory quick search">
+            <CareerStyleSearchToolbar
+              keyword={draft.q}
+              onKeywordChange={onDirectoryKeywordChange}
+              onSubmitKeyword={() => runCommittedSearchOrCityHub()}
+              filterCount={filterCount}
+              onOpenFilters={() => setFiltersOpen(true)}
+              filtersDrawerOpen={filtersOpen}
+              keywordFieldLabel="Alumni directory keyword — prefix with @ and a city to open its hub, or enter any search terms"
+              keywordPlaceholder="@City for city hub — or name, role, company…"
+              keywordMaxLength={DIRECTORY_KEYWORD_MAX_LENGTH}
+              afterFilters={
+                <button
+                  type="button"
+                  className="directory-search-bar__inline-action"
+                  aria-label="Reset directory filters"
+                  onClick={clearAllFilters}
+                  disabled={!canClear}
+                >
+                  Clear all filters
+                </button>
+              }
+            />
+          </section>
+          <DirectoryFilterChipStrip applied={applied} onRemoveFacet={removeFacet} />
           {showMainSpinner ? (
             <div className="search-page__loading" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending">
@@ -408,7 +421,7 @@ export function Search() {
                 title="No alumni match your search"
                 description={
                   <>
-                    Try another keyword, use <strong>Add filters</strong> below the toolbar, or clear filters.
+                    Try another keyword, use <strong>Filter</strong> on the search bar to narrow results, or clear filters.
                   </>
                 }
               />

@@ -7,7 +7,8 @@ export type CityEventItem = {
   title: string;
   startsAtLabel: string;
   venue: string;
-  attendeesLabel: string;
+  /** Shown on the cities hub as “N alumni attending”. */
+  attendeeCount: number;
 };
 
 export type CityNeedType = "housing" | "accommodation" | "sports_activity" | "city_help";
@@ -34,7 +35,7 @@ export const CITY_EVENTS: CityEventItem[] = [
     title: "Weekend alumni cricket",
     startsAtLabel: "Sun · 7:00 AM",
     venue: "HSR Layout Ground",
-    attendeesLabel: "23 attending",
+    attendeeCount: 23,
   },
   {
     id: "blr-founder-meet",
@@ -43,7 +44,7 @@ export const CITY_EVENTS: CityEventItem[] = [
     title: "Founder roundtable",
     startsAtLabel: "Wed · 7:30 PM",
     venue: "Indiranagar Cowork Hub",
-    attendeesLabel: "17 attending",
+    attendeeCount: 17,
   },
   {
     id: "mum-runners-club",
@@ -52,7 +53,7 @@ export const CITY_EVENTS: CityEventItem[] = [
     title: "Marine Drive runners club",
     startsAtLabel: "Sat · 6:15 AM",
     venue: "Marine Drive",
-    attendeesLabel: "31 attending",
+    attendeeCount: 31,
   },
   {
     id: "delhi-badminton-evening",
@@ -61,7 +62,7 @@ export const CITY_EVENTS: CityEventItem[] = [
     title: "After-work badminton",
     startsAtLabel: "Thu · 8:00 PM",
     venue: "Saket Sports Complex",
-    attendeesLabel: "12 attending",
+    attendeeCount: 12,
   },
 ];
 

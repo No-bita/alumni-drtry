@@ -4,6 +4,7 @@ import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import type { BulletinCardTone } from "../lib/bulletinPostCardUtils";
+import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 import { demoDisplayFullName } from "../lib/demoProfile";
 
 export type BulletinPostCardVariant = "rail" | "stack";
@@ -85,7 +86,7 @@ export function BulletinPostCard({
         ) : null}
       </header>
       <div className="bb-post-card__body">
-        <h3 className="bb-post-card__title">{title}</h3>
+        <ReferralIntentHeadline as="h3" className="bb-post-card__title" headline={title} />
         {description ? <p className="bb-post-card__summary">{description}</p> : null}
       </div>
       {postChips.length > 0 ? (

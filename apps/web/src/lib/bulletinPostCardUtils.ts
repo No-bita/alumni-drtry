@@ -41,6 +41,63 @@ export function formatBatchYearShort(year: number): string {
   return `'${String(y).padStart(2, "0")}`;
 }
 
+/** Bulletin first-line opener for mentorship referral asks (composer + feed detection). */
+export const REFERRAL_INTENT_HEADLINE_PREFIX = "Looking for referral";
+
+/** Builds the stored headline line: `Looking for referral for {role} at {company}` or without `at` when company is omitted. */
+export function buildReferralIntentBulletinHeadline(role: string, company: string): string {
+  const r = role.trim();
+  const c = company.trim();
+  if (c) return `${REFERRAL_INTENT_HEADLINE_PREFIX} for ${r} at ${c}`;
+  return `${REFERRAL_INTENT_HEADLINE_PREFIX} for ${r}`;
+}
+
+function referralIntentHeadlineStartsWithPrefix(titleTrimmed: string, connector: string): boolean {
+  const needle = `${REFERRAL_INTENT_HEADLINE_PREFIX}${connector}`;
+  return (
+    titleTrimmed.length >= needle.length &&
+    titleTrimmed.slice(0, needle.length).toLowerCase() === needle.toLowerCase()
+  );
+}
+
+/**
+ * True when the first line is a referral-intent headline from {@link buildReferralIntentBulletinHeadline}.
+ * Also matches legacy lines that used an em dash after the prefix.
+ */
+export function isReferralIntentBulletinHeadline(firstLine: string): boolean {
+  const t = firstLine.trim();
+  return referralIntentHeadlineStartsWithPrefix(t, " for ") || referralIntentHeadlineStartsWithPrefix(t, " — ");
+}
+
+/** Parsed segments for typography (lead vs role / company). */
+export type ReferralIntentHeadlineParts = {
+  lead: string;
+  role: string;
+  company: string | null;
+};
+
+/**
+ * Splits a stored referral headline for display. Matches {@link buildReferralIntentBulletinHeadline} and the legacy ` — ` connector.
+ * Uses the last ` at ` to separate role vs company when both are present.
+ */
+export function splitReferralIntentHeadlineForDisplay(headline: string): ReferralIntentHeadlineParts | null {
+  const trim = headline.trim();
+  const forMatch = trim.match(/^Looking for referral for /i);
+  const dashMatch = forMatch ? null : trim.match(/^Looking for referral — /i);
+  const lead = forMatch?.[0] ?? dashMatch?.[0];
+  if (!lead) return null;
+  const body = trim.slice(lead.length).trim();
+  const atTok = " at ";
+  const idx = body.toLowerCase().lastIndexOf(atTok.toLowerCase());
+  if (idx > 0) {
+    const role = body.slice(0, idx).trim();
+    const company = body.slice(idx + atTok.length).trim();
+    if (role && company) return { lead, role, company };
+  }
+  if (!body) return null;
+  return { lead, role: body, company: null };
+}
+
 /** First non-empty line = title; remaining lines = summary. */
 export function splitBulletinPostBody(raw: string): { title: string; summary: string | null } {
   const lines = stripBulletinUiCategory(raw).trim().split(/\r?\n/);

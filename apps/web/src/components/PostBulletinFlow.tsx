@@ -1,21 +1,62 @@
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, type IntentcastFeedItem } from "../api/client";
 import {
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_TITLE_MAX_CHARS,
 } from "../constants/bulletin";
+import type {
+  BulletinGeneralCategory,
+  CareersBulletinPreset,
+  PostBulletinFlowHandleShape,
+  PostBulletinOpenOptions,
+} from "../lib/bulletinFlowBindings";
 import {
+  buildReferralIntentBulletinHeadline,
   encodeBulletinContentWithUiCategory,
   splitBulletinPostBody,
   validateGeneralBulletinHeadlineDetails,
 } from "../lib/bulletinPostCardUtils";
-import type { BulletinGeneralCategory, PostBulletinFlowHandleShape, PostBulletinOpenOptions } from "../lib/bulletinFlowBindings";
 import { demoDisplayFullName } from "../lib/demoProfile";
+import {
+  extractStructuredCareerRoleLink,
+  hiringCompensationChipFromParsed,
+  hiringExperienceChipFromParsed,
+  parseHiringBulletin,
+  promoteBareLeadingListingToResumeForReferral,
+  stripHiringTailChipDuplicateProse,
+  stripStructuredHiringTailMeta,
+} from "../lib/parseHiringBulletin";
 import { queryKeys } from "../lib/queryKeys";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./Button";
-import { BulletinPostCard } from "./BulletinPostCard";
+import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
+import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
+
+/** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines. */
+function tryNormalizeExternalHttpUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(candidate);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+function referralSeekingDetailsBlock(aboutYou: string, resumeRaw: string): string {
+  const details = aboutYou.trim();
+  const resumeNorm =
+    resumeRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(resumeRaw) : null;
+  const resumeLine = resumeNorm ? `Resume link: ${resumeNorm}` : "";
+  if (!details && !resumeLine) return "";
+  if (!resumeLine) return details;
+  if (!details) return resumeLine;
+  return `${details}\n\n${resumeLine}`;
+}
 
 export type PostBulletinFlowProps = {
   onPublishSuccess?: (intentcast: IntentcastFeedItem) => void;
@@ -23,9 +64,57 @@ export type PostBulletinFlowProps = {
 
 export type PostBulletinFlowHandle = PostBulletinFlowHandleShape;
 
-type BulletinStep = "topic" | "story" | "preview";
+type BulletinStep = "compose" | "preview";
 
 const INITIAL_CATEGORY: BulletinGeneralCategory = "guidance";
+
+type CareersActivityPreviewProps = {
+  role: string;
+  companyLoc: string | null;
+  description: string;
+  chips: readonly string[];
+  listingUrl: string | null;
+  resumeUrl: string | null;
+};
+
+/** Matches Careers activity preview: headline → optional meta → description → chips → optional links. Referrals use one headline line (`Looking for referral for …`). */
+function CareersActivityPostPreview({
+  role,
+  companyLoc,
+  description,
+  chips,
+  listingUrl,
+  resumeUrl,
+}: CareersActivityPreviewProps) {
+  return (
+    <>
+      <ReferralIntentHeadline as="p" className="career-hiring-flow__preview-title" headline={role} />
+      {companyLoc ? <p className="career-hiring-flow__preview-meta">{companyLoc}</p> : null}
+      {description.trim() ? <p className="career-hiring-flow__preview-copy">{description}</p> : null}
+      {listingUrl ? (
+        <p className="career-hiring-flow__preview-note">
+          <a href={listingUrl} target="_blank" rel="noopener noreferrer">
+            Role link
+          </a>
+        </p>
+      ) : null}
+      {resumeUrl ? (
+        <p className="career-hiring-flow__preview-note">
+          <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
+            Resume link
+          </a>
+        </p>
+      ) : null}
+      {chips.length > 0 ? (
+        <div className="career-hiring-flow__preview-chips">
+          {chips.map((c, i) => (
+            <span key={`${c}-${i}`}>{c}</span>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 function bulletinUiCategoryToApiCategory(category: BulletinGeneralCategory): IntentcastFeedItem["category"] {
   switch (category) {
@@ -42,63 +131,178 @@ function bulletinUiCategoryToApiCategory(category: BulletinGeneralCategory): Int
   }
 }
 
-function bulletinUiCategoryToTone(category: BulletinGeneralCategory) {
-  switch (category) {
-    case "hiring":
-      return "hiring" as const;
-    case "relocation":
-    case "startups":
-      return "moving_cities" as const;
-    case "careers":
-    case "guidance":
-      return "referrals" as const;
-  }
-}
-
-function bulletinUiCategoryBadgeLabel(category: BulletinGeneralCategory): string {
-  switch (category) {
-    case "careers":
-      return "Careers";
-    case "hiring":
-      return "Hiring";
-    case "relocation":
-      return "Relocation";
-    case "startups":
-      return "Startups";
-    case "guidance":
-      return "Guidance";
-  }
-}
-
 export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinFlowProps>(
   function PostBulletinFlow({ onPublishSuccess }, ref) {
     const auth = useAuth();
     const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
-    const [step, setStep] = useState<BulletinStep>("topic");
+    const [step, setStep] = useState<BulletinStep>("compose");
     const [category, setCategory] = useState<BulletinGeneralCategory>(INITIAL_CATEGORY);
     const [headline, setHeadline] = useState("");
     const [body, setBody] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [publishSuccess, setPublishSuccess] = useState(false);
+    /** Careers hub presets: referrals lock to Careers (`mentorship`); Can help locks to Guidance (`guidance`). */
+    const [careersPreset, setCareersPreset] = useState<CareersBulletinPreset | null>(null);
+    const [referralCompanyName, setReferralCompanyName] = useState("");
+    const [referralResumeLink, setReferralResumeLink] = useState("");
+
+    const composeHeadlineRef = useRef<HTMLInputElement>(null);
+    const previewPanelRef = useRef<HTMLElement>(null);
 
     const composedContent = useMemo(() => {
+      if (careersPreset === "referralSeeking") {
+        const role = headline.trim();
+        const company = referralCompanyName.trim();
+        const detailsBlock = referralSeekingDetailsBlock(body, referralResumeLink);
+        if (!role && !company && !detailsBlock) return "";
+        if (role) {
+          const headLine = buildReferralIntentBulletinHeadline(role, company);
+          return detailsBlock ? `${headLine}\n${detailsBlock}` : headLine;
+        }
+        const draftLines: string[] = [];
+        if (company) draftLines.push(`Company: ${company}`);
+        if (detailsBlock) draftLines.push(detailsBlock);
+        return draftLines.join("\n");
+      }
       const h = headline.trim();
       const b = body.trim();
       if (!h && !b) return "";
       if (!b) return h;
       if (!h) return b;
       return `${h}\n${b}`;
-    }, [headline, body]);
+    }, [body, careersPreset, headline, referralCompanyName, referralResumeLink]);
+
+    const previewSplit = useMemo(
+      () => splitBulletinPostBody(composedContent || headline || "Preview headline"),
+      [composedContent, headline]
+    );
+
+    const careersActivityPreview = useMemo((): CareersActivityPreviewProps => {
+      const raw = composedContent.trim();
+      const split = previewSplit;
+      if (!raw) {
+        if (careersPreset === "referralSeeking") {
+          const ht = headline.trim();
+          const co = referralCompanyName.trim();
+          return {
+            role: buildReferralIntentBulletinHeadline(ht || "Role", co),
+            companyLoc: null,
+            description: body.trim(),
+            chips: [],
+            listingUrl: null,
+            resumeUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
+          };
+        }
+        return {
+          role: split.title.trim() || "Headline",
+          companyLoc: null,
+          description: (split.summary ?? "").trim(),
+          chips: [],
+          listingUrl: null,
+          resumeUrl: null,
+        };
+      }
+      if (careersPreset === "referralSeeking") {
+        const parsedReferral = parseHiringBulletin(raw);
+        if (parsedReferral) {
+          const coerced = promoteBareLeadingListingToResumeForReferral(
+            extractStructuredCareerRoleLink(parsedReferral.description)
+          );
+          const proseTail = stripStructuredHiringTailMeta(
+            stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
+          ).trim();
+          const descriptionText = proseTail || (split.summary ?? "").trim();
+          const chips = [
+            parsedReferral.employmentLabel,
+            hiringExperienceChipFromParsed(parsedReferral.experienceLabel),
+            hiringCompensationChipFromParsed(parsedReferral.salaryLabel),
+          ].filter((x): x is string => Boolean(x)).slice(0, 3);
+          return {
+            role: buildReferralIntentBulletinHeadline(
+              parsedReferral.title.trim() || headline.trim() || "Role",
+              parsedReferral.company.trim()
+            ),
+            companyLoc: null,
+            description: descriptionText,
+            chips,
+            listingUrl: coerced.listingUrl,
+            resumeUrl:
+              coerced.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
+          };
+        }
+        const ht = headline.trim();
+        const co = referralCompanyName.trim();
+        const summaryRaw = (split.summary ?? "").trim();
+        const coercedTail = promoteBareLeadingListingToResumeForReferral(
+          extractStructuredCareerRoleLink(summaryRaw)
+        );
+        const proseTail = stripStructuredHiringTailMeta(
+          stripHiringTailChipDuplicateProse(coercedTail.proseAfterLink)
+        ).trim();
+        const descriptionText = proseTail || body.trim();
+        return {
+          role: split.title.trim() || buildReferralIntentBulletinHeadline(ht || "Role", co),
+          companyLoc: null,
+          description: descriptionText,
+          chips: [],
+          listingUrl: coercedTail.listingUrl,
+          resumeUrl:
+            coercedTail.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
+        };
+      }
+      const parsed = parseHiringBulletin(raw);
+      if (parsed) {
+        const coerced = promoteBareLeadingListingToResumeForReferral(
+          extractStructuredCareerRoleLink(parsed.description)
+        );
+        const proseTail = stripStructuredHiringTailMeta(
+          stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
+        ).trim();
+        const descriptionText = proseTail || (split.summary ?? "").trim();
+        const chips = [
+          parsed.employmentLabel,
+          hiringExperienceChipFromParsed(parsed.experienceLabel),
+          hiringCompensationChipFromParsed(parsed.salaryLabel),
+        ].filter((x): x is string => Boolean(x)).slice(0, 3);
+        const companyLoc =
+          [parsed.company.trim(), parsed.locationLine.trim()].filter(Boolean).join(" | ") || null;
+        return {
+          role: parsed.title.trim() || split.title.trim() || "Headline",
+          companyLoc,
+          description: descriptionText,
+          chips,
+          listingUrl: coerced.listingUrl,
+          resumeUrl: coerced.resumeUrl,
+        };
+      }
+      return {
+        role: split.title.trim() || "Headline",
+        companyLoc: null,
+        description: (split.summary ?? "").trim(),
+        chips: [],
+        listingUrl: null,
+        resumeUrl: null,
+      };
+    }, [
+      body,
+      careersPreset,
+      composedContent,
+      headline,
+      previewSplit,
+      referralCompanyName,
+      referralResumeLink,
+    ]);
 
     const reset = useCallback(() => {
-      setStep("topic");
+      setStep("compose");
       setCategory(INITIAL_CATEGORY);
       setHeadline("");
       setBody("");
+      setReferralCompanyName("");
+      setReferralResumeLink("");
       setError(null);
-      setPublishSuccess(false);
+      setCareersPreset(null);
     }, []);
 
     const closeFlow = useCallback(() => {
@@ -107,13 +311,26 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     }, [reset]);
 
     const openFlow = useCallback((options?: PostBulletinOpenOptions) => {
-      setStep("topic");
-      setCategory(options?.category ?? INITIAL_CATEGORY);
+      let preset: CareersBulletinPreset | null = options?.careersPreset ?? null;
+      if (!preset && options?.referralSeeking === true) preset = "referralSeeking";
+      setCareersPreset(preset);
+      setStep("compose");
+      setCategory(
+        preset === "canHelp"
+          ? "guidance"
+          : preset === "referralSeeking"
+            ? "careers"
+            : options?.category ?? INITIAL_CATEGORY
+      );
       setHeadline("");
       setBody("");
+      setReferralCompanyName("");
+      setReferralResumeLink("");
       setError(null);
       setOpen(true);
     }, []);
+
+    const careersHubFlow = careersPreset !== null;
 
     useImperativeHandle(
       ref,
@@ -135,10 +352,37 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
           }
         : null;
 
-    const topicValid = headline.trim().length >= 3;
+    const headlineOk = headline.trim().length >= 3;
 
-    const validateStory = useCallback((): string | null => {
-      if (!topicValid) return "Add a headline (at least 3 characters).";
+    const validateCompose = useCallback((): string | null => {
+      if (careersPreset === "referralSeeking") {
+        if (!headlineOk) return "Add a role title (at least 3 characters).";
+        const ht = headline.trim();
+        const co = referralCompanyName.trim();
+        const bt = body.trim();
+        if (ht.length > BULLETIN_TITLE_MAX_CHARS) {
+          return `Role must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`;
+        }
+        if (co.length > BULLETIN_TITLE_MAX_CHARS) {
+          return `Company must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`;
+        }
+        const headLine = buildReferralIntentBulletinHeadline(ht, co);
+        if (headLine.length > BULLETIN_TITLE_MAX_CHARS) {
+          return `Referral headline is too long (max ${BULLETIN_TITLE_MAX_CHARS} characters). Shorten the role or company.`;
+        }
+        if (bt.length > BULLETIN_DESCRIPTION_MAX_CHARS) {
+          return `About You must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
+        }
+        const rr = referralResumeLink.trim();
+        if (rr) {
+          const norm = tryNormalizeExternalHttpUrl(rr);
+          if (!norm) return "Resume Link must be a valid http(s) URL.";
+        }
+        const content = composedContent.trim();
+        if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
+        return validateGeneralBulletinHeadlineDetails(content);
+      }
+      if (!headlineOk) return "Add a headline (at least 3 characters).";
       const ht = headline.trim();
       const bt = body.trim();
       if (ht.length > BULLETIN_TITLE_MAX_CHARS) {
@@ -150,50 +394,33 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       const content = composedContent.trim();
       if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
       return validateGeneralBulletinHeadlineDetails(content);
-    }, [body, composedContent, headline, topicValid]);
+    }, [
+      body,
+      careersPreset,
+      composedContent,
+      headline,
+      headlineOk,
+      referralCompanyName,
+      referralResumeLink,
+    ]);
 
-    const nextStep = useCallback(() => {
-      if (step === "topic") {
-        if (!topicValid) {
-          setError("Please add a headline before continuing.");
-          return;
-        }
-        setError(null);
-        setStep("story");
+    const goToPreview = useCallback(() => {
+      const err = validateCompose();
+      if (err) {
+        setError(err);
         return;
       }
-      if (step === "story") {
-        const err = validateStory();
-        if (err) {
-          setError(err);
-          return;
-        }
-        setError(null);
-        setStep("preview");
-      }
-    }, [step, topicValid, validateStory]);
+      setError(null);
+      setStep("preview");
+    }, [validateCompose]);
 
-    const handleTopicHeadlineKeyDown = useCallback(
-      (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        nextStep();
-      },
-      [nextStep]
-    );
-
-    const handleStoryDetailsKeyDown = useCallback(
-      (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (event.key !== "Enter") return;
-        if (!event.metaKey && !event.ctrlKey) return;
-        event.preventDefault();
-        nextStep();
-      },
-      [nextStep]
-    );
+    const goBackToCompose = useCallback(() => {
+      setError(null);
+      setStep("compose");
+    }, []);
 
     const publish = useCallback(async () => {
-      const err = validateStory();
+      const err = validateCompose();
       if (err) {
         setError(err);
         return;
@@ -213,59 +440,87 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
-      setPublishSuccess(true);
-      window.setTimeout(() => {
-        closeFlow();
-      }, 900);
-    }, [category, closeFlow, composedContent, onPublishSuccess, queryClient, validateStory]);
+      closeFlow();
+    }, [category, closeFlow, composedContent, onPublishSuccess, queryClient, validateCompose]);
+
+    const dialogAriaLabel =
+      careersPreset === "referralSeeking"
+        ? step === "compose"
+          ? "Ask alumni for a referral, step 1 of 2: Compose"
+          : "Ask alumni for a referral, step 2 of 2: Preview"
+        : careersPreset === "canHelp"
+          ? step === "compose"
+            ? "Offer help to alumni, step 1 of 2: Compose"
+            : "Offer help to alumni, step 2 of 2: Preview"
+          : step === "compose"
+            ? "Share with alumni, step 1 of 2: Compose"
+            : "Share with alumni, step 2 of 2: Preview";
+
+    const stepsAriaLabel =
+      careersPreset === "referralSeeking"
+        ? "Referral ask steps"
+        : careersPreset === "canHelp"
+          ? "Can help steps"
+          : "Bulletin post steps";
+
+    const closeAriaLabel =
+      careersPreset === "referralSeeking"
+        ? "Close referral flow"
+        : careersPreset === "canHelp"
+          ? "Close can help flow"
+          : "Close bulletin flow";
+
+    const headlinePlaceholder =
+      careersPreset === "referralSeeking"
+        ? "Senior Backend Engineer"
+        : careersPreset === "canHelp"
+          ? "Can refer into Razorpay — Backend & Platform"
+          : "Looking for advice on switching from IC to EM";
+
+    const referralCompanyPlaceholder = "Razorpay";
+
+    const detailsPlaceholder =
+      careersPreset === "referralSeeking"
+        ? "Location, stage, timing, and how an alum can help."
+        : careersPreset === "canHelp"
+          ? "Teams or roles you can support, geography, seniority, and how someone should reach out."
+          : "What you’ve tried, what you need, and how alumni can respond.";
+
+    const publishLabel =
+      careersPreset === "referralSeeking"
+        ? "Publish"
+        : careersPreset === "canHelp"
+          ? "Publish offer"
+          : "Publish post";
+
+    useEffect(() => {
+      if (!open) return;
+      const id = window.requestAnimationFrame(() => {
+        if (step === "compose") {
+          composeHeadlineRef.current?.focus();
+        } else {
+          previewPanelRef.current?.focus();
+        }
+      });
+      return () => window.cancelAnimationFrame(id);
+    }, [open, step]);
 
     if (!open || !viewer) return null;
 
-    const split = splitBulletinPostBody(composedContent || headline || "Preview headline");
-
     return (
-      <div className="career-hiring-flow__overlay" role="presentation" onClick={closeFlow}>
-        <section
-          className="career-hiring-flow__dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Post to bulletin"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <header className="career-hiring-flow__head">
-            <div className="career-hiring-flow__head-title">
-              <div>
-                <h2 className="visually-hidden">Post to bulletin</h2>
-              </div>
-            </div>
-            <button type="button" className="career-hiring-flow__close" onClick={closeFlow} aria-label="Close">
-              ×
-            </button>
-          </header>
-
-          <div className="career-hiring-flow__steps" aria-label="Bulletin post steps">
-            <span className={step === "topic" ? "is-active" : "is-done"}>
-              <b>{step === "topic" ? "1" : "✓"}</b>
-              <small>Topic</small>
-            </span>
-            <span className={step === "story" ? "is-active" : step === "preview" ? "is-done" : ""}>
-              <b>{step === "preview" ? "✓" : "2"}</b>
-              <small>Details</small>
-            </span>
-            <span className={step === "preview" ? "is-active" : ""}>
-              <b>3</b>
-              <small>Review</small>
-            </span>
-          </div>
-
-          <div className={`career-hiring-flow__layout${step === "preview" ? " career-hiring-flow__layout--review" : ""}`}>
-            <div className="career-hiring-flow__main">
-              {step === "topic" ? (
-                <>
-                  <div className="career-hiring-flow__main-head">
-                    <div />
-                  </div>
-                  <div className="career-hiring-flow__grid">
+      <CareerIntentFlowChrome
+        ariaLabel={dialogAriaLabel}
+        onRequestClose={closeFlow}
+        step={step}
+        stepsAriaLabel={stepsAriaLabel}
+        closeAriaLabel={closeAriaLabel}
+      >
+        <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
+          <div className="career-hiring-flow__main ds-surface-card">
+            {step === "compose" ? (
+              <>
+                <div className="career-hiring-flow__grid">
+                  {careersHubFlow ? null : (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
                       <span>Category *</span>
                       <select
@@ -280,141 +535,102 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         <option value="guidance">Guidance</option>
                       </select>
                     </label>
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Headline *</span>
-                      <div className="bulletin-flow__input-wrap">
-                        <input
-                          className="input bulletin-flow__input-with-counter"
-                          value={headline}
-                          onChange={(e) => setHeadline(e.target.value)}
-                          onKeyDown={handleTopicHeadlineKeyDown}
-                          placeholder="e.g. Looking for advice on switching from IC to EM"
-                          maxLength={BULLETIN_TITLE_MAX_CHARS}
-                        />
-                        <span className="bulletin-flow__counter" aria-live="polite">
-                          {headline.length}/{BULLETIN_TITLE_MAX_CHARS}
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                  <div className="career-hiring-flow__tip-inline">
-                    <div className="career-hiring-flow__tip-row">
-                      <p>Tip: One clear line beats a vague title — alumni skim headlines first.</p>
-                    </div>
-                    <div className="career-hiring-flow__tip-actions">
-                      <Button type="button" variant="secondary" onClick={nextStep}>
-                        Continue →
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : null}
-
-              {step === "story" ? (
-                <>
-                  <div className="career-hiring-flow__grid">
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Details *</span>
-                      <div className="bulletin-flow__input-wrap">
-                        <textarea
-                          className="input input--textarea bulletin-flow__input-with-counter bulletin-flow__textarea-with-counter"
-                          rows={6}
-                          value={body}
-                          onChange={(e) => setBody(e.target.value)}
-                          onKeyDown={handleStoryDetailsKeyDown}
-                          placeholder="What you’ve tried, what you need, and how alumni can respond."
-                          maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
-                        />
-                        <span className="bulletin-flow__counter" aria-live="polite">
-                          {body.length}/{BULLETIN_DESCRIPTION_MAX_CHARS}
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                </>
-              ) : null}
-
-              {step === "preview" ? (
-                <>
-                  <article className="career-hiring-flow__preview ds-surface-card">
-                    <BulletinPostCard
-                      variant="stack"
-                      personProfileHref={`/profiles/${viewer.personId}`}
-                      authorFullName={viewer.fullName}
-                      departmentCode={viewer.dept}
-                      batchYear={viewer.batchYear}
-                      tone={bulletinUiCategoryToTone(category)}
-                      categoryBadgeLabel={bulletinUiCategoryBadgeLabel(category)}
-                      title={split.title}
-                      summary={split.summary}
-                      className="bb-post-card--compose-preview"
+                  )}
+                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                    <span>{careersPreset === "referralSeeking" ? "Role *" : "Headline *"}</span>
+                    <input
+                      ref={composeHeadlineRef}
+                      className="input"
+                      value={headline}
+                      onChange={(e) => setHeadline(e.target.value)}
+                      placeholder={headlinePlaceholder}
+                      maxLength={BULLETIN_TITLE_MAX_CHARS}
+                      autoComplete="off"
                     />
-                  </article>
-                </>
-              ) : null}
+                  </label>
+                  {careersPreset === "referralSeeking" ? (
+                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                      <span>Company</span>
+                      <input
+                        className="input"
+                        value={referralCompanyName}
+                        onChange={(e) => setReferralCompanyName(e.target.value)}
+                        placeholder={referralCompanyPlaceholder}
+                        maxLength={BULLETIN_TITLE_MAX_CHARS}
+                        autoComplete="organization"
+                      />
+                    </label>
+                  ) : null}
+                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                    <span>{careersPreset === "referralSeeking" ? "About You *" : "Details *"}</span>
+                    <textarea
+                      className="input input--textarea"
+                      rows={4}
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      placeholder={detailsPlaceholder}
+                      maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
+                    />
+                  </label>
+                  {careersPreset === "referralSeeking" ? (
+                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                      <span>Resume Link</span>
+                      <input
+                        className="input"
+                        type="url"
+                        inputMode="url"
+                        autoComplete="url"
+                        value={referralResumeLink}
+                        onChange={(e) => setReferralResumeLink(e.target.value)}
+                        placeholder="https://…"
+                        maxLength={2048}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                <footer className="career-hiring-flow__actions">
+                  <Button type="button" variant="secondary" onClick={goToPreview}>
+                    Preview
+                  </Button>
+                </footer>
+              </>
+            ) : null}
 
-              {error ? <p className="career-hiring-flow__error">{error}</p> : null}
-              {publishSuccess ? (
-                <p className="career-hiring-flow__success" role="status" aria-live="polite">
-                  Published successfully. Sending your post to the bulletin…
-                </p>
-              ) : null}
+            {step === "preview" ? (
+              <div className="career-hiring-flow__preview-stack">
+                <article
+                  ref={previewPanelRef}
+                  tabIndex={-1}
+                  className="career-hiring-flow__preview ds-surface-card"
+                  aria-label="Bulletin card preview"
+                >
+                  <CareersActivityPostPreview {...careersActivityPreview} />
+                </article>
+              </div>
+            ) : null}
 
-              {step !== "topic" ? (
-                <>
-                  <footer className={`career-hiring-flow__actions${step === "preview" ? " career-hiring-flow__actions--publish" : ""}`}>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => {
-                        setError(null);
-                        setStep(step === "preview" ? "story" : "topic");
-                      }}
-                    >
-                      Back
-                    </Button>
-                    {step === "preview" ? (
-                      <Button type="button" variant="secondary" disabled={submitting} onClick={() => void publish()}>
-                        {submitting ? (
-                          <span className="career-hiring-flow__publish-loader">
-                            <span className="career-hiring-flow__publish-loader-dot" aria-hidden />
-                            Publishing…
-                          </span>
-                        ) : "Publish"}
-                      </Button>
-                    ) : (
-                      <Button type="button" variant="secondary" onClick={nextStep}>
-                        Review
-                      </Button>
-                    )}
-                  </footer>
-                </>
-              ) : null}
-            </div>
+            {error ? (
+              <p className="career-hiring-flow__error" role="alert">
+                {error}
+              </p>
+            ) : null}
 
-            {step !== "preview" ? (
-              <aside className="career-hiring-flow__side ds-surface-card" aria-label="Preview">
-                <p className="career-hiring-flow__side-title">Preview</p>
-                <BulletinPostCard
-                  variant="stack"
-                  personProfileHref={`/profiles/${viewer.personId}`}
-                  authorFullName={viewer.fullName}
-                  departmentCode={viewer.dept}
-                  batchYear={viewer.batchYear}
-                  tone={bulletinUiCategoryToTone(category)}
-                  categoryBadgeLabel={bulletinUiCategoryBadgeLabel(category)}
-                  title={splitBulletinPostBody(composedContent || headline || "Headline").title || "Headline"}
-                  summary={
-                    splitBulletinPostBody(composedContent || headline || "Headline").summary ??
-                    "Details will appear here."
-                  }
-                  className="career-hiring-flow__side-card bb-post-card--compose-preview"
-                />
-              </aside>
+            {step === "preview" ? (
+              <>
+                <footer className="career-hiring-flow__actions career-hiring-flow__actions--publish">
+                  <Button type="button" variant="primary" onClick={goBackToCompose}>
+                    Back
+                  </Button>
+                  <Button type="button" variant="secondary" disabled={submitting} onClick={() => void publish()}>
+                    {submitting ? "Publishing…" : publishLabel}
+                  </Button>
+                </footer>
+                <p className="career-hiring-flow__publish-note">Your post will go live instantly.</p>
+              </>
             ) : null}
           </div>
-        </section>
-      </div>
+        </div>
+      </CareerIntentFlowChrome>
     );
   }
 );

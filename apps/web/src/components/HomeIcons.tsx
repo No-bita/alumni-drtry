@@ -11,6 +11,18 @@ export function IconSearch(props: IconProps) {
   );
 }
 
+/** Filter / refine affordance — toolbar secondary actions */
+export function IconFilters(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden {...props}>
+      <path d="M5 5h3M12 5h7M5 12h10M16 12h3M9 19h10" strokeLinecap="round" />
+      <circle cx="10.5" cy="5" r="2" fill="currentColor" stroke="none" />
+      <circle cx="13.5" cy="12" r="2" fill="currentColor" stroke="none" />
+      <circle cx="7.5" cy="19" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconBriefcase(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
@@ -53,14 +65,6 @@ export function IconBell(props: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
       <path d="M6 9a6 6 0 1112 0v4l2 2H4l2-2V9z" />
       <path d="M10 18a2 2 0 004 0" />
-    </svg>
-  );
-}
-
-export function IconBookmark(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
-      <path d="M7 4h10a1 1 0 011 1v15l-6-3-6 3V5a1 1 0 011-1z" />
     </svg>
   );
 }
@@ -127,6 +131,19 @@ export function IconGradCap(props: IconProps) {
       <path d="M12 15l-8-4 8-4 8 4-8 4z" />
       <path d="M4 11v4c0 1.2 2.9 3 8 3s8-1.8 8-3v-4" />
       <path d="M19 15v4s-2.2 2-7 2-7-2-7-2v-4" />
+    </svg>
+  );
+}
+
+/** Chat bubble — careers activity Message CTA */
+export function IconChatBubble(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden {...props}>
+      <path
+        d="M19 4H5a2 2 0 00-2 2v9a2 2 0 002 2h3v3l3.8-3H19a2 2 0 002-2V6a2 2 0 00-2-2z"
+        strokeLinejoin="round"
+      />
+      <path d="M8 10h8M8 13.5h5" strokeLinecap="round" />
     </svg>
   );
 }

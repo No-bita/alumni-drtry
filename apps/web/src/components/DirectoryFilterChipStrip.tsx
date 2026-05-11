@@ -1,14 +1,12 @@
 import { DEPARTMENTS } from "../constants/departments";
 import { OCCUPATION_FILTER_OPTIONS } from "../constants/occupationTypes";
 import type { DirectorySearchDraft } from "../lib/directorySearchUrlState";
-import { normalizeQ } from "../lib/directorySearchUrlState";
 
 export type DirectoryFilterFacetKey = keyof DirectorySearchDraft;
 
 export type DirectoryFilterChipStripProps = {
   applied: DirectorySearchDraft;
   onRemoveFacet: (key: DirectoryFilterFacetKey) => void;
-  onAddFilters: () => void;
 };
 
 type ChipItem = { key: DirectoryFilterFacetKey; label: string };
@@ -45,42 +43,31 @@ function buildChips(applied: DirectorySearchDraft): ChipItem[] {
   return chips;
 }
 
-export function DirectoryFilterChipStrip({ applied, onRemoveFacet, onAddFilters }: DirectoryFilterChipStripProps) {
+export function DirectoryFilterChipStrip({ applied, onRemoveFacet }: DirectoryFilterChipStripProps) {
   const chips = buildChips(applied);
-  const hasCommittedKeyword = Boolean(normalizeQ(applied.q));
+  if (chips.length === 0) return null;
 
   return (
     <section className="directory-filter-chips" aria-label="Active directory filters">
       <div className="directory-filter-chips__scroll">
         <div className="directory-filter-chips__inner">
-          {chips.length === 0 ? (
-            <p className="directory-filter-chips__hint">
-              {hasCommittedKeyword
-                ? "No structured filters — use More filters to narrow results."
-                : "No filters applied."}
-            </p>
-          ) : (
-            <ul className="directory-filter-chips__list" role="list">
-              {chips.map((c) => (
-                <li key={c.key} className="directory-filter-chips__item">
-                  <span className="directory-filter-chips__chip">
-                    <span className="directory-filter-chips__chip-text">{c.label}</span>
-                    <button
-                      type="button"
-                      className="directory-filter-chips__remove"
-                      onClick={() => onRemoveFacet(c.key)}
-                      aria-label={`Remove filter: ${c.label}`}
-                    >
-                      <span aria-hidden>×</span>
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button type="button" className="directory-filter-chips__add" onClick={onAddFilters}>
-            {chips.length === 0 ? "Add filters" : "More filters"}
-          </button>
+          <ul className="directory-filter-chips__list" role="list">
+            {chips.map((c) => (
+              <li key={c.key} className="directory-filter-chips__item">
+                <span className="directory-filter-chips__chip">
+                  <span className="directory-filter-chips__chip-text">{c.label}</span>
+                  <button
+                    type="button"
+                    className="directory-filter-chips__remove"
+                    onClick={() => onRemoveFacet(c.key)}
+                    aria-label={`Remove filter: ${c.label}`}
+                  >
+                    <span aria-hidden>×</span>
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

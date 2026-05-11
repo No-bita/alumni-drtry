@@ -373,6 +373,26 @@ export type IntentcastFeedResponse = {
   pageInfo: { hasMore: boolean; nextOffset: number | null };
 };
 
+/** GET /v1/intentcasts/me/received-responses — replies on the signed-in user’s bulletin posts */
+export type ReceivedBulletinReplyFeedItem = {
+  responseId: string;
+  responseCreatedAt: string;
+  responseMessage: string;
+  intentcastId: string;
+  intentcastContent: string;
+  responderPersonId: string;
+  responderFullName: string;
+  responderDepartmentCode: string | null;
+  responderBatchYear: number | null;
+  responderIsDemo?: boolean;
+};
+
+export type ReceivedBulletinRepliesFeedResponse = {
+  responses: ReceivedBulletinReplyFeedItem[];
+  totalCount: number;
+  pageInfo: { hasMore: boolean; nextOffset: number | null };
+};
+
 /** GET /v1/intentcasts/:id — one card if the viewer may see it */
 export type IntentcastSingleResponse = { intentcast: IntentcastFeedItem };
 
