@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -8,10 +8,10 @@ import {
   type IntentcastFeedItem,
   type IntentcastFeedResponse,
   type MyProfileView,
+  type ReceivedBulletinRepliesFeedResponse,
   type SearchResult,
 } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
-import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { queryKeys } from "../lib/queryKeys";
 import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
@@ -21,13 +21,14 @@ import {
   type HomeOpportunityCategory,
   type HomeOpportunityItem,
 } from "../components/HomeOpportunityRail";
-import { extractBulletinUiCategory, splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
-import { parseHiringBulletin, splitHiringDetailsForCard } from "../lib/parseHiringBulletin";
+import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "../lib/bulletinPostCardUtils";
+import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { HomeIntentHero } from "../components/HomeIntentHero";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQuickActions";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeCampusUpdatesPanel } from "../components/HomeCampusUpdatesPanel";
+import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
   const fn = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim();
@@ -284,6 +285,53 @@ const HOME_MOCK_OPPORTUNITIES: HomeOpportunityItem[] = [
     category: "referrals",
   },
 ];
+
+const HOME_MOCK_INTENTCAST_ISO = "2026-05-01T10:00:00.000Z";
+
+function bulletinUiFromHomeMockChip(chip: ReturnType<typeof normalizeHomeOpportunityCategory>): BulletinUiCategory {
+  switch (chip) {
+    case "hiring":
+      return "hiring";
+    case "relocation":
+      return "relocation";
+    case "startups":
+      return "startups";
+    case "guidance":
+      return "guidance";
+    case "careers":
+      return "careers";
+    case "replies":
+      return "careers";
+    default: {
+      const _exhaustive: never = chip;
+      return _exhaustive;
+    }
+  }
+}
+
+function homeMockOpportunityToIntentcast(item: (typeof HOME_MOCK_OPPORTUNITIES)[number]): IntentcastFeedItem {
+  const chip = normalizeHomeOpportunityCategory(item.category);
+  return {
+    id: item.id,
+    authorPersonId: item.personId,
+    authorFullName: item.fullName,
+    authorDepartmentCode: item.departmentCode,
+    authorDepartmentName: null,
+    authorBatchYear: item.batchYear,
+    authorCurrentRoleTitle: null,
+    authorCurrentOrganizationName: null,
+    category: "collaboration",
+    content: encodeBulletinContentWithUiCategory(`${item.title}\n\n${item.summary}`, bulletinUiFromHomeMockChip(chip)),
+    status: "open",
+    expiresAt: HOME_MOCK_INTENTCAST_ISO,
+    closedAt: null,
+    createdAt: HOME_MOCK_INTENTCAST_ISO,
+    editableUntil: HOME_MOCK_INTENTCAST_ISO,
+    responseCount: 0,
+    viewerHasResponded: false,
+    authorIsDemo: item.authorIsDemo === true,
+  };
+}
 
 const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
   {
@@ -594,45 +642,6 @@ const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
   },
 ];
 
-function mapIntentcastCategoryToHomeCategory(category: IntentcastFeedItem["category"]): HomeOpportunityCategory {
-  if (category === "hiring") return "hiring";
-  if (category === "guidance") return "guidance";
-  if (category === "mentorship") return "careers";
-  return "startups";
-}
-
-function normalizeOpportunityCard(content: string, category: IntentcastFeedItem["category"]): {
-  title: string;
-  summary: string;
-  chips: string[];
-  category: HomeOpportunityCategory;
-} {
-  const mappedFromPrefix = extractBulletinUiCategory(content);
-  const sanitizedContent = stripBulletinUiCategory(content);
-  const mappedCategory = mappedFromPrefix ?? mapIntentcastCategoryToHomeCategory(category);
-  const parsed = parseHiringBulletin(sanitizedContent);
-  if (!parsed) {
-    const relocationHint = /\b(move|moving|relocate|relocation|city|housing|accommodation)\b/i.test(sanitizedContent);
-    const { title: headline, summary: detail } = splitBulletinPostBody(sanitizedContent);
-    const titleLine = headline.slice(0, 72);
-    const detailLine = detail ? detail.trim().slice(0, 160) : "";
-    return {
-      title: titleLine,
-      summary: detailLine,
-      chips: [],
-      category: relocationHint ? "relocation" : mappedCategory,
-    };
-  }
-  const body = splitHiringDetailsForCard(parsed.description);
-  const chips = [parsed.title, parsed.locationLine, parsed.experienceLabel ?? ""].filter(Boolean);
-  return {
-    title: `${parsed.title} at ${parsed.company}`,
-    summary: body.roleSummary || parsed.description.slice(0, 160),
-    chips,
-    category: mappedCategory,
-  };
-}
-
 /**
  * Signed-in home (`/home`): hero, batch snapshot, bulletin.
  * Route is protected by RequireAuth + RequireProfileComplete.
@@ -644,6 +653,9 @@ export function Home() {
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
   const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("all");
+  useEffect(() => {
+    setActiveCategory((prev) => (prev === "hiring" ? "all" : prev));
+  }, []);
   const useDevMocks =
     import.meta.env.DEV &&
     typeof window !== "undefined" &&
@@ -680,11 +692,26 @@ export function Home() {
     enabled: authenticated,
   });
 
+  const bulletinRepliesQuery = useQuery({
+    queryKey: queryKeys.home.receivedBulletinReplies(),
+    queryFn: ({ signal }) =>
+      assertApiGet<ReceivedBulletinRepliesFeedResponse>(
+        "/v1/intentcasts/me/received-responses?limit=48&offset=0",
+        signal
+      ),
+    enabled: authenticated,
+  });
+
   const opportunitiesFeedLoading =
     authenticated &&
     !useDevMocks &&
     (opportunitiesQuery.isPending ||
       (opportunitiesQuery.isFetching && (opportunitiesQuery.data?.intentcasts.length ?? 0) === 0));
+
+  const bulletinRepliesFeedLoading =
+    authenticated &&
+    (bulletinRepliesQuery.isPending ||
+      (bulletinRepliesQuery.isFetching && bulletinRepliesQuery.data === undefined));
 
   const batchMeta = useMemo(() => {
     if (!batchQuery.data || !authPersonId) return null;
@@ -705,30 +732,14 @@ export function Home() {
     };
   }, [batchQuery.data, authPersonId]);
   const batchDirectorySearchHref = "/search";
-  const opportunityItems = useMemo(() => {
-    const liveItems = (opportunitiesQuery.data?.intentcasts ?? []).map((item): HomeOpportunityItem => {
-      const normalized = normalizeOpportunityCard(item.content, item.category);
-      return {
-        id: item.id,
-        personId: item.authorPersonId,
-        fullName: item.authorFullName,
-        departmentCode: item.authorDepartmentCode,
-        batchYear: item.authorBatchYear ?? null,
-        postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
-        postedAtIso: item.createdAt ?? undefined,
-        authorIsDemo: item.authorIsDemo === true,
-        title: normalized.title,
-        summary: normalized.summary,
-        chips: normalized.chips,
-        category: normalized.category,
-      };
-    });
-    if (useDevMocks) return HOME_MOCK_OPPORTUNITIES;
-    return liveItems;
+  const opportunityIntentcasts = useMemo(() => {
+    if (useDevMocks) return HOME_MOCK_OPPORTUNITIES.map(homeMockOpportunityToIntentcast);
+    return opportunitiesQuery.data?.intentcasts ?? [];
   }, [opportunitiesQuery.data, useDevMocks]);
   const viewModel = useMemo(() => {
     const totalCountFor = (category: Exclude<HomeOpportunityCategory, "all">) =>
-      opportunityItems.filter((item) => normalizeHomeOpportunityCategory(item.category) === category).length;
+      opportunityIntentcasts.filter((ic) => normalizeOpportunityCard(ic.content, ic.category).category === category)
+        .length;
 
     return {
       activeCategory,
@@ -738,9 +749,10 @@ export function Home() {
         relocation: totalCountFor("relocation"),
         startups: totalCountFor("startups"),
         guidance: totalCountFor("guidance"),
+        replies: bulletinRepliesQuery.data?.totalCount ?? 0,
       },
     };
-  }, [activeCategory, opportunityItems]);
+  }, [activeCategory, opportunityIntentcasts, bulletinRepliesQuery.data?.totalCount]);
   const activeOpportunityCount =
     viewModel.activeCategory === "all"
       ? viewModel.categoryCounts.careers +
@@ -748,18 +760,19 @@ export function Home() {
         viewModel.categoryCounts.relocation +
         viewModel.categoryCounts.startups +
         viewModel.categoryCounts.guidance
-      : viewModel.categoryCounts[viewModel.activeCategory];
-  const shouldNudgeShareOnBulletin = !opportunitiesFeedLoading && activeOpportunityCount === 0;
+      : viewModel.activeCategory === "replies"
+        ? viewModel.categoryCounts.replies
+        : viewModel.categoryCounts[viewModel.activeCategory];
+  const shouldNudgeShareOnBulletin =
+    !opportunitiesFeedLoading &&
+    viewModel.activeCategory !== "replies" &&
+    activeOpportunityCount === 0;
 
   const toolbarSubtitle = useMemo(() => {
-    const activeRequestCount = opportunityItems.filter(
-      (item) =>
-        item.category === "careers" ||
-        item.category === "hiring" ||
-        item.category === "guidance" ||
-        item.category === "startups" ||
-        item.category === "relocation"
-    ).length;
+    const activeRequestCount = opportunityIntentcasts.filter((ic) => {
+      const c = normalizeOpportunityCard(ic.content, ic.category).category;
+      return c === "careers" || c === "hiring" || c === "guidance" || c === "startups" || c === "relocation";
+    }).length;
     if (useDevMocks && activeRequestCount > 0) {
       return `${Math.min(activeRequestCount, 99)} active requests in your network right now.`;
     }
@@ -770,7 +783,7 @@ export function Home() {
       return `${batchMeta.countLabel} alumni from your batch are on the network.`;
     }
     return "Explore careers, cities, and the directory.";
-  }, [batchMeta, opportunityItems, useDevMocks]);
+  }, [batchMeta, opportunityIntentcasts, useDevMocks]);
 
   const homeHeroActions = useMemo(
     (): HomeQuickAction[] => [
@@ -846,12 +859,14 @@ export function Home() {
         <div className="home-ideal__container">
           <HomeIntentHero actions={homeHeroActions} nudgeActionId={shouldNudgeShareOnBulletin ? "bulletin" : undefined} />
           <HomeOpportunityRail
-            items={opportunityItems}
+            intentcasts={opportunityIntentcasts}
             activeCategory={viewModel.activeCategory}
             onCategoryChange={handleOpportunityCategoryChange}
             categoryCounts={viewModel.categoryCounts}
             opportunitiesFeedLoading={opportunitiesFeedLoading}
             viewerPersonId={authPersonId}
+            bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
+            bulletinRepliesLoading={bulletinRepliesFeedLoading}
           />
           <div className="home-ideal__bottom-panels">
             <HomeNetworkPanel
@@ -860,6 +875,7 @@ export function Home() {
             />
             <HomeCampusUpdatesPanel />
           </div>
+          <HomeFeedbackSection />
         </div>
       </div>
     </>

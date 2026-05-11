@@ -83,7 +83,10 @@ type NavProps = {
    */
   appToolbarLead?: React.ReactNode;
   /**
-   * Intent sidebar shell: toolbar directory search (⌘K). Omit to use the default global control.
+   * Intent sidebar shell: toolbar search slot.
+   * - Omit (`undefined`): default global quick search (`AppToolbarGlobalSearch`).
+   * - Pass `null`: hide the slot entirely (e.g. alumni directory moves search into the page body).
+   * - Pass a node: render it inside the toolbar search area (legacy pattern).
    */
   appToolbarSearch?: React.ReactNode;
   /** Extra content after the user menu when signed in (e.g. onboarding context). */
@@ -364,9 +367,11 @@ export function Nav({
           ) : null}
           {toolbarActionsAuthenticated ? (
             <div className="nav-app-toolbar__right">
-              <div className="nav-app-toolbar__search-wrap">
-                {appToolbarSearch ?? <AppToolbarGlobalSearch />}
-              </div>
+              {appToolbarSearch !== null ? (
+                <div className="nav-app-toolbar__search-wrap">
+                  {appToolbarSearch === undefined ? <AppToolbarGlobalSearch /> : appToolbarSearch}
+                </div>
+              ) : null}
               {toolbarActionsAuthenticated}
             </div>
           ) : null}
