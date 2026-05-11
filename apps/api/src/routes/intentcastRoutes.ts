@@ -2,25 +2,55 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
+import type { IntentcastCategory } from "../repos/intentcastRepo.js";
+
+const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", "guidance"]);
 
 const createIntentcastSchema = z.object({
-  category: z.enum(["hiring", "mentorship", "collaboration", "guidance"]),
+  category: intentcastCategoryEnum,
   content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH)
 });
+
+/** Query helper — comma-separated `category` tokens */
+function parseExcludeCategories(raw: string | undefined): IntentcastCategory[] | undefined {
+  if (!raw?.trim()) return undefined;
+  const tokens = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (tokens.length === 0) return undefined;
+  for (const t of tokens) {
+    const r = intentcastCategoryEnum.safeParse(t);
+    if (!r.success) {
+      throw new AppError(
+        400,
+        "INTENTCAST_BAD_REQUEST",
+        `Invalid excludeCategories — unknown category token "${t}" (use hiring, mentorship, collaboration, guidance).`
+      );
+    }
+  }
+  return tokens as IntentcastCategory[];
+}
 
 const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
-  category: z.enum(["hiring", "mentorship", "collaboration", "guidance"]).optional(),
+  category: intentcastCategoryEnum.optional(),
   status: z.enum(["open", "closed"]).default("open"),
   mine: z.coerce.boolean().optional(),
   authorHistory: z.coerce.boolean().optional(),
   /** When true, author-soft-deleted posts are excluded for all viewers (Career Opportunities). */
-  excludeAuthorSoftDeleted: z.coerce.boolean().optional()
+  excludeAuthorSoftDeleted: z.coerce.boolean().optional(),
+  /**
+   * Comma-separated categories to drop from this feed query (e.g. `guidance` for Careers activity).
+   */
+  excludeCategories: z.string().optional()
 });
 
 const intentcastParamsSchema = z.object({
   id: z.string().uuid()
+});
+
+const receivedResponsesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(48),
+  offset: z.coerce.number().int().min(0).default(0)
 });
 
 const respondIntentcastSchema = z.object({
@@ -28,7 +58,7 @@ const respondIntentcastSchema = z.object({
 });
 
 const updateIntentcastSchema = z.object({
-  category: z.enum(["hiring", "mentorship", "collaboration", "guidance"]).optional(),
+  category: intentcastCategoryEnum.optional(),
   content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH).optional()
 });
 
@@ -70,6 +100,8 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    const excludeCategories = parseExcludeCategories(parsed.data.excludeCategories);
+
     const result = await app.intentcastService.listFeed(
       request.actor.personId,
       parsed.data.limit,
@@ -79,10 +111,24 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
         status: parsed.data.status,
         mine: parsed.data.mine,
         authorHistory: parsed.data.authorHistory,
-        excludeAuthorSoftDeleted: parsed.data.excludeAuthorSoftDeleted
+        excludeAuthorSoftDeleted: parsed.data.excludeAuthorSoftDeleted,
+        excludeCategories
       }
     );
     return reply.code(200).send(result);
+  });
+
+  app.get("/v1/intentcasts/me/received-responses", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = receivedResponsesQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid received responses query.");
+    }
+    const payload = await app.intentcastService.listReceivedResponsesFeed(
+      request.actor.personId,
+      parsed.data.limit,
+      parsed.data.offset
+    );
+    return reply.code(200).send(payload);
   });
 
   app.get(

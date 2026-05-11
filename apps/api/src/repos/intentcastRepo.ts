@@ -136,6 +136,8 @@ export interface FeedInput {
    * Use for public “Opportunities” style feeds where removed posts must not appear at all.
    */
   excludeAuthorSoftDeleted?: boolean;
+  /** Omit rows in any of these categories (e.g. `guidance` for Careers activity — “Can help” hub). */
+  excludeCategories?: IntentcastCategory[];
 }
 
 export interface CreateIntentcastResponseInput {
@@ -153,6 +155,34 @@ export interface BulletinResponseNotificationRow {
   intentcastContent: string;
   responderPersonId: string;
   responderFullName: string | null;
+}
+
+/** Home “Replies” tab — responses on the viewer’s non-deleted bulletin posts. */
+export interface ReceivedResponseFeedRow {
+  responseId: string;
+  responseCreatedAt: Date;
+  responseMessage: string;
+  intentcastId: string;
+  intentcastContent: string;
+  responderPersonId: string;
+  responderFullName: string | null;
+  responderDepartmentCode: string | null;
+  responderBatchYear: number | null;
+  responderIsDemo: boolean;
+}
+
+interface ReceivedResponseFeedSqlRow {
+  total_count: string;
+  response_id: string;
+  response_created_at: Date;
+  response_message: string;
+  intentcast_id: string;
+  intentcast_content: string;
+  responder_person_id: string;
+  responder_full_name: string | null;
+  responder_department_code: string | null;
+  responder_batch_year: number | null;
+  responder_is_demo: boolean;
 }
 
 interface BulletinResponseNotificationSqlRow {
@@ -307,6 +337,14 @@ export class IntentcastRepo {
       where.push(
         `(i.author_soft_deleted_at IS NULL OR i.author_person_id = ${viewerPh})`
       );
+    }
+
+    if (input.excludeCategories && input.excludeCategories.length > 0) {
+      const placeholders = input.excludeCategories.map((cat) => {
+        const ph = bind(cat);
+        return ph;
+      });
+      where.push(`i.category NOT IN (${placeholders.join(", ")})`);
     }
 
     const limitPh = bind(input.limit + 1);
@@ -698,6 +736,54 @@ export class IntentcastRepo {
       [intentcastId]
     );
     return result.rows.map(mapResponseRow);
+  }
+
+  async listReceivedResponsesFeedForAuthor(
+    authorPersonId: string,
+    limit: number,
+    offset: number
+  ): Promise<{ rows: ReceivedResponseFeedRow[]; totalCount: number }> {
+    const result = await this.db.query<ReceivedResponseFeedSqlRow>(
+      `
+      SELECT
+        (COUNT(*) OVER ())::text AS total_count,
+        r.id AS response_id,
+        r.created_at AS response_created_at,
+        r.message AS response_message,
+        i.id AS intentcast_id,
+        i.content AS intentcast_content,
+        p.id AS responder_person_id,
+        p.full_name AS responder_full_name,
+        COALESCE(d.code, p.department_code) AS responder_department_code,
+        COALESCE(p.batch_year, p.joining_year)::int AS responder_batch_year,
+        ${personIsDemoSql("p")} AS responder_is_demo
+      FROM intentcast_responses r
+      JOIN intentcasts i ON i.id = r.intentcast_id
+      JOIN people p ON p.id = r.responder_person_id
+      LEFT JOIN departments d ON d.id = p.department_id
+      WHERE i.author_person_id = $1
+        AND i.author_soft_deleted_at IS NULL
+      ORDER BY r.created_at DESC, r.id DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [authorPersonId, limit, offset]
+    );
+    const rawRows = result.rows;
+    const totalCount =
+      rawRows.length > 0 ? Number.parseInt(String(rawRows[0]?.total_count ?? "0"), 10) : 0;
+    const rows: ReceivedResponseFeedRow[] = rawRows.map((row) => ({
+      responseId: row.response_id,
+      responseCreatedAt: row.response_created_at,
+      responseMessage: row.response_message,
+      intentcastId: row.intentcast_id,
+      intentcastContent: row.intentcast_content,
+      responderPersonId: row.responder_person_id,
+      responderFullName: row.responder_full_name,
+      responderDepartmentCode: row.responder_department_code,
+      responderBatchYear: row.responder_batch_year,
+      responderIsDemo: Boolean(row.responder_is_demo)
+    }));
+    return { rows, totalCount };
   }
 
   async listBulletinResponseNotificationsForAuthor(

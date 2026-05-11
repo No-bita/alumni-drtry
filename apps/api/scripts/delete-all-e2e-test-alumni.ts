@@ -12,6 +12,7 @@
  */
 import "dotenv/config";
 import pg from "pg";
+import { emailFingerprintForLog } from "../src/lib/sensitiveEmailLog.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const forceAdmin = process.argv.includes("--force");
@@ -51,7 +52,9 @@ async function main() {
       await client.query("ROLLBACK");
       console.error(
         `Refusing to delete ${elevated.length} row(s) with admin role (unexpected for e2e). Matches:\n` +
-          elevated.map((t) => `  ${t.email} (${t.role})`).join("\n") +
+          elevated
+            .map((t) => `  ${emailFingerprintForLog(t.email)} (${t.role})`)
+            .join("\n") +
           "\nPass --force if you really mean it."
       );
       process.exit(1);
@@ -59,7 +62,7 @@ async function main() {
 
     console.log(`${dryRun ? "[dry-run] Would delete" : "Deleting"} ${targets.length} e2e alumni:`);
     for (const t of targets) {
-      console.log(`  ${t.email} (${t.role})`);
+      console.log(`  ${emailFingerprintForLog(t.email)} (${t.role})`);
     }
 
     if (dryRun) {

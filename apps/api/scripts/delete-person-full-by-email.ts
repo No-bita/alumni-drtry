@@ -12,6 +12,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { normalizeEmail } from "../src/lib/domainAllowlist.js";
+import { emailFingerprintForLog } from "../src/lib/sensitiveEmailLog.js";
 
 const args = process.argv.slice(2).filter((a) => a !== "--force");
 const forceAdmin = process.argv.includes("--force");
@@ -24,6 +25,7 @@ if (!emailRaw) {
 }
 
 const normalizedEmail = normalizeEmail(emailRaw);
+const emailLogId = emailFingerprintForLog(normalizedEmail);
 
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -42,14 +44,14 @@ async function main() {
     );
     const row = rows[0];
     if (!row) {
-      console.error(`No people row found for ${normalizedEmail}`);
+      console.error(`No people row found for ${emailLogId}`);
       await client.query("ROLLBACK");
       process.exit(1);
     }
 
     if ((row.role === "admin" || row.role === "super_admin") && !forceAdmin) {
       console.error(
-        `Refusing to delete ${normalizedEmail}: role is ${row.role}. Pass --force to override.`
+        `Refusing to delete ${emailLogId}: role is ${row.role}. Pass --force to override.`
       );
       await client.query("ROLLBACK");
       process.exit(1);
@@ -96,7 +98,7 @@ async function main() {
 
     await client.query("COMMIT");
 
-    console.log(`Fully deleted person ${normalizedEmail} (${personId}).`);
+    console.log(`Fully deleted person ${emailLogId} (${personId}).`);
     console.log(`  beta_usage_events: ${betaUsage.rowCount ?? 0}`);
     console.log(`  beta_auth_events: ${betaAuth.rowCount ?? 0}`);
     console.log(`  discovery_profile_click_events: ${clicks.rowCount ?? 0}`);

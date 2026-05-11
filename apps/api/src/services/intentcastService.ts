@@ -49,6 +49,13 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
   }
 }
 
+/**
+ * Intentcast categories vs Careers hub (web):
+ * - `hiring` — Hire alumni / role posts
+ * - `mentorship` — Find referrals (careers referral asks)
+ * - `guidance` — Can help offers (stored but omitted from Careers activity feed via `excludeCategories`)
+ * - `collaboration` — Relocation / startups bulletin lanes (not shown on Careers activity)
+ */
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
   content: string;
@@ -65,6 +72,26 @@ export interface IntentcastFeedOutput {
 export interface UpdateIntentcastInput {
   category?: IntentcastCategory;
   content?: string;
+}
+
+/** Signed-in author — aggregated bulletin replies for Home “Replies” tab. */
+export interface ReceivedBulletinReplyFeedItem {
+  responseId: string;
+  responseCreatedAt: string;
+  responseMessage: string;
+  intentcastId: string;
+  intentcastContent: string;
+  responderPersonId: string;
+  responderFullName: string;
+  responderDepartmentCode: string | null;
+  responderBatchYear: number | null;
+  responderIsDemo: boolean;
+}
+
+export interface ReceivedBulletinRepliesFeedOutput {
+  responses: ReceivedBulletinReplyFeedItem[];
+  totalCount: number;
+  pageInfo: { hasMore: boolean; nextOffset: number | null };
 }
 
 export interface RespondIntentcastInput {
@@ -140,6 +167,7 @@ export class IntentcastService {
       mine?: boolean;
       authorHistory?: boolean;
       excludeAuthorSoftDeleted?: boolean;
+      excludeCategories?: IntentcastCategory[];
     }
   ): Promise<IntentcastFeedOutput> {
     await this.intentcastRepo.expireOpenIntentcasts();
@@ -152,7 +180,8 @@ export class IntentcastService {
       status: options?.status,
       mine: options?.mine,
       authorHistory: options?.authorHistory,
-      excludeAuthorSoftDeleted: options?.excludeAuthorSoftDeleted
+      excludeAuthorSoftDeleted: options?.excludeAuthorSoftDeleted,
+      excludeCategories: options?.excludeCategories
     });
 
     return {
@@ -375,6 +404,37 @@ export class IntentcastService {
       throw new AppError(403, "INTENTCAST_FORBIDDEN", "Only the intentcast author can view responses.");
     }
     return this.intentcastRepo.listResponsesForIntentcast(intentcastId);
+  }
+
+  async listReceivedResponsesFeed(
+    viewerPersonId: string,
+    limit: number,
+    offset: number
+  ): Promise<ReceivedBulletinRepliesFeedOutput> {
+    const { rows, totalCount } = await this.intentcastRepo.listReceivedResponsesFeedForAuthor(
+      viewerPersonId,
+      limit,
+      offset
+    );
+    const responses: ReceivedBulletinReplyFeedItem[] = rows.map((r) => ({
+      responseId: r.responseId,
+      responseCreatedAt: r.responseCreatedAt.toISOString(),
+      responseMessage: r.responseMessage,
+      intentcastId: r.intentcastId,
+      intentcastContent: r.intentcastContent,
+      responderPersonId: r.responderPersonId,
+      responderFullName: r.responderFullName?.trim() || "Alumni",
+      responderDepartmentCode: r.responderDepartmentCode,
+      responderBatchYear: r.responderBatchYear,
+      responderIsDemo: r.responderIsDemo
+    }));
+    const fetchedEnd = offset + rows.length;
+    const nextOffset = fetchedEnd < totalCount ? fetchedEnd : null;
+    return {
+      responses,
+      totalCount,
+      pageInfo: { hasMore: nextOffset !== null, nextOffset }
+    };
   }
 
   async expireIntentcasts(limit = 2000): Promise<number> {

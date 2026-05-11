@@ -6,12 +6,15 @@
  */
 import "dotenv/config";
 import pg from "pg";
+import { emailFingerprintForLog } from "../src/lib/sensitiveEmailLog.js";
 
 const email = process.argv[2]?.trim().toLowerCase();
 if (!email) {
   console.error("Usage: npx tsx scripts/clear-person-analytics-by-email.ts <institutional_email>");
   process.exit(1);
 }
+
+const emailLogId = emailFingerprintForLog(email);
 
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -44,7 +47,7 @@ async function main() {
     const r4 = await client.query(`DELETE FROM discovery_search_sessions WHERE viewer_person_id = $1`, [personId]);
 
     await client.query("COMMIT");
-    console.log(`Cleared analytics for ${email} (${personId}):`);
+    console.log(`Cleared analytics for ${emailLogId} (${personId}):`);
     console.log(`  beta_usage_events: ${r1.rowCount ?? 0}`);
     console.log(`  beta_auth_events: ${r2.rowCount ?? 0}`);
     console.log(`  discovery_profile_click_events: ${r3.rowCount ?? 0}`);

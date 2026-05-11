@@ -8,6 +8,7 @@
  */
 import "dotenv/config";
 import pg from "pg";
+import { emailFingerprintForLog } from "../src/lib/sensitiveEmailLog.js";
 
 const DEFAULT_CONTENT =
   "ACME Labs — Backend Engineer, Distributed Systems (Bangalore, hybrid). Full-time; 3+ years with Go or Rust. Alumni referrals welcome — reply here to connect.";
@@ -15,9 +16,10 @@ const DEFAULT_CONTENT =
 async function main() {
   const email = process.argv[2]?.trim().toLowerCase();
   if (!email) {
-    console.error("Usage: npx tsx scripts/seed-hiring-intentcast-for-email.ts <institutional@email>");
+    console.error("Usage: npx tsx scripts/seed-hiring-intentcast-for-email.ts <institutional_email>");
     process.exit(1);
   }
+  const emailLogId = emailFingerprintForLog(email);
   const content = (process.argv[3]?.trim() || DEFAULT_CONTENT).trim();
   if (content.length < 10) {
     console.error("Content must be at least 10 characters.");
@@ -68,7 +70,7 @@ async function main() {
     );
 
     if (r.rowCount === 0) {
-      console.error(`No active person row for ${email}.`);
+      console.error(`No active person row for ${emailLogId}.`);
       process.exit(1);
     }
 
