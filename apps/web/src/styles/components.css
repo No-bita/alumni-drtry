@@ -430,8 +430,58 @@ input[type="reset"]:not(:disabled) {
 
 .nav-sidebar__brand {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-app-beta-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  user-select: none;
+}
+
+.nav-sidebar__brand .nav-app-beta-pill {
+  color: rgba(248, 242, 231, 0.95);
+  border: 1px solid rgba(201, 168, 108, 0.55);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.nav__brand-with-beta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.nav:not(.nav--home) .nav-app-beta-pill {
+  color: rgba(242, 237, 228, 0.96);
+  border: 1px solid rgba(201, 168, 108, 0.5);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.nav.nav--home .nav-app-beta-pill {
+  color: var(--ink);
+  border: 1px solid rgba(139, 58, 42, 0.42);
+  background: rgba(212, 154, 74, 0.14);
+}
+
+@media (max-width: 767px) {
+  html[data-app-shell="sidebar"] .nav-sidebar__brand .nav-app-beta-pill {
+    display: none;
+  }
 }
 
 .nav-sidebar__logo {

@@ -289,6 +289,9 @@ export function Nav({
             <Link to="/home" className="nav-sidebar__logo">
               IIT BHU <span>Alumni</span>
             </Link>
+            <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
+              Beta
+            </span>
           </div>
           <nav className="nav-sidebar__nav" aria-label="What are you looking for">
             <ul className="nav-sidebar__list">
@@ -386,9 +389,14 @@ export function Nav({
   return (
     <nav className={navClassName}>
       <div className="nav__left">
-        <Link to={auth.status === "authenticated" ? "/home" : "/"} className="nav__logo">
-          IIT BHU <span>Alumni</span>
-        </Link>
+        <div className="nav__brand-with-beta">
+          <Link to={auth.status === "authenticated" ? "/home" : "/"} className="nav__logo">
+            IIT BHU <span>Alumni</span>
+          </Link>
+          <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
+            Beta
+          </span>
+        </div>
       </div>
       <div className="nav__right">
         {auth.status === "authenticated" ? (

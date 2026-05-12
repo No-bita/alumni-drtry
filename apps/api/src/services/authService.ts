@@ -7,7 +7,6 @@ import { parseInstitutionalIdentity } from "../lib/emailParser.js";
 import { AppError } from "../lib/errors.js";
 import { AuthChallengeRepo } from "../repos/authChallengeRepo.js";
 import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
-import { BetaAllowedEmailRepo } from "../repos/betaAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
 import type { EmailSender } from "./emailSender.js";
@@ -88,7 +87,6 @@ export class AuthService {
   private readonly allowedDomains: ReadonlySet<string>;
   private readonly authChallengeRepo: AuthChallengeRepo;
   private readonly sessionRepo: SessionRepo;
-  private readonly betaAllowedEmailRepo: BetaAllowedEmailRepo;
   private readonly adminAllowedEmailRepo: AdminAllowedEmailRepo;
 
   constructor(
@@ -98,7 +96,6 @@ export class AuthService {
     this.allowedDomains = parseAllowedDomains(env.ALLOWED_EMAIL_DOMAINS);
     this.authChallengeRepo = new AuthChallengeRepo(pool);
     this.sessionRepo = new SessionRepo(pool);
-    this.betaAllowedEmailRepo = new BetaAllowedEmailRepo(pool);
     this.adminAllowedEmailRepo = new AdminAllowedEmailRepo(pool);
   }
 
@@ -394,16 +391,18 @@ export class AuthService {
       throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
     }
 
-    if (env.BETA_REQUIRE_ALLOWLIST) {
-      const [betaAllowed, adminAllowed] = await Promise.all([
-        this.betaAllowedEmailRepo.isAllowed(institutionalEmail),
-        this.adminAllowedEmailRepo.isAllowed(institutionalEmail)
-      ]);
-      const allowed = betaAllowed || adminAllowed;
-      if (!allowed) {
-        throw new AppError(403, "AUTH_BETA_NOT_ALLOWED", "Your email is not yet approved for this beta.");
-      }
-    }
+    // Beta / admin DB allowlist for invite login — temporarily disabled so any allowed-domain
+    // institute email + valid shared invite code can sign in. Re-enable when cohort gating returns.
+    // if (env.BETA_REQUIRE_ALLOWLIST) {
+    //   const [betaAllowed, adminAllowed] = await Promise.all([
+    //     this.betaAllowedEmailRepo.isAllowed(institutionalEmail),
+    //     this.adminAllowedEmailRepo.isAllowed(institutionalEmail)
+    //   ]);
+    //   const allowed = betaAllowed || adminAllowed;
+    //   if (!allowed) {
+    //     throw new AppError(403, "AUTH_BETA_NOT_ALLOWED", "Your email is not yet approved for this beta.");
+    //   }
+    // }
 
     const submittedHash = hashSecret(input.inviteCode, env.AUTH_SECRET_PEPPER);
     if (submittedHash !== env.BETA_SHARED_INVITE_CODE_HASH) {

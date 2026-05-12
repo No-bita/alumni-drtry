@@ -11,7 +11,6 @@ import { PageStateBlock } from "../components/PageStateBlock";
 import {
   type AdminAllowedEmailsResponse,
   type AdminMetricsResponse,
-  type BetaAllowedEmailsResponse,
   api,
   type CreateConnectionThreadResponse,
   type MeLinksResponse,
@@ -91,9 +90,6 @@ export function Profile() {
   const [adminEmailDraft, setAdminEmailDraft] = useState("");
   const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
   const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
-  const [betaEmailDraft, setBetaEmailDraft] = useState("");
-  const [betaAllowlistBusy, setBetaAllowlistBusy] = useState(false);
-  const [betaAllowlistError, setBetaAllowlistError] = useState<string | null>(null);
   const editLinksHydratedRef = useRef(false);
 
   const isOwnProfile =
@@ -135,19 +131,6 @@ export function Profile() {
       const { data, error } = await api.get<AdminAllowedEmailsResponse>("/v1/admin/allowed-admin-emails");
       if (error || !data) {
         throw new Error(error?.message ?? error?.code ?? "Could not load admin allowed emails.");
-      }
-      return data.emails;
-    },
-    enabled: Boolean(isOwnProfile && isAdminViewer),
-    staleTime: 60_000,
-  });
-
-  const betaAllowedEmailsQuery = useQuery({
-    queryKey: ["beta-allowed-emails", "profile-dashboard"],
-    queryFn: async () => {
-      const { data, error } = await api.get<BetaAllowedEmailsResponse>("/v1/admin/beta/allowed-emails");
-      if (error || !data) {
-        throw new Error(error?.message ?? error?.code ?? "Could not load beta allowed emails.");
       }
       return data.emails;
     },
@@ -386,14 +369,6 @@ export function Profile() {
       ),
     [adminAllowedEmailsQuery.data]
   );
-  const betaAllowedEmails = useMemo(
-    () =>
-      [...(betaAllowedEmailsQuery.data ?? [])].sort((a, b) =>
-        a.email.localeCompare(b.email, undefined, { sensitivity: "base" })
-      ),
-    [betaAllowedEmailsQuery.data]
-  );
-
   const addAdminAllowedEmail = useCallback(async () => {
     const institutionalEmail = adminEmailDraft.trim();
     if (!institutionalEmail) return;
@@ -424,37 +399,6 @@ export function Profile() {
     }
     await adminAllowedEmailsQuery.refetch();
   }, [adminAllowedEmailsQuery]);
-
-  const addBetaAllowedEmail = useCallback(async () => {
-    const institutionalEmail = betaEmailDraft.trim();
-    if (!institutionalEmail) return;
-    setBetaAllowlistBusy(true);
-    setBetaAllowlistError(null);
-    const { error } = await api.post("/v1/admin/beta/allowed-emails", {
-      institutionalEmail,
-    });
-    setBetaAllowlistBusy(false);
-    if (error) {
-      setBetaAllowlistError(error.message ?? error.code);
-      return;
-    }
-    setBetaEmailDraft("");
-    await betaAllowedEmailsQuery.refetch();
-  }, [betaAllowedEmailsQuery, betaEmailDraft]);
-
-  const revokeBetaAllowedEmail = useCallback(async (institutionalEmail: string) => {
-    setBetaAllowlistBusy(true);
-    setBetaAllowlistError(null);
-    const { error } = await api.post("/v1/admin/beta/allowed-emails/revoke", {
-      institutionalEmail,
-    });
-    setBetaAllowlistBusy(false);
-    if (error) {
-      setBetaAllowlistError(error.message ?? error.code);
-      return;
-    }
-    await betaAllowedEmailsQuery.refetch();
-  }, [betaAllowedEmailsQuery]);
 
   const navExtra =
     isOwnProfile && !isEditing ? (
@@ -808,62 +752,7 @@ export function Profile() {
                       )}
                     </section>
 
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Beta user allowlist</h3>
-                      <form
-                        className="profile-page__admin-allowlist-form"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void addBetaAllowedEmail();
-                        }}
-                      >
-                        <Input
-                          label="Institutional email"
-                          type="email"
-                          value={betaEmailDraft}
-                          onChange={(event) => setBetaEmailDraft(event.target.value)}
-                          placeholder="name@itbhu.ac.in"
-                        />
-                        <Button type="submit" variant="secondary" disabled={betaAllowlistBusy || !betaEmailDraft.trim()}>
-                          {betaAllowlistBusy ? "Saving…" : "Add beta user"}
-                        </Button>
-                      </form>
-
-                      {betaAllowlistError ? (
-                        <p className="body-text profile-page__error-text">{betaAllowlistError}</p>
-                      ) : null}
-
-                      {betaAllowedEmailsQuery.isPending ? (
-                        <p className="body-text profile-page__muted-text">Loading beta users…</p>
-                      ) : betaAllowedEmailsQuery.isError ? (
-                        <p className="body-text profile-page__error-text">Could not load beta user allowlist.</p>
-                      ) : betaAllowedEmails.length === 0 ? (
-                        <p className="body-text profile-page__muted-text">No beta users added yet.</p>
-                      ) : (
-                        <ul className="profile-page__analytics-list profile-page__admin-allowlist-list">
-                          {betaAllowedEmails.map((entry) => (
-                            <li key={entry.id}>
-                              <span>
-                                {entry.email}
-                                {entry.status === "revoked" ? " (revoked)" : ""}
-                              </span>
-                              {entry.status === "active" ? (
-                                <button
-                                  type="button"
-                                  className="profile-page__link-remove"
-                                  disabled={betaAllowlistBusy}
-                                  onClick={() => void revokeBetaAllowedEmail(entry.email)}
-                                >
-                                  Revoke
-                                </button>
-                              ) : (
-                                <span className="profile-page__muted-label">Inactive</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </section>
+                    {/* Beta user allowlist UI removed while invite login skips DB allowlist (see authService.loginWithInviteCode). */}
                   </div>
                 )}
               </article>
