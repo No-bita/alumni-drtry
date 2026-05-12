@@ -87,11 +87,11 @@ export function Login() {
           inviteCode: inviteCode.trim(),
         });
         if (inviteErr) {
-          if (
-            inviteErr.code === "AUTH_BETA_NOT_ALLOWED" ||
-            inviteErr.code === "AUTH_DOMAIN_NOT_ALLOWED"
-          ) {
+          if (inviteErr.code === "AUTH_BETA_NOT_ALLOWED") {
             setError("You are not approved for this beta yet. Request access using the form below.");
+            setShowBetaWaitlistCta(true);
+          } else if (inviteErr.code === "AUTH_DOMAIN_NOT_ALLOWED") {
+            setError(inviteErr.message ?? "Use an IIT BHU institutional email address.");
             setShowBetaWaitlistCta(true);
           } else {
             setError(inviteErr.message ?? inviteErr.code);
