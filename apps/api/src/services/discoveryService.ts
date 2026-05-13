@@ -75,6 +75,11 @@ const RESIDENCE_CITIES_CACHE_MS = 24 * 60 * 60 * 1000;
 
 let residenceCitiesCache: { expiresAt: number; rows: ResidenceCityAggregate[] } | null = null;
 
+/** Invalidate cached residence-city aggregates (e.g. after admin canonical-place edits). */
+export function clearResidenceCitiesCache(): void {
+  residenceCitiesCache = null;
+}
+
 const uuidLikePattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -268,36 +273,37 @@ export class DiscoveryService {
           })
         : null;
 
-    let searchSessionId: string | null = null;
-    if (
-      env.DISCOVERY_ANALYTICS_ENABLED &&
-      !input.cursor &&
-      input.viewerPersonId
-    ) {
-      const snapshot = {
-        q: q ?? null,
-        batch: batchIn ?? null,
-        dept: deptIn ?? null,
-        company: companyIn ?? null,
-        occ: occ ?? null,
-        residenceCountry: input.residenceCountry?.trim() ?? null,
-        residenceCity: input.residenceCity?.trim() ?? null,
-        batchWidened: batchWidenedEffective,
-        messageKey,
-        normalization: normMeta
-      };
-      try {
-        searchSessionId = await this.discoveryAnalyticsRepo.insertSearchSession({
-          viewerPersonId: input.viewerPersonId,
-          querySnapshot: snapshot,
-          resultIds: results.map((r) => r.id),
-          wideningMessageKey: messageKey,
-          wideningSummary
-        });
-      } catch {
-        searchSessionId = null;
-      }
-    }
+    const searchSessionId: string | null = null;
+    // Discovery search-session analytics disabled — re-enable when needed:
+    // if (
+    //   env.DISCOVERY_ANALYTICS_ENABLED &&
+    //   !input.cursor &&
+    //   input.viewerPersonId
+    // ) {
+    //   const snapshot = {
+    //     q: q ?? null,
+    //     batch: batchIn ?? null,
+    //     dept: deptIn ?? null,
+    //     company: companyIn ?? null,
+    //     occ: occ ?? null,
+    //     residenceCountry: input.residenceCountry?.trim() ?? null,
+    //     residenceCity: input.residenceCity?.trim() ?? null,
+    //     batchWidened: batchWidenedEffective,
+    //     messageKey,
+    //     normalization: normMeta
+    //   };
+    //   try {
+    //     searchSessionId = await this.discoveryAnalyticsRepo.insertSearchSession({
+    //       viewerPersonId: input.viewerPersonId,
+    //       querySnapshot: snapshot,
+    //       resultIds: results.map((r) => r.id),
+    //       wideningMessageKey: messageKey,
+    //       wideningSummary
+    //     });
+    //   } catch {
+    //     searchSessionId = null;
+    //   }
+    // }
 
     return {
       results,
@@ -318,13 +324,15 @@ export class DiscoveryService {
     profileId: string;
     resultPosition: number;
   }): Promise<void> {
-    if (!env.DISCOVERY_ANALYTICS_ENABLED) return;
-    await this.discoveryAnalyticsRepo.insertProfileClick({
-      searchSessionId: input.searchSessionId,
-      viewerPersonId: input.viewerPersonId,
-      profileId: input.profileId,
-      resultPosition: input.resultPosition
-    });
+    void input;
+    // Discovery profile-click analytics disabled — re-enable when needed:
+    // if (!env.DISCOVERY_ANALYTICS_ENABLED) return;
+    // await this.discoveryAnalyticsRepo.insertProfileClick({
+    //   searchSessionId: input.searchSessionId,
+    //   viewerPersonId: input.viewerPersonId,
+    //   profileId: input.profileId,
+    //   resultPosition: input.resultPosition
+    // });
   }
 
   async listResidenceCityAggregates(limit: number): Promise<ResidenceCityAggregate[]> {
@@ -339,7 +347,7 @@ export class DiscoveryService {
   }
 
   async getPublicProfile(profileId: string, viewerPersonId: string): Promise<PublicProfileOutput> {
-    const profile = await this.discoveryRepo.findPublicProfileBaseById(profileId);
+    const profile = await this.discoveryRepo.findPublicProfileBaseById(profileId, viewerPersonId);
     if (!profile) {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
     }

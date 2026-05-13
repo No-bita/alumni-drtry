@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
@@ -217,7 +217,7 @@ export function Login() {
     void completeLogin(undefined);
   }, [googleResume, completeLogin]);
 
-  const loginMarketingShell = (
+  const renderAuthMarketingShell = (cardMount: ReactNode) => (
     <section className="auth-merged">
       <div className="auth-merged__hero">
         <div className="auth-merged__hero-copy">
@@ -246,6 +246,7 @@ export function Login() {
             </div>
           </div>
         </div>
+        <div className="auth-merged__card-mount">{cardMount}</div>
         <LandingWorldMap className="auth-merged__map" />
         <blockquote className="auth-merged__quote">
           <p>
@@ -505,8 +506,7 @@ export function Login() {
     return (
       <div className="auth-login-page">
         <Nav hideSignInLink hideSignOut />
-        {loginMarketingShell}
-        <div className="auth-merged__card-mount">{sentCard}</div>
+        {renderAuthMarketingShell(sentCard)}
       </div>
     );
   }
@@ -515,8 +515,7 @@ export function Login() {
     return (
       <div className="auth-login-page">
         <Nav hideSignInLink hideSignOut />
-        {loginMarketingShell}
-        <div className="auth-merged__card-mount">
+        {renderAuthMarketingShell(
           <div className="auth-merged__card">
             <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending__spinner" aria-hidden />
@@ -525,7 +524,7 @@ export function Login() {
               </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -534,15 +533,14 @@ export function Login() {
     return (
       <div className="auth-login-page">
         <Nav hideSignInLink hideSignOut />
-        {loginMarketingShell}
-        <div className="auth-merged__card-mount">
+        {renderAuthMarketingShell(
           <div className="auth-merged__card">
             <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending__spinner" aria-hidden />
               <p className="login-sending__line">Signing you in…</p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -550,8 +548,7 @@ export function Login() {
   return (
     <div className="auth-login-page">
       <Nav hideSignInLink hideSignOut />
-      {loginMarketingShell}
-      <div className="auth-merged__card-mount">
+      {renderAuthMarketingShell(
         <div className="auth-merged__card">
           <div className="auth-merged__card-heading">
             <span className="auth-merged__card-icon" aria-hidden>
@@ -618,7 +615,7 @@ export function Login() {
           </form>
           <p className="auth-merged__footnote">Exclusive for IIT BHU alumni.</p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

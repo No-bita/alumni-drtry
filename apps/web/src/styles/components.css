@@ -69,6 +69,8 @@ input[type="reset"]:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: var(--chrome-min-touch-target);
+  min-height: var(--chrome-min-touch-target);
   cursor: pointer;
   border-radius: 50%;
   line-height: 0;
@@ -282,8 +284,11 @@ input[type="reset"]:not(:disabled) {
 
 .nav__notif-link {
   position: relative;
-  width: 28px;
-  height: 28px;
+  box-sizing: border-box;
+  min-width: var(--chrome-min-touch-target);
+  min-height: var(--chrome-min-touch-target);
+  width: var(--chrome-min-touch-target);
+  height: var(--chrome-min-touch-target);
   border-radius: 999px;
   border: 1px solid rgba(26, 20, 15, 0.1);
   display: inline-flex;
@@ -420,7 +425,8 @@ input[type="reset"]:not(:disabled) {
   z-index: 200;
   width: var(--nav-sidebar-width);
   box-sizing: border-box;
-  padding: 24px 18px 32px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 18px calc(32px + env(safe-area-inset-bottom, 0px))
+    max(18px, env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
   gap: var(--space-lg-xl);
@@ -518,6 +524,7 @@ input[type="reset"]:not(:disabled) {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: var(--chrome-min-touch-target);
   padding: 12px 16px;
   border-radius: 999px;
   font-family: var(--font-body);
@@ -563,9 +570,9 @@ input[type="reset"]:not(:disabled) {
   left: var(--nav-sidebar-width);
   right: 0;
   z-index: 190;
-  height: var(--nav-height);
+  height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
-  padding: 0 var(--page-x);
+  padding: env(safe-area-inset-top, 0px) max(var(--page-x), env(safe-area-inset-right, 0px)) 0 var(--page-x);
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -744,6 +751,7 @@ input[type="reset"]:not(:disabled) {
 
   .nav-app-toolbar__search-input {
     padding-right: 12px;
+    font-size: 16px;
   }
 
   .nav-app-toolbar__search-wrap {
@@ -758,6 +766,153 @@ input[type="reset"]:not(:disabled) {
 
   .nav-app-toolbar__lead:has(.nav-app-toolbar__welcome-title--location-page) {
     max-width: min(280px, 62vw);
+  }
+}
+
+/* Bottom dock: DOM always present in signed-in shell; shown only ≤639px. */
+.nav-bottom-dock {
+  display: none;
+}
+
+/* Phone (≤639px): bottom tab dock replaces left sidebar; toolbar spans full width. */
+@media (max-width: 639px) {
+  html[data-app-shell="sidebar"] .nav-sidebar {
+    display: none;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar {
+    left: 0;
+  }
+
+  .nav-bottom-dock {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 196;
+    box-sizing: border-box;
+    height: calc(var(--nav-bottom-dock-height) + env(safe-area-inset-bottom, 0px));
+    padding: 0 4px env(safe-area-inset-bottom, 0px);
+    flex-direction: column;
+    justify-content: flex-end;
+    background: var(--nav-sidebar-bg);
+    border-top: 1px solid var(--nav-sidebar-border);
+    box-shadow: 0 -4px 24px rgba(20, 14, 10, 0.14);
+  }
+
+  .nav-bottom-dock__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0;
+    width: 100%;
+    height: var(--nav-bottom-dock-height);
+    min-height: var(--nav-bottom-dock-height);
+  }
+
+  .nav-bottom-dock__item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+  }
+
+  .nav-bottom-dock__link {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px 2px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--nav-sidebar-text-muted);
+    font-family: var(--font-body);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: center;
+    line-height: 1.15;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .nav-bottom-dock__link:hover {
+    color: var(--nav-sidebar-text);
+    background: var(--nav-sidebar-link-hover-bg);
+  }
+
+  .nav-bottom-dock__link--active {
+    color: var(--nav-sidebar-text);
+    background: var(--nav-sidebar-active-pill);
+    border-color: var(--nav-sidebar-active-ring);
+  }
+
+  .nav-bottom-dock__icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: inherit;
+  }
+
+  .nav-bottom-dock__label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Toolbar: welcome + search share the wider column without the rail. */
+  html[data-app-shell="sidebar"] .nav-app-toolbar__lead {
+    max-width: min(380px, 56vw);
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__lead:has(.nav-app-toolbar__welcome-title--location-page) {
+    max-width: min(440px, 62vw);
+  }
+
+  /* Home only: remove “Welcome back, …” from the top bar on phone (bottom dock + search need space). */
+  .nav-app-toolbar__lead:has(.nav-app-toolbar__welcome--home-greeting) {
+    display: none;
+  }
+
+  /* Signed-in shell: compact search + notification + avatar on one row (no flex “spring” between). */
+  html[data-app-shell="sidebar"] .nav-app-toolbar {
+    padding-left: max(calc(var(--page-x) + 2px), env(safe-area-inset-left, 0px));
+    padding-right: max(calc(var(--page-x) + 2px), env(safe-area-inset-right, 0px));
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__right {
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__search-wrap {
+    flex: 0 1 auto;
+    max-width: min(260px, calc(100vw - 108px));
+    margin-top: 2px;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__notif-link,
+  html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__user-menu {
+    flex-shrink: 0;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__search-input {
+    min-height: 42px;
+    padding: 0 14px 0 32px;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar__search-icon {
+    left: 10px;
   }
 }
 
@@ -1028,6 +1183,12 @@ input[type="reset"]:not(:disabled) {
 .input--textarea {
   min-height: 100px;
   resize: none;
+}
+
+@media (max-width: 767px) {
+  .input {
+    font-size: 16px;
+  }
 }
 
 /* Product requirement: disable manual textarea drag-resize across app. */
@@ -2105,6 +2266,7 @@ textarea {
 .home-dashboard {
   background: linear-gradient(180deg, #f7f4ef 0%, #f5f1eb 42%, #f3efe8 100%);
   flex: 1;
+  min-width: 0;
 }
 
 .home-dashboard__hero {
@@ -4790,6 +4952,16 @@ textarea {
   .global-messaging-widget__modal-left {
     border-right: 0;
     border-bottom: 1px solid rgba(26, 20, 15, 0.1);
+  }
+}
+
+@media (max-width: 639px) {
+  html[data-app-shell="sidebar"] .global-messaging-widget {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--nav-bottom-dock-height));
+  }
+
+  html[data-app-shell="sidebar"] .career-page__sticky-post-wrap {
+    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 72px + var(--nav-bottom-dock-height));
   }
 }
 
@@ -12361,7 +12533,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   background: #1a1412;
 }
 
-/** Login hero: near full-bleed map on the right, reserved column for copy + stats (no overlap — copy z-index stays above map). */
+/** Login hero — desktop only (≥900px): right-rail map; copy + stats. Tablet: `(max-width:899px) and (min-width:640px)`. Phone: `max-width:639px`. */
 @media (min-width: 900px) {
   .auth-login-page .auth-merged .landing-world-map {
     border: none;
@@ -12420,6 +12592,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .auth-login-page .auth-merged__hero {
   padding-top: 2.8rem;
   padding-bottom: 2.85rem;
+  position: relative;
 }
 
 .auth-login-page .auth-merged__hero-copy .eyebrow {
@@ -12704,6 +12877,23 @@ a.career-opportunity-card__poster-text-link:focus-visible {
     padding-bottom: 2.4rem;
   }
 
+  .auth-merged__map {
+    right: 14px;
+    top: 24px;
+    width: min(60vw, 700px);
+    height: clamp(270px, 36vw, 430px);
+    opacity: 0.6;
+  }
+
+  .auth-merged__quote {
+    position: static;
+    margin-top: 0.8rem;
+    width: min(520px, 100%);
+  }
+}
+
+/* Login marketing shell — tablet widths only. Desktop (≥900px): `@media (min-width: 900px)` above. Phone (≤639px): next block. */
+@media (max-width: 899px) and (min-width: 640px) {
   .auth-login-page .auth-merged .landing-world-map {
     border: none;
     box-shadow: inset 1px 0 0 rgba(248, 242, 231, 0.04);
@@ -12735,29 +12925,23 @@ a.career-opportunity-card__poster-text-link:focus-visible {
     min-height: 0;
     background: #1a1412;
   }
-
-  .auth-merged__map {
-    right: 14px;
-    top: 24px;
-    width: min(60vw, 700px);
-    height: clamp(270px, 36vw, 430px);
-    opacity: 0.6;
-  }
-
-  .auth-merged__quote {
-    position: static;
-    margin-top: 0.8rem;
-    width: min(520px, 100%);
-  }
 }
 
+/* Login marketing shell — phone only (≤639px). Does not apply at desktop/tablet breakpoints. */
 @media (max-width: 639px) {
+  .auth-login-page .auth-merged__stats {
+    display: none;
+  }
+
   .auth-login-page .auth-merged__hero {
     display: flex;
     flex-direction: column;
-    min-height: auto;
+    gap: 0.65rem;
+    /* Tall shell: map flexes between headline and sign-in card. */
+    min-height: calc(100dvh - var(--nav-height));
   }
 
+  /* Visual order: copy → animated map (fills middle) → sign-in card (DOM map stays last for a11y). */
   .auth-login-page .auth-merged__map {
     position: relative;
     order: 2;
@@ -12765,28 +12949,41 @@ a.career-opportunity-card__poster-text-link:focus-visible {
     right: auto;
     top: auto;
     bottom: auto;
-    width: calc(100% + 2 * var(--page-x));
+    flex: 1 1 clamp(10.25rem, 22vh, 14rem);
+    align-self: stretch;
+    width: 100%;
     max-width: none;
-    align-self: center;
-    margin: 1rem calc(-1 * var(--page-x)) 0;
-    height: min(56vh, 440px);
-    min-height: min(56vh, 440px);
-    opacity: 0.95;
-    border-radius: 0;
+    margin: 0;
+    min-height: 0;
+    max-height: min(50vh, 360px);
+    height: auto;
+    opacity: 0.98;
+    border-radius: 14px;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: auto;
   }
 
   .auth-login-page .auth-merged .landing-world-map {
-    border: none;
+    border: 1px solid rgba(248, 242, 231, 0.06);
     box-shadow: inset 0 1px 0 rgba(248, 242, 231, 0.045);
   }
 
   .auth-login-page .auth-merged__hero-copy {
     order: 1;
+    flex-shrink: 0;
+  }
+
+  .auth-login-page .auth-merged__card-mount {
+    order: 3;
+    flex-shrink: 0;
+    margin-top: 0;
+    padding-bottom: 2.75rem;
   }
 
   .auth-login-page .auth-merged__map.landing-world-map {
     height: 100%;
-    min-height: 100%;
+    min-height: 0;
   }
 
   .auth-login-page .auth-merged__map .landing-world-map__frame {
@@ -12799,8 +12996,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   }
 
   .auth-login-page .auth-merged__quote {
-    order: 3;
-    margin-top: 1rem;
+    display: none;
   }
 
   .auth-merged__hero {
@@ -12825,10 +13021,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
     margin-top: -0.25rem;
     width: 100%;
     padding: 0 var(--page-x) 2.9rem;
-  }
-
-  .auth-login-page .auth-merged__card-mount {
-    padding-bottom: 3.35rem;
   }
 
   .auth-merged__card {
@@ -14830,6 +15022,12 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   box-shadow: inset 0 1px 0 var(--home-ideal-warm-highlight);
 }
 
+@media (max-width: 767px) {
+  .home-ideal__search-input {
+    font-size: 16px;
+  }
+}
+
 .home-ideal__quick-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -14838,6 +15036,21 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .home-ideal__quick-actions.home-ideal__quick-actions--intent-hero {
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+}
+
+@media (max-width: 767px) {
+  .home-ideal__quick-actions.home-ideal__quick-actions--intent-hero {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .home-ideal__quick-actions--intent-hero .home-ideal__quick-action-title {
+    font-size: clamp(15px, 4.2vw, 17px);
+  }
+
+  .home-ideal__quick-actions--intent-hero .home-ideal__quick-action-copy {
+    font-size: clamp(12px, 3.4vw, 14px);
+  }
 }
 
 .home-ideal__quick-action-card {

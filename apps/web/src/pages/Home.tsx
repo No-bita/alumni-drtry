@@ -850,7 +850,7 @@ export function Home() {
         variant="home"
         avatarName={displayName}
         appToolbarLead={
-          <div className="nav-app-toolbar__welcome">
+          <div className="nav-app-toolbar__welcome nav-app-toolbar__welcome--home-greeting">
             <p id="home-toolbar-welcome" className="nav-app-toolbar__welcome-title">
               Welcome back, {firstName}
             </p>

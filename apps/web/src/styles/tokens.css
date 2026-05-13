@@ -108,6 +108,16 @@
   --page-x: 2.5rem;
 
   /**
+   * Layout breakpoints — keep pixel values in sync with @media rules below.
+   * Note: Vite/LightningCSS minify rejects `var()` inside @media; use literals `767px` / `640px` in stylesheets.
+   * --bp-shell-compact-max: signed-in shell compact (icon rail, toolbar tweaks).
+   * --bp-stack-md-max: common two-column → single-column boundary.
+   */
+  --bp-shell-compact-max: 767px;
+  /** Common two-column → single-column flip (match existing 640px patterns). */
+  --bp-stack-md-max: 640px;
+
+  /**
    * Radii — Apple-inspired: soft surfaces, pill chips, 12px controls.
    * Use --radius-surface-* for cards; --radius-panel for frosted bulletin shell.
    */
@@ -117,6 +127,8 @@
   --radius-surface-sm: 12px;
   --radius-button: 12px;
   --size-cta-height: 44px;
+  /** Minimum tap target for primary chrome (WCAG 2.5.5 target size). */
+  --chrome-min-touch-target: 44px;
   --radius-input: 12px;
   --radius-card: 14px;
   --radius-chip: 999px;
@@ -136,6 +148,8 @@
 
   /* Nav */
   --nav-height: 78px;
+  /** Phone bottom tab bar (signed-in shell ≤639px); keep in sync with `.nav-bottom-dock` padding + row. */
+  --nav-bottom-dock-height: 56px;
   /** Signed-in shell: primary links live in a fixed left rail; main column uses top toolbar only. */
   --nav-sidebar-width: 264px;
   /** Left rail — Chunar sandstone field + cream typography */

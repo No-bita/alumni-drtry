@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
-import { api, type SearchProfileView } from "../api/client";
+import { type SearchProfileView } from "../api/client";
 import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
 import { DeptBatchMeta } from "./DeptBatchMeta";
@@ -68,6 +68,7 @@ function IconArrowRight({ className }: { className?: string }) {
 }
 
 export function SearchResultRow({ profile, style, resultIndex, searchSessionId, onRowClick }: SearchResultRowProps) {
+  void resultIndex;
   const roleOrg = roleOrgLine(profile);
   const codeRaw = profile.departmentCode;
   const deptCode = codeRaw?.trim() ? codeRaw : null;
@@ -108,11 +109,12 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
 
   const handleClick = () => {
     if (!searchSessionId) return;
-    void api.post("/v1/discovery/analytics/profile-click", {
-      searchSessionId,
-      profileId: profile.id,
-      resultPosition: resultIndex
-    });
+    // Directory profile-click analytics disabled — re-enable when needed:
+    // void api.post("/v1/discovery/analytics/profile-click", {
+    //   searchSessionId,
+    //   profileId: profile.id,
+    //   resultPosition: resultIndex
+    // });
   };
 
   const avatar = onRowClick ? (

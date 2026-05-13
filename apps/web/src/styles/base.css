@@ -31,7 +31,8 @@ body {
 
 html[data-app-shell="sidebar"] #root {
   padding-left: var(--nav-sidebar-width);
-  padding-top: var(--nav-height);
+  padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 @media (max-width: 767px) {
@@ -61,6 +62,23 @@ html[data-app-shell="sidebar"] #root {
     justify-content: center;
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  h2,
+  .section-headline {
+    font-size: clamp(1.5rem, 5.5vw, var(--text-section-headline));
+  }
+}
+
+/* Signed-in shell: bottom tab dock instead of left rail (phones). */
+@media (max-width: 639px) {
+  html[data-app-shell="sidebar"] {
+    --nav-sidebar-width: 0px;
+  }
+
+  html[data-app-shell="sidebar"] #root {
+    padding-left: 0;
+    padding-bottom: calc(var(--nav-bottom-dock-height) + env(safe-area-inset-bottom, 0px));
   }
 }
 

@@ -45,6 +45,24 @@ function intentSidebarActive(slug: NavIntentSlug, pathname: string): boolean {
   }
 }
 
+function BottomDockIntentIcon({ slug }: { slug: NavIntentSlug }) {
+  const cls = "nav-bottom-dock__icon";
+  switch (slug) {
+    case "career":
+      return <IconBriefcase className={cls} />;
+    case "location":
+      return <IconCity className={cls} />;
+    case "build":
+      return <IconHammer className={cls} />;
+    case "events":
+      return <IconCalendar className={cls} />;
+    default: {
+      const _exhaustive: never = slug;
+      return _exhaustive;
+    }
+  }
+}
+
 function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   const cls = "nav-sidebar__icon";
   switch (slug) {
@@ -382,6 +400,77 @@ export function Nav({
             </div>
           ) : null}
         </header>
+        <nav className="nav-bottom-dock" aria-label="Primary navigation">
+          <ul className="nav-bottom-dock__list">
+            <li className="nav-bottom-dock__item">
+              <NavLink
+                to="/home"
+                end
+                className={({ isActive }) =>
+                  `nav-bottom-dock__link${isActive ? " nav-bottom-dock__link--active" : ""}`.trim()
+                }
+              >
+                <IconHome className="nav-bottom-dock__icon" />
+                <span className="nav-bottom-dock__label">Home</span>
+              </NavLink>
+            </li>
+            {intentNavSlugs.map((slug) => {
+              const labelClass = "nav-bottom-dock__label";
+              if (slug === "career") {
+                const active = intentSidebarActive("career", location.pathname);
+                return (
+                  <li key={slug} className="nav-bottom-dock__item">
+                    <Link
+                      to={CAREER_INTENT_DEFAULT_PATH}
+                      className={`nav-bottom-dock__link${active ? " nav-bottom-dock__link--active" : ""}`.trim()}
+                    >
+                      <BottomDockIntentIcon slug="career" />
+                      <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
+                    </Link>
+                  </li>
+                );
+              }
+              if (slug === "events") {
+                const active = intentSidebarActive("events", location.pathname);
+                return (
+                  <li key={slug} className="nav-bottom-dock__item">
+                    <Link
+                      to="/events"
+                      className={`nav-bottom-dock__link${active ? " nav-bottom-dock__link--active" : ""}`.trim()}
+                    >
+                      <BottomDockIntentIcon slug="events" />
+                      <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
+                    </Link>
+                  </li>
+                );
+              }
+              return (
+                <li key={slug} className="nav-bottom-dock__item">
+                  <NavLink
+                    to={`/intent/${slug}`}
+                    className={({ isActive }) =>
+                      `nav-bottom-dock__link${isActive ? " nav-bottom-dock__link--active" : ""}`.trim()
+                    }
+                  >
+                    <BottomDockIntentIcon slug={slug} />
+                    <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
+                  </NavLink>
+                </li>
+              );
+            })}
+            {isAdminUser && myProfileId ? (
+              <li className="nav-bottom-dock__item">
+                <Link
+                  to={analyticsHref}
+                  className={`nav-bottom-dock__link${analyticsActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
+                >
+                  <IconAnalytics className="nav-bottom-dock__icon" />
+                  <span className="nav-bottom-dock__label">Analytics</span>
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </nav>
       </>
     );
   }

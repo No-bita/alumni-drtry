@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
-import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
+// import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -280,7 +280,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <DeferredVercelAnalytics />
+      {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
         <AppRoutes />
         <GlobalNotificationsWidget />

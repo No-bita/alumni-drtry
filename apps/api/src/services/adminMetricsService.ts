@@ -15,7 +15,7 @@ export class AdminMetricsService {
   }
 
   async logSearch(): Promise<void> {
-    await this.repo.logSearch();
+    // Analytics disabled — re-enable: await this.repo.logSearch();
   }
 
   async logBetaAuthEvent(input: {
@@ -26,7 +26,8 @@ export class AdminMetricsService {
     inviteCodeId?: string | null;
     ip?: string | null;
   }): Promise<void> {
-    await this.repo.logBetaAuthEvent(input);
+    void input;
+    // Analytics disabled — re-enable: await this.repo.logBetaAuthEvent(input);
   }
 
   async logBetaUsageEvent(input: {
@@ -35,7 +36,8 @@ export class AdminMetricsService {
     route: string;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
-    await this.repo.logBetaUsageEvent(input);
+    void input;
+    // Analytics disabled — re-enable: await this.repo.logBetaUsageEvent(input);
   }
 
   async getBetaUsageSummary(windowHours: number) {

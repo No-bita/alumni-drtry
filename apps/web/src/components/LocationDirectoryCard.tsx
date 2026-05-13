@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
-import { api, type SearchProfileView } from "../api/client";
+import { type SearchProfileView } from "../api/client";
 import { demoDisplayFullName } from "../lib/demoProfile";
 
 type LocationDirectoryCardProps = {
@@ -26,17 +26,19 @@ function tintFromName(name: string): string {
 }
 
 export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }: LocationDirectoryCardProps) {
+  void resultIndex;
   const loc = residenceLine(profile);
   const displayName = demoDisplayFullName(profile.fullName) || (profile.fullName ?? "").trim() || profile.id;
   const tint = tintFromName(displayName || profile.id);
 
   const handleClick = () => {
     if (!searchSessionId) return;
-    void api.post("/v1/discovery/analytics/profile-click", {
-      searchSessionId,
-      profileId: profile.id,
-      resultPosition: resultIndex
-    });
+    // Directory profile-click analytics disabled — re-enable when needed:
+    // void api.post("/v1/discovery/analytics/profile-click", {
+    //   searchSessionId,
+    //   profileId: profile.id,
+    //   resultPosition: resultIndex
+    // });
   };
 
   return (

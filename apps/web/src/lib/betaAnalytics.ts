@@ -1,5 +1,3 @@
-import { api } from "../api/client";
-
 export const BETA_USAGE_EVENT_TYPES = [
   "search_executed",
   "profile_viewed",
@@ -31,9 +29,8 @@ export const BETA_USAGE_EVENT_TYPES = [
 export type BetaUsageEventType = (typeof BETA_USAGE_EVENT_TYPES)[number];
 
 export function trackBetaUsageEvent(eventType: BetaUsageEventType, metadata?: Record<string, unknown>): void {
-  void api.post("/v1/analytics/beta-usage-event", {
-    eventType,
-    route: typeof window !== "undefined" ? window.location.pathname : "/",
-    metadata: metadata ?? {},
-  });
+  void eventType;
+  void metadata;
+  // Beta usage analytics disabled — re-enable when needed:
+  // void api.post("/v1/analytics/beta-usage-event", { eventType, route: ..., metadata: ... });
 }

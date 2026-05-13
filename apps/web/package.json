@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "perf:budget": "node ./scripts/check-performance-budgets.mjs",
     "perf:lighthouse": "lhci autorun --config=./lighthouserc.json",
-    "perf:ci": "npm run build && npm run perf:budget && npm run perf:lighthouse"
+    "perf:lighthouse:mobile": "lhci autorun --config=./lighthouserc.mobile.json",
+    "perf:ci": "npm run build && npm run perf:budget && npm run perf:lighthouse && npm run perf:lighthouse:mobile"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",

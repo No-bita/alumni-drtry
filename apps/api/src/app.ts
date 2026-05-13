@@ -7,6 +7,8 @@ import { AppError, isAppError } from "./lib/errors.js";
 import { captureException } from "./lib/sentry.js";
 import { pool } from "./db/pool.js";
 import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
+import { adminLocationCleanupRoutes } from "./routes/adminLocationCleanupRoutes.js";
+import { adminPlacesRoutes } from "./routes/adminPlacesRoutes.js";
 import { campusMonthlyRoutes } from "./routes/campusMonthlyRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
@@ -21,7 +23,7 @@ import { orgRoutes } from "./routes/orgRoutes.js";
 import { AuthService } from "./services/authService.js";
 import { ConnectionThreadService } from "./services/connectionThreadService.js";
 import { ContactRequestService } from "./services/contactRequestService.js";
-import { DiscoveryService } from "./services/discoveryService.js";
+import { DiscoveryService, clearResidenceCitiesCache } from "./services/discoveryService.js";
 import { ConsoleEmailSender, ResendEmailSender, type EmailSender } from "./services/emailSender.js";
 import { IntentcastService } from "./services/intentcastService.js";
 import { NotificationService } from "./services/notificationService.js";
@@ -29,7 +31,9 @@ import { LinkService } from "./services/linkService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
+import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
+import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
 
@@ -77,6 +81,8 @@ export async function createApp() {
   const linkService = new LinkService(pool);
   const organizationService = new OrganizationService(pool);
   const discoveryService = new DiscoveryService(pool);
+  const adminPlacesService = new AdminPlacesService(pool, clearResidenceCitiesCache);
+  const locationCleanupService = new LocationCleanupService(pool, adminPlacesService);
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
@@ -90,6 +96,8 @@ export async function createApp() {
   app.decorate("linkService", linkService);
   app.decorate("organizationService", organizationService);
   app.decorate("discoveryService", discoveryService);
+  app.decorate("adminPlacesService", adminPlacesService);
+  app.decorate("locationCleanupService", locationCleanupService);
   app.decorate("intentcastService", intentcastService);
   app.decorate("contactRequestService", contactRequestService);
   app.decorate("connectionThreadService", connectionThreadService);
@@ -153,6 +161,8 @@ export async function createApp() {
   await app.register(orgRoutes);
   await app.register(adminOrgRoutes);
   await app.register(adminPeopleRoutes);
+  await app.register(adminPlacesRoutes);
+  await app.register(adminLocationCleanupRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 
