@@ -25,7 +25,7 @@ import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
 const JOIN_YEAR_MIN = 1960;
-const joinYearMax = () => new Date().getUTCFullYear() + 1;
+const joinYearMax = () => new Date().getUTCFullYear() + 5;
 
 const OCCUPATION_OPTIONS: { label: string; code: string }[] = [
   { label: "Full/Part time employment", code: "employment" },

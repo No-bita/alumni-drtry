@@ -79,11 +79,11 @@ function normalizeYear(rawYear: string): number | null {
     if (Number.isNaN(value)) return null;
     const nowTwoDigit = now % 100;
     const year = value <= nowTwoDigit + 1 ? 2000 + value : 1900 + value;
-    if (year < 1960 || year > now + 1) return null;
+    if (year < 1960 || year > now + 5) return null;
     return year;
   }
   const year = Number(rawYear);
-  if (Number.isNaN(year) || year < 1960 || year > now + 1) return null;
+  if (Number.isNaN(year) || year < 1960 || year > now + 5) return null;
   return year;
 }
 
