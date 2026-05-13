@@ -2,7 +2,23 @@ import "dotenv/config";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { pool } from "./pool.js";
+import { Pool } from "pg";
+
+/**
+ * Migrations must not import `./pool.js` (that pulls full app `env`). Use a minimal pool so
+ * `DATABASE_PUBLIC_URL` works from a laptop against Railway Postgres while `DATABASE_URL` stays internal on Railway.
+ */
+const connectionString = process.env.DATABASE_PUBLIC_URL?.trim() || process.env.DATABASE_URL?.trim();
+if (!connectionString) {
+  throw new Error("Set DATABASE_URL or DATABASE_PUBLIC_URL to run migrations.");
+}
+const pool = new Pool({
+  connectionString,
+  application_name: "alumni-phase1-migrate",
+  max: 2,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 30_000
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
