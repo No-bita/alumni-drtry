@@ -2,14 +2,14 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
 
-const currentYear = new Date().getUTCFullYear() + 1;
+const maxProfileBatchYear = new Date().getUTCFullYear() + 5;
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const patchProfileSchema = z
   .object({
     fullName: z.string().trim().min(1).max(120).optional(),
     departmentCode: z.string().trim().min(2).max(16).regex(/^[a-zA-Z0-9]+$/).optional(),
-    batchYear: z.union([z.number().int().min(1960).max(currentYear), z.null()]).optional(),
+    batchYear: z.union([z.number().int().min(1960).max(maxProfileBatchYear), z.null()]).optional(),
     degreeCode: z.string().trim().min(2).max(24).regex(/^[a-zA-Z0-9_]+$/).nullable().optional(),
     personalEmail: z.string().trim().email().nullable().optional(),
     bio: z.string().max(3000).nullable().optional(),

@@ -3,10 +3,10 @@ import { z } from "zod";
 import { assertDiscoveryReadAllowed } from "../lib/directoryAbuseLimiter.js";
 import { AppError } from "../lib/errors.js";
 
-const currentYear = new Date().getUTCFullYear() + 1;
+const maxDirectoryBatchYear = new Date().getUTCFullYear() + 5;
 
 const searchQuerySchema = z.object({
-  batch: z.coerce.number().int().min(1960).max(currentYear).optional(),
+  batch: z.coerce.number().int().min(1960).max(maxDirectoryBatchYear).optional(),
   dept: z.string().trim().min(2).max(16).regex(/^[a-zA-Z0-9]+$/).optional(),
   company: z.string().trim().max(120).optional(),
   /** Soft signal only (`occupation_types.code`) — boosts matching rows, does not exclude others. */

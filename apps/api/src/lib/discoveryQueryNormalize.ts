@@ -82,7 +82,7 @@ export function normalizeDiscoveryQuery(input: DiscoveryQueryNormalizeInput): Di
   let batchFromQuery: number | undefined;
   let deptFromQuery: string | undefined;
   let companyFromQuery: string | undefined;
-  const maxYear = new Date().getUTCFullYear() + 1;
+  const maxYear = new Date().getUTCFullYear() + 5;
 
   if (batch === undefined) {
     const yearTokens = tokens.filter((t) => /^(19|20)\d{2}$/.test(t));
