@@ -21,8 +21,6 @@ function ChatBubbleIcon() {
     <svg
       className="global-messaging-widget__icon"
       viewBox="0 0 24 24"
-      width="22"
-      height="22"
       aria-hidden="true"
       focusable="false"
     >
@@ -578,11 +576,17 @@ export function GlobalMessagingWidget() {
           }
           setMode("collapsed");
         }}
-        aria-label={mode === "collapsed" ? "Open messaging" : "Close messaging"}
+        aria-label={
+          mode === "collapsed"
+            ? unreadThreadCount > 0
+              ? `Open messaging, ${unreadThreadCount} unread`
+              : "Open messaging"
+            : "Close messaging"
+        }
         aria-expanded={mode !== "collapsed"}
       >
         <ChatBubbleIcon />
-        {hasThreads ? <span className="global-messaging-widget__launcher-dot" aria-hidden /> : null}
+        {unreadThreadCount > 0 ? <span className="global-messaging-widget__launcher-dot" aria-hidden /> : null}
       </button>
       {isListMode ? (
         <div className="global-messaging-widget__panel global-messaging-widget__compact-panel">

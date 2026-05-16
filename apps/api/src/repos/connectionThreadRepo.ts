@@ -560,6 +560,29 @@ export class ConnectionThreadRepo {
     }));
   }
 
+  /** Open threads where the latest message was sent by the other participant. */
+  async countThreadNotificationRowsForRecipient(viewerPersonId: string): Promise<number> {
+    const result = await this.db.query<{ count: string }>(
+      `
+      WITH last_msg AS (
+        SELECT DISTINCT ON (thread_id)
+          thread_id,
+          author_person_id
+        FROM connection_messages
+        ORDER BY thread_id, created_at DESC, id DESC
+      )
+      SELECT COUNT(*)::text AS count
+      FROM connection_threads t
+      JOIN last_msg lm ON lm.thread_id = t.id
+      WHERE (t.initiator_person_id = $1 OR t.recipient_person_id = $1)
+        AND t.status = 'open'
+        AND lm.author_person_id <> $1
+      `,
+      [viewerPersonId]
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
   /** Latest message preview for notifications (other party authored). */
   async listThreadNotificationRowsForRecipient(
     viewerPersonId: string,

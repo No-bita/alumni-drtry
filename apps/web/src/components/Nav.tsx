@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useNotificationsSummary } from "../lib/notificationsQueries";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
@@ -216,8 +217,8 @@ export function Nav({
   const isHomeNav = variant === "home" && auth.status === "authenticated";
   const isOnboardingNav = variant === "onboarding";
 
-  /** Notifications API not wired yet — no badge or summary fetch (see GlobalNotificationsWidget placeholder). */
-  const notificationCount = 0;
+  const notificationsSummary = useNotificationsSummary(auth.status === "authenticated");
+  const notificationCount = notificationsSummary.data?.count ?? 0;
 
   const handleSignOut = async () => {
     if (auth.status === "authenticated") {

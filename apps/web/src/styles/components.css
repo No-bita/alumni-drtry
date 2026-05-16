@@ -3778,8 +3778,8 @@ textarea {
 .career-page__sticky-post-wrap {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
-  /* Keep clear of the global messaging launcher (56px) plus buffer. */
-  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 72px);
+  /* Keep clear of the global messaging launcher (68px) plus buffer. */
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 84px);
   z-index: 1100;
 }
 
@@ -4060,8 +4060,8 @@ textarea {
 
 .global-messaging-widget__launcher {
   position: relative;
-  height: 56px;
-  width: 56px;
+  height: 68px;
+  width: 68px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   background: #1b1612;
@@ -4078,6 +4078,8 @@ textarea {
 
 .global-messaging-widget__icon {
   display: block;
+  width: 28px;
+  height: 28px;
 }
 
 .global-messaging-widget__launcher:hover {
@@ -4096,18 +4098,20 @@ textarea {
 
 .global-messaging-widget__launcher-dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
+  top: 5px;
+  right: 5px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
   background: #c23b2a;
+  border: 2px solid #1b1612;
+  box-sizing: border-box;
 }
 
 .global-messaging-widget__panel {
   position: absolute;
   right: 0;
-  bottom: 72px;
+  bottom: 84px;
   width: min(420px, calc(100vw - 24px));
   border: 1px solid rgba(26, 20, 15, 0.12);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(251, 248, 244, 0.98) 100%);
@@ -4961,7 +4965,7 @@ textarea {
   }
 
   html[data-app-shell="sidebar"] .career-page__sticky-post-wrap {
-    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 72px + var(--nav-bottom-dock-height));
+    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 84px + var(--nav-bottom-dock-height));
   }
 }
 
@@ -10271,6 +10275,23 @@ button.career-referrals-v3__matching-pill--editable:active {
 .notifications-page__item-main {
   min-width: 0;
   flex: 1;
+}
+
+.notifications-page__item-main--link {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.notifications-page__item-main--link:hover .notifications-page__item-title {
+  color: var(--ochre);
 }
 
 .notifications-page__item-title {

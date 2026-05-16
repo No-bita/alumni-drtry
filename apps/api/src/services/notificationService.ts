@@ -131,11 +131,12 @@ export class NotificationService {
 
   /** Total notification rows (matches aggregation behind GET /v1/notifications, without row limits). */
   async countForPerson(personId: string): Promise<number> {
-    const [pending, resolvedOut, bulletin] = await Promise.all([
+    const [pending, resolvedOut, bulletin, threadReplies] = await Promise.all([
       this.contactRequestRepo.countPendingIncomingForRecipient(personId),
       this.contactRequestRepo.countResolvedOutgoingForSender(personId),
-      this.intentcastRepo.countBulletinResponseNotificationsForAuthor(personId)
+      this.intentcastRepo.countBulletinResponseNotificationsForAuthor(personId),
+      this.connectionThreadRepo.countThreadNotificationRowsForRecipient(personId)
     ]);
-    return pending + resolvedOut + bulletin;
+    return pending + resolvedOut + bulletin + threadReplies;
   }
 }

@@ -10,4 +10,5 @@ export function invalidateNotificationRelatedQueries(): void {
 /** After creating a thread or changing thread state. */
 export function invalidateConnectionThreadQueries(): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.connectionThreads.all });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 }
