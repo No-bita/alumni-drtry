@@ -15,6 +15,7 @@
     "delete-person-full": "tsx scripts/delete-person-full-by-email.ts",
     "delete-e2e-alumni": "tsx scripts/delete-all-e2e-test-alumni.ts",
     "delete-demo-intentcasts": "tsx scripts/delete-all-demo-intentcasts.ts",
+    "delete-demo-alumni": "tsx scripts/delete-all-demo-alumni.ts",
     "beta:hash-invite-code": "tsx scripts/hash-beta-invite-code.ts",
     "job:intentcasts:expire": "tsx src/jobs/expireIntentcasts.ts",
     "build": "tsc --project tsconfig.json",

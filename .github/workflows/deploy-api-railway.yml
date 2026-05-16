@@ -1,0 +1,31 @@
+# Deploy production API when apps/api changes on main.
+# Requires repo secret RAILWAY_TOKEN (Railway project token for production).
+name: Deploy API (Railway)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/deploy-api-railway.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-railway-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: 9c060fe5-79cd-4d2b-a01f-7d5f50919ac8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy alumni-api (production)
+        run: railway up --service=alumni-api --environment=production --ci

@@ -92,6 +92,8 @@ Use this when you are **not** terminating `/v1` on the SPA host (no rewrite). Po
 3. In `apps/api`: `npm install --omit=dev`, `npm run build`, `npm run migrate`, `npm run start` (or run `node dist/index.js` via process manager).
 4. Expose the process on `PORT` (and put behind HTTPS / load balancer). Use `GET /healthz` for health checks.
 
+**CI (recommended):** Pushes to `main` that change `apps/api/**` run [`.github/workflows/deploy-api-railway.yml`](../.github/workflows/deploy-api-railway.yml) (`railway up` on service `alumni-api`). Add GitHub Actions secret **`RAILWAY_TOKEN`** (Railway project token for production). See [AGENTS.md](../AGENTS.md).
+
 **Web**
 
 1. Deploy `apps/web` on **Vercel** (or another static host). For the canonical setup, commit **`apps/web/vercel.json`**, which rewrites `/v1/*` → `https://alumni-api-production.up.railway.app/v1/$1` (change the destination when your Railway URL changes).

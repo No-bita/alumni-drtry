@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { personIsProductionAlumniSql } from "../lib/demoPersonSql.js";
 import type { PoolExecutor } from "../db/types.js";
 
 export interface SearchProfilesInput {
@@ -196,6 +197,7 @@ export class DiscoveryRepo {
           AND p.suspended_at IS NULL
           AND p.full_name IS NOT NULL
           AND p.profile_completed_at IS NOT NULL
+          AND ${personIsProductionAlumniSql("p")}
         GROUP BY cp.id
 
         UNION ALL
@@ -209,6 +211,7 @@ export class DiscoveryRepo {
           AND p.suspended_at IS NULL
           AND p.full_name IS NOT NULL
           AND p.profile_completed_at IS NOT NULL
+          AND ${personIsProductionAlumniSql("p")}
           AND p.residence_canonical_place_id IS NULL
           AND p.residence_city IS NOT NULL
           AND btrim(p.residence_city) <> ''
@@ -239,7 +242,8 @@ export class DiscoveryRepo {
       "p.deleted_at IS NULL",
       "p.suspended_at IS NULL",
       "p.full_name IS NOT NULL",
-      "p.profile_completed_at IS NOT NULL"
+      "p.profile_completed_at IS NOT NULL",
+      personIsProductionAlumniSql("p"),
     ];
 
     if (input.viewerPersonId) {
@@ -551,6 +555,10 @@ export class DiscoveryRepo {
         AND p.full_name IS NOT NULL
         AND (
           p.profile_completed_at IS NOT NULL
+          OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
+        )
+        AND (
+          ${personIsProductionAlumniSql("p")}
           OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
         )
       LIMIT 1

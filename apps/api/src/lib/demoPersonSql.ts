@@ -12,3 +12,14 @@ export function personIsDemoSql(tableAlias: string): string {
   OR split_part(lower(${tableAlias}.institutional_email::text), '@', 1) LIKE 'platformdemo.%'
 )`;
 }
+
+/** Demo/test rows including legacy `demo.alumni.*` seeds (migration 026). */
+export function personIsDemoAlumniSql(tableAlias: string): string {
+  const legacyDemoAlumni = `split_part(lower(${tableAlias}.institutional_email::text), '@', 1) LIKE 'demo.alumni.%'`;
+  return `(${personIsDemoSql(tableAlias)} OR ${legacyDemoAlumni})`;
+}
+
+/** Directory and public profile surfaces: only real alumni. */
+export function personIsProductionAlumniSql(tableAlias: string): string {
+  return `NOT (${personIsDemoAlumniSql(tableAlias)})`;
+}
