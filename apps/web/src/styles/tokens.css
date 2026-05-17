@@ -106,6 +106,8 @@
   --space-xl: 40px;
   --space-xl-2: 48px;
   --page-x: 2.5rem;
+  /** Horizontal gutter on phone (≤639px); applied via base.css override of --page-x. */
+  --page-x-phone: 1rem;
 
   /**
    * Layout breakpoints — keep pixel values in sync with @media rules below.
@@ -169,6 +171,7 @@
 
   /* Avatar sizes */
   --avatar-lg: 80px;
+  --avatar-xl: 112px;
   --avatar-md: 44px;
   --avatar-sm: 38px;
 

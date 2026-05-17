@@ -75,3 +75,16 @@ Disallowed inline style cases:
 
 - Static margin/padding/typography/color/border declarations.
 - Repeated style objects that can be class-based.
+
+## 6) Responsive breakpoints
+
+Use literal pixel values in `@media` (LightningCSS cannot use `var()` in queries).
+
+| Token / name | Width | Use |
+|--------------|-------|-----|
+| Phone + bottom dock | `639px` | `max-width: 639px` — tab dock, `--page-x-phone`, FAB offsets |
+| Stack md | `640px` | `max-width: 640px` — two-column → single-column (login hero, grids) |
+| Shell compact | `767px` | `max-width: 767px` — icon sidebar rail, toolbar tweaks |
+
+- Prefer `var(--page-x)` for horizontal padding; on phone it resolves to `--page-x-phone` (1rem).
+- Do not use `640px` for bottom-dock behavior; use `639px` to match the shell.

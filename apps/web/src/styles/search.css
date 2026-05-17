@@ -580,3 +580,33 @@
   }
 }
 
+@media (max-width: 639px) {
+  .search-page {
+    min-height: calc(
+      100dvh - var(--nav-height) - var(--nav-bottom-dock-height) -
+        env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .directory-filter-chips__scroll {
+    scroll-padding-inline: var(--page-x);
+    margin-inline: calc(-1 * var(--page-x));
+    padding-inline: var(--page-x);
+    width: calc(100% + 2 * var(--page-x));
+    max-width: none;
+  }
+
+  .directory-filter-chips__chip {
+    max-width: min(280px, 78vw);
+  }
+
+  .search-result-row__actions {
+    flex-wrap: wrap;
+  }
+
+  .search-result-row__cta-primary,
+  .search-result-row__cta-secondary {
+    min-height: var(--chrome-min-touch-target);
+  }
+}
+

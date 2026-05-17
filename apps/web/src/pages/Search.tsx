@@ -29,7 +29,10 @@ import {
 } from "../lib/directorySearchUrlState";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
-/** Directory grid: 1 col (narrow) → 2 col (tablet) → 3 col (desktop, referral-style). */
+/**
+ * Directory grid: 1 col (viewport under 680px) → 2 col (tablet) → 3 col (desktop).
+ * Phone shell/dock uses CSS 639px; column count is independent (1-col below 680).
+ */
 const SEARCH_RESULTS_TWO_COL_MIN_PX = 680;
 const SEARCH_RESULTS_THREE_COL_MIN_PX = 1080;
 

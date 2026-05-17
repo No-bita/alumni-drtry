@@ -72,6 +72,10 @@ html[data-app-shell="sidebar"] #root {
 
 /* Signed-in shell: bottom tab dock instead of left rail (phones). */
 @media (max-width: 639px) {
+  :root {
+    --page-x: var(--page-x-phone);
+  }
+
   html[data-app-shell="sidebar"] {
     --nav-sidebar-width: 0px;
   }

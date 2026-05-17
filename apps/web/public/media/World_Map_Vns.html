@@ -50,9 +50,87 @@ canvas{display:block;width:100%;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
 const STATIC = new URLSearchParams(location.search).get('mode') === 'static';
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+const LANDING_MAP_SET_TESTIMONIALS = 'landing-map-set-testimonials';
+const LANDING_MAP_PIN_LAYOUT = 'landing-map-pin-layout';
+const LANDING_MAP_READY = 'landing-map-ready';
+
+let testimonialPins = [];
+/** City names owned by React pin overlays — do not also draw on canvas. */
+let testimonialCityNames = new Set();
 
 const W = document.querySelector('.wrap');
 const canvas = document.getElementById('c');
+
+function postToParent(payload) {
+  if (!EMBED || !window.parent || window.parent === window) return;
+  try {
+    window.parent.postMessage(payload, window.location.origin);
+  } catch (_) { /* ignore */ }
+}
+
+function getCanvasRectInViewport() {
+  const canvasRect = canvas.getBoundingClientRect();
+  return {
+    left: canvasRect.left,
+    top: canvasRect.top,
+    width: canvasRect.width,
+    height: canvasRect.height,
+  };
+}
+
+function broadcastPinLayout(projectFn) {
+  if (!EMBED || !testimonialPins.length || typeof projectFn !== 'function') return;
+  const iframeWidth = window.innerWidth;
+  const iframeHeight = window.innerHeight;
+  const canvasRect = getCanvasRectInViewport();
+  const pins = testimonialPins.map((pin) => {
+    const { x, y } = projectFn(pin.lat, pin.lon);
+    return { id: pin.id, x, y };
+  });
+  postToParent({
+    type: LANDING_MAP_PIN_LAYOUT,
+    iframeWidth,
+    iframeHeight,
+    canvas: {
+      left: canvasRect.left,
+      top: canvasRect.top,
+      width: canvasRect.width,
+      height: canvasRect.height,
+    },
+    pins,
+  });
+}
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
+  const data = event.data;
+  if (!data || data.type !== LANDING_MAP_SET_TESTIMONIALS || !Array.isArray(data.pins)) return;
+  testimonialPins = data.pins.filter((p) => p && typeof p.id === 'string');
+  testimonialCityNames = new Set(
+    testimonialPins
+      .map((p) => p.city)
+      .filter((city) => typeof city === 'string' && city.length > 0)
+  );
+  if (typeof window.__landingMapRelayout === 'function') {
+    window.__landingMapRelayout();
+  } else if (typeof window.__landingMapProject === 'function') {
+    broadcastPinLayout(window.__landingMapProject);
+  }
+});
+
+let layoutResizeTimer = null;
+window.addEventListener('resize', () => {
+  if (!EMBED) return;
+  clearTimeout(layoutResizeTimer);
+  layoutResizeTimer = setTimeout(() => {
+    if (typeof window.__landingMapRelayout === 'function') {
+      window.__landingMapRelayout();
+    } else if (typeof window.__landingMapProject === 'function') {
+      broadcastPinLayout(window.__landingMapProject);
+    }
+  }, 120);
+});
 
 const destinations = [
   { name:'London',        lat:51.5, lon:-0.12 },
@@ -73,11 +151,32 @@ const destinations = [
 ];
 const FEATURED_DESTINATION_LABELS = new Set(['Bengaluru', 'San Francisco', 'London']);
 
+function selectFeaturedDestPts(allDestPts) {
+  return allDestPts.filter((d) => {
+    if (!FEATURED_DESTINATION_LABELS.has(d.name)) return false;
+    if (EMBED && testimonialCityNames.has(d.name)) return false;
+    return true;
+  });
+}
+
 const VARANASI = { lat: 25.3, lon: 82.97 };
 
+/** Canvas width is always the wrap width; height may grow vertically in embed mode only. */
+const CANVAS_ASPECT_BASE = 0.52;
+const CANVAS_ASPECT_MAX = 0.68;
+
+function canvasHeightForWidth(widthPx) {
+  const base = Math.round(widthPx * CANVAS_ASPECT_BASE);
+  if (!EMBED) return base;
+  const viewportH = window.innerHeight || 720;
+  const fillH = Math.round(viewportH * 0.94);
+  const capH = Math.round(widthPx * CANVAS_ASPECT_MAX);
+  return Math.max(base, Math.min(fillH, capH));
+}
+
 async function init() {
-  const W_px = W.offsetWidth || 900;
-  const H_px = Math.round(W_px * 0.52);
+  let W_px = W.offsetWidth || 900;
+  let H_px = canvasHeightForWidth(W_px);
   canvas.width  = W_px * devicePixelRatio;
   canvas.height = H_px * devicePixelRatio;
   canvas.style.height = H_px + 'px';
@@ -136,6 +235,7 @@ async function init() {
     const [x, y] = projection([lon, lat]);
     return { x, y };
   }
+  window.__landingMapProject = project;
 
   function bezierPoint(from, to, cx, cy, t) {
     const bx = (1-t)*(1-t)*from.x + 2*(1-t)*t*cx + t*t*to.x;
@@ -309,12 +409,37 @@ async function init() {
     ctx.restore();
   }
 
-  const origin = project(VARANASI.lat, VARANASI.lon);
-  const destPts = destinations.map(d => ({
+  let origin = project(VARANASI.lat, VARANASI.lon);
+  let destPts = destinations.map(d => ({
     ...d,
     ...project(d.lat, d.lon)
   }));
-  const featuredDestPts = destPts.filter((d) => FEATURED_DESTINATION_LABELS.has(d.name));
+  let featuredDestPts = selectFeaturedDestPts(destPts);
+
+  function relayoutCanvas() {
+    W_px = W.offsetWidth || 900;
+    H_px = canvasHeightForWidth(W_px);
+    canvas.width = W_px * devicePixelRatio;
+    canvas.height = H_px * devicePixelRatio;
+    canvas.style.height = H_px + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    projection.scale(W_px / 6.2).translate([W_px / 2, H_px / 2 + 10]);
+    origin = project(VARANASI.lat, VARANASI.lon);
+    destPts = destinations.map((d) => ({
+      ...d,
+      ...project(d.lat, d.lon),
+    }));
+    featuredDestPts = selectFeaturedDestPts(destPts);
+  }
+
+  window.__landingMapRelayout = () => {
+    relayoutCanvas();
+    if (window.__landingMapReadySent) {
+      drawCompletedState();
+      broadcastPinLayout(project);
+    }
+  };
 
   const maxDelay = destPts.length > 1
     ? ((destPts.length - 1) / destPts.length) * 0.5
@@ -337,8 +462,14 @@ async function init() {
     });
   }
 
+  function notifyMapReady() {
+    postToParent({ type: LANDING_MAP_READY });
+    broadcastPinLayout(project);
+  }
+
   if (STATIC) {
     drawCompletedState();
+    notifyMapReady();
     return;
   }
 
@@ -351,6 +482,10 @@ async function init() {
 
     if (progress >= END_PROGRESS) {
       drawCompletedState();
+      if (!window.__landingMapReadySent) {
+        window.__landingMapReadySent = true;
+        notifyMapReady();
+      }
       return;
     }
 

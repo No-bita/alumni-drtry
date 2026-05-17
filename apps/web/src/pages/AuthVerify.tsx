@@ -74,14 +74,7 @@ export function AuthVerify() {
   return (
     <>
       <Nav />
-      <div
-        style={{
-          maxWidth: 420,
-          margin: "4rem auto",
-          padding: "0 var(--page-x)",
-          textAlign: "center",
-        }}
-      >
+      <div className="page-shell--centered">
         {canVerify && !verifyQuery.isError && !sessionRefetchFailed && (verifyQuery.isPending || verifyQuery.isSuccess) ? (
           <p className="body-text" style={{ color: "var(--ink-muted)" }}>
             Signing you in…

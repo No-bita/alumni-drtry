@@ -4,7 +4,6 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
-import { Eyebrow } from "../components/Eyebrow";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { api } from "../api/client";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
@@ -18,6 +17,12 @@ const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => 
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
 const BETA_INVITE_AUTH_ENABLED = import.meta.env.VITE_BETA_INVITE_AUTH_ENABLED === "true";
 const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
+
+const AUTH_HERO_STATS = [
+  { value: "400+", keyword: "alumni", label: "active this week" },
+  { value: "38", keyword: "referrals", label: "completed last week" },
+  { value: "27", keyword: "cities", label: "connected" },
+] as const;
 
 /** Basename (no extension) of files in `public/media/` — must match disk names (spaces OK; URLs are encoded). */
 const SUCCESS_VIDEO_STEM = "Gen 4 Turbo Varanasi Aerial";
@@ -191,6 +196,12 @@ export function Login() {
   }, [searchParams, navigate]);
 
   useEffect(() => {
+    if (searchParams.get("reason") !== "session_expired") return;
+    setError("Your session expired. Please sign in again.");
+    navigate("/login", { replace: true });
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => setPrefersReduceMotion(mq.matches);
     mq.addEventListener("change", onChange);
@@ -221,40 +232,27 @@ export function Login() {
     <section className="auth-merged">
       <div className="auth-merged__hero">
         <div className="auth-merged__hero-copy">
-          <Eyebrow>IIT BHU Alumni Network</Eyebrow>
           <h1 className="auth-merged__title">
+            Where IIT BHU alumni
+            <br />
             <span className="auth-merged__title-nowrap">
-              Stay <span className="auth-merged__title-accent">connected.</span>
+              <span className="auth-merged__title-accent">open doors for each other.</span>
             </span>
           </h1>
-          <div className="auth-merged__stats" aria-label="Network highlights">
-            <div className="auth-merged__stat">
-              <span className="auth-merged__stat-value">412</span>
-              <span className="auth-merged__stat-label">alumni active this week</span>
-            </div>
-            <div className="auth-merged__stat">
-              <span className="auth-merged__stat-value">38</span>
-              <span className="auth-merged__stat-label">referrals completed recently</span>
-            </div>
-            <div className="auth-merged__stat">
-              <span className="auth-merged__stat-value">27</span>
-              <span className="auth-merged__stat-label">cities connected</span>
-            </div>
-            <div className="auth-merged__stat">
-              <span className="auth-merged__stat-value">8</span>
-              <span className="auth-merged__stat-label">new requests today</span>
-            </div>
-          </div>
+          <ul className="auth-merged__hero-stats" aria-label="Network highlights">
+            {AUTH_HERO_STATS.map(({ value, keyword, label }) => (
+              <li key={label} className="auth-merged__stat">
+                <span className="auth-merged__stat-headline">
+                  <span className="auth-merged__stat-number">{value}</span>{" "}
+                  <span className="auth-merged__stat-keyword">{keyword}</span>
+                </span>
+                <span className="auth-merged__stat-label">{label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="auth-merged__card-mount">{cardMount}</div>
         <LandingWorldMap className="auth-merged__map" />
-        <blockquote className="auth-merged__quote">
-          <p>
-            Got a referral in 3 days through an alum I hadn’t spoken to in 10 years. That’s the power of this
-            network.
-          </p>
-          <cite>Arjun ’17, Product Manager</cite>
-        </blockquote>
       </div>
     </section>
   );
@@ -568,7 +566,7 @@ export function Login() {
               </svg>
             </span>
             <h2 className="section-headline auth-merged__card-title">
-              {BETA_INVITE_AUTH_ENABLED ? "Beta sign in" : "Continue with your IIT BHU email"}
+              {BETA_INVITE_AUTH_ENABLED ? "Join the network" : "Continue with your IIT BHU email"}
             </h2>
           </div>
           <form onSubmit={handleSubmit}>
