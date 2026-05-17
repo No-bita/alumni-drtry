@@ -1,6 +1,6 @@
 import type { ElementType, ReactNode } from "react";
-import { IconGradCap, IconHome } from "./HomeIcons";
 import { formatBatchYearShort } from "../lib/bulletinPostCardUtils";
+import { GraduationCapIcon } from "./GraduationCapIcon";
 
 export type DeptBatchMetaProps = {
   departmentCode?: string | null;
@@ -12,9 +12,17 @@ export type DeptBatchMetaProps = {
   as?: ElementType;
 };
 
+function formatDeptBatchVisibleLabel(departmentCode: string, batchYear: number | null): string {
+  const dept = departmentCode.trim().toUpperCase();
+  const batch =
+    typeof batchYear === "number" && Number.isFinite(batchYear) ? formatBatchYearShort(batchYear) : "";
+  if (dept && batch) return `${dept} ${batch}`;
+  if (dept) return dept;
+  return batch;
+}
+
 /**
- * Standard alum context line: house icon + department code; graduation cap + cohort shorthand ('YY).
- * No code ⇒ dept segment omitted.
+ * Standard alum context line: graduation cap + department and cohort (e.g. CSE '21).
  */
 export function DeptBatchMeta({
   departmentCode,
@@ -33,30 +41,17 @@ export function DeptBatchMeta({
   if (!hasDept && !hasBatch && !hasTrail) return null;
 
   const nodes: ReactNode[] = [];
-  if (hasDept) {
+  if (hasDept || hasBatch) {
+    const visibleLabel = formatDeptBatchVisibleLabel(deptLabel, hasBatch ? (y as number) : null);
+    const yearInt = hasBatch ? Math.trunc(y as number) : null;
     nodes.push(
-      <span key="dept" className="dept-batch-meta__dept">
-        <IconHome className="dept-batch-meta__house-icon" aria-hidden />
-        <span className="visually-hidden">Department </span>
-        {deptLabel}
-      </span>,
-    );
-  }
-  if (hasBatch) {
-    const yearInt = Math.trunc(y as number);
-    const batchShort = formatBatchYearShort(y as number);
-    if (nodes.length > 0) {
-      nodes.push(
-        <span key="sep-b" className="dept-batch-meta__sep" aria-hidden>
-          <span className="dept-batch-meta__sep-dot" />
-        </span>,
-      );
-    }
-    nodes.push(
-      <span key="batch" className="dept-batch-meta__batch">
-        <IconGradCap className="dept-batch-meta__cap-icon" aria-hidden />
-        <span className="visually-hidden">Class of {yearInt}. </span>
-        <span aria-hidden>{batchShort}</span>
+      <span key="education" className="dept-batch-meta__education">
+        <GraduationCapIcon className="dept-batch-meta__cap-icon" />
+        <span className="visually-hidden">
+          {hasDept ? `Department ${deptLabel}. ` : ""}
+          {hasBatch ? `Class of ${yearInt}. ` : ""}
+        </span>
+        <span aria-hidden>{visibleLabel}</span>
       </span>,
     );
   }

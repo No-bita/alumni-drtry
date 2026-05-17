@@ -5,6 +5,7 @@ import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
 import { residenceLine, roleOrgLineFromSearchProfile } from "../lib/profileDisplay";
 import { DeptBatchMeta } from "./DeptBatchMeta";
+import { MessageIcon } from "./MessageIcon";
 import { IconMapPin } from "./LocationPageIcons";
 
 type SearchResultRowProps = {
@@ -15,23 +16,6 @@ type SearchResultRowProps = {
   searchSessionId?: string | null;
   onRowClick?: () => void;
 };
-
-/** Speech bubble + ellipsis — pairs with primary Message CTA. */
-function IconMessageDots({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 11.5c0 4.1-3.4 7.5-7.6 7.5h-5l-4.9 3v-3H5a7.6 7.6 0 010-15h8.4c4.2 0 7.6 3.4 7.6 7.5z"
-        stroke="currentColor"
-        strokeWidth="1.65"
-        strokeLinejoin="round"
-      />
-      <circle cx="9" cy="11.5" r="1.15" fill="currentColor" />
-      <circle cx="12" cy="11.5" r="1.15" fill="currentColor" />
-      <circle cx="15" cy="11.5" r="1.15" fill="currentColor" />
-    </svg>
-  );
-}
 
 function IconArrowRight({ className }: { className?: string }) {
   return (
@@ -176,7 +160,7 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
               );
             }}
           >
-            <IconMessageDots className="search-result-row__cta-primary-icon" />
+            <MessageIcon className="search-result-row__cta-primary-icon" />
             Message
           </button>
           {viewProfileControl}

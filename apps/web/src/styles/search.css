@@ -417,6 +417,11 @@
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+  color: #5e544a;
+}
+
+.search-result-row__context-line .dept-batch-meta {
+  color: inherit;
 }
 
 .search-result-row__location {
@@ -424,20 +429,15 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  color: #8a7f74;
+  color: inherit;
 }
 
-.search-result-row__location-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  opacity: 0.88;
-}
-
-.search-result-row .dept-batch-meta__house-icon,
+.search-result-row__location-icon,
 .search-result-row .dept-batch-meta__cap-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 1;
 }
 
 .search-result-row .dept-batch-meta__sep-dot {
@@ -522,7 +522,6 @@
 .search-result-row__cta-primary-icon {
   width: 20px;
   height: 20px;
-  flex-shrink: 0;
 }
 
 .search-result-row__cta-secondary {

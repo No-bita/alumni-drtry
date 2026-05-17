@@ -11,6 +11,7 @@ import {
   roleOrgPartsFromOccupation,
 } from "../../lib/profileDisplay";
 import type { SocialPlatformKey } from "../../lib/socialLinks";
+import { MessageIcon } from "../MessageIcon";
 import { ProfileHeroSocialRow } from "./ProfileHeroSocialRow";
 
 type ProfileHeroProps = {
@@ -50,15 +51,6 @@ function IconShare({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
       <path d="M8 12V5.2A2.2 2.2 0 0110.2 3h8.6A2.2 2.2 0 0121 5.2v8.6a2.2 2.2 0 01-2.2 2.2H12" strokeLinecap="round" />
       <path d="M3 12h14M11 7l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function IconSend({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <path d="M22 3L11 14" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M22 3l-7 18-4-8-8-4 18-7z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -314,7 +306,7 @@ export function ProfileHero({
             <>
               {!loading && !isOwnProfile && onSendMessage ? (
                 <button type="button" className="profile-page__hero-message-btn" onClick={onSendMessage}>
-                  <IconSend className="profile-page__hero-message-icon" />
+                  <MessageIcon className="profile-page__hero-message-icon" />
                   Message
                 </button>
               ) : null}
