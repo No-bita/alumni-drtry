@@ -1,3 +1,6 @@
+import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
+import type { OpenToPreferences } from "../lib/openToPreferences";
+
 const rawApiBaseUrl = import.meta.env.VITE_API_URL?.trim() ?? "";
 /**
  * Production uses same-origin `/v1/*` via hosting rewrites (see `vercel.json`) so
@@ -40,8 +43,11 @@ async function request<T>(
       },
     };
   }
-  const body = await res.json().catch(() => ({}));
+  const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
   if (!res.ok) {
+    if (res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
+      notifyAuthSessionExpired();
+    }
     const retryAfter = res.headers.get("retry-after");
     return {
       error: {
@@ -84,6 +90,9 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
   const body: unknown = await res.json().catch(() => ({}));
   const b = body as Record<string, unknown>;
   if (!res.ok) {
+    if (res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
+      notifyAuthSessionExpired();
+    }
     return {
       error: {
         code: typeof b.code === "string" ? b.code : "UNKNOWN",
@@ -226,7 +235,7 @@ export type ConnectionThreadListItem = {
 export type ConnectionThreadsListResponse = { threads: ConnectionThreadListItem[] };
 
 export type AvailableDisclosureOption = {
-  kind: "institutional_email" | "personal_email" | "profile_link";
+  kind: "institutional_email" | "personal_email" | "mobile_phone" | "profile_link";
   label: string;
   profileLinkId?: string;
 };
@@ -407,13 +416,12 @@ export type PublicProfileView = {
   batchYear: number | null;
   parsedJoiningYear: number | null;
   bio: string | null;
-  /** Present when viewing your own profile only. */
-  personalEmail?: string | null;
-  /** Present when viewing your own profile only. */
-  mobilePhone?: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  openToPreferences?: OpenToPreferences | null;
 };
+
+export type { OpenToPreferences };
 
 export type OccupationView = {
   id: string;

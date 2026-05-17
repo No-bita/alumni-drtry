@@ -24,6 +24,7 @@ const editMessageBodySchema = z.object({
 const discloseItemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("institutional_email") }),
   z.object({ kind: z.literal("personal_email") }),
+  z.object({ kind: z.literal("mobile_phone") }),
   z.object({
     kind: z.literal("profile_link"),
     profileLinkId: z.string().uuid()

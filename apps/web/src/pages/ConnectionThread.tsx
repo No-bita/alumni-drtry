@@ -26,6 +26,8 @@ function disclosureLabel(kind: string): string {
       return "Institutional email";
     case "personal_email":
       return "Personal email";
+    case "mobile_phone":
+      return "Mobile number";
     case "profile_link":
       return "Profile link";
     default:
@@ -145,6 +147,7 @@ function ConnectionThreadBody({
     for (const key of selectedShare) {
       if (key === "institutional_email") items.push({ kind: "institutional_email" });
       else if (key === "personal_email") items.push({ kind: "personal_email" });
+      else if (key === "mobile_phone") items.push({ kind: "mobile_phone" });
       else if (key.startsWith("profile_link:")) {
         items.push({ kind: "profile_link", profileLinkId: key.slice("profile_link:".length) });
       }

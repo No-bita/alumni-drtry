@@ -1,9 +1,38 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
+import { OPEN_TO_MAX_SELECTED, OPEN_TO_OPTION_IDS } from "../lib/openToPreferences.js";
 
 const maxProfileBatchYear = new Date().getUTCFullYear() + 5;
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const openToOptionIdSchema = z.enum(OPEN_TO_OPTION_IDS);
+
+const openToPreferencesSchema = z
+  .object({
+    selected: z.array(openToOptionIdSchema).max(OPEN_TO_MAX_SELECTED),
+    descriptions: z.record(openToOptionIdSchema, z.string().max(500)).default({}),
+  })
+  .superRefine((value, ctx) => {
+    const unique = new Set(value.selected);
+    if (unique.size !== value.selected.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Open-to selections must be unique.",
+        path: ["selected"],
+      });
+    }
+    const descriptions = value.descriptions ?? {};
+    for (const key of Object.keys(descriptions)) {
+      if (!unique.has(key as (typeof OPEN_TO_OPTION_IDS)[number])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Descriptions may only be set for selected open-to options.",
+          path: ["descriptions"],
+        });
+      }
+    }
+  });
 
 const patchProfileSchema = z
   .object({
@@ -16,6 +45,7 @@ const patchProfileSchema = z
     mobilePhone: z.string().trim().max(40).nullable().optional(),
     residenceCountry: z.string().trim().max(120).nullable().optional(),
     residenceCity: z.string().trim().max(120).nullable().optional(),
+    openToPreferences: openToPreferencesSchema.nullable().optional(),
     markMinimumProfileComplete: z.literal(true).optional(),
     markOnboardingComplete: z.literal(true).optional()
   })

@@ -34,11 +34,13 @@ function assertActivePerson(row: Awaited<ReturnType<PersonRepo["findById"]>>): a
 export type DiscloseItemInput =
   | { kind: "institutional_email" }
   | { kind: "personal_email" }
+  | { kind: "mobile_phone" }
   | { kind: "profile_link"; profileLinkId: string };
 
 export type AvailableDisclosureOption =
   | { kind: "institutional_email"; label: string }
   | { kind: "personal_email"; label: string }
+  | { kind: "mobile_phone"; label: string }
   | { kind: "profile_link"; profileLinkId: string; label: string };
 
 export interface ConnectionThreadDetailView {
@@ -146,6 +148,9 @@ export class ConnectionThreadService {
     }
     if (person.personal_email?.trim() && !hasKind("personal_email")) {
       out.push({ kind: "personal_email", label: "Personal email" });
+    }
+    if (person.mobile_phone?.trim() && !hasKind("mobile_phone")) {
+      out.push({ kind: "mobile_phone", label: "Mobile number" });
     }
     const links = await this.linkRepo.listByPerson(personId);
     for (const link of links) {
@@ -394,6 +399,19 @@ export class ConnectionThreadService {
           kind: "personal_email",
           profileLinkId: null,
           disclosedValue: pe
+        });
+        created.push(row);
+      } else if (item.kind === "mobile_phone") {
+        const phone = person.mobile_phone?.trim();
+        if (!phone) {
+          throw new AppError(400, "CONNECTION_DISCLOSE_NO_MOBILE", "You have no mobile number on file.");
+        }
+        const row = await this.threadRepo.insertDisclosure({
+          threadId,
+          personId,
+          kind: "mobile_phone",
+          profileLinkId: null,
+          disclosedValue: phone
         });
         created.push(row);
       } else {

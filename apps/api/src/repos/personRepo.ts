@@ -1,4 +1,5 @@
 import type { DbExecutor } from "../db/types.js";
+import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 
 export type PersonRole = "alumni" | "admin" | "super_admin";
 
@@ -15,6 +16,7 @@ export interface PersonRow {
   degree_id: string | null;
   batch_year: number | null;
   personal_email: string | null;
+  mobile_phone: string | null;
   bio: string | null;
   skills_text: string | null;
   residence_country: string | null;
@@ -62,6 +64,7 @@ export interface PersonProfileView {
   mobilePhone: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  openToPreferences: OpenToPreferences | null;
   profileCompletedAt: Date | null;
   onboardingCompletedAt: Date | null;
   appLoginCount: number;
@@ -83,6 +86,7 @@ interface PersonProfileRow {
   mobile_phone: string | null;
   residence_country: string | null;
   residence_city: string | null;
+  open_to_preferences: unknown;
   profile_completed_at: Date | null;
   onboarding_completed_at: Date | null;
   app_login_count: number;
@@ -105,6 +109,7 @@ export interface UpdateProfileInput {
   mobilePhone: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  openToPreferences: OpenToPreferences | null;
   profileCompletedAt: Date | null;
   onboardingCompletedAt: Date | null;
 }
@@ -240,6 +245,7 @@ export class PersonRepo {
         p.mobile_phone,
         p.residence_country,
         p.residence_city,
+        p.open_to_preferences,
         p.profile_completed_at,
         p.onboarding_completed_at,
         p.app_login_count,
@@ -279,6 +285,7 @@ export class PersonRepo {
       mobilePhone: row.mobile_phone,
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,
+      openToPreferences: parseOpenToPreferencesRow(row.open_to_preferences),
       profileCompletedAt: row.profile_completed_at,
       onboardingCompletedAt: row.onboarding_completed_at,
       appLoginCount: row.app_login_count,
@@ -405,7 +412,8 @@ export class PersonRepo {
         profile_completed_at = $9,
         onboarding_completed_at = $10,
         residence_country = $11,
-        residence_city = $12
+        residence_city = $12,
+        open_to_preferences = $13
       WHERE id = $1
       RETURNING
         id,
@@ -421,6 +429,7 @@ export class PersonRepo {
         mobile_phone,
         residence_country,
         residence_city,
+        open_to_preferences,
         profile_completed_at,
         onboarding_completed_at,
         app_login_count,
@@ -451,7 +460,8 @@ export class PersonRepo {
         input.profileCompletedAt,
         input.onboardingCompletedAt,
         input.residenceCountry,
-        input.residenceCity
+        input.residenceCity,
+        input.openToPreferences
       ]
     );
     const row = result.rows[0]!;
@@ -473,6 +483,7 @@ export class PersonRepo {
       mobilePhone: row.mobile_phone,
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,
+      openToPreferences: parseOpenToPreferencesRow(row.open_to_preferences),
       profileCompletedAt: row.profile_completed_at,
       onboardingCompletedAt: row.onboarding_completed_at,
       appLoginCount: row.app_login_count,
@@ -480,4 +491,8 @@ export class PersonRepo {
       updatedAt: row.updated_at
     };
   }
+}
+
+function parseOpenToPreferencesRow(raw: unknown): OpenToPreferences | null {
+  return parseOpenToPreferences(raw);
 }

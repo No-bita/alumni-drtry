@@ -3,6 +3,7 @@ import { Avatar } from "./Avatar";
 import { type SearchProfileView } from "../api/client";
 import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
+import { residenceLine, roleOrgLineFromSearchProfile } from "../lib/profileDisplay";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 import { IconMapPin } from "./LocationPageIcons";
 
@@ -14,24 +15,6 @@ type SearchResultRowProps = {
   searchSessionId?: string | null;
   onRowClick?: () => void;
 };
-
-/** Role + organization from current occupation (no department/batch — those have their own line). */
-function roleOrgLine(profile: SearchProfileView): string | null {
-  if (profile.headlineRoleTitle && profile.headlineOrganizationName) {
-    return `${profile.headlineRoleTitle} @ ${profile.headlineOrganizationName}`;
-  }
-  if (profile.headlineRoleTitle) return profile.headlineRoleTitle;
-  return null;
-}
-
-function residenceLine(profile: SearchProfileView): string | null {
-  const city = profile.residenceCity?.trim();
-  const country = profile.residenceCountry?.trim();
-  if (city && country) return `${city}, ${country}`;
-  if (city) return city;
-  if (country) return country;
-  return null;
-}
 
 /** Speech bubble + ellipsis — pairs with primary Message CTA. */
 function IconMessageDots({ className }: { className?: string }) {
@@ -69,14 +52,14 @@ function IconArrowRight({ className }: { className?: string }) {
 
 export function SearchResultRow({ profile, style, resultIndex, searchSessionId, onRowClick }: SearchResultRowProps) {
   void resultIndex;
-  const roleOrg = roleOrgLine(profile);
+  const roleOrg = roleOrgLineFromSearchProfile(profile);
   const codeRaw = profile.departmentCode;
   const deptCode = codeRaw?.trim() ? codeRaw : null;
   const batchYr = profile.batchYear ?? null;
   const hasDeptBatchMeta = Boolean(
     deptCode || (typeof batchYr === "number" && Number.isFinite(batchYr)),
   );
-  const loc = residenceLine(profile);
+  const loc = residenceLine(profile.residenceCity, profile.residenceCountry);
   const showContextLine = Boolean(hasDeptBatchMeta || loc);
   const isDemo = isDemoProfileBio(profile.bio);
   const rawFullName = (profile.fullName ?? "").trim();

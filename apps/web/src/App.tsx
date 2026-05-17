@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "
 // import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
+import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
 import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
@@ -282,6 +283,7 @@ export default function App() {
     <BrowserRouter>
       {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
+        <AuthSessionExpiredRegistrar />
         <AppRoutes />
         <GlobalNotificationsWidget />
         <GlobalMessagingWidget />

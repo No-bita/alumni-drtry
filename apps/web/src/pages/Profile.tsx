@@ -1,10 +1,12 @@
-import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { Nav } from "../components/Nav";
-import { Avatar } from "../components/Avatar";
-import { ReachOutCard } from "../components/ReachOutCard";
+import { ProfileHero } from "../components/profile/ProfileHero";
+import { ProfileAbout } from "../components/profile/ProfileAbout";
+import { ProfileExperience } from "../components/profile/ProfileExperience";
+import { ProfileEngagementCards } from "../components/profile/ProfileEngagementCards";
+import { ProfileIitBhu } from "../components/profile/ProfileIitBhu";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { PageStateBlock } from "../components/PageStateBlock";
@@ -12,7 +14,6 @@ import {
   type AdminAllowedEmailsResponse,
   type AdminMetricsResponse,
   api,
-  type CreateConnectionThreadResponse,
   type MeLinksResponse,
   type ProfileLinkView,
   type ProfileResponse,
@@ -20,77 +21,62 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
-import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
 import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
-import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function inferPlatformFromUrl(rawUrl: string): string {
-  try {
-    const host = new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, "");
-    if (host.includes("linkedin.")) return "LinkedIn";
-    if (host.includes("github.")) return "GitHub";
-    if (host === "x.com" || host.includes("twitter.")) return "X/Twitter";
-    if (host.includes("instagram.")) return "Instagram";
-    if (host.includes("youtube.")) return "YouTube";
-    const label = host.split(".")[0] ?? "Website";
-    return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Website";
-  } catch {
-    return "Website";
-  }
-}
-
-function normalizeProfileLinkUrl(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const withScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    const parsed = new URL(withScheme);
-    if (!parsed.hostname) return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
+import {
+  emptySocialLinkDraft,
+  linkToSocialPlatformKey,
+  otherProfileLinks,
+  socialLinksDraftFromProfile,
+  socialPlatformLabel,
+  SOCIAL_PLATFORM_ORDER,
+  type SocialPlatformKey,
+  normalizeSocialUrl,
+} from "../lib/socialLinks";
+import {
+  buildOccupationCreatePayload,
+  buildOccupationPatchPayload,
+  clearOrganizationIdCache,
+  occupationsToDrafts,
+  resolveOrganizationId,
+  validateOccupationDraft,
+  type OccupationDraft,
+} from "../lib/occupationProfileEdit";
+import {
+  normalizeOpenToPreferences,
+  openToPreferencesForEdit,
+  parseOpenToPreferences,
+  type OpenToPreferences,
+} from "../lib/openToPreferences";
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const auth = useAuth();
   const refetchAuth = auth.refetch;
-  const [contactStatus, setContactStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
-  const [contactError, setContactError] = useState<string | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draftPersonalEmail, setDraftPersonalEmail] = useState("");
   const [draftMobilePhone, setDraftMobilePhone] = useState("");
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
   const [draftResidenceCity, setDraftResidenceCity] = useState("");
+  const [draftOpenTo, setDraftOpenTo] = useState<OpenToPreferences>(() =>
+    openToPreferencesForEdit(null),
+  );
+  const [draftOccupations, setDraftOccupations] = useState<OccupationDraft[]>([]);
   const [editLinks, setEditLinks] = useState<ProfileLinkView[]>([]);
-  const [newLinksText, setNewLinksText] = useState("");
+  const [draftSocialLinks, setDraftSocialLinks] = useState(emptySocialLinkDraft);
   const [saving, setSaving] = useState(false);
+  const [linksSaving, setLinksSaving] = useState(false);
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [linksError, setLinksError] = useState<string | null>(null);
   const [adminEmailDraft, setAdminEmailDraft] = useState("");
   const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
   const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
   const editLinksHydratedRef = useRef(false);
+  const [openSocialPlatform, setOpenSocialPlatform] = useState<SocialPlatformKey | null>(null);
 
   const isOwnProfile =
     auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
@@ -109,7 +95,7 @@ export function Profile() {
   const linksQuery = useQuery({
     queryKey: queryKeys.me.links(),
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
-    enabled: Boolean(isOwnProfile && isEditing),
+    enabled: Boolean(isOwnProfile),
   });
 
   const adminMetricsQuery = useQuery({
@@ -146,35 +132,11 @@ export function Profile() {
     if (!linksQuery.data?.links || editLinksHydratedRef.current) return;
     editLinksHydratedRef.current = true;
     queueMicrotask(() => {
-      setEditLinks(linksQuery.data!.links);
+      const nextLinks = linksQuery.data!.links;
+      setEditLinks(nextLinks);
+      setDraftSocialLinks(socialLinksDraftFromProfile(nextLinks));
     });
   }, [isEditing, linksQuery.data]);
-
-  const handleReachOut = async (message: string) => {
-    if (!id) return;
-    trackBetaUsageEvent("profile_reachout_started", { profileId: id });
-    setContactStatus("sending");
-    setContactError(null);
-    const { data, error } = await api.post<CreateConnectionThreadResponse>("/v1/connection-threads", {
-      recipientPersonId: id,
-      initialMessage: message,
-    });
-    if (error) {
-      setContactStatus("error");
-      setContactError(error.message ?? error.code);
-      return;
-    }
-    const threadId = data?.threadId;
-    if (!threadId) {
-      setContactStatus("error");
-      setContactError("No conversation id returned.");
-      return;
-    }
-    setContactStatus("idle");
-    trackBetaUsageEvent("profile_reachout_submitted", { profileId: id });
-    invalidateConnectionThreadQueries();
-    navigate(`/connections/${threadId}`);
-  };
 
   const navAvatarName =
     auth.status === "authenticated"
@@ -185,15 +147,19 @@ export function Profile() {
     setEditError(null);
     editLinksHydratedRef.current = false;
     const p = profileQuery.data?.profile;
+    const me = auth.status === "authenticated" ? auth.myProfile : null;
     if (p) {
-      setDraftPersonalEmail(p.personalEmail ?? "");
-      setDraftMobilePhone(p.mobilePhone ?? "");
+      setDraftPersonalEmail(me?.personalEmail ?? "");
+      setDraftMobilePhone(me?.mobilePhone ?? "");
       setDraftResidenceCountry(p.residenceCountry ?? "");
       setDraftResidenceCity(p.residenceCity ?? "");
+      setDraftOpenTo(openToPreferencesForEdit(parseOpenToPreferences(p.openToPreferences) ?? null));
     }
-    setNewLinksText("");
+    setDraftOccupations(occupationsToDrafts(profileQuery.data?.occupations ?? []));
+    clearOrganizationIdCache();
+    setDraftSocialLinks(socialLinksDraftFromProfile(profileQuery.data?.links ?? []));
     setIsEditing(true);
-  }, [profileQuery.data]);
+  }, [profileQuery.data, auth]);
 
   useEffect(() => {
     const editMode = searchParams.get("edit");
@@ -210,31 +176,171 @@ export function Profile() {
   }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams]);
 
   const cancelEdit = useCallback(() => {
+    setOpenSocialPlatform(null);
     setIsEditing(false);
     setEditError(null);
     if (id) void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
   }, [id, queryClient]);
 
-  const saveProfileFields = useCallback(async () => {
+  const updateDraftOccupation = useCallback((occId: string, patch: Partial<OccupationDraft>) => {
+    setDraftOccupations((prev) => {
+      let next = prev.map((d) => (d.id === occId ? { ...d, ...patch } : d));
+      if (patch.isCurrent === true) {
+        next = next.map((d) => (d.id === occId ? d : { ...d, isCurrent: false }));
+      }
+      return next;
+    });
+    setEditError(null);
+  }, []);
+
+  const commitExperienceDraft = useCallback((draft: OccupationDraft) => {
+    setDraftOccupations((prev) => {
+      const exists = prev.some((d) => d.id === draft.id);
+      let next = exists
+        ? prev.map((d) => (d.id === draft.id ? draft : d))
+        : [...prev, draft];
+      if (draft.isCurrent) {
+        next = next.map((d) => (d.id === draft.id ? d : { ...d, isCurrent: false }));
+      }
+      return next;
+    });
+    setEditError(null);
+  }, []);
+
+  const removeDraftExperience = useCallback((occId: string) => {
+    setDraftOccupations((prev) => prev.filter((d) => d.id !== occId || !d.isNew));
+    setEditError(null);
+  }, []);
+
+  const persistSocialLinks = useCallback(async (): Promise<string | null> => {
+    const sourceLinks = isEditing ? editLinks : (data?.links ?? []);
+    const existingByKey = new Map<SocialPlatformKey, ProfileLinkView>();
+    for (const link of sourceLinks) {
+      const key = linkToSocialPlatformKey(link);
+      if (key && !existingByKey.has(key)) existingByKey.set(key, link);
+    }
+
+    for (const key of SOCIAL_PLATFORM_ORDER) {
+      const raw = draftSocialLinks[key];
+      const normalized = normalizeSocialUrl(raw);
+      const platform = socialPlatformLabel(key);
+      const existing = existingByKey.get(key);
+
+      if (!normalized) {
+        if (raw.trim()) {
+          return `Enter a valid ${platform} URL.`;
+        }
+        if (existing) {
+          const { error } = await api.delete(`/v1/me/links/${existing.id}`);
+          if (error) {
+            return error.message ?? error.code;
+          }
+          existingByKey.delete(key);
+        }
+        continue;
+      }
+
+      if (existing) {
+        if (existing.url === normalized) continue;
+        const { data: updated, error } = await api.patch<{ link: ProfileLinkView }>(
+          `/v1/me/links/${existing.id}`,
+          { platform, url: normalized, label: null },
+        );
+        if (error) {
+          return error.message ?? error.code;
+        }
+        if (updated?.link) existingByKey.set(key, updated.link);
+      } else {
+        const { data: created, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
+          platform,
+          url: normalized,
+          label: null,
+        });
+        if (error) {
+          return error.message ?? error.code;
+        }
+        if (created?.link) existingByKey.set(key, created.link);
+      }
+    }
+
+    return null;
+  }, [data?.links, draftSocialLinks, editLinks, isEditing]);
+
+  const saveProfileEdits = useCallback(async () => {
     if (!data) return;
     setSaving(true);
     setEditError(null);
-    const { error } = await api.patch("/v1/me/profile", {
+    clearOrganizationIdCache();
+
+    const { error: profileError } = await api.patch("/v1/me/profile", {
       personalEmail: draftPersonalEmail.trim() || null,
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
       residenceCity: draftResidenceCity.trim() || null,
+      openToPreferences: normalizeOpenToPreferences(draftOpenTo),
     });
-    setSaving(false);
-    if (error) {
-      setEditError(error.message ?? error.code);
+    if (profileError) {
+      setSaving(false);
+      setEditError(profileError.message ?? profileError.code);
       return;
     }
+
+    for (const draft of draftOccupations) {
+      const validation = validateOccupationDraft(draft);
+      if (validation) {
+        setSaving(false);
+        setEditError(validation);
+        return;
+      }
+      try {
+        const organizationId = await resolveOrganizationId(draft.organizationName);
+        if (draft.isNew) {
+          const { error: occError } = await api.post(
+            "/v1/me/occupations",
+            buildOccupationCreatePayload(draft, organizationId),
+          );
+          if (occError) {
+            setSaving(false);
+            setEditError(occError.message ?? occError.code);
+            return;
+          }
+        } else {
+          const { error: occError } = await api.patch(
+            `/v1/me/occupations/${draft.id}`,
+            buildOccupationPatchPayload(draft, organizationId),
+          );
+          if (occError) {
+            setSaving(false);
+            setEditError(occError.message ?? occError.code);
+            return;
+          }
+        }
+      } catch (err) {
+        setSaving(false);
+        setEditError(err instanceof Error ? err.message : "Could not save experience.");
+        return;
+      }
+    }
+
+    const linkErr = await persistSocialLinks();
+    if (linkErr) {
+      setSaving(false);
+      setEditError(linkErr);
+      return;
+    }
+
+    setSaving(false);
     await refetchAuth();
     if (id) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
     }
+    const refetched = await linksQuery.refetch();
+    if (refetched.data?.links) {
+      setEditLinks(refetched.data.links);
+      setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
+    }
+    setOpenSocialPlatform(null);
     setIsEditing(false);
   }, [
     data,
@@ -242,64 +348,103 @@ export function Profile() {
     draftMobilePhone,
     draftResidenceCountry,
     draftResidenceCity,
+    draftOpenTo,
+    draftOccupations,
+    persistSocialLinks,
     refetchAuth,
     id,
     queryClient,
+    linksQuery,
   ]);
 
-  const handleAddLinks = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editLinks.length >= 5) {
-      setEditError("You can add up to 5 links.");
+  const handleSaveSocialLinks = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const setLinkError = isEditing ? setEditError : setLinksError;
+    setLinkError(null);
+    if (!isEditing) setEditError(null);
+
+    setLinksSaving(true);
+    const linkErr = await persistSocialLinks();
+    setLinksSaving(false);
+    if (linkErr) {
+      setLinkError(linkErr);
       return;
     }
-    const rawItems = newLinksText
-      .split(/[\n,]/g)
-      .map((item) => item.trim())
-      .filter(Boolean);
-    if (rawItems.length === 0) return;
-    const normalizedItems = rawItems
-      .map((item) => normalizeProfileLinkUrl(item))
-      .filter((item): item is string => Boolean(item));
-    if (normalizedItems.length === 0) {
-      setEditError("Add valid URLs (example: linkedin.com/in/username).");
-      return;
-    }
-    const uniqueUrls = [...new Set(normalizedItems)];
-    const remainingSlots = 5 - editLinks.length;
-    if (uniqueUrls.length > remainingSlots) {
-      setEditError(`You can add ${remainingSlots} more link${remainingSlots === 1 ? "" : "s"} (max 5).`);
-      return;
-    }
-    setEditError(null);
-    setLinkBusyId("__add__");
-    const createdLinks: ProfileLinkView[] = [];
-    for (const url of uniqueUrls) {
-      const platform = inferPlatformFromUrl(url);
-      const { data: created, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
-        platform,
-        url,
-        label: null,
-      });
-      if (error) {
-        setLinkBusyId(null);
-        setEditError(error.message ?? error.code);
-        if (createdLinks.length > 0) {
-          setEditLinks((prev) => [...prev, ...createdLinks]);
-        }
-        return;
-      }
-      if (created?.link) createdLinks.push(created.link);
-    }
-    setLinkBusyId(null);
-    if (createdLinks.length > 0) setEditLinks((prev) => [...prev, ...createdLinks]);
-    setNewLinksText("");
+
     await refetchAuth();
     if (id) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
     }
+    if (isEditing) {
+      const refetched = await linksQuery.refetch();
+      if (refetched.data?.links) {
+        setEditLinks(refetched.data.links);
+        setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
+      }
+    }
+    setOpenSocialPlatform(null);
   };
+
+  const updateSocialDraft = (key: SocialPlatformKey, value: string) => {
+    setDraftSocialLinks((prev) => ({ ...prev, [key]: value }));
+    if (isEditing) setEditError(null);
+    else setLinksError(null);
+  };
+
+  const openSocialEditor = useCallback(
+    (key: SocialPlatformKey) => {
+      setLinksError(null);
+      setEditError(null);
+      const sourceLinks = isEditing ? editLinks : (linksQuery.data?.links ?? data?.links ?? []);
+      setDraftSocialLinks(socialLinksDraftFromProfile(sourceLinks));
+      setOpenSocialPlatform(key);
+    },
+    [isEditing, editLinks, linksQuery.data, data?.links],
+  );
+
+  const closeSocialEditor = useCallback(() => {
+    setOpenSocialPlatform(null);
+  }, []);
+
+  const adminAllowedEmails = useMemo(
+    () =>
+      [...(adminAllowedEmailsQuery.data ?? [])].sort((a, b) =>
+        a.email.localeCompare(b.email, undefined, { sensitivity: "base" }),
+      ),
+    [adminAllowedEmailsQuery.data],
+  );
+
+  const addAdminAllowedEmail = useCallback(async () => {
+    const institutionalEmail = adminEmailDraft.trim();
+    if (!institutionalEmail) return;
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails", {
+      institutionalEmail,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    setAdminEmailDraft("");
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery, adminEmailDraft]);
+
+  const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails/revoke", {
+      institutionalEmail,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery]);
 
   const handleDeleteLink = async (linkId: string) => {
     setEditError(null);
@@ -344,259 +489,114 @@ export function Profile() {
   const links = data?.links ?? [];
   const profileDisplayName =
     demoDisplayFullName(profile?.fullName ?? "") || profile?.fullName?.trim() || "Profile";
-  const codeRawHero = profile?.departmentCode;
-  const deptCodeHero = codeRawHero?.trim() ? codeRawHero : null;
-  const batchNumHero =
-    typeof profile?.batchYear === "number" && Number.isFinite(profile.batchYear) ? profile.batchYear : null;
-  const degreeLabel =
-    profile?.degreeName?.trim() ||
-    profile?.degreeCode?.trim() ||
-    (isOwnProfile
-      ? auth.myProfile?.degreeName?.trim() || auth.myProfile?.degreeCode?.trim() || null
-      : null);
-  const residenceCity = profile?.residenceCity?.trim() ?? "";
-  const residenceCountry = profile?.residenceCountry?.trim() ?? "";
-  const residenceLabel =
-    residenceCity && residenceCountry
-      ? `${residenceCity}, ${residenceCountry}`
-      : residenceCity || residenceCountry;
-  const displayLinks = isEditing ? editLinks : links;
+  const onboardingIncomplete =
+    isOwnProfile && auth.status === "authenticated" && !auth.myProfile?.onboardingCompletedAt;
   const adminMetrics = adminMetricsQuery.data;
-  const adminAllowedEmails = useMemo(
-    () =>
-      [...(adminAllowedEmailsQuery.data ?? [])].sort((a, b) =>
-        a.email.localeCompare(b.email, undefined, { sensitivity: "base" })
-      ),
-    [adminAllowedEmailsQuery.data]
-  );
-  const addAdminAllowedEmail = useCallback(async () => {
-    const institutionalEmail = adminEmailDraft.trim();
-    if (!institutionalEmail) return;
-    setAdminAllowlistBusy(true);
-    setAdminAllowlistError(null);
-    const { error } = await api.post("/v1/admin/allowed-admin-emails", {
-      institutionalEmail,
-    });
-    setAdminAllowlistBusy(false);
-    if (error) {
-      setAdminAllowlistError(error.message ?? error.code);
-      return;
-    }
-    setAdminEmailDraft("");
-    await adminAllowedEmailsQuery.refetch();
-  }, [adminAllowedEmailsQuery, adminEmailDraft]);
-
-  const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
-    setAdminAllowlistBusy(true);
-    setAdminAllowlistError(null);
-    const { error } = await api.post("/v1/admin/allowed-admin-emails/revoke", {
-      institutionalEmail,
-    });
-    setAdminAllowlistBusy(false);
-    if (error) {
-      setAdminAllowlistError(error.message ?? error.code);
-      return;
-    }
-    await adminAllowedEmailsQuery.refetch();
-  }, [adminAllowedEmailsQuery]);
-
-  const navExtra =
-    isOwnProfile && !isEditing ? (
-      <button type="button" className="nav__profile-edit" onClick={() => void beginEdit()}>
-        <PencilIcon />
-        <span>Edit</span>
-      </button>
-    ) : isOwnProfile && isEditing ? (
-      <div className="nav__profile-edit-actions">
-        <button type="button" className="nav__profile-edit nav__profile-edit--ghost" onClick={() => void cancelEdit()} disabled={saving}>
-          Cancel
-        </button>
-        <button type="button" className="nav__profile-edit nav__profile-edit--primary" onClick={() => void saveProfileFields()} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </div>
-    ) : null;
+  const sidebarOtherLinks =
+    !loading && isOwnProfile && isEditing ? otherProfileLinks(editLinks) : [];
+  const showProfileSidebar = sidebarOtherLinks.length > 0;
 
   return (
     <>
-      <Nav variant="home" avatarName={navAvatarName} extraRight={navExtra} />
+      <Nav variant="home" avatarName={navAvatarName} />
       <div className="home-dashboard profile-page">
-        <section className="home-dashboard__hero" aria-labelledby="profile-hero-heading">
-          <div className="home-dashboard__hero-watermark" aria-hidden>
-            IIT BHU
-          </div>
-          <div className="home-dashboard__hero-inner profile-page__hero-inner">
-            <div className="home-dashboard__hero-left">
-              <Link to="/search" className="profile-page__hero-back">
-                ← Directory
-              </Link>
-              <div className="profile-page__hero-main">
-                <Avatar name={profileDisplayName} size="lg" tone="pastel" />
-                <div>
-                  <h1 id="profile-hero-heading" className="home-dashboard__hero-title">
-                    {loading ? <span className="profile-page__skeleton-line profile-page__skeleton-line--title" /> : profileDisplayName}
-                    {!loading && isDemoProfile ? <span className="badge badge--hiring profile-page__demo-badge">Demo</span> : null}
-                  </h1>
-                </div>
-              </div>
-              <div className="profile-page__meta" role="list">
-                <span role="listitem" className="profile-page__meta-dept-batch">
-                  {deptCodeHero || batchNumHero != null ? (
-                    <DeptBatchMeta
-                      className="dept-batch-meta"
-                      departmentCode={deptCodeHero}
-                      batchYear={batchNumHero}
-                    />
-                  ) : loading ? (
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--meta" />
-                  ) : (
-                    <>
-                      Dept / cohort <strong>—</strong>
-                    </>
-                  )}
-                </span>
-                {degreeLabel ? (
-                  <span role="listitem">
-                    Degree <strong>{degreeLabel}</strong>
-                  </span>
-                ) : null}
-                {residenceLabel ? (
-                  <span role="listitem">
-                    Residence <strong>{residenceLabel}</strong>
-                  </span>
-                ) : null}
-                {isOwnProfile && profile?.mobilePhone ? (
-                  <span role="listitem">
-                    Mobile <strong>{profile?.mobilePhone}</strong>
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
+        <ProfileHero
+          loading={loading}
+          profile={profile}
+          occupations={occupations}
+          links={isEditing ? editLinks : links}
+          profileDisplayName={profileDisplayName}
+          isDemoProfile={isDemoProfile}
+          isOwnProfile={isOwnProfile}
+          isEditing={isEditing}
+          onEdit={isOwnProfile && !isEditing ? () => void beginEdit() : undefined}
+          onCancelEdit={isOwnProfile && isEditing ? () => void cancelEdit() : undefined}
+          onSaveEdit={isOwnProfile && isEditing ? () => void saveProfileEdits() : undefined}
+          saving={saving}
+          openSocialPlatform={isOwnProfile ? openSocialPlatform : null}
+          onOpenSocialPlatform={isOwnProfile ? openSocialEditor : undefined}
+          onCloseSocialPlatform={isOwnProfile ? closeSocialEditor : undefined}
+          socialDraft={isOwnProfile ? draftSocialLinks : undefined}
+          onSocialDraftChange={isOwnProfile ? updateSocialDraft : undefined}
+          onSaveSocialLinks={isOwnProfile ? () => void handleSaveSocialLinks() : undefined}
+          socialLinksBusy={linksSaving}
+          socialLinksError={isEditing ? editError : linksError}
+          onSendMessage={
+            !isOwnProfile && profile
+              ? () => {
+                  window.dispatchEvent(
+                    new CustomEvent("messaging:open-draft", {
+                      detail: {
+                        recipientPersonId: profile.id,
+                        recipientName: profileDisplayName,
+                        initialMessage: "",
+                        kind: "general",
+                        recipientDepartmentCode: profile.departmentCode,
+                        recipientBatchYear: profile.batchYear,
+                      },
+                    }),
+                  );
+                }
+              : undefined
+          }
+        />
 
-        <div className="home-dashboard__main">
-          <div className="home-dashboard__col home-dashboard__col--wide">
+        <div className="profile-page__engage-wrap">
+          <section className="profile-page__engage-row" aria-label="Profile highlights">
+            <ProfileEngagementCards
+              loading={loading}
+              openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
+              isEditing={isOwnProfile && isEditing}
+              draftOpenTo={isEditing ? draftOpenTo : undefined}
+              onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
+            />
+            <ProfileExperience
+              loading={loading}
+              occupations={occupations}
+              profile={profile}
+              isOwnProfile={isOwnProfile}
+              onboardingIncomplete={onboardingIncomplete}
+              isEditing={isOwnProfile && isEditing}
+              draftOccupations={isEditing ? draftOccupations : undefined}
+              onDraftOccupationChange={isEditing ? updateDraftOccupation : undefined}
+              onCommitExperience={isEditing ? commitExperienceDraft : undefined}
+              onRemoveExperience={isEditing ? removeDraftExperience : undefined}
+            />
+          </section>
+        </div>
+
+        <div
+          className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
+        >
+          <div className="home-dashboard__col home-dashboard__col--wide profile-page__sections">
             {isOwnProfile && isEditing && editError ? (
               <p className="body-text profile-page__error-text">
                 {editError}
               </p>
             ) : null}
 
-            {loading ||
-            profile?.residenceCountry ||
-            profile?.residenceCity ||
-            (isOwnProfile && (profile?.personalEmail || profile?.mobilePhone)) ||
-            (isOwnProfile && isEditing) ? (
-              <article className="home-dashboard__card">
-                <h2 className="profile-page__section-title">About</h2>
-                {/* Bio field/display removed — restore Textarea + draftBio + PATCH `bio` if needed */}
-                {loading ? (
-                  <div className="profile-page__skeleton-block">
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                  </div>
-                ) : isOwnProfile && !isEditing && (profile?.personalEmail || profile?.mobilePhone) ? (
-                  <div className="body-text profile-page__contact-summary">
-                    {profile?.personalEmail ? (
-                      <p className="profile-page__contact-row">
-                        <span className="profile-page__contact-label">Personal email</span>
-                        <br />
-                        {profile?.personalEmail}
-                      </p>
-                    ) : null}
-                    {profile?.mobilePhone ? (
-                      <p className="profile-page__contact-row profile-page__contact-row--last">
-                        <span className="profile-page__contact-label">Mobile</span>
-                        <br />
-                        {profile?.mobilePhone}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {isOwnProfile && isEditing ? (
-                  <div className="profile-page__edit-grid">
-                    <Input
-                      label="Personal email (optional)"
-                      type="email"
-                      autoComplete="email"
-                      value={draftPersonalEmail}
-                      onChange={(e) => setDraftPersonalEmail(e.target.value)}
-                    />
-                    <Input
-                      label="Mobile (optional)"
-                      type="tel"
-                      autoComplete="tel"
-                      value={draftMobilePhone}
-                      onChange={(e) => setDraftMobilePhone(e.target.value)}
-                    />
-                    <Input
-                      label="Country of residence (optional)"
-                      value={draftResidenceCountry}
-                      onChange={(e) => setDraftResidenceCountry(e.target.value)}
-                      autoComplete="country-name"
-                    />
-                    <Input
-                      label="City of residence (optional)"
-                      value={draftResidenceCity}
-                      onChange={(e) => setDraftResidenceCity(e.target.value)}
-                      autoComplete="address-level2"
-                    />
-                  </div>
-                ) : null}
-              </article>
-            ) : null}
+            <ProfileIitBhu
+              loading={loading}
+              profile={profile}
+              isOwnProfile={isOwnProfile}
+              onboardingIncomplete={onboardingIncomplete}
+            />
 
-            {loading || occupations.length > 0 ? (
-              <article className="home-dashboard__card">
-                <h2 className="profile-page__section-title">Experience</h2>
-                {loading ? (
-                  <div className="profile-page__skeleton-block">
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                  </div>
-                ) : (
-                  <ul className="profile-page__exp-list">
-                    {occupations.map((occ) => (
-                    <li key={occ.id} className="profile-page__exp-item">
-                      <span
-                        className={`profile-page__exp-dot ${occ.isCurrent ? "profile-page__exp-dot--current" : "profile-page__exp-dot--past"}`}
-                        aria-hidden
-                      />
-                      <div>
-                        <div className="ui-body profile-page__exp-role">
-                          {occ.roleTitle}
-                        </div>
-                        <div className="profile-page__exp-company">
-                          {occ.organizationName ?? "—"}
-                        </div>
-                        <div className="small-note profile-page__exp-period">
-                          {occ.startDate ? occ.startDate.slice(0, 4) : "—"} –{" "}
-                          {occ.isCurrent ? "Present" : occ.endDate ? occ.endDate.slice(0, 4) : "—"}
-                        </div>
-                      </div>
-                    </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            ) : null}
-
-            {!isOwnProfile && occupations.length === 0 ? (
-              <article className="home-dashboard__card">
-                <p className="body-text profile-page__muted-text profile-page__flush-text">
-                  No experience listed yet.
-                </p>
-              </article>
-            ) : null}
-            {isOwnProfile && !isEditing && occupations.length === 0 ? (
-              <article className="home-dashboard__card">
-                <p className="body-text profile-page__muted-text profile-page__flush-text">
-                  No experience yet. Use <strong>Edit</strong> in the header to add links or contact details.
-                </p>
-              </article>
-            ) : null}
+            <ProfileAbout
+              loading={loading}
+              profile={profile}
+              isDemoProfile={isDemoProfile}
+              isOwnProfile={isOwnProfile}
+              isEditing={isEditing}
+              draftPersonalEmail={draftPersonalEmail}
+              draftMobilePhone={draftMobilePhone}
+              draftResidenceCountry={draftResidenceCountry}
+              draftResidenceCity={draftResidenceCity}
+              onDraftPersonalEmail={setDraftPersonalEmail}
+              onDraftMobilePhone={setDraftMobilePhone}
+              onDraftResidenceCountry={setDraftResidenceCountry}
+              onDraftResidenceCity={setDraftResidenceCity}
+            />
 
             {isOwnProfile && isAdminViewer ? (
               <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
@@ -759,93 +759,30 @@ export function Profile() {
             ) : null}
           </div>
 
-          <aside className="home-dashboard__col home-dashboard__col--side">
-            {!loading && !isOwnProfile && profile ? (
-              <ReachOutCard
-                profileId={profile.id}
-                profileName={profileDisplayName}
-                onSubmit={handleReachOut}
-                status={contactStatus}
-                errorMessage={contactError}
-              />
-            ) : null}
-            {loading || displayLinks.length > 0 || isOwnProfile ? (
-              <div className="home-dashboard__card">
-                <span className="eyebrow profile-page__links-eyebrow">
-                  Links
-                </span>
-                {loading ? (
-                  <div className="profile-page__skeleton-block">
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                    <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
-                  </div>
-                ) : isOwnProfile && isEditing ? (
-                  <>
-                    {editLinks.length > 0 ? (
-                      <ul className="profile-page__links-editor">
-                        {editLinks.map((link) => (
-                          <li key={link.id}>
-                            <a href={link.url} target="_blank" rel="noopener noreferrer">
-                              {link.platform}
-                            </a>
-                            <button
-                              type="button"
-                              className="profile-page__link-remove"
-                              disabled={linkBusyId === link.id}
-                              onClick={() => void handleDeleteLink(link.id)}
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="body-text profile-page__muted-text profile-page__links-empty">
-                        No links yet.
-                      </p>
-                    )}
-                    <form className="profile-page__add-link" onSubmit={(e) => void handleAddLinks(e)}>
-                      <label className="ui-label" htmlFor="profile-links-input">
-                        Add links (up to 5 total)
-                      </label>
-                      <textarea
-                        id="profile-links-input"
-                        className="input profile-page__links-input"
-                        rows={3}
-                        placeholder="Paste links separated by comma or new line"
-                        value={newLinksText}
-                        onChange={(e) => setNewLinksText(e.target.value)}
-                      />
-                      <p className="body-text profile-page__muted-text profile-page__links-helper">
-                        Platform is detected automatically from each URL ({editLinks.length}/5 added).
-                      </p>
-                      <Button
-                        type="submit"
-                        variant="secondary"
-                        disabled={linkBusyId === "__add__" || !newLinksText.trim() || editLinks.length >= 5}
+          {showProfileSidebar ? (
+            <aside className="home-dashboard__col home-dashboard__col--side">
+              <article className="home-dashboard__card">
+                <h2 className="profile-page__section-title">Other links</h2>
+                <ul className="profile-page__links-editor profile-page__links-editor--other">
+                  {sidebarOtherLinks.map((link) => (
+                    <li key={link.id}>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer">
+                        {link.platform}
+                      </a>
+                      <button
+                        type="button"
+                        className="profile-page__link-remove"
+                        disabled={linkBusyId === link.id}
+                        onClick={() => void handleDeleteLink(link.id)}
                       >
-                        {linkBusyId === "__add__" ? "Adding…" : "Add links"}
-                      </Button>
-                    </form>
-                  </>
-                ) : links.length > 0 ? (
-                  <ul className="profile-page__links">
-                    {links.map((link) => (
-                      <li key={link.id}>
-                        <a href={link.url} target="_blank" rel="noopener noreferrer">
-                          {link.platform}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="body-text profile-page__muted-text profile-page__links-empty profile-page__flush-text">
-                    {isOwnProfile ? "No links yet. Use Edit in the header to add links." : null}
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </aside>
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </aside>
+          ) : null}
         </div>
       </div>
     </>

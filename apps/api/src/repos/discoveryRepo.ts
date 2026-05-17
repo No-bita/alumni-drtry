@@ -1,6 +1,9 @@
 import { env } from "../config/env.js";
-import { personIsProductionAlumniSql } from "../lib/demoPersonSql.js";
+import { personIsDiscoverableAlumniSql } from "../lib/demoPersonSql.js";
+import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 import type { PoolExecutor } from "../db/types.js";
+import type { ProfileLinkView } from "./linkRepo.js";
+import type { OccupationView } from "./occupationRepo.js";
 
 export interface SearchProfilesInput {
   batch?: number;
@@ -108,6 +111,7 @@ interface PublicProfileBaseRow {
   bio: string | null;
   residence_country: string | null;
   residence_city: string | null;
+  open_to_preferences: unknown;
   profile_completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -127,9 +131,21 @@ export interface PublicProfileBaseView {
   bio: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  openToPreferences: OpenToPreferences | null;
   profileCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PublicProfileBundleView {
+  profile: PublicProfileBaseView;
+  occupations: OccupationView[];
+  links: ProfileLinkView[];
+}
+
+interface PublicProfileBundleRow extends PublicProfileBaseRow {
+  occupations_json: unknown;
+  links_json: unknown;
 }
 
 export function mapSearchRow(row: SearchProfileRow): SearchProfileView {
@@ -168,10 +184,61 @@ function mapPublicRow(row: PublicProfileBaseRow): PublicProfileBaseView {
     bio: row.bio,
     residenceCountry: row.residence_country,
     residenceCity: row.residence_city,
+    openToPreferences: parseOpenToPreferences(row.open_to_preferences),
     profileCompletedAt: row.profile_completed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") return new Date(value);
+  return new Date(0);
+}
+
+function mapOccupationFromJson(raw: unknown): OccupationView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string") return null;
+  return {
+    id: o.id,
+    occupationTypeCode: String(o.occupationTypeCode ?? ""),
+    occupationTypeName: String(o.occupationTypeName ?? ""),
+    organizationId: typeof o.organizationId === "string" ? o.organizationId : null,
+    organizationName: typeof o.organizationName === "string" ? o.organizationName : null,
+    roleTitle: String(o.roleTitle ?? ""),
+    description: typeof o.description === "string" ? o.description : null,
+    startDate: typeof o.startDate === "string" ? o.startDate : null,
+    endDate: typeof o.endDate === "string" ? o.endDate : null,
+    isCurrent: Boolean(o.isCurrent),
+    createdAt: toDate(o.createdAt),
+    updatedAt: toDate(o.updatedAt)
+  };
+}
+
+function mapLinkFromJson(raw: unknown): ProfileLinkView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string") return null;
+  return {
+    id: o.id,
+    platform: String(o.platform ?? ""),
+    url: String(o.url ?? ""),
+    label: typeof o.label === "string" ? o.label : null,
+    createdAt: toDate(o.createdAt),
+    updatedAt: toDate(o.updatedAt)
+  };
+}
+
+function mapOccupationsJson(value: unknown): OccupationView[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(mapOccupationFromJson).filter((row): row is OccupationView => row !== null);
+}
+
+function mapLinksJson(value: unknown): ProfileLinkView[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(mapLinkFromJson).filter((row): row is ProfileLinkView => row !== null);
 }
 
 export class DiscoveryRepo {
@@ -197,7 +264,7 @@ export class DiscoveryRepo {
           AND p.suspended_at IS NULL
           AND p.full_name IS NOT NULL
           AND p.profile_completed_at IS NOT NULL
-          AND ${personIsProductionAlumniSql("p")}
+          AND ${personIsDiscoverableAlumniSql("p")}
         GROUP BY cp.id
 
         UNION ALL
@@ -211,7 +278,7 @@ export class DiscoveryRepo {
           AND p.suspended_at IS NULL
           AND p.full_name IS NOT NULL
           AND p.profile_completed_at IS NOT NULL
-          AND ${personIsProductionAlumniSql("p")}
+          AND ${personIsDiscoverableAlumniSql("p")}
           AND p.residence_canonical_place_id IS NULL
           AND p.residence_city IS NOT NULL
           AND btrim(p.residence_city) <> ''
@@ -243,7 +310,7 @@ export class DiscoveryRepo {
       "p.suspended_at IS NULL",
       "p.full_name IS NOT NULL",
       "p.profile_completed_at IS NOT NULL",
-      personIsProductionAlumniSql("p"),
+      personIsDiscoverableAlumniSql("p"),
     ];
 
     if (input.viewerPersonId) {
@@ -520,14 +587,15 @@ export class DiscoveryRepo {
   }
 
   /**
-   * Public profile row for directory visibility rules. Others only see onboarding-complete profiles;
-   * the viewer may always load their own row (including while onboarding).
+   * Public profile bundle (profile + occupations + links) in one round trip.
+   * Others only see onboarding-complete profiles; the viewer may always load their own row.
+   * Personal email and phone are returned only when the viewer is the profile owner.
    */
-  async findPublicProfileBaseById(
+  async findPublicProfileBundleById(
     profileId: string,
     viewerPersonId: string | null
-  ): Promise<PublicProfileBaseView | null> {
-    const result = await this.db.query<PublicProfileBaseRow>(
+  ): Promise<PublicProfileBundleView | null> {
+    const result = await this.db.query<PublicProfileBundleRow>(
       `
       SELECT
         p.id,
@@ -543,9 +611,64 @@ export class DiscoveryRepo {
         p.bio,
         p.residence_country,
         p.residence_city,
+        p.open_to_preferences,
         p.profile_completed_at,
         p.created_at,
-        p.updated_at
+        p.updated_at,
+        COALESCE(
+          (
+            SELECT json_agg(occ_row.occ ORDER BY
+              occ_row.sort_is_current DESC,
+              occ_row.sort_start_date DESC NULLS LAST,
+              occ_row.sort_created_at DESC
+            )
+            FROM (
+              SELECT
+                json_build_object(
+                  'id', o.id,
+                  'occupationTypeCode', ot.code,
+                  'occupationTypeName', ot.name,
+                  'organizationId', o.organization_id,
+                  'organizationName', org.name,
+                  'roleTitle', o.role_title,
+                  'description', o.description,
+                  'startDate', o.start_date,
+                  'endDate', o.end_date,
+                  'isCurrent', o.is_current,
+                  'createdAt', o.created_at,
+                  'updatedAt', o.updated_at
+                ) AS occ,
+                o.is_current AS sort_is_current,
+                o.start_date AS sort_start_date,
+                o.created_at AS sort_created_at
+              FROM occupations o
+              JOIN occupation_types ot ON ot.id = o.occupation_type_id
+              LEFT JOIN organizations org ON org.id = o.organization_id
+              WHERE o.person_id = p.id
+            ) AS occ_row
+          ),
+          '[]'::json
+        ) AS occupations_json,
+        COALESCE(
+          (
+            SELECT json_agg(link_row.link ORDER BY link_row.sort_created_at DESC)
+            FROM (
+              SELECT
+                json_build_object(
+                  'id', pl.id,
+                  'platform', pl.platform,
+                  'url', pl.url,
+                  'label', pl.label,
+                  'createdAt', pl.created_at,
+                  'updatedAt', pl.updated_at
+                ) AS link,
+                pl.created_at AS sort_created_at
+              FROM profile_links pl
+              WHERE pl.person_id = p.id
+            ) AS link_row
+          ),
+          '[]'::json
+        ) AS links_json
       FROM people p
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN degrees g ON g.id = p.degree_id
@@ -558,7 +681,7 @@ export class DiscoveryRepo {
           OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
         )
         AND (
-          ${personIsProductionAlumniSql("p")}
+          ${personIsDiscoverableAlumniSql("p")}
           OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
         )
       LIMIT 1
@@ -566,7 +689,12 @@ export class DiscoveryRepo {
       [profileId, viewerPersonId]
     );
     const row = result.rows[0];
-    return row ? mapPublicRow(row) : null;
+    if (!row) return null;
+    return {
+      profile: mapPublicRow(row),
+      occupations: mapOccupationsJson(row.occupations_json),
+      links: mapLinksJson(row.links_json)
+    };
   }
 
   /**

@@ -62,7 +62,11 @@ export interface ConnectionMessageView {
   authorIsDemo: boolean;
 }
 
-export type DisclosureKind = "institutional_email" | "personal_email" | "profile_link";
+export type DisclosureKind =
+  | "institutional_email"
+  | "personal_email"
+  | "mobile_phone"
+  | "profile_link";
 
 export interface ConnectionDisclosureView {
   id: string;

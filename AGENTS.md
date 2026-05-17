@@ -1,5 +1,9 @@
 # Agent / contributor notes
 
+## Project-local agent memory (Cursor)
+
+Hermes-style persistent notes live in **`.local/agent-memory/`** (gitignored). Agents should read `MEMORY.md` and `USER.md` at session start and update them after substantive work via `.cursor/scripts/agent-memory.sh`. See `.cursor/rules/project-agent-memory.mdc`.
+
 ## API deploys (Railway) vs GitHub
 
 **Pushes to `main` that touch `apps/api/**` automatically deploy** via [`.github/workflows/deploy-api-railway.yml`](.github/workflows/deploy-api-railway.yml) (GitHub Actions → `railway up` on the `alumni-api` production service).

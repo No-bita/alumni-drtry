@@ -1,4 +1,4 @@
-type AvatarSize = "lg" | "md" | "sm";
+type AvatarSize = "xl" | "lg" | "md" | "sm";
 
 type AvatarProps = {
   name: string;

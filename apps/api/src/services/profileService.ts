@@ -1,6 +1,11 @@
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
+import {
+  normalizeOpenToPreferencesForStorage,
+  parseOpenToPreferences,
+  type OpenToPreferences,
+} from "../lib/openToPreferences.js";
 import { PersonRepo, type PersonProfileView } from "../repos/personRepo.js";
 
 export interface UpdateMyProfileInput {
@@ -13,6 +18,7 @@ export interface UpdateMyProfileInput {
   mobilePhone?: string | null;
   residenceCountry?: string | null;
   residenceCity?: string | null;
+  openToPreferences?: OpenToPreferences | null;
   /** Server sets `profile_completed_at` when name exists (minimum = end of onboarding step 2). */
   markMinimumProfileComplete?: true;
   /** Server sets `onboarding_completed_at` when minimum profile already exists (ideal = all steps). */
@@ -63,6 +69,7 @@ export class ProfileService {
     let nextMobilePhone = current.mobilePhone;
     let nextResidenceCountry = current.residenceCountry;
     let nextResidenceCity = current.residenceCity;
+    let nextOpenToPreferences = current.openToPreferences;
 
     if (input.fullName !== undefined) {
       nextFullName = input.fullName.trim();
@@ -126,6 +133,18 @@ export class ProfileService {
           : input.residenceCity.trim();
     }
 
+    if (input.openToPreferences !== undefined) {
+      if (input.openToPreferences === null) {
+        nextOpenToPreferences = null;
+      } else {
+        const parsed = parseOpenToPreferences(input.openToPreferences);
+        if (!parsed) {
+          throw new AppError(400, "PROFILE_INVALID_OPEN_TO", "Invalid open-to preferences.");
+        }
+        nextOpenToPreferences = normalizeOpenToPreferencesForStorage(parsed);
+      }
+    }
+
     let nextProfileCompletedAt = current.profileCompletedAt;
     if (input.markMinimumProfileComplete === true) {
       if (!nextFullName?.trim()) {
@@ -164,6 +183,7 @@ export class ProfileService {
         mobilePhone: nextMobilePhone,
         residenceCountry: nextResidenceCountry,
         residenceCity: nextResidenceCity,
+        openToPreferences: nextOpenToPreferences,
         profileCompletedAt: nextProfileCompletedAt,
         onboardingCompletedAt: nextOnboardingCompletedAt
       });

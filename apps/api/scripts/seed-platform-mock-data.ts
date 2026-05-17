@@ -446,10 +446,16 @@ async function main() {
 
     await client.query("COMMIT");
     console.log(`Seeded ${seeded.length} platform mock profile(s):`);
-    for (const email of seeded) console.log(`  - ${email}`);
+    for (let i = 0; i < seeded.length; i++) {
+      const email = seeded[i]!;
+      const personId = personIds[i]!;
+      console.log(`  - ${email}`);
+      console.log(`    profile: http://localhost:5173/profiles/${personId}`);
+    }
     console.log(
       "Also seeded: occupations, links, hiring opportunities, mentorship/guidance/collaboration requests, city-moving requests, and one referral thread."
     );
+    console.log("Note: demo profiles appear in directory search and profile pages in development/test only.");
   } catch (error) {
     await client.query("ROLLBACK");
     console.error(error);

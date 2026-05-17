@@ -4,6 +4,9 @@ dist/
 dist-ssr/
 *.local
 
+# Cursor agent memory (project-local, Hermes-style; never commit)
+.local/
+
 # Environment and secrets (never commit)
 .env
 .env.*

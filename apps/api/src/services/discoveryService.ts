@@ -14,10 +14,7 @@ import {
   type SearchProfileRow
 } from "../repos/discoveryRepo.js";
 import { DiscoveryAnalyticsRepo } from "../repos/discoveryAnalyticsRepo.js";
-import { LinkRepo } from "../repos/linkRepo.js";
 import type { ProfileLinkView } from "../repos/linkRepo.js";
-import { OccupationRepo } from "../repos/occupationRepo.js";
-import { PersonRepo } from "../repos/personRepo.js";
 import type { OccupationView } from "../repos/occupationRepo.js";
 
 export interface SearchInput {
@@ -59,8 +56,7 @@ export interface SearchOutput {
 export type ResidenceCityAggregate = ResidenceCityAggregateRow;
 
 export interface PublicProfileOutput {
-  /** Viewer’s own profile includes `personalEmail` and `mobilePhone`; other profiles omit them. */
-  profile: PublicProfileBaseView & { personalEmail?: string | null; mobilePhone?: string | null };
+  profile: PublicProfileBaseView;
   occupations: OccupationView[];
   links: ProfileLinkView[];
 }
@@ -151,16 +147,10 @@ function toSearchViews(rows: SearchProfileRow[], ctx: MatchReasonContext): Searc
 
 export class DiscoveryService {
   private readonly discoveryRepo: DiscoveryRepo;
-  private readonly occupationRepo: OccupationRepo;
-  private readonly linkRepo: LinkRepo;
-  private readonly personRepo: PersonRepo;
   private readonly discoveryAnalyticsRepo: DiscoveryAnalyticsRepo;
 
   constructor(private readonly pool: Pool) {
     this.discoveryRepo = new DiscoveryRepo(pool);
-    this.occupationRepo = new OccupationRepo(pool);
-    this.linkRepo = new LinkRepo(pool);
-    this.personRepo = new PersonRepo(pool);
     this.discoveryAnalyticsRepo = new DiscoveryAnalyticsRepo(pool);
   }
 
@@ -347,35 +337,12 @@ export class DiscoveryService {
   }
 
   async getPublicProfile(profileId: string, viewerPersonId: string): Promise<PublicProfileOutput> {
-    const profile = await this.discoveryRepo.findPublicProfileBaseById(profileId, viewerPersonId);
-    if (!profile) {
+    const bundle = await this.discoveryRepo.findPublicProfileBundleById(profileId, viewerPersonId);
+    if (!bundle) {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
     }
 
-    const [occupations, links] = await Promise.all([
-      this.occupationRepo.listByPerson(profile.id),
-      this.linkRepo.listByPerson(profile.id)
-    ]);
-
-    if (viewerPersonId === profileId) {
-      const mine = await this.personRepo.findProfileById(profileId);
-      if (mine) {
-        return {
-          profile: {
-            ...profile,
-            personalEmail: mine.personalEmail,
-            mobilePhone: mine.mobilePhone
-          },
-          occupations,
-          links
-        };
-      }
-    }
-
-    return {
-      profile,
-      occupations,
-      links
-    };
+    const { profile, occupations, links } = bundle;
+    return { profile, occupations, links };
   }
 }

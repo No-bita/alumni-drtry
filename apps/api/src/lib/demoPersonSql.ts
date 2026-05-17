@@ -1,3 +1,5 @@
+import { env } from "../config/env.js";
+
 /**
  * SQL boolean expression: whether a person row is a demo/test alumni for UI badges.
  * Matches `people.is_test_user` plus institutional local-part prefixes used by seed scripts.
@@ -22,4 +24,21 @@ export function personIsDemoAlumniSql(tableAlias: string): string {
 /** Directory and public profile surfaces: only real alumni. */
 export function personIsProductionAlumniSql(tableAlias: string): string {
   return `NOT (${personIsDemoAlumniSql(tableAlias)})`;
+}
+
+/**
+ * Directory search and public profile loads: production alumni only; in development/test
+ * also include demo/test seeds (caller should still require profile_completed_at / full_name).
+ */
+export function personIsDiscoverableAlumniSql(tableAlias: string): string {
+  const production = personIsProductionAlumniSql(tableAlias);
+  if (env.NODE_ENV !== "development" && env.NODE_ENV !== "test") {
+    return production;
+  }
+  return `(${production} OR ${personIsDemoAlumniSql(tableAlias)})`;
+}
+
+/** @deprecated Use {@link personIsDiscoverableAlumniSql}. */
+export function personIsPublicProfileViewableSql(tableAlias: string): string {
+  return personIsDiscoverableAlumniSql(tableAlias);
 }
