@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { environmentBoolean } from "../lib/environmentBoolean.js";
 import { validateProductionCorsOrigin } from "../lib/productionCors.js";
 
 const optionalEmailSchema = z.preprocess((value) => {
@@ -82,20 +83,20 @@ const envSchema = z.object({
   EMAIL_BRAND_NAME: z.string().min(1).default("IIT BHU Alumni Network"),
   RESEND_API_KEY: optionalStringSchema,
   COOKIE_DOMAIN: optionalStringSchema,
-  SHOW_AUTH_SECRETS_IN_RESPONSE: z.coerce.boolean().default(false),
+  SHOW_AUTH_SECRETS_IN_RESPONSE: environmentBoolean.default(false),
   CORS_ORIGIN: z.string().default("*"),
   SENTRY_DSN: optionalStringSchema,
   /**
    * Development/staging only: authenticate API requests as the super_admin person with this email
    * when no session cookie is present. Blocked when NODE_ENV=production.
    */
-  AUTH_BYPASS_SUPER_ADMIN: z.coerce.boolean().default(false),
+  AUTH_BYPASS_SUPER_ADMIN: environmentBoolean.default(false),
   AUTH_BYPASS_SUPER_ADMIN_EMAIL: optionalEmailSchema,
   /**
    * Development only: treat unauthenticated API requests as this person (any role).
    * Blocked when NODE_ENV=production.
    */
-  AUTH_BYPASS: z.coerce.boolean().default(false),
+  AUTH_BYPASS: environmentBoolean.default(false),
   AUTH_BYPASS_EMAIL: optionalEmailSchema,
   /** Days author keeps a soft-deleted bulletin post + replies before hard delete. */
   INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
@@ -127,7 +128,7 @@ const envSchema = z.object({
    * enforcement of allowed addresses is still ALLOWED_EMAIL_DOMAINS on the API after sign-in.
    */
   GOOGLE_OAUTH_HOSTED_DOMAIN: optionalStringSchema,
-  BETA_INVITE_AUTH_ENABLED: z.coerce.boolean().default(false),
+  BETA_INVITE_AUTH_ENABLED: environmentBoolean.default(false),
   BETA_REQUIRE_ALLOWLIST: z.coerce.boolean().default(true),
   BETA_SHARED_INVITE_CODE_HASH: optionalStringSchema,
   BETA_SHARED_INVITE_CODE_ID: optionalStringSchema.default("shared-v1"),
@@ -138,7 +139,7 @@ const envSchema = z.object({
    * Dev-only password fallback for one account.
    * Password is verified by comparing hashSecret(password, AUTH_SECRET_PEPPER) to DEV_PASSWORD_LOGIN_PASSWORD_HASH.
    */
-  ENABLE_PASSWORD_LOGIN: z.coerce.boolean().default(false),
+  ENABLE_PASSWORD_LOGIN: environmentBoolean.default(false),
   DEV_PASSWORD_LOGIN_EMAIL: optionalEmailSchema.default("seed-admin-placeholder@example.invalid"),
   DEV_PASSWORD_LOGIN_PASSWORD_HASH: optionalStringSchema
 });
