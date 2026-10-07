@@ -15,7 +15,7 @@ type SentAuthMethod = "otp" | "password";
 const OTP_LENGTH = 6;
 const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => "");
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
-const BETA_INVITE_AUTH_ENABLED = import.meta.env.VITE_BETA_INVITE_AUTH_ENABLED === "true";
+const BETA_INVITE_AUTH_ENABLED = false;
 const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
 
 const AUTH_HERO_STATS = [
