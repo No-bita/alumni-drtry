@@ -46,9 +46,6 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode === 500) {
-      return; // DB unavailable
-    }
     expect(startRes.statusCode).toBe(200);
     const startBody = startRes.json() as { challengeId?: string; debug?: { magicLinkUrl?: string } };
     expect(startBody.challengeId).toBeDefined();
@@ -59,8 +56,7 @@ describe("e2e: full flow", () => {
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode === 500) return;
-    expect(verifyRes.statusCode).toBe(200);
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const sessionCookie = getSessionCookieFromResponse(verifyRes, cookieName);
     expect(sessionCookie).toBeTruthy();
 
@@ -82,14 +78,14 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
@@ -119,14 +115,14 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
@@ -149,14 +145,14 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
@@ -183,21 +179,21 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
     const meRes = await app.inject({ method: "GET", url: "/v1/me", headers });
     const meBody = meRes.json() as { person?: { personId: string } };
     const personId = meBody.person?.personId;
-    if (!personId) return;
+    if (!personId) throw new Error("Login did not return personId");
 
     const patchRes = await app.inject({
       method: "PATCH",
@@ -205,7 +201,7 @@ describe("e2e: full flow", () => {
       headers,
       payload: { fullName: "E2E Profile View User", batchYear: 2020, departmentCode: "cse" },
     });
-    if (patchRes.statusCode !== 200) return;
+    expect(patchRes.statusCode, patchRes.body).toBe(200);
 
     const profileRes = await app.inject({
       method: "GET",
@@ -230,14 +226,14 @@ describe("e2e: full flow", () => {
         url: "/v1/auth/start",
         payload: { institutionalEmail: email },
       });
-      if (startRes.statusCode !== 200) return null;
+      expect(startRes.statusCode, startRes.body).toBe(200);
       const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
       const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
       });
-      if (verifyRes.statusCode !== 200) return null;
+      expect(verifyRes.statusCode, verifyRes.body).toBe(200);
       const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
       const meRes = await app.inject({
         method: "GET",
@@ -273,14 +269,14 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
@@ -304,14 +300,14 @@ describe("e2e: full flow", () => {
         url: "/v1/auth/start",
         payload: { institutionalEmail: e },
       });
-      if (startRes.statusCode !== 200) return null;
+      expect(startRes.statusCode, startRes.body).toBe(200);
       const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
       const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
       });
-      if (verifyRes.statusCode !== 200) return null;
+      expect(verifyRes.statusCode, verifyRes.body).toBe(200);
       const ck = getSessionCookieFromResponse(verifyRes, cookieName);
       const meRes = await app.inject({
         method: "GET",
@@ -320,13 +316,13 @@ describe("e2e: full flow", () => {
       });
       const meBody = meRes.json() as { person?: { personId: string } };
       const personId = meBody.person?.personId;
-      if (!personId) return null;
+      if (!personId) throw new Error("Login did not return personId");
       return { cookie: ck, personId };
     };
 
     const userA = await login(emailA);
     const userB = await login(emailB);
-    if (!userA?.personId || !userB?.personId) return;
+    if (!userA?.personId || !userB?.personId) throw new Error("Could not log in as both test users");
 
     const headersA = { cookie: `${cookieName}=${userA.cookie}` };
     const headersB = { cookie: `${cookieName}=${userB.cookie}` };
@@ -343,7 +339,8 @@ describe("e2e: full flow", () => {
       headers: headersB,
       payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse" },
     });
-    if (patchA.statusCode !== 200 || patchB.statusCode !== 200) return;
+    expect(patchA.statusCode, patchA.body).toBe(200);
+    expect(patchB.statusCode, patchB.body).toBe(200);
 
     const searchRes = await app.inject({
       method: "GET",
@@ -364,14 +361,14 @@ describe("e2e: full flow", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (startRes.statusCode !== 200) return;
+    expect(startRes.statusCode, startRes.body).toBe(200);
     const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
     const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
     });
-    if (verifyRes.statusCode !== 200) return;
+    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
     const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
     const headers = { cookie: `${cookieName}=${cookie}` };
 
@@ -380,14 +377,16 @@ describe("e2e: full flow", () => {
       url: "/v1/search?limit=1",
       headers,
     });
-    if (first.statusCode !== 200) return;
+    expect(first.statusCode, first.body).toBe(200);
     const firstBody = first.json() as {
       results?: { id: string }[];
       pageInfo?: { hasMore: boolean; nextCursor: string | null };
     };
     const firstId = firstBody.results?.[0]?.id;
-    if (!firstId) return;
-    if (!firstBody.pageInfo?.hasMore || !firstBody.pageInfo.nextCursor) return;
+    if (!firstId) throw new Error("Pagination fixture needs a searchable result");
+    if (!firstBody.pageInfo?.hasMore || !firstBody.pageInfo.nextCursor) {
+      throw new Error("Pagination fixture needs at least two searchable results and a next cursor");
+    }
 
     const second = await app.inject({
       method: "GET",
@@ -415,14 +414,14 @@ describe("e2e: full flow", () => {
         url: "/v1/auth/start",
         payload: { institutionalEmail: e },
       });
-      if (startRes.statusCode !== 200) return null;
+      expect(startRes.statusCode, startRes.body).toBe(200);
       const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
       const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
       });
-      if (verifyRes.statusCode !== 200) return null;
+      expect(verifyRes.statusCode, verifyRes.body).toBe(200);
       const ck = getSessionCookieFromResponse(verifyRes, cookieName);
       const meRes = await app.inject({
         method: "GET",
@@ -431,14 +430,14 @@ describe("e2e: full flow", () => {
       });
       const meBody = meRes.json() as { person?: { personId: string } };
       const personId = meBody.person?.personId;
-      if (!personId) return null;
+      if (!personId) throw new Error("Login did not return personId");
       return { cookie: ck, personId };
     };
 
     const userA = await login(emailA);
     const userB = await login(emailB);
     const userC = await login(emailC);
-    if (!userA?.personId || !userB?.personId || !userC?.personId) return;
+    if (!userA?.personId || !userB?.personId || !userC?.personId) throw new Error("Could not log in as all three test users");
 
     const headersA = { cookie: `${cookieName}=${userA.cookie}` };
     const headersB = { cookie: `${cookieName}=${userB.cookie}` };
@@ -456,7 +455,8 @@ describe("e2e: full flow", () => {
       headers: headersB,
       payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse" },
     });
-    if (patchA.statusCode !== 200 || patchB.statusCode !== 200) return;
+    expect(patchA.statusCode, patchA.body).toBe(200);
+    expect(patchB.statusCode, patchB.body).toBe(200);
 
     const occRes = await app.inject({
       method: "POST",
@@ -469,7 +469,7 @@ describe("e2e: full flow", () => {
         isCurrent: true,
       },
     });
-    if (occRes.statusCode !== 201) return;
+    expect(occRes.statusCode, occRes.body).toBe(201);
 
     const patchC = await app.inject({
       method: "PATCH",
@@ -477,7 +477,7 @@ describe("e2e: full flow", () => {
       headers: headersC,
       payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse" },
     });
-    if (patchC.statusCode !== 200) return;
+    expect(patchC.statusCode, patchC.body).toBe(200);
 
     const searchRes = await app.inject({
       method: "GET",
