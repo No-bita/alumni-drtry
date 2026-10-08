@@ -22,7 +22,15 @@ You need **two deploy targets**: one for the API (Node process) and one for the 
 - **API host**: any Node 20+ runtime (VM, Docker, Railway, Render, Fly.io, etc.). Must be reachable over HTTPS in production.
 - **Web host**: static hosting (Vercel, Netlify, Cloudflare Pages, S3+CloudFront, etc.) or serve `dist/` from the same domain as the API (e.g. same server, different path).
 
-**Canonical production web:** host the SPA on **Vercel** (`apps/web`). The repo’s `apps/web/vercel.json` rewrites `/v1/*` to the Railway API (`https://alumni-api-production.up.railway.app/v1/$1`), so the browser calls same-origin `/v1/...` and the edge proxies to the API.
+**Current pilot deployment (October 2026):** Vercel hosts the SPA (`apps/web`), Render Free in Singapore hosts the API, and Supabase Free in Singapore hosts PostgreSQL. `apps/web/vercel.json` rewrites `/v1/*` to `https://alma-mater-api.onrender.com/v1/$1`, keeping browser API calls same-origin.
+
+Render uses root directory `apps/api`, build command `npm ci --include=dev && npm run build`, start command `npm run migrate && npm start`, and health path `/healthz`. `NODE_VERSION=24.14.1` and `DATABASE_POOL_MAX=5`. The Supabase session pooler uses port 5432 with `sslmode=verify-full` and `sslrootcert=/etc/secrets/supabase-ca.crt`; mount Supabase's published CA as a Render secret file. Never disable certificate verification or commit connection credentials.
+
+This is a pilot, not an always-on production guarantee. Render Free sleeps after 15 minutes idle and cold starts can take about a minute. The API's built-in hourly intentcast-expiry job also pauses while the instance sleeps.
+
+The current login UI uses email OTP/magic-link mode: `Login.tsx` sets `BETA_INVITE_AUTH_ENABLED = false`. The existing Vercel `VITE_BETA_INVITE_AUTH_ENABLED` variable does not control this override. This is separate from the API institutional-domain allowlist, which must remain unchanged. The Resend testing sender `onboarding@resend.dev` can deliver only to the Resend account email, not all institutional users.
+
+The older Railway workflow below remains in the repo. It is not the current deployment route. Do not delete old services or workflows without approval.
 
 ---
 
