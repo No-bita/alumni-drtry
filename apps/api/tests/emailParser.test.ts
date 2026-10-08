@@ -50,7 +50,7 @@ describe("email parser", () => {
   });
 
   it("parses firstname.middlename.lastname.deptYY (e.g. MST)", () => {
-    const parsed = parseInstitutionalIdentity("seed-admin-placeholder@example.invalid");
+    const parsed = parseInstitutionalIdentity("shahaaryan.milan.mst20@iitbhu.ac.in");
     expect(parsed.parsedFirstName).toBe("shahaaryan");
     expect(parsed.parsedLastName).toBe("milan");
     expect(parsed.departmentCode).toBe("mst");
