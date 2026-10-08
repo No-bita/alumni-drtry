@@ -113,9 +113,6 @@ describe("auth", () => {
       url: "/v1/auth/start",
       payload: { institutionalEmail: email }
     });
-    if (res.statusCode === 500) {
-      return; // Skip assertion when DB unavailable (e.g. CI without postgres)
-    }
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.challengeId).toBeDefined();
@@ -137,16 +134,14 @@ describe("auth", () => {
         url: "/v1/auth/start",
         payload: { institutionalEmail: email },
       });
-      if (res.statusCode === 500) return; // DB unavailable
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode, res.body).toBe(200);
     }
     const res = await app.inject({
       method: "POST",
       url: "/v1/auth/start",
       payload: { institutionalEmail: email },
     });
-    if (res.statusCode === 500) return;
-    expect(res.statusCode).toBe(429);
+    expect(res.statusCode, res.body).toBe(429);
     const body = res.json() as { code: string; message?: string };
     expect(body.code).toBe("AUTH_RATE_LIMITED");
     const retryAfter = res.headers["retry-after"];
