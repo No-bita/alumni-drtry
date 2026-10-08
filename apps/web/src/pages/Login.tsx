@@ -4,7 +4,6 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
-import { LandingWorldMap } from "../components/LandingWorldMap";
 import { api } from "../api/client";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
@@ -252,7 +251,6 @@ export function Login() {
           </ul>
         </div>
         <div className="auth-merged__card-mount">{cardMount}</div>
-        <LandingWorldMap className="auth-merged__map" />
       </div>
     </section>
   );
