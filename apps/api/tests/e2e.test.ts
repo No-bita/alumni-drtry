@@ -199,7 +199,7 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers,
-      payload: { fullName: "E2E Profile View User", batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: "E2E Profile View User", batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     expect(patchRes.statusCode, patchRes.body).toBe(200);
 
@@ -331,13 +331,13 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersA,
-      payload: { fullName: `E2E Alpha ${marker}`, batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: `E2E Alpha ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     const patchB = await app.inject({
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersB,
-      payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     expect(patchA.statusCode, patchA.body).toBe(200);
     expect(patchB.statusCode, patchB.body).toBe(200);
@@ -355,6 +355,29 @@ describe("e2e: full flow", () => {
   });
 
   it("authenticated: search keyset cursor returns a different row when hasMore", async () => {
+    // Seed this test's own completed profiles, not rows left by another test.
+    const marker = `cursorfixture${Date.now()}`;
+    for (const label of ["Alpha", "Beta"]) {
+      const start = await app.inject({
+        method: "POST", url: "/v1/auth/start",
+        payload: { institutionalEmail: `${label.toLowerCase()}-${marker}@iitbhu.ac.in` },
+      });
+      expect(start.statusCode, start.body).toBe(200);
+      const link = start.json() as { debug?: { magicLinkUrl?: string } };
+      const query = parseMagicLinkQuery(link.debug!.magicLinkUrl!);
+      const verify = await app.inject({
+        method: "GET",
+        url: `/v1/auth/verify?challengeId=${encodeURIComponent(query.challengeId)}&magicLinkToken=${encodeURIComponent(query.magicLinkToken)}`,
+      });
+      expect(verify.statusCode, verify.body).toBe(200);
+      const seedCookie = getSessionCookieFromResponse(verify, cookieName);
+      const complete = await app.inject({
+        method: "PATCH", url: "/v1/me/profile",
+        headers: { cookie: `${cookieName}=${seedCookie}` },
+        payload: { fullName: `${label} ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      });
+      expect(complete.statusCode, complete.body).toBe(200);
+    }
     const email = `e2e-search-page-${Date.now()}@iitbhu.ac.in`;
     const startRes = await app.inject({
       method: "POST",
@@ -374,7 +397,7 @@ describe("e2e: full flow", () => {
 
     const first = await app.inject({
       method: "GET",
-      url: "/v1/search?limit=1",
+      url: `/v1/search?q=${encodeURIComponent(marker)}&limit=1`,
       headers,
     });
     expect(first.statusCode, first.body).toBe(200);
@@ -390,7 +413,7 @@ describe("e2e: full flow", () => {
 
     const second = await app.inject({
       method: "GET",
-      url: `/v1/search?limit=1&cursor=${encodeURIComponent(firstBody.pageInfo.nextCursor)}`,
+      url: `/v1/search?q=${encodeURIComponent(marker)}&limit=1&cursor=${encodeURIComponent(firstBody.pageInfo.nextCursor)}`,
       headers,
     });
     expect(second.statusCode).toBe(200);
@@ -447,13 +470,13 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersA,
-      payload: { fullName: exactQ, batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: exactQ, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     const patchB = await app.inject({
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersB,
-      payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     expect(patchA.statusCode, patchA.body).toBe(200);
     expect(patchB.statusCode, patchB.body).toBe(200);
@@ -475,7 +498,7 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersC,
-      payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse" },
+      payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
     });
     expect(patchC.statusCode, patchC.body).toBe(200);
 
