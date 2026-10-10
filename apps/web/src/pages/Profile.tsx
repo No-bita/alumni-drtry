@@ -22,6 +22,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
+import { preflightProfileEdits } from "../lib/profileSavePreflight";
 import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import {
   emptySocialLinkDraft,
@@ -272,6 +273,14 @@ export function Profile() {
     setEditError(null);
     clearOrganizationIdCache();
 
+    // Check everything BEFORE the first write, so a typo can't leave a half-saved profile.
+    const preflightError = preflightProfileEdits(draftOccupations, draftSocialLinks, draftPersonalEmail);
+    if (preflightError) {
+      setSaving(false);
+      setEditError(preflightError);
+      return;
+    }
+
     const { error: profileError } = await api.patch("/v1/me/profile", {
       personalEmail: draftPersonalEmail.trim() || null,
       mobilePhone: draftMobilePhone.trim() || null,
@@ -350,6 +359,7 @@ export function Profile() {
     draftResidenceCity,
     draftOpenTo,
     draftOccupations,
+    draftSocialLinks,
     persistSocialLinks,
     refetchAuth,
     id,
