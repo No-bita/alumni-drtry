@@ -32,6 +32,11 @@ export const queryKeys = {
     campusMonthly: () => ["home", "campus-monthly"] as const,
     /** Bulletin replies to the viewer’s posts — Home Active Requests “Replies” tab. */
     receivedBulletinReplies: () => ["home", "bulletin-replies-received"] as const,
+    /**
+     * The viewer's own open posts (footprint strip). Nested under the opportunity-rail key on purpose:
+     * every existing publish/delete invalidation of that key refreshes the strip too.
+     */
+    myPosts: () => ["home", "opportunity-rail", "mine"] as const,
   },
   auth: {
     all: ["auth"] as const,
