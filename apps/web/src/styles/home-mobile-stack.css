@@ -1,0 +1,10 @@
+/*
+ * Phones and small tablets: stack the Home bottom panels (Your Network, Campus Updates).
+ * The premium dashboard variant sets two columns with a more specific selector than the
+ * base stack rule, which pushed the panels past the screen edge at 390px.
+ */
+@media (max-width: 820px) {
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__bottom-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
