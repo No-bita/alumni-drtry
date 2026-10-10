@@ -1,7 +1,7 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { env } from "./config/env.js";
 import { AppError, isAppError } from "./lib/errors.js";
 import { captureException } from "./lib/sentry.js";
@@ -174,7 +174,7 @@ export async function createApp() {
     })
   );
 
-  app.get("/healthz", async (_request, reply) => {
+  const healthHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       await pool.query("SELECT 1");
       return reply.code(200).send({ status: "ok", db: "ok" });
@@ -182,7 +182,10 @@ export async function createApp() {
       _request.log.warn({ err }, "Health check: database unreachable");
       return reply.code(503).send({ status: "degraded", db: "error" });
     }
-  });
+  };
+  app.get("/healthz", healthHandler);
+  // Same check under /v1 so the web app can warm the API through its same-origin /v1 proxy.
+  app.get("/v1/healthz", healthHandler);
 
   app.setErrorHandler((error, request, reply) => {
     if (isAppError(error)) {
