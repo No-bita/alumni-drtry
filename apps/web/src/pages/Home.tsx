@@ -870,6 +870,7 @@ export function Home() {
             viewerPersonId={authPersonId}
             bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
             bulletinRepliesLoading={bulletinRepliesFeedLoading}
+            onAskFirst={() => bulletinFlowRef.current?.open()}
           />
           <div className="home-ideal__bottom-panels">
             <HomeNetworkPanel
