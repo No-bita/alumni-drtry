@@ -1,3 +1,4 @@
+import "../styles/home-nudge.css";
 import { Link } from "react-router-dom";
 import {
   IconArrowUpRight,
