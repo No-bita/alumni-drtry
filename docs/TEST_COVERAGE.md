@@ -18,11 +18,11 @@ Measured with batches 1 and 2 of the suite applied on top of main (113 tests).
 
 | Area | Lines covered | Status |
 | --- | --- | --- |
-| src/lib | 57% (569 of 1000) | Good. Pure helpers are cheap to test and mostly covered. |
-| src/constants | 28% | Mostly static data. Low value. |
-| src/components | 4% | Gap. Needs component tests with a router, query client and auth mock. |
-| src/pages | 0% | Gap. Same harness, plus API mocks per page. |
-| src/hooks, src/contexts | 0% | Gap. Auth context needs a mocked `/v1/me`. |
+| src/lib | 57% (574 of 1000) | Good. Pure helpers are cheap to test and mostly covered. |
+| src/constants | 72% | Mostly static data. Low value. |
+| src/components | 5% | Gap. Needs component tests with a router, query client and auth mock. |
+| src/pages | 12% (Login, AuthVerify, Landing, IntentPage, Events, Search partly) | Gap. Same harness, plus API mocks per page. |
+| src/hooks, src/contexts | 2% / 0% | Gap. Auth context needs a mocked `/v1/me`. |
 | src/api | 13% | Client is thin. Covered indirectly once pages are tested. |
 
 Still at 0% in src/lib and worth doing next: queryKeys, bulletinFlowBindings, reverseGeocodeClient, parseHiringBulletin (10%), bulletinPostCardUtils (21%), buildPostContent edge cases, cityIntentFromToolbar.
@@ -60,3 +60,8 @@ Not covered, and why:
 - Google sign-in: needs live OAuth.
 - Layout at 390px: covered by screenshots in the PRs, plus the CSS guard tests (mobileLayoutBreakpoints, landingMapLayoutGuard). Pixel layout is not asserted in jsdom.
 - Render deploy health: needs the live service.
+
+
+## Refresh (all test PRs applied, web lines)
+
+21 test files, 141 tests, overall about 16% of web lines (was about 11%). Not yet covered: Profile, Home, LocationPage, Onboarding, ConnectionThread, admin pages, AuthContext. Search error state is not covered because the mocked rejection surfaces as a test error in jsdom. The cold-start fix has no web source to test.
