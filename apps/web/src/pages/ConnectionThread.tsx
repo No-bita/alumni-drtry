@@ -15,6 +15,7 @@ import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { assertApiGet } from "../lib/assertApiGet";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
+import { THREAD_REFRESH_OPTIONS } from "../lib/threadRefresh";
 import { demoDisplayFullName } from "../lib/demoProfile";
 import { formatThreadMessageTime, replySnippet } from "../lib/threadMessageFormat";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -82,6 +83,7 @@ function ConnectionThreadBody({
       return assertApiGet<ConnectionThreadDetailResponse>(`/v1/connection-threads/${threadId}`, signal);
     },
     enabled: Boolean(threadId),
+    ...THREAD_REFRESH_OPTIONS,
   });
 
   const detail = detailQuery.data ?? null;
