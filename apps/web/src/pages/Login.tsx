@@ -6,10 +6,12 @@ import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { api } from "../api/client";
+import { startAuthWithWakeRetry } from "../lib/authStartRetry";
+import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
 
-type LoginPhase = "form" | "sending" | "sent";
+type LoginPhase = "form" | "sending" | "timeout" | "sent";
 type SentAuthMethod = "otp" | "password";
 
 const OTP_LENGTH = 6;
@@ -39,6 +41,9 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [phase, setPhase] = useState<LoginPhase>("form");
   const [error, setError] = useState<string | null>(null);
+  /** True once the first sign-in request got no answer and we are retrying quietly. */
+  const [serverWaking, setServerWaking] = useState(false);
+  const startAbortRef = useRef<AbortController | null>(null);
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [showSuccessVideo, setShowSuccessVideo] = useState(false);
@@ -63,8 +68,15 @@ export function Login() {
   const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
   const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
 
+  useEffect(() => {
+    // Invisible: start waking the API host while the user types their email.
+    warmUpApi();
+    return () => startAbortRef.current?.abort();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (phase === "sending") return;
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
@@ -113,12 +125,26 @@ export function Login() {
         return;
       }
 
-      const { data, error: err, retryAfterSeconds } = await api.post<{
-        challengeId: string;
-        sentTo?: string;
-      }>("/v1/auth/start", {
-        institutionalEmail: normalizedEmail,
-      });
+      setServerWaking(false);
+      startAbortRef.current?.abort();
+      const controller = new AbortController();
+      startAbortRef.current = controller;
+      const outcome = await startAuthWithWakeRetry(
+        (signal) =>
+          api.post<{ challengeId: string; sentTo?: string }>(
+            "/v1/auth/start",
+            { institutionalEmail: normalizedEmail },
+            { signal }
+          ),
+        { signal: controller.signal, onWaking: () => setServerWaking(true) }
+      );
+      if (outcome.kind === "aborted") return;
+      setServerWaking(false);
+      if (outcome.kind === "timeout") {
+        setPhase("timeout");
+        return;
+      }
+      const { data, error: err, retryAfterSeconds } = outcome.result;
       if (err) {
         let msg = err.message ?? err.code;
         if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
@@ -509,6 +535,39 @@ export function Login() {
     );
   }
 
+  if (phase === "timeout") {
+    return (
+      <div className="auth-login-page">
+        <Nav hideSignInLink hideSignOut />
+        {renderAuthMarketingShell(
+          <div className="auth-merged__card">
+            <div role="alert">
+              <p className="auth-merged__error">
+                We could not reach the server. It may still be waking up. Try again in a moment; we have not confirmed that a sign-in link was sent.
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                style={{ marginTop: 16, width: "100%" }}
+                onClick={(e) => void handleSubmit(e as unknown as React.FormEvent)}
+              >
+                Try again
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                style={{ marginTop: 8, width: "100%" }}
+                onClick={() => setPhase("form")}
+              >
+                Use a different email
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (phase === "sending") {
     return (
       <div className="auth-login-page">
@@ -518,7 +577,11 @@ export function Login() {
             <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending__spinner" aria-hidden />
               <p className="login-sending__line">
-                {BETA_INVITE_AUTH_ENABLED ? "Signing you in…" : "Hang tight — we’re sending your sign-in link."}
+                {BETA_INVITE_AUTH_ENABLED
+                  ? "Signing you in…"
+                  : serverWaking
+                    ? "Waking up the server, this can take up to 30 seconds."
+                    : "Hang tight — we’re sending your sign-in link."}
               </p>
             </div>
           </div>
