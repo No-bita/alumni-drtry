@@ -24,12 +24,15 @@ import {
 import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { HomeIntentHero } from "../components/HomeIntentHero";
+import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQuickActions";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeCampusUpdatesPanel } from "../components/HomeCampusUpdatesPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
 import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
+
+const EMPTY_POSTS: IntentcastFeedItem[] = [];
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
   const fn = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim();
@@ -703,6 +706,16 @@ export function Home() {
     enabled: authenticated,
   });
 
+  const myPostsQuery = useQuery({
+    queryKey: queryKeys.home.myPosts(),
+    queryFn: ({ signal }) =>
+      assertApiGet<IntentcastFeedResponse>(
+        "/v1/intentcasts?mine=true&limit=20&offset=0&excludeAuthorSoftDeleted=true",
+        signal
+      ),
+    enabled: authenticated && !useDevMocks,
+  });
+
   const opportunitiesFeedLoading =
     authenticated &&
     !useDevMocks &&
@@ -828,6 +841,12 @@ export function Home() {
   const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
   const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
   const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => setActiveCategory(category);
+  const openRepliesTab = () => {
+    setActiveCategory("replies");
+    window.requestAnimationFrame(() => {
+      document.getElementById("home-opportunities-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   const handleBulletinPublishSuccess = (posted: IntentcastFeedItem) => {
     queryClient.setQueryData<IntentcastFeedResponse>(["home", "opportunity-rail"], (prev) => {
       if (!prev) return prev;
@@ -860,6 +879,14 @@ export function Home() {
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
+          {authPersonId && !useDevMocks ? (
+            <HomeFootprintStrip
+              myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
+              replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
+              viewerPersonId={authPersonId}
+              onOpenReplies={openRepliesTab}
+            />
+          ) : null}
           <HomeIntentHero actions={homeHeroActions} nudgeActionId={shouldNudgeShareOnBulletin ? "bulletin" : undefined} />
           <HomeOpportunityRail
             intentcasts={opportunityIntentcasts}
