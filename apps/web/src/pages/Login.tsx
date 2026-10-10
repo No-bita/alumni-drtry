@@ -543,7 +543,7 @@ export function Login() {
           <div className="auth-merged__card">
             <div role="alert">
               <p className="auth-merged__error">
-                We could not reach the server. It may still be waking up. Try again in a moment; we have not confirmed that a sign-in link was sent.
+                Still no answer. The server is either deep in a nap or having a rough day. We can't confirm your sign-in link went out, so give it another go.
               </p>
               <Button
                 type="button"
@@ -580,7 +580,7 @@ export function Login() {
                 {BETA_INVITE_AUTH_ENABLED
                   ? "Signing you in…"
                   : serverWaking
-                    ? "Waking up the server, this can take up to 30 seconds."
+                    ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
                     : "Hang tight — we’re sending your sign-in link."}
               </p>
             </div>
