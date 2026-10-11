@@ -18,7 +18,15 @@ export function HomeCampusUpdatesPanel() {
     return FALLBACK_PDF;
   }, [digestQuery.data]);
 
-  const title = digestQuery.data?.issue?.headingLabel ?? "Alma Communique - Feb 2026";
+  const liveIssue = digestQuery.data?.issue ?? null;
+  const title = liveIssue?.headingLabel ?? "Alma Communique - Feb 2026";
+  const blurb = digestQuery.isPending
+    ? "Checking for the newest edition."
+    : digestQuery.isError
+      ? "We couldn't check for a newer edition just now. This one is the latest we have on file."
+      : liveIssue
+        ? "Hot off the press. Grab a chai and read it."
+        : "No current edition is available. Read the February 2026 edition.";
 
   return (
     <section className="home-ideal__panel" aria-labelledby="home-campus-updates-heading">
@@ -38,21 +46,16 @@ export function HomeCampusUpdatesPanel() {
         </div>
         <div className="home-ideal__campus-body">
           <p className="home-ideal__campus-title">{title.replace(" - ", " - ")}</p>
-          <p className="home-ideal__campus-copy">The latest edition is out now!</p>
+          <p className="home-ideal__campus-copy">{blurb}</p>
           <p className="home-ideal__campus-meta">
             <IconFile className="home-ideal__campus-meta-icon" />
             <span>PDF</span>
-            <span className="home-ideal__campus-meta-dot">·</span>
-            <span>4.2 MB</span>
           </p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="home-ideal__campus-view-btn">
             View PDF
           </a>
         </div>
       </article>
-      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="home-ideal__campus-past-link">
-        View all past editions <span aria-hidden>→</span>
-      </a>
     </section>
   );
 }
