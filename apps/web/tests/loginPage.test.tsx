@@ -56,7 +56,8 @@ describe("Login page", () => {
     mount();
     submit("  Rahul.S@ITBHU.ac.in ");
     await waitFor(() => expect(apiPost).toHaveBeenCalled());
-    expect(apiPost).toHaveBeenCalledWith("/v1/auth/start", { institutionalEmail: "rahul.s@itbhu.ac.in" });
+    expect(apiPost.mock.calls[0][0]).toBe("/v1/auth/start");
+    expect(apiPost.mock.calls[0][1]).toEqual({ institutionalEmail: "rahul.s@itbhu.ac.in" });
     expect(await screen.findByRole("group", { name: "One-time code" })).toBeTruthy();
   });
 
