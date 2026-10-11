@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import type { SearchProfileView } from "../api/client";
@@ -20,12 +20,23 @@ export function HomeNetworkPanel({
   const isEmpty = avatars.length === 0;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState<"idle" | "yes" | "no">("idle");
+  const copiedTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+    },
+    []
+  );
   const link = buildInviteLink(typeof window === "undefined" ? "" : window.location.origin);
 
   const onCopy = async () => {
     const ok = await copyText(link);
     setCopied(ok ? "yes" : "no");
-    window.setTimeout(() => setCopied("idle"), 2500);
+    if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => {
+      copiedTimer.current = null;
+      setCopied("idle");
+    }, 2500);
   };
 
   return (
