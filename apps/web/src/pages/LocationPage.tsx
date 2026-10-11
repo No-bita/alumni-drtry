@@ -509,6 +509,13 @@ export function LocationPage() {
     }, 1000);
   }
 
+  function showHousingRequests() {
+    setActiveNeed("housing");
+    window.requestAnimationFrame(() => {
+      document.querySelector(".cities-redesign__tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function openComposer(mode: "request" | "event") {
     clearAutoOpenRequestTimer();
     setHighlightCreateRequestCta(false);
@@ -709,7 +716,7 @@ export function LocationPage() {
                 <p className="cities-redesign__quick-copy">Post a request and get help from alumni</p>
               </div>
             </button>
-            <button type="button" className="cities-redesign__quick-card">
+            <button type="button" className="cities-redesign__quick-card" onClick={showHousingRequests}>
               <span className="cities-redesign__quick-icon"><IconCity /></span>
               <div>
                 <p className="cities-redesign__quick-title">Find housing</p>
