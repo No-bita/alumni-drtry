@@ -1,0 +1,10 @@
+/*
+ * Hire Alumni / bulletin flow dialog: keep the dialog inside the viewport and scroll its content,
+ * so the Preview / Publish actions stay reachable on short or narrow screens.
+ */
+.career-hiring-flow__overlay .career-hiring-flow__dialog {
+  max-height: calc(100dvh - 44px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
