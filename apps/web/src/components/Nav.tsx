@@ -175,6 +175,15 @@ function NavUserMenu({
         <span className="visually-hidden">Account menu</span>
       </summary>
       <div className="nav__user-menu-panel">
+        {!onboardingCompleted && profileId ? (
+          <Link
+            to="/onboarding"
+            className="nav__user-menu-link nav__user-menu-link--primary"
+            onClick={closeMenu}
+          >
+            Finish your profile
+          </Link>
+        ) : null}
         {onboardingCompleted && profileId ? (
           <Link
             to={`/profiles/${profileId}`}
