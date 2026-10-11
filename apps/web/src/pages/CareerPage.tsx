@@ -130,6 +130,7 @@ export function CareerPage() {
         <CareerIntentFeedRows
           intentcasts={careerFeedQuery.data?.intentcasts ?? []}
           loading={careerFeedLoading}
+          error={careerFeedQuery.isError}
           viewerPersonId={auth.status === "authenticated" ? auth.person.personId : null}
           className="career-page-intent-feed__panel"
         />

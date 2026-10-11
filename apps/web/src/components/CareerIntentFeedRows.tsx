@@ -32,6 +32,7 @@ import {
   stripStructuredHiringTailMeta,
 } from "../lib/parseHiringBulletin";
 import { queryKeys } from "../lib/queryKeys";
+import { PageStateBlock } from "./PageStateBlock";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 
@@ -572,12 +573,14 @@ const TAB_DEFS: Array<{ id: CareerFeedTabId; label: string }> = CAREER_FEED_INCL
 type CareerIntentFeedRowsProps = {
   intentcasts: IntentcastFeedItem[];
   loading: boolean;
+  /** True when the feed request failed and there is nothing cached to show. */
+  error?: boolean;
   viewerPersonId: string | null;
   /** Extra class on root `<section>` */
   className?: string;
 };
 
-export function CareerIntentFeedRows({ intentcasts, loading, viewerPersonId, className }: CareerIntentFeedRowsProps) {
+export function CareerIntentFeedRows({ intentcasts, loading, error = false, viewerPersonId, className }: CareerIntentFeedRowsProps) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<CareerFeedTabId>("all");
 
@@ -792,6 +795,12 @@ export function CareerIntentFeedRows({ intentcasts, loading, viewerPersonId, cla
         <p className="career-feed-rows__state" role="status">
           Loading activity…
         </p>
+      ) : error && baseRows.length === 0 ? (
+        <PageStateBlock
+          title="Couldn’t load activity"
+          description="Something went wrong on our side. Please try again in a moment."
+          tone="error"
+        />
       ) : filteredRows.length === 0 ? (
         <p className="career-feed-rows__state">
           {baseRows.length === 0
