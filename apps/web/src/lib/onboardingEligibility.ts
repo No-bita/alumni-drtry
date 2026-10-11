@@ -63,6 +63,6 @@ export function canResumeOnboarding(
   person: MePerson | undefined | null
 ): boolean {
   if (profile.onboardingCompletedAt) return false;
-  if (canAccessOnboardingFlow(profile, person)) return true;
-  return !superAdminSkipsAlumniJourney(person);
+  if (import.meta.env.PROD && isSuperAdminFromProfileOrSession(profile, person)) return false;
+  return true;
 }
