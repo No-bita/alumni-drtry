@@ -35,7 +35,7 @@ export function OnboardingChecklistCard() {
   const [now] = useState(() => Date.now());
 
   // Only count the card as seen once it can actually be on screen.
-  const readyToShow = Boolean(personId && profile && !dismissed && isNewEnough(profile.createdAt, now) && !threadsQuery.isPending);
+  const readyToShow = Boolean(personId && profile && !dismissed && isNewEnough(profile.createdAt, now) && threadsQuery.isSuccess);
 
   useEffect(() => {
     if (personId && open && readyToShow) writeFlag(personId, "seen");
@@ -43,7 +43,8 @@ export function OnboardingChecklistCard() {
 
   if (!personId || !profile || dismissed) return null;
   if (!isNewEnough(profile.createdAt, now)) return null;
-  if (threadsQuery.isPending) return null;
+  // Hide on error too: absent thread data must not read as "no messages sent yet".
+  if (!threadsQuery.isSuccess) return null;
 
   const steps = checklistSteps({
     profile,
