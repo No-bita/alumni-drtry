@@ -15,6 +15,10 @@ describe("preflightProfileEdits", () => {
   it("passes a good link", () => {
     expect(preflightProfileEdits([], links({ [SOCIAL_PLATFORM_ORDER[0]]: "https://example.com/me" }))).toBeNull();
   });
+  it("rejects a single-word link with no domain", () => {
+    expect(preflightProfileEdits([], links({ [SOCIAL_PLATFORM_ORDER[0]]: "linkedin" }))).toMatch(/Nothing was saved yet/);
+    expect(preflightProfileEdits([], links({ [SOCIAL_PLATFORM_ORDER[0]]: "linkedin.com/in/me" }))).toBeNull();
+  });
   it("stops on a bad link before anything is written", () => {
     const msg = preflightProfileEdits([], links({ [SOCIAL_PLATFORM_ORDER[0]]: "not a link at all" }));
     expect(msg).toMatch(/Nothing was saved yet/);
