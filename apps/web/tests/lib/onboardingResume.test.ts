@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { canAccessOnboardingFlow, canResumeOnboarding } from "../../src/lib/onboardingEligibility";
 
 const base = { role: "alumni" as const, onboardingCompletedAt: null };
@@ -18,5 +18,18 @@ describe("canResumeOnboarding", () => {
     expect(
       canResumeOnboarding({ ...base, appLoginCount: 5, onboardingCompletedAt: "2026-01-01T00:00:00Z" }, undefined)
     ).toBe(false);
+  });
+
+  describe("production super admins", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("are not offered resume, by profile role or session role", () => {
+      vi.stubEnv("PROD", true);
+      const profile = { ...base, role: "super_admin" as const, appLoginCount: 1 };
+      expect(canResumeOnboarding(profile, undefined)).toBe(false);
+      expect(canResumeOnboarding({ ...base, appLoginCount: 1 }, { role: "super_admin" } as never)).toBe(false);
+    });
   });
 });
