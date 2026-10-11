@@ -1,0 +1,30 @@
+/* Keep Home panels within the phone viewport; premium rules otherwise override the stack. */
+@media (max-width: 820px) {
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__bottom-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-dashboard--ideal .home-ideal__panel {
+    min-width: 0;
+  }
+}
+
+/* OTP labels and recovery controls sit on the dark login card, not the light app shell. */
+.auth-login-page .login-gate-sent__otp label,
+.auth-login-page .auth-merged__card--sent .btn--back {
+  color: rgba(252, 248, 240, 0.88);
+}
+
+@media (max-width: 639px) {
+  .auth-login-page .auth-merged__card--sent .lanka-gate {
+    margin-bottom: 12px;
+  }
+
+  .auth-login-page .auth-merged__card--sent .lanka-gate__svg {
+    width: 160px;
+  }
+
+  .auth-login-page .auth-merged__card--sent .login-gate-sent__otp {
+    margin-top: 16px;
+  }
+}
