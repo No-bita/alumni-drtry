@@ -27,4 +27,16 @@ describe("Campus Updates panel", () => {
     await waitFor(() => expect(screen.getByText(/still being printed/)).toBeTruthy());
     expect(screen.queryByText(/out now/i)).toBeNull();
   });
+  it("does not claim a missing issue while still loading", async () => {
+    vi.mocked(assertApiGet).mockReturnValue(new Promise(() => {}));
+    wrap();
+    expect(screen.getByText(/Checking for the newest edition/)).toBeTruthy();
+    expect(screen.queryByText(/still being printed/)).toBeNull();
+  });
+  it("does not claim a missing issue when the request fails", async () => {
+    vi.mocked(assertApiGet).mockRejectedValue(new Error("down"));
+    wrap();
+    await waitFor(() => expect(screen.getByText(/couldn't check for a newer edition/)).toBeTruthy());
+    expect(screen.queryByText(/still being printed/)).toBeNull();
+  });
 });
