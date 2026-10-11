@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "../styles/career-hiring-flow-scroll.css";
 
 export type CareerIntentFlowStep = "compose" | "preview";
 
