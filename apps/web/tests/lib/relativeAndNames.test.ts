@@ -83,9 +83,19 @@ describe("thread message formatting", () => {
     vi.setSystemTime(new Date(2026, 2, 10, 15, 0, 0));
     const today = formatThreadCompactTime(new Date(2026, 2, 10, 9, 5, 0).toISOString());
     const earlier = formatThreadCompactTime(new Date(2026, 2, 1, 9, 5, 0).toISOString());
-    expect(today).toMatch(/9[:.]05/);
-    expect(earlier).not.toMatch(/9[:.]05/);
-    expect(formatThreadMessageTime(new Date(2026, 2, 1, 9, 5, 0).toISOString())).toMatch(/9[:.]05/);
+    const nineOhFive = new Date(2026, 2, 10, 9, 5, 0);
+    const timeOnly = nineOhFive.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    expect(today).toBe(timeOnly);
+    expect(earlier).not.toBe(timeOnly);
+    expect(formatThreadMessageTime(new Date(2026, 2, 1, 9, 5, 0).toISOString())).toBe(
+      new Date(2026, 2, 1, 9, 5, 0).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    );
     vi.useRealTimers();
   });
 });
