@@ -67,7 +67,27 @@ export async function startAuthWithWakeRetry<T>(
 
   for (let attempt = 0; ; attempt += 1) {
     if (controller.signal.aborted) return { kind: "aborted" };
-    const result = await send(controller.signal);
+    const remainingMs = deadlineMs - (now() - started);
+    if (remainingMs <= 0) return { kind: "timeout" };
+    // A request that never answers must not outlive the deadline: race it and abort it.
+    let timedOut = false;
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<"deadline">((resolve) => {
+      deadlineTimer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        resolve("deadline");
+      }, remainingMs);
+    });
+    let result: AuthStartResult<T>;
+    try {
+      const raced = await Promise.race([send(controller.signal), deadline]);
+      if (raced === "deadline") return { kind: "timeout" };
+      result = raced;
+    } finally {
+      clearTimeout(deadlineTimer);
+    }
+    if (timedOut) return { kind: "timeout" };
     if (result.aborted || controller.signal.aborted) return { kind: "aborted" };
     if (!isServerWaking(result)) return { kind: "done", result };
     if (now() - started >= deadlineMs) return { kind: "timeout" };
