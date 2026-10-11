@@ -113,6 +113,22 @@ describe("startAuthWithWakeRetry", () => {
   });
 });
 
+describe("startAuthWithWakeRetry hung request", () => {
+  it("times out and aborts a request that never answers", async () => {
+    let seen: AbortSignal | undefined;
+    const send = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<AuthStartResult<{ challengeId: string }>>(() => {
+          seen = signal;
+        })
+    );
+    const out = await startAuthWithWakeRetry(send, { deadlineMs: 30 });
+    expect(out).toEqual({ kind: "timeout" });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(seen?.aborted).toBe(true);
+  });
+});
+
 describe("warmUpApi", () => {
   it("fires one quiet GET to the health route and never again", () => {
     const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
