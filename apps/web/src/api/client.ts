@@ -1,6 +1,9 @@
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
+/** Member-facing network failure text. Deployment details belong in docs, not in the UI. */
+export const NETWORK_ERROR_MESSAGE = "We couldn't reach the server. Check your connection and try again in a moment.";
+
 const rawApiBaseUrl = import.meta.env.VITE_API_URL?.trim() ?? "";
 /**
  * Production uses same-origin `/v1/*` via hosting rewrites (see `vercel.json`) so
@@ -39,7 +42,7 @@ async function request<T>(
       error: {
         code: "NETWORK_ERROR",
         message:
-          "Could not reach the API. Local: run apps/api on port 4000 with VITE_API_URL unset (Vite proxies /v1). Deployed: ensure /v1 reaches your API (Vercel rewrites or VITE_API_URL + CORS).",
+          NETWORK_ERROR_MESSAGE,
       },
     };
   }
@@ -83,7 +86,7 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
       error: {
         code: "NETWORK_ERROR",
         message:
-          "Could not reach the API. Local: run apps/api on port 4000 with VITE_API_URL unset (Vite proxies /v1). Deployed: ensure /v1 reaches your API (Vercel rewrites or VITE_API_URL + CORS).",
+          NETWORK_ERROR_MESSAGE,
       },
     };
   }
