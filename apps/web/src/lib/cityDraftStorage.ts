@@ -11,15 +11,38 @@ export function cityDraftsKey(owner: string, kind: CityDraftKind): string {
   return `alma.cityDrafts.v1.${owner}.${kind}`;
 }
 
+const NEED_TYPES = ["housing", "accommodation", "sports_activity", "city_help"];
+
+function isStr(v: unknown): v is string {
+  return typeof v === "string";
+}
+
+/** Stored data is untrusted: an entry missing a field the board reads (city, country, ...) must be dropped, not rendered. */
+function isDraftOf(kind: CityDraftKind, item: unknown): boolean {
+  if (!item || typeof item !== "object") return false;
+  const o = item as Record<string, unknown>;
+  if (!isStr(o.id) || !isStr(o.city) || !isStr(o.country) || !isStr(o.title)) return false;
+  if (kind === "events") {
+    return isStr(o.startsAtLabel) && isStr(o.venue) && typeof o.attendeeCount === "number";
+  }
+  return (
+    isStr(o.type) &&
+    NEED_TYPES.includes(o.type) &&
+    isStr(o.askedByName) &&
+    isStr(o.askedByDepartmentCode) &&
+    typeof o.askedByBatchYear === "number" &&
+    isStr(o.description) &&
+    (o.askedByPersonId === undefined || isStr(o.askedByPersonId))
+  );
+}
+
 export function loadCityDrafts<T extends { id: string }>(owner: string, kind: CityDraftKind): T[] {
   try {
     const raw = window.localStorage.getItem(cityDraftsKey(owner, kind));
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((item): item is T => Boolean(item) && typeof item === "object" && typeof (item as { id?: unknown }).id === "string")
-      .slice(0, MAX_DRAFTS);
+    return parsed.filter((item): item is T => isDraftOf(kind, item)).slice(0, MAX_DRAFTS);
   } catch {
     return [];
   }
