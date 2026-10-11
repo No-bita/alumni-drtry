@@ -4,15 +4,38 @@ import { cityDraftsKey, loadCityDrafts, saveCityDrafts } from "../src/lib/cityDr
 
 afterEach(() => window.localStorage.clear());
 
+const need = (over: Record<string, unknown> = {}) => ({
+  id: "need-local-1",
+  city: "Pune",
+  country: "India",
+  type: "housing",
+  askedByName: "A",
+  askedByDepartmentCode: "CSE",
+  askedByBatchYear: 2020,
+  title: "Room",
+  description: "Near the station",
+  ...over,
+});
+const event = (over: Record<string, unknown> = {}) => ({
+  id: "event-local-1",
+  city: "Pune",
+  country: "India",
+  title: "Cricket",
+  startsAtLabel: "Sat 7 PM",
+  venue: "Ground",
+  attendeeCount: 0,
+  ...over,
+});
+
 describe("city draft storage", () => {
   it("round-trips drafts per person and kind", () => {
-    saveCityDrafts("p1", "needs", [{ id: "need-local-1", title: "Room" }]);
-    expect(loadCityDrafts("p1", "needs")).toEqual([{ id: "need-local-1", title: "Room" }]);
+    saveCityDrafts("p1", "needs", [need()]);
+    expect(loadCityDrafts("p1", "needs")).toEqual([need()]);
     expect(loadCityDrafts("p2", "needs")).toEqual([]);
     expect(loadCityDrafts("p1", "events")).toEqual([]);
   });
   it("clears the key when there is nothing left", () => {
-    saveCityDrafts("p1", "events", [{ id: "e1" }]);
+    saveCityDrafts("p1", "events", [event()]);
     saveCityDrafts("p1", "events", []);
     expect(window.localStorage.getItem(cityDraftsKey("p1", "events"))).toBeNull();
   });
@@ -21,8 +44,19 @@ describe("city draft storage", () => {
     expect(loadCityDrafts("p1", "needs")).toEqual([]);
     window.localStorage.setItem(cityDraftsKey("p1", "needs"), JSON.stringify({ id: "x" }));
     expect(loadCityDrafts("p1", "needs")).toEqual([]);
-    window.localStorage.setItem(cityDraftsKey("p1", "needs"), JSON.stringify([{ id: "ok" }, 5, null, { title: "no id" }]));
-    expect(loadCityDrafts("p1", "needs")).toEqual([{ id: "ok" }]);
+    window.localStorage.setItem(cityDraftsKey("p1", "needs"), JSON.stringify([need(), 5, null, { title: "no id" }]));
+    expect(loadCityDrafts("p1", "needs")).toEqual([need()]);
+  });
+  it("drops entries missing fields the board reads, so they cannot crash it", () => {
+    const { city: _c, ...noCity } = need();
+    window.localStorage.setItem(
+      cityDraftsKey("p1", "needs"),
+      JSON.stringify([noCity, need({ type: "other" }), need({ askedByBatchYear: "2020" }), need({ id: "keep" })])
+    );
+    expect(loadCityDrafts("p1", "needs").map((n) => n.id)).toEqual(["keep"]);
+    const { venue: _v, ...noVenue } = event();
+    window.localStorage.setItem(cityDraftsKey("p1", "events"), JSON.stringify([noVenue, event({ attendeeCount: "0" }), event({ id: "ok" })]));
+    expect(loadCityDrafts("p1", "events").map((n) => n.id)).toEqual(["ok"]);
   });
   it("does not throw when storage is unavailable", () => {
     const orig = Storage.prototype.setItem;
@@ -30,7 +64,7 @@ describe("city draft storage", () => {
       throw new Error("quota");
     };
     try {
-      expect(() => saveCityDrafts("p1", "needs", [{ id: "a" }])).not.toThrow();
+      expect(() => saveCityDrafts("p1", "needs", [need()])).not.toThrow();
     } finally {
       Storage.prototype.setItem = orig;
     }
