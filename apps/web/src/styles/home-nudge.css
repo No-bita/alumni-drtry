@@ -1,0 +1,27 @@
+/*
+ * The "Share with the batch" card is meant to wink at you when the feed is empty.
+ * The old shake moved 2px for a blink every 2.8s, so nobody noticed it. This adds a
+ * soft pulsing ring that is actually visible, and the shake stays as a garnish.
+ */
+@keyframes homeQuickActionNudgePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(176, 80, 40, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(176, 80, 40, 0.28);
+  }
+}
+
+.home-ideal__quick-action-card.home-ideal__quick-action-card--nudge {
+  animation:
+    homeQuickActionNudgePulse 2.2s ease-in-out infinite,
+    homeQuickActionNudgeShake 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-ideal__quick-action-card.home-ideal__quick-action-card--nudge {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(176, 80, 40, 0.28);
+  }
+}
