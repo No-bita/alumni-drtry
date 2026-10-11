@@ -49,7 +49,7 @@ These tests ship with the feature PRs because the code only exists on those bran
 Pure helpers in src/lib are tested without a database. Route and service tests (`tests/e2e.test.ts`, `tests/auth.test.ts`) need Postgres via `DATABASE_URL` and run slowly, one at a time.
 
 Not covered, and why:
-- src/services/* (auth, intentcast, discovery, connection threads, admin): need a database. They are exercised only by the e2e suite.
+- src/services/* (auth, intentcast, discovery, connection threads, admin): need a database. They are exercised by the e2e suite, and `tests/auth.test.ts` also covers the database-backed `/v1/auth/start` route.
 - src/routes/*: same. A mocked-repo layer does not exist, so route tests would need a test database.
 - src/services/emailSender.ts: sends mail through a provider. Needs an injectable transport to test without side effects.
 - src/lib/googleOAuth.ts, sentry.ts: wrap third-party SDKs.
