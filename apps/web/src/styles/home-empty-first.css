@@ -1,0 +1,11 @@
+.home-ideal__empty.home-ideal__empty--first {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+}
+
+.home-ideal__empty--first p {
+  margin: 0;
+}

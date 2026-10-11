@@ -894,9 +894,11 @@ export function Home() {
             onCategoryChange={handleOpportunityCategoryChange}
             categoryCounts={viewModel.categoryCounts}
             opportunitiesFeedLoading={opportunitiesFeedLoading}
+            opportunitiesFeedError={opportunitiesQuery.isError}
             viewerPersonId={authPersonId}
             bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
             bulletinRepliesLoading={bulletinRepliesFeedLoading}
+            onAskFirst={() => bulletinFlowRef.current?.open()}
           />
           <div className="home-ideal__bottom-panels">
             <HomeNetworkPanel

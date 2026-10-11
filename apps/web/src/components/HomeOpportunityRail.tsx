@@ -1,3 +1,4 @@
+import "../styles/home-empty-first.css";
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
@@ -11,6 +12,7 @@ import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog
 import { IconBriefcase, IconChatBubble, IconCity, IconRefer } from "./HomeIcons";
 import { demoDisplayFullName } from "../lib/demoProfile";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
+import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, mapIntentcastToRow, type CareerFeedRowModel } from "./CareerIntentFeedRows";
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
@@ -43,10 +45,14 @@ type HomeOpportunityRailProps = {
   categoryCounts: Record<Exclude<HomeOpportunityCategory, "all">, number>;
   /** When true, hide the empty state until the intentcasts feed has finished its initial load (or equivalent fetch). */
   opportunitiesFeedLoading?: boolean;
+  /** True when the intentcasts feed request failed; the empty-feed state is only shown for a confirmed empty result. */
+  opportunitiesFeedError?: boolean;
   /** Signed-in viewer id — own posts get a delete menu. */
   viewerPersonId?: string | null;
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
   bulletinRepliesLoading?: boolean;
+  /** Opens the post composer; powers the "be the first to ask" button on an empty feed. */
+  onAskFirst?: () => void;
 };
 
 const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: string }> = [
@@ -126,9 +132,11 @@ export function HomeOpportunityRail({
   onCategoryChange,
   categoryCounts,
   opportunitiesFeedLoading = false,
+  opportunitiesFeedError = false,
   viewerPersonId = null,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
+  onAskFirst,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
   const showingReplies = activeCategory === "replies";
@@ -181,6 +189,10 @@ export function HomeOpportunityRail({
     [queryClient]
   );
 
+  const feedIsEmpty = !opportunitiesFeedLoading && !opportunitiesFeedError && isFeedEmpty(categoryCounts);
+  const chipIds = visibleCategoryIds(CATEGORIES.map((c) => c.id), categoryCounts);
+  const chipCategories = CATEGORIES.filter((c) => chipIds.includes(c.id));
+
   return (
     <section className="home-ideal__opportunities ds-surface-card" aria-labelledby="home-opportunities-heading">
       <header className="home-ideal__opportunities-header ds-section-head">
@@ -195,8 +207,9 @@ export function HomeOpportunityRail({
           {railDeleteError}
         </p>
       ) : null}
+      {chipCategories.length > 0 ? (
       <div className="home-ideal__chips" role="tablist" aria-label="Opportunity filters">
-        {CATEGORIES.map((category) => (
+        {chipCategories.map((category) => (
           <button
             key={category.id}
             type="button"
@@ -215,6 +228,7 @@ export function HomeOpportunityRail({
           </button>
         ))}
       </div>
+      ) : null}
       {showingReplies ? (
         bulletinRepliesLoading ? (
           <div className="home-ideal__empty" role="status" aria-live="polite">
@@ -239,10 +253,25 @@ export function HomeOpportunityRail({
         <div className="home-ideal__empty" role="status" aria-live="polite">
           <p>Loading active requests…</p>
         </div>
-      ) : activityRows.length === 0 ? (
-        <div className="home-ideal__empty">
-          <p>No posts in this category yet.</p>
+      ) : activityRows.length === 0 && opportunitiesFeedError ? (
+        <div className="home-ideal__empty" role="alert">
+          <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
+      ) : activityRows.length === 0 ? (
+        feedIsEmpty ? (
+          <div className="home-ideal__empty home-ideal__empty--first">
+            <p>It's quiet out here. Nobody has asked for anything yet, which makes you the trendsetter.</p>
+            {onAskFirst ? (
+              <button type="button" className="btn btn--primary" onClick={onAskFirst}>
+                Be the first to ask
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <div className="home-ideal__empty">
+            <p>No posts in this category yet.</p>
+          </div>
+        )
       ) : (
         <div className="home-ideal__opportunity-feed home-ideal__opportunity-feed--rows" role="region" aria-label="Active requests">
           <IntentcastActivityRowsList
