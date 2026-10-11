@@ -8,7 +8,7 @@ Coverage is not wired into the repo yet because `@vitest/coverage-v8` is not a d
 
     cd apps/web
     npm i --no-save @vitest/coverage-v8@4.1.5
-    npx vitest run --coverage --coverage.provider=v8 --coverage.include='src/**'
+    npx vitest run --coverage.enabled --coverage.provider=v8 --coverage.include='src/**'
 
 To make it permanent: add `@vitest/coverage-v8` (same version as `vitest`) to `devDependencies` in `apps/web` and `apps/api`, commit the lockfiles, and add a `test:coverage` script.
 
@@ -25,7 +25,7 @@ Measured with batches 1 and 2 of the suite applied on top of main (113 tests).
 | src/hooks, src/contexts | 0% | Gap. Auth context needs a mocked `/v1/me`. |
 | src/api | 13% | Client is thin. Covered indirectly once pages are tested. |
 
-Still at 0% in src/lib and worth doing next: queryKeys, bulletinFlowBindings, reverseGeocodeClient, parseHiringBulletin (10%), bulletinPostCardUtils (21%), buildPostContent edge cases, cityIntentFromToolbar.
+Still at 0% in src/lib and worth doing next: queryKeys, bulletinFlowBindings, reverseGeocodeClient, cityIntentFromToolbar. Barely covered and also worth doing: parseHiringBulletin (10%), bulletinPostCardUtils (21%), buildPostContent edge cases.
 
 ## Flows shipped as feature PRs, and where their tests live
 
