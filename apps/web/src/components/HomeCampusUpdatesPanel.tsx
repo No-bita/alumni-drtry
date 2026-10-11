@@ -26,7 +26,7 @@ export function HomeCampusUpdatesPanel() {
       ? "We couldn't check for a newer edition just now. This one is the latest we have on file."
       : liveIssue
         ? "Hot off the press. Grab a chai and read it."
-        : "The newest edition is still being printed. This one is the latest we have on file.";
+        : "No current edition is available. Read the February 2026 edition.";
 
   return (
     <section className="home-ideal__panel" aria-labelledby="home-campus-updates-heading">
