@@ -79,13 +79,27 @@ export async function startAuthWithWakeRetry<T>(
         resolve("deadline");
       }, remainingMs);
     });
+    // Caller cancellation must also end the wait, even if the request never settles.
+    let onAbort: (() => void) | undefined;
+    const cancelled = new Promise<"cancelled">((resolve) => {
+      if (controller.signal.aborted) {
+        resolve("cancelled");
+        return;
+      }
+      onAbort = () => {
+        if (!timedOut) resolve("cancelled");
+      };
+      controller.signal.addEventListener("abort", onAbort, { once: true });
+    });
     let result: AuthStartResult<T>;
     try {
-      const raced = await Promise.race([send(controller.signal), deadline]);
+      const raced = await Promise.race([send(controller.signal), deadline, cancelled]);
       if (raced === "deadline") return { kind: "timeout" };
+      if (raced === "cancelled") return { kind: "aborted" };
       result = raced;
     } finally {
       clearTimeout(deadlineTimer);
+      if (onAbort) controller.signal.removeEventListener("abort", onAbort);
     }
     if (timedOut) return { kind: "timeout" };
     if (result.aborted || controller.signal.aborted) return { kind: "aborted" };
