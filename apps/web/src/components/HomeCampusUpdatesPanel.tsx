@@ -20,9 +20,13 @@ export function HomeCampusUpdatesPanel() {
 
   const liveIssue = digestQuery.data?.issue ?? null;
   const title = liveIssue?.headingLabel ?? "Alma Communique - Feb 2026";
-  const blurb = liveIssue
-    ? "Hot off the press. Grab a chai and read it."
-    : "The newest edition is still being printed. This one is the latest we have on file.";
+  const blurb = digestQuery.isPending
+    ? "Checking for the newest edition."
+    : digestQuery.isError
+      ? "We couldn't check for a newer edition just now. This one is the latest we have on file."
+      : liveIssue
+        ? "Hot off the press. Grab a chai and read it."
+        : "The newest edition is still being printed. This one is the latest we have on file.";
 
   return (
     <section className="home-ideal__panel" aria-labelledby="home-campus-updates-heading">
