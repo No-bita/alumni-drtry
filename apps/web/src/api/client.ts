@@ -14,7 +14,7 @@ export type ApiError = { code: string; message?: string };
 async function request<T>(
   path: string,
   options: RequestInit = {}
-): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean }> {
+): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean; status?: number }> {
   const url = `${API_BASE}${path}`;
   const { signal, headers: optHeaders, ...rest } = options;
   const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };
@@ -55,6 +55,7 @@ async function request<T>(
         message: body.message ?? res.statusText,
       },
       retryAfterSeconds: retryAfter ? parseInt(retryAfter, 10) : undefined,
+      status: res.status,
     };
   }
   return { data: body as T };
@@ -65,8 +66,8 @@ export type ApiGetInit = Pick<RequestInit, "signal" | "headers">;
 
 export const api = {
   get: <T>(path: string, init?: ApiGetInit) => request<T>(path, { method: "GET", ...init }),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  post: <T>(path: string, body?: unknown, init?: Pick<RequestInit, "signal">) =>
+    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, ...init }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
