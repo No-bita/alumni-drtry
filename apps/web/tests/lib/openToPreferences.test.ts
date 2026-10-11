@@ -74,8 +74,9 @@ describe("selection helpers", () => {
   it("copies saved prefs for editing and renders display items", () => {
     expect(openToPreferencesForEdit(null)).toEqual(createEmptyOpenToPreferences());
     const saved = { selected: ["coffee"] as const, descriptions: { coffee: "tea" } };
-    const edit = openToPreferencesForEdit({ selected: [...saved.selected], descriptions: saved.descriptions });
-    expect(edit.selected).not.toBe(saved.selected);
+    const input = { selected: [...saved.selected], descriptions: saved.descriptions };
+    const edit = openToPreferencesForEdit(input);
+    expect(edit.selected).not.toBe(input.selected);
     expect(openToDisplayItems(null)).toEqual([]);
     expect(openToDisplayItems(edit)).toEqual([
       { id: "coffee", title: "Coffee chats", description: "tea", icon: "coffee" },
