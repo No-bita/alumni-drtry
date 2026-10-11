@@ -52,3 +52,17 @@ export function canAccessOnboardingFlow(
   if (!isSuperAdminFromProfileOrSession(profile, person)) return false;
   return !import.meta.env.PROD;
 }
+
+
+/**
+ * Whether an incomplete member may open `/onboarding` on their own (e.g. from the account menu), even after the
+ * login cap. The cap only decides automatic redirects; it must not lock members out of finishing their profile.
+ */
+export function canResumeOnboarding(
+  profile: Pick<MyProfileView, "onboardingCompletedAt" | "appLoginCount" | "role">,
+  person: MePerson | undefined | null
+): boolean {
+  if (profile.onboardingCompletedAt) return false;
+  if (import.meta.env.PROD && isSuperAdminFromProfileOrSession(profile, person)) return false;
+  return true;
+}

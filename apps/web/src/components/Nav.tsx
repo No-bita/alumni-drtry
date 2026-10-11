@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNotificationsSummary } from "../lib/notificationsQueries";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
 import { NAV_INTENT_LABELS, NAV_INTENT_SLUGS, type NavIntentSlug } from "../constants/intents";
@@ -132,6 +133,8 @@ type NavUserMenuProps = {
   profileId?: string;
   /** Hide restricted links until onboarding is complete. */
   onboardingCompleted: boolean;
+  /** Show “Finish your profile” only when `/onboarding` will accept this member. */
+  canResumeOnboarding: boolean;
   onSignOut: () => void | Promise<void>;
 };
 
@@ -140,6 +143,7 @@ function NavUserMenu({
   variant,
   profileId,
   onboardingCompleted,
+  canResumeOnboarding: showResumeOnboarding,
   onSignOut,
 }: NavUserMenuProps) {
   const isHome = variant === "home";
@@ -175,6 +179,15 @@ function NavUserMenu({
         <span className="visually-hidden">Account menu</span>
       </summary>
       <div className="nav__user-menu-panel">
+        {showResumeOnboarding && profileId ? (
+          <Link
+            to="/onboarding"
+            className="nav__user-menu-link nav__user-menu-link--primary"
+            onClick={closeMenu}
+          >
+            Finish your profile
+          </Link>
+        ) : null}
         {onboardingCompleted && profileId ? (
           <Link
             to={`/profiles/${profileId}`}
@@ -294,6 +307,11 @@ export function Nav({
           variant={navUserMenuVariant}
           profileId={myProfileId}
           onboardingCompleted={onboardingCompleted}
+          canResumeOnboarding={
+            auth.status === "authenticated" && auth.myProfile
+              ? canResumeOnboarding(auth.myProfile, auth.person)
+              : false
+          }
           onSignOut={handleSignOut}
         />
         {extraRight}
