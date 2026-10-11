@@ -27,10 +27,12 @@ export async function copyText(text: string): Promise<boolean> {
     ta.style.position = "fixed";
     ta.style.opacity = "0";
     document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
+    try {
+      ta.select();
+      return document.execCommand("copy");
+    } finally {
+      ta.remove();
+    }
   } catch {
     return false;
   }
