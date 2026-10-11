@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
+import { THREAD_REFRESH_OPTIONS } from "../lib/threadRefresh";
 import type { ConnectionThreadsListResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { Avatar } from "./Avatar";
@@ -19,6 +20,7 @@ export function ConnectionThreadsList() {
     queryFn: ({ signal }) => assertApiGet<ConnectionThreadsListResponse>("/v1/connection-threads", signal),
     enabled: auth.status === "authenticated",
     select: (r) => r.threads.filter((t) => t.status === "open"),
+    ...THREAD_REFRESH_OPTIONS,
   });
 
   const myId = auth.status === "authenticated" ? auth.person.personId : null;
