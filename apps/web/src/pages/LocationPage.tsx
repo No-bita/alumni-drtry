@@ -40,6 +40,9 @@ import {
 import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../components/LocationPageIcons";
 import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
+import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE, CITY_SIGNED_OUT_NOTE } from "../lib/cityDraftCopy";
+import { loadCityDrafts, saveCityDrafts } from "../lib/cityDraftStorage";
+import "../styles/city-draft-board.css";
 
 const DEFAULT_CITY_PICK: TopCityPick = { city: "Bengaluru", country: "India" };
 
@@ -303,8 +306,22 @@ export function LocationPage() {
 
   const [activeNeed, setActiveNeed] = useState<CityNeedItem["type"] | "all">("all");
   const [activeExploreRegion, setActiveExploreRegion] = useState<ExploreRegion>("all");
-  const [createdNeeds, setCreatedNeeds] = useState<CityNeedItem[]>([]);
-  const [createdEvents, setCreatedEvents] = useState<CityEventItem[]>([]);
+  // Drafts stay in this browser (localStorage), kept per signed-in person so a shared device does not mix them.
+  const draftOwner = auth.status === "authenticated" ? auth.person.personId : "guest";
+  const [draftsOwner, setDraftsOwner] = useState(draftOwner);
+  const [createdNeeds, setCreatedNeeds] = useState<CityNeedItem[]>(() => loadCityDrafts<CityNeedItem>(draftOwner, "needs"));
+  const [createdEvents, setCreatedEvents] = useState<CityEventItem[]>(() => loadCityDrafts<CityEventItem>(draftOwner, "events"));
+  if (draftsOwner !== draftOwner) {
+    setDraftsOwner(draftOwner);
+    setCreatedNeeds(loadCityDrafts<CityNeedItem>(draftOwner, "needs"));
+    setCreatedEvents(loadCityDrafts<CityEventItem>(draftOwner, "events"));
+  }
+  useEffect(() => {
+    if (draftsOwner === draftOwner) saveCityDrafts(draftOwner, "needs", createdNeeds);
+  }, [draftOwner, draftsOwner, createdNeeds]);
+  useEffect(() => {
+    if (draftsOwner === draftOwner) saveCityDrafts(draftOwner, "events", createdEvents);
+  }, [draftOwner, draftsOwner, createdEvents]);
   const [highlightCreateRequestCta, setHighlightCreateRequestCta] = useState(false);
   const [composerMode, setComposerMode] = useState<null | "request" | "event">(null);
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -613,7 +630,7 @@ export function LocationPage() {
     setRequestForm({ title: "", type: "housing", description: "" });
     setComposerMode(null);
     setComposerError(null);
-    setComposerNotice("Request posted. It now appears in Active requests.");
+    setComposerNotice(CITY_REQUEST_SAVED_NOTICE);
   }
 
   function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
@@ -643,7 +660,7 @@ export function LocationPage() {
     setEventForm({ title: "", date: "", time: "", venue: "" });
     setComposerMode(null);
     setComposerError(null);
-    setComposerNotice("Event created. It now appears in Upcoming events.");
+    setComposerNotice(CITY_EVENT_SAVED_NOTICE);
   }
 
   return (
@@ -706,7 +723,7 @@ export function LocationPage() {
               <span className="cities-redesign__quick-icon"><IconHelp /></span>
               <div>
                 <p className="cities-redesign__quick-title">Ask for help</p>
-                <p className="cities-redesign__quick-copy">Post a request and get help from alumni</p>
+                <p className="cities-redesign__quick-copy">Draft a request and line up help from alumni</p>
               </div>
             </button>
             <button type="button" className="cities-redesign__quick-card">
@@ -732,8 +749,9 @@ export function LocationPage() {
           <section ref={requestsPanelRef} className="cities-redesign__requests">
             <header className="cities-redesign__requests-head">
               <h2 className="cities-redesign__section-title">
-                Active requests
+                City board
               </h2>
+              <p className="cities-redesign__draft-note">{auth.status === "authenticated" ? CITY_DRAFT_NOTE : CITY_SIGNED_OUT_NOTE}</p>
             </header>
             <div className="cities-redesign__tabs">
               {requestTabs.map((tab) => (
@@ -1019,7 +1037,7 @@ export function LocationPage() {
               onClick={(event) => event.stopPropagation()}
             >
               <header className="cities-redesign__composer-head">
-                <h3>{composerMode === "request" ? "Create request" : "Create event"}</h3>
+                <h3>{composerMode === "request" ? "Draft a request" : "Draft an event"}</h3>
                 <button type="button" className="cities-redesign__composer-close" onClick={closeComposer}>
                   Close
                 </button>
