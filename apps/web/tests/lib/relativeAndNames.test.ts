@@ -83,9 +83,9 @@ describe("thread message formatting", () => {
     vi.setSystemTime(new Date(2026, 2, 10, 15, 0, 0));
     const today = formatThreadCompactTime(new Date(2026, 2, 10, 9, 5, 0).toISOString());
     const earlier = formatThreadCompactTime(new Date(2026, 2, 1, 9, 5, 0).toISOString());
-    expect(today).toMatch(/9:05/);
-    expect(earlier).not.toMatch(/9:05/);
-    expect(formatThreadMessageTime(new Date(2026, 2, 1, 9, 5, 0).toISOString())).toMatch(/9:05/);
+    expect(today).toMatch(/9[:.]05/);
+    expect(earlier).not.toMatch(/9[:.]05/);
+    expect(formatThreadMessageTime(new Date(2026, 2, 1, 9, 5, 0).toISOString())).toMatch(/9[:.]05/);
     vi.useRealTimers();
   });
 });
