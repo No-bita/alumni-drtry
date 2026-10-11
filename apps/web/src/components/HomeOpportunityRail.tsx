@@ -45,6 +45,8 @@ type HomeOpportunityRailProps = {
   categoryCounts: Record<Exclude<HomeOpportunityCategory, "all">, number>;
   /** When true, hide the empty state until the intentcasts feed has finished its initial load (or equivalent fetch). */
   opportunitiesFeedLoading?: boolean;
+  /** True when the intentcasts feed request failed; the empty-feed state is only shown for a confirmed empty result. */
+  opportunitiesFeedError?: boolean;
   /** Signed-in viewer id — own posts get a delete menu. */
   viewerPersonId?: string | null;
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
@@ -130,6 +132,7 @@ export function HomeOpportunityRail({
   onCategoryChange,
   categoryCounts,
   opportunitiesFeedLoading = false,
+  opportunitiesFeedError = false,
   viewerPersonId = null,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
@@ -186,7 +189,7 @@ export function HomeOpportunityRail({
     [queryClient]
   );
 
-  const feedIsEmpty = !opportunitiesFeedLoading && isFeedEmpty(categoryCounts);
+  const feedIsEmpty = !opportunitiesFeedLoading && !opportunitiesFeedError && isFeedEmpty(categoryCounts);
   const chipIds = visibleCategoryIds(CATEGORIES.map((c) => c.id), categoryCounts);
   const chipCategories = CATEGORIES.filter((c) => chipIds.includes(c.id));
 
@@ -249,6 +252,10 @@ export function HomeOpportunityRail({
       ) : opportunitiesFeedLoading ? (
         <div className="home-ideal__empty" role="status" aria-live="polite">
           <p>Loading active requests…</p>
+        </div>
+      ) : activityRows.length === 0 && opportunitiesFeedError ? (
+        <div className="home-ideal__empty" role="alert">
+          <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
       ) : activityRows.length === 0 ? (
         feedIsEmpty ? (
