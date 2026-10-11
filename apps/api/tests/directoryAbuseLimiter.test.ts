@@ -49,11 +49,9 @@ describe("assertDiscoveryReadAllowed", () => {
     assertDiscoveryReadAllowed("user-e", null);
     vi.advanceTimersByTime(20_000);
     assertDiscoveryReadAllowed("user-e", null);
-    try {
-      assertDiscoveryReadAllowed("user-e", null);
-    } catch (e) {
-      expect((e as AppError).retryAfterSeconds).toBe(40);
-    }
+    expect(() => assertDiscoveryReadAllowed("user-e", null)).toThrowError(
+      expect.objectContaining({ retryAfterSeconds: 40 })
+    );
   });
 
   it("limits per IP across different users", () => {
