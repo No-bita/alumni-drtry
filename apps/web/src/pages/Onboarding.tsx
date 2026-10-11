@@ -15,7 +15,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
 import { assertApiGet } from "../lib/assertApiGet";
-import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
+import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
@@ -384,7 +384,7 @@ export function Onboarding() {
         setGate("redirect");
         return;
       }
-      if (!canAccessOnboardingFlow(p, authPerson)) {
+      if (!canResumeOnboarding(p, authPerson)) {
         setGate("redirect");
         return;
       }
