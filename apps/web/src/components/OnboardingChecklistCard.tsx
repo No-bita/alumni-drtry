@@ -23,7 +23,7 @@ export function OnboardingChecklistCard() {
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
 
   const threadsQuery = useQuery({
-    queryKey: queryKeys.connectionThreads.list(),
+    queryKey: [...queryKeys.connectionThreads.list(), personId],
     queryFn: ({ signal }) => assertApiGet<ConnectionThreadsListResponse>("/v1/connection-threads", signal),
     enabled: Boolean(personId),
   });
@@ -34,9 +34,12 @@ export function OnboardingChecklistCard() {
   const [open, setOpen] = useState(() => (personId ? !readFlag(personId, "seen") : false));
   const [now] = useState(() => Date.now());
 
+  // Only count the card as seen once it can actually be on screen.
+  const readyToShow = Boolean(personId && profile && !dismissed && isNewEnough(profile.createdAt, now) && !threadsQuery.isPending);
+
   useEffect(() => {
-    if (personId && open) writeFlag(personId, "seen");
-  }, [personId, open]);
+    if (personId && open && readyToShow) writeFlag(personId, "seen");
+  }, [personId, open, readyToShow]);
 
   if (!personId || !profile || dismissed) return null;
   if (!isNewEnough(profile.createdAt, now)) return null;
