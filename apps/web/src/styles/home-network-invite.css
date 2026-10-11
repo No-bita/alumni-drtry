@@ -1,0 +1,45 @@
+.home-network-empty__count {
+  margin: 0 0 6px;
+  font-family: var(--font-display, inherit);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.home-network-invite {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.home-network-invite__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.home-network-invite__link {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+}
+
+.home-network-invite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-network-invite__actions .btn {
+  flex: 1 1 140px;
+  text-align: center;
+  justify-content: center;
+  text-decoration: none;
+}
