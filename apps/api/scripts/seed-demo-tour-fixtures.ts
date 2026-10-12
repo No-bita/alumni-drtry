@@ -63,7 +63,7 @@ export const VIEWER_ID = "de300001-0000-4000-8000-000000000999";
 export const ALL_DEMO_PERSON_IDS = [VIEWER_ID, ...FIXTURES.map((_, i) => fixtureId(i))];
 
 export type SeedOptions = {
-  client: pg.PoolClient | { query: (sql: string, params?: any[]) => Promise<any> };
+  client: Pick<pg.PoolClient, "query">;
   viewerEmail: string;
   cleanup?: boolean;
   dryRun?: boolean;
@@ -82,7 +82,8 @@ export async function runDemoTourSeed({
   dryRun = false,
   logger = console,
 }: SeedOptions): Promise<SeedResult> {
-  const allEmails = [viewerEmail, ...FIXTURES.map((_, i) => fixtureEmail(i))];
+  const viewer = viewerEmail.trim().toLowerCase();
+  const allEmails = [viewer, ...FIXTURES.map((_, i) => fixtureEmail(i))];
   const orgNames = Array.from(new Set(FIXTURES.map((f) => f.organization)));
 
   await client.query("BEGIN");
@@ -95,7 +96,7 @@ export async function runDemoTourSeed({
     const unsafe = existing.rows.filter((r) =>
       r.role !== "alumni" ||
       !r.is_test_user ||
-      (r.email.toLowerCase() === viewerEmail ? !r.is_demo : r.is_demo)
+      (r.email.toLowerCase() === viewer ? !r.is_demo : r.is_demo)
     );
     if (unsafe.length > 0) {
       throw new Error(
@@ -105,14 +106,11 @@ export async function runDemoTourSeed({
     }
     const existingIds = existing.rows.map((r) => r.id);
 
-    // Track organizations created by this seed (owned by the demo viewer or fixture alumni).
-    // Must be queried BEFORE deleting demo people, because deleting people will nullify
-    // organizations.created_by_person_id via foreign key ON DELETE SET NULL.
-    const seedCreatedOrgRows = await client.query<{ id: string; name: string }>(
-      `SELECT id, name::text AS name FROM organizations
-       WHERE name = ANY($1::citext[])
-         AND created_by_person_id = ANY($2::uuid[])`,
-      [orgNames, ALL_DEMO_PERSON_IDS]
+    // Track organizations created by this seed using the dedicated demo_seed_organizations table.
+    // Querying demo_seed_organizations does not depend on people rows or created_by_person_id
+    // (which would be nullified by ON DELETE SET NULL on people deletion).
+    const seedCreatedOrgRows = await client.query<{ id: string }>(
+      `SELECT organization_id AS id FROM demo_seed_organizations`
     );
     const seedCreatedOrgIds = seedCreatedOrgRows.rows.map((r) => r.id);
 
@@ -131,6 +129,8 @@ export async function runDemoTourSeed({
     }
 
     // Clean up seed-created organizations only if no occupations (or canonical references) still point to them.
+    // Deleting an org cascades its tracking row in demo_seed_organizations (ON DELETE CASCADE).
+    // An org that is still referenced stays tracked, so a later cleanup can still find it.
     if (seedCreatedOrgIds.length > 0) {
       removed.organizations = (
         await client.query(
@@ -177,19 +177,30 @@ export async function runDemoTourSeed({
     const btech = degreeId.get("btech");
     if (!cse || !btech) throw new Error("Missing department 'cse' or degree 'btech'.");
     await client.query(insertPerson, [
-      VIEWER_ID, viewerEmail, "Demo Guest", cse, btech, 2020,
+      VIEWER_ID, viewer, "Demo Guest", cse, btech, 2020,
       "[DEMO] Shared guided-tour account. Read-only.", "Exploring the alumni network",
       "Bengaluru", "India", true,
     ]);
 
     // Insert fixture organizations without mutating existing rows (no approval_status or updated_at overwrite).
+    // Track newly created organizations in demo_seed_organizations for independent provenance.
     for (const name of orgNames) {
-      await client.query(
+      const inserted = await client.query<{ id: string }>(
         `INSERT INTO organizations (name, approval_status, created_by_person_id)
          VALUES ($1, 'approved', $2::uuid)
-         ON CONFLICT (name) DO NOTHING`,
+         ON CONFLICT (name) DO NOTHING
+         RETURNING id`,
         [name, VIEWER_ID]
       );
+      const newOrgId = inserted.rows[0]?.id;
+      if (newOrgId) {
+        await client.query(
+          `INSERT INTO demo_seed_organizations (organization_id)
+           VALUES ($1::uuid)
+           ON CONFLICT DO NOTHING`,
+          [newOrgId]
+        );
+      }
     }
     const orgRows = await client.query<{ id: string; name: string }>(
       `SELECT id, name::text AS name FROM organizations WHERE name = ANY($1::citext[])`,
@@ -230,12 +241,12 @@ export async function runDemoTourSeed({
       );
     }
 
-    logger.log(`Seeded viewer (${viewerEmail}), ${FIXTURES.length} alumni (${FIXTURES.filter((f) => f.city === "Bengaluru").length} in Bengaluru), ${INTENTCASTS.length} intentcasts.`);
+    logger.log(`Seeded viewer (${viewer}), ${FIXTURES.length} alumni (${FIXTURES.filter((f) => f.city === "Bengaluru").length} in Bengaluru), ${INTENTCASTS.length} intentcasts.`);
     await finish(client, dryRun, "seed", logger);
     return {
       removed,
       seeded: {
-        viewerEmail,
+        viewerEmail: viewer,
         alumniCount: FIXTURES.length,
         intentcastsCount: INTENTCASTS.length,
       },
@@ -247,7 +258,7 @@ export async function runDemoTourSeed({
 }
 
 async function finish(
-  client: pg.PoolClient | { query: (sql: string, params?: any[]) => Promise<any> },
+  client: Pick<pg.PoolClient, "query">,
   dry: boolean,
   label: string,
   logger: { log: (...args: any[]) => void }
