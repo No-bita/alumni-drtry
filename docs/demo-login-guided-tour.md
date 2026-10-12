@@ -47,9 +47,9 @@ This document describes the design, configuration, provisioning, and operational
 | `DEMO_AUTH_ENABLED` | boolean | `false` | Master kill switch for demo auth. |
 | `DEMO_AUTH_EMAIL` | string | `""` | Dedicated institutional email for the demo account. |
 | `DEMO_AUTH_PASSWORD_HASH` | string | `""` | SHA256 HMAC hash of the shared demo password keyed with `AUTH_SECRET_PEPPER`. |
-| `DEMO_AUTH_MAX_PER_IP_WINDOW` | number | `30` | Max attempts allowed per IP within the rate-limit window. |
-| `DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW`| number | `60` | Max attempts allowed per demo account within the window. |
-| `DEMO_AUTH_WINDOW_MINUTES` | number | `15` | Duration of the rate-limit window in minutes. |
+| `DEMO_AUTH_MAX_PER_IP_WINDOW` | number | `30` | Max attempts per client IP per window. The global cap is this value x 20. |
+| `DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW` | number | `60` | Max attempts against the demo account per window. |
+| `DEMO_AUTH_WINDOW_MINUTES` | number | `15` | Sliding window length in minutes for all three limits. |
 
 ---
 
@@ -63,25 +63,19 @@ AUTH_SECRET_PEPPER="<your-pepper>" npm run auth:hash-password -- "<chosen-passwo
 Set the resulting hex string as `DEMO_AUTH_PASSWORD_HASH`.
 
 ### Provisioning the Demo Account
-1. Ensure the demo account exists in the database `people` table with `role = 'alumni'` and `is_demo = TRUE`:
-   ```sql
-   INSERT INTO people (institutional_email, role, is_demo)
-   VALUES ('demo@alumni.test', 'alumni', TRUE)
-   ON CONFLICT (institutional_email) DO UPDATE SET is_demo = TRUE, role = 'alumni';
-   ```
-2. Ensure its associated profile is populated and has `onboarding_completed_at` set so it can immediately access `/home`.
-3. Set `DEMO_AUTH_ENABLED=true` in deployment environment secrets.
+Use the `seed:demo-tour` command below to create the dedicated demo viewer row with `role = 'alumni'`, `is_demo = TRUE`, and a complete profile. Run the dry-run first. The seed refuses to replace any existing row with the viewer email unless it is already a test alumni flagged `is_demo`; do not manually promote an email collision or real member to a demo account. If it reports a conflict, stop and choose a different dedicated demo email after inspecting the row. Enable `DEMO_AUTH_ENABLED=true` only after the account is provisioned and the required migrations are applied.
 
 ### Seeding & Cleaning Demo Fixtures
-- **Seed fixtures**:
-  ```bash
-  npm run seed:platform-mock
-  ```
-- **Clean fixtures**:
-  ```bash
-  npm run delete-demo-alumni
-  ```
-  *(Only targets demo email prefixes matching `personIsDemoAlumniSql`, never touches real alumni records).*
+Owner-run from `apps/api` with `DATABASE_URL` pointing at the target database. Apply database migrations first, including migration `044_people_is_demo.sql`, before running this script. One script creates the demo viewer account (`DEMO_AUTH_EMAIL`, role `alumni`, onboarding complete, `is_demo = TRUE`) plus 10 synthetic alumni (`is_test_user = TRUE`, `is_demo = FALSE`; 6 in Bengaluru) and 5 `[DEMO]` intentcasts for the Bengaluru city board:
+```bash
+export DEMO_AUTH_EMAIL=demo.alumni.guest@iitbhu.ac.in
+npm run seed:demo-tour -- --dry-run     # preview, rolls back
+npm run seed:demo-tour                  # seed (idempotent: removes then recreates exactly its own rows)
+npm run seed:demo-tour -- --cleanup     # remove exactly that dataset (add --dry-run to preview)
+```
+Rows are identified by an explicit email list (`demo.alumni.tour.NN@iitbhu.ac.in` plus the viewer email), flagged `is_test_user`, and bios start with `[DEMO]`. Only the viewer is flagged `is_demo = TRUE` for demo credential login; the 10 synthetic directory/intentcast fixtures stay `is_demo = FALSE` and are recognized by existing demo-fixture scoping. The script refuses to touch an existing row with one of those emails unless its role and `is_test_user`/`is_demo` flags match the expected viewer or fixture identity. It never edits allowlists.
+
+Do not use `seed:platform-mock` for the tour (it uses "Bangalore", references a department code that does not exist, and is not scoped for exact cleanup). `delete-demo-alumni` removes every demo/test row, not only this dataset.
 
 ### Revoking Existing Demo Sessions (Credential Rotation)
 When rotating `DEMO_AUTH_PASSWORD_HASH`:
@@ -96,11 +90,11 @@ When rotating `DEMO_AUTH_PASSWORD_HASH`:
 
 ## 4. Frontend Experience
 
-1. **Dedicated Guided Tour Flow**:
-   - The dedicated demo entry point, guided tour overlays, skip/replay controls, and disabled action explanations are integrated in the guided tour PR.
-   - Any demo session resolves with `isDemo: true` on `/v1/me`.
+1. **Login Page (`/login`)**:
+   - Queries `GET /v1/auth/demo/config`.
+   - When enabled, renders a "Try Demo Access" button.
+   - Submitting demo credentials bypasses onboarding directly to `/home`.
 
 2. **Navigation & Badges**:
-   - Active demo sessions display a distinct `Demo Tour` badge and indicator in the navigation bar.
+   - Active demo sessions display a distinct `Demo Tour` badge and banner in the navigation bar.
    - Profiles and search cards distinguish demo alumni records with the `Demo` badge.
-
