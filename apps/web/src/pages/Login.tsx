@@ -84,16 +84,21 @@ export function Login() {
   const [demoConfig, setDemoConfig] = useState<{ enabled: boolean; demoEmail?: string } | null>(null);
   const [demoPassword, setDemoPassword] = useState("");
   const [demoSubmitting, setDemoSubmitting] = useState(false);
+  const [demoConfigLoading, setDemoConfigLoading] = useState(true);
 
   useEffect(() => {
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
     // The demo email is never prefilled. The password field only appears once it is typed.
-    void api.get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config").then((res) => {
-      if (res?.data?.enabled) {
-        setDemoConfig(res.data);
-      }
-    });
+    void api
+      .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config")
+      .then((res) => {
+        if (res?.data?.enabled) {
+          setDemoConfig(res.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDemoConfigLoading(false));
     return () => startAbortRef.current?.abort();
   }, []);
 
@@ -136,7 +141,7 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending" || demoSubmitting) return;
+    if (phase === "sending" || demoSubmitting || demoConfigLoading) return;
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
@@ -749,7 +754,7 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting}>
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || demoConfigLoading}>
               {isDemoEmail
                 ? demoSubmitting
                   ? "Opening the demo…"
