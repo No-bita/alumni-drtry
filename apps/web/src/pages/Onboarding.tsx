@@ -339,6 +339,10 @@ export function Onboarding() {
     );
     return questions;
   }, [activeOccupationFollowUpConfig]);
+  const maxStep2QuestionIndex = Math.max(0, step2Questions.length - 1);
+  if (step2QuestionIndex > maxStep2QuestionIndex) {
+    setStep2QuestionIndex(maxStep2QuestionIndex);
+  }
   const step2CurrentQuestion = step2Questions[step2QuestionIndex];
   /** One running count across both sections (section two used to restart at 1). */
   const progressTotal = step1QuestionCount + step2Questions.length;
@@ -522,6 +526,9 @@ export function Onboarding() {
 
   const goTo = (step: number) => {
     setSaveError(null);
+    const nextStep = Math.min(2, Math.max(0, step));
+    if (nextStep !== 1) setStep1QuestionIndex(0);
+    if (nextStep !== 2) setStep2QuestionIndex(0);
     setStepIndex((prev) => {
       const next = Math.min(2, Math.max(0, step));
       if (next !== prev) setStepRenderVersion((v) => v + 1);
@@ -536,11 +543,6 @@ export function Onboarding() {
     }
     goTo(1);
   };
-
-  useEffect(() => {
-    if (stepIndex !== 1) setStep1QuestionIndex(0);
-    if (stepIndex !== 2) setStep2QuestionIndex(0);
-  }, [stepIndex]);
 
   useEffect(() => {
     if (stepIndex !== 1) return;
@@ -579,9 +581,7 @@ export function Onboarding() {
     });
   }, [saveError, step1QuestionId, step2CurrentQuestion?.id, stepIndex]);
 
-  useEffect(() => {
-    setStep2QuestionIndex((prev) => Math.min(prev, Math.max(0, step2Questions.length - 1)));
-  }, [step2Questions.length]);
+
 
   const NULLABLE_PATCH_KEYS = new Set([
     "bio",
@@ -981,7 +981,7 @@ export function Onboarding() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [saving, stepIndex, step1QuestionIndex, step2QuestionIndex, step2CurrentQuestion]);
+  });
 
   if (gate === "loading") {
     return (
@@ -1128,4 +1128,4 @@ export function Onboarding() {
       </div>
     </>
   );
-}
+    }
