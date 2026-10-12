@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { findTourTarget, placeTour, tourMaxHeight, type TourRect } from "../src/lib/demoTourPosition";
+import { findTourTarget, placeTour, tourMaxHeight, visibleTourRect, type TourRect } from "../src/lib/demoTourPosition";
 
 const rect: TourRect = { left: 100, top: 120, right: 500, bottom: 180, width: 400, height: 60 };
 describe("demo tour positioning", () => {
@@ -51,6 +51,40 @@ describe("demo tour positioning", () => {
     expect(tourMaxHeight(844, 90, 72)).toBe(666);
     expect(tourMaxHeight(400, 90)).toBe(294);
     expect(tourMaxHeight(100, 90, 72)).toBe(0);
+  });
+  it("uses the partially clipped visible portion for positioning and outline geometry", () => {
+    document.body.innerHTML = '<div style="overflow: hidden; border: 2px solid"><a href="/profiles/demo">Demo</a></div>';
+    const parent = document.querySelector('div')!;
+    const el = document.querySelector('a')!;
+    parent.getBoundingClientRect = () => ({ ...rect, left: 150, right: 354, top: 130, bottom: 164, width: 204, height: 34, x: 150, y: 130, toJSON: () => ({}) });
+    Object.defineProperties(parent, { clientLeft: { value: 2 }, clientTop: { value: 2 }, clientWidth: { value: 200 }, clientHeight: { value: 30 } });
+    el.getBoundingClientRect = () => ({ ...rect, x: 100, y: 120, toJSON: () => ({}) });
+    const visible = visibleTourRect(el, { width: 1024, top: 60, bottom: 768 });
+    expect(visible).toEqual({ left: 152, right: 352, top: 132, bottom: 162, width: 200, height: 30 });
+    expect(findTourTarget("profile")).toBe(el);
+    expect(placeTour(visible, 340, 240, { width: 1024, height: 768 }, 60)).toMatchObject({ top: 176, side: "top" });
+  });
+  it("skips a first link fully hidden by an overflow ancestor for a later visible match", () => {
+    document.body.innerHTML = '<div style="overflow: auto"><a href="/profiles/hidden">Hidden</a></div><a href="/profiles/visible">Visible</a>';
+    const parent = document.querySelector('div')!;
+    parent.getBoundingClientRect = () => ({ ...rect, top: 200, bottom: 260, x: 100, y: 200, toJSON: () => ({}) });
+    Object.defineProperties(parent, { clientWidth: { value: 400 }, clientHeight: { value: 60 } });
+    document.querySelectorAll('a').forEach(el => { el.getBoundingClientRect = () => ({ ...rect, x: 100, y: 120, toJSON: () => ({}) }); });
+    expect(visibleTourRect(document.querySelector('a')!, { width: 1024, top: 0, bottom: 768 })).toBeNull();
+    expect(findTourTarget("profile")?.getAttribute('href')).toBe('/profiles/visible');
+  });
+  it("intersects nested clipping ancestors cumulatively and independently per axis", () => {
+    document.body.innerHTML = '<div style="overflow-x: clip; overflow-y: visible"><section style="overflow-y: hidden; overflow-x: visible"><a href="/profiles/demo">Demo</a></section></div>';
+    const outer = document.querySelector('div')!;
+    const inner = document.querySelector('section')!;
+    outer.getBoundingClientRect = () => ({ ...rect, left: 200, right: 300, top: 900, bottom: 930, x: 200, y: 900, toJSON: () => ({}) });
+    inner.getBoundingClientRect = () => ({ ...rect, left: 900, right: 930, top: 140, bottom: 160, x: 900, y: 140, toJSON: () => ({}) });
+    Object.defineProperty(outer, 'clientWidth', { value: 100 });
+    Object.defineProperty(inner, 'clientHeight', { value: 20 });
+    const el = document.querySelector('a')!;
+    el.getBoundingClientRect = () => ({ ...rect, x: 100, y: 120, toJSON: () => ({}) });
+    expect(visibleTourRect(el, { width: 1024, top: 0, bottom: 768 })).toEqual({ left: 200, right: 300, top: 140, bottom: 160, width: 100, height: 20 });
+    expect(visibleTourRect(el, { width: 250, top: 150, bottom: 155 })).toEqual({ left: 200, right: 250, top: 150, bottom: 155, width: 50, height: 5 });
   });
   it("ignores navigation and the viewer's own profile", () => {
     document.body.innerHTML = '<nav><a href="/profiles/nav">Nav</a></nav><a href="/profiles/me">Me</a><a href="/profiles/demo">Demo alum</a>';
