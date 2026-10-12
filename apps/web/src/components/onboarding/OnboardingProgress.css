@@ -1,0 +1,29 @@
+.onboarding-progress {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+  margin-bottom: 8px;
+}
+
+.onboarding-progress__label {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.7);
+}
+
+.onboarding-progress__track {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(252, 248, 240, 0.16);
+  overflow: hidden;
+}
+
+.onboarding-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #c9a86c;
+  transition: width 220ms ease-out;
+}

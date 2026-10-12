@@ -14,6 +14,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
+import { OnboardingProgress } from "../components/onboarding/OnboardingProgress";
 import { assertApiGet } from "../lib/assertApiGet";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { queryKeys } from "../lib/queryKeys";
@@ -335,6 +336,10 @@ export function Onboarding() {
     return questions;
   }, [activeOccupationFollowUpConfig]);
   const step2CurrentQuestion = step2Questions[step2QuestionIndex];
+  /** One running count across both sections (section two used to restart at 1). */
+  const progressTotal = step1QuestionCount + step2Questions.length;
+  const progressCurrent =
+    stepIndex === 2 ? step1QuestionCount + step2QuestionIndex + 1 : step1QuestionIndex + 1;
   const step1QuestionId = useMemo(() => {
     if (step1QuestionIndex === 0) return "first_name";
     if (step1QuestionIndex === 1) return "last_name";
@@ -995,8 +1000,9 @@ export function Onboarding() {
             <div className="onboarding-welcome__inline-question" onKeyDown={handleInlineEnterAdvance}>
               {stepIndex === 1 ? (
                 <>
+                  <OnboardingProgress current={progressCurrent} total={progressTotal} />
                   <div className="onboarding-welcome__question-head">
-                    <span className="onboarding-welcome__question-index">{step1QuestionIndex + 1}</span>
+                    <span className="onboarding-welcome__question-index">{progressCurrent}</span>
                     <p className="onboarding-welcome__inline-label">
                       {step1QuestionIndex === 0 ? "What is your first name?" : null}
                       {step1QuestionIndex === 1 ? "What is your last name?" : null}
@@ -1043,8 +1049,9 @@ export function Onboarding() {
               ) : null}
               {stepIndex === 2 ? (
                 <>
+                  <OnboardingProgress current={progressCurrent} total={progressTotal} />
                   <div className="onboarding-welcome__question-head">
-                    <span className="onboarding-welcome__question-index">{step2QuestionIndex + 1}</span>
+                    <span className="onboarding-welcome__question-index">{progressCurrent}</span>
                     <p className="onboarding-welcome__inline-label">
                     {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role?" : null}
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
