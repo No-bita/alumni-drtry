@@ -7,6 +7,7 @@ import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
+import { clearDemoTourState, getTourStorage } from "../lib/demoMode";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
@@ -80,20 +81,70 @@ export function Login() {
   const [inviteCode, setInviteCode] = useState("");
   const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
   const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
+  const [demoConfig, setDemoConfig] = useState<{ enabled: boolean; demoEmail?: string } | null>(null);
+  const [demoPassword, setDemoPassword] = useState("");
+  const [demoSubmitting, setDemoSubmitting] = useState(false);
 
   useEffect(() => {
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
+    // The demo email is never prefilled. The password field only appears once it is typed.
+    void api.get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config").then((res) => {
+      if (res?.data?.enabled) {
+        setDemoConfig(res.data);
+      }
+    });
     return () => startAbortRef.current?.abort();
   }, []);
 
+  const isDemoEmail = Boolean(
+    demoConfig?.enabled &&
+      demoConfig.demoEmail &&
+      email.trim().toLowerCase() === demoConfig.demoEmail.trim().toLowerCase()
+  );
+
+  const handleDemoLogin = async (normalizedEmail: string) => {
+    if (!demoPassword.trim()) {
+      setError("Enter the demo password.");
+      return;
+    }
+    setDemoSubmitting(true);
+    const { data, error: err, retryAfterSeconds } = await api.post<{ person?: { isDemo?: boolean } }>(
+      "/v1/auth/demo-login",
+      { email: normalizedEmail, password: demoPassword }
+    );
+    setDemoSubmitting(false);
+    if (err || data?.person?.isDemo !== true) {
+      if (retryAfterSeconds) {
+        setError(`Lots of visitors right now. Try again in about ${retryAfterSeconds} seconds.`);
+      } else if (err?.code === "NETWORK_ERROR") {
+        setError(err.message ?? "We couldn't reach the server. Try again in a moment.");
+      } else {
+        setError("That email and password don't match. Double-check what you were sent.");
+      }
+      return;
+    }
+    clearDemoTourState(getTourStorage());
+    setDemoPassword("");
+    if (!prefersReduceMotion) {
+      sessionPrefetchRef.current = refetch();
+      void import("../pages/Search");
+    }
+    setPhase("sent");
+    setShowSuccessVideo(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending") return;
+    if (phase === "sending" || demoSubmitting) return;
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
+    if (isDemoEmail) {
+      await handleDemoLogin(normalizedEmail);
+      return;
+    }
     if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
       const isAllowedInstitutionalEmail =
         normalizedEmail.endsWith("@iitbhu.ac.in") || normalizedEmail.endsWith("@itbhu.ac.in");
@@ -201,6 +252,10 @@ export function Login() {
         return;
       }
       const { person, profile: p } = snap;
+      if (person.isDemo) {
+        navigate("/search", { replace: true });
+        return;
+      }
       if (superAdminSkipsAlumniJourney(person)) {
         navigate("/home", { replace: true });
         return;
@@ -673,6 +728,17 @@ export function Login() {
                 style={{ marginBottom: 16 }}
               />
             ) : null}
+            {isDemoEmail ? (
+              <Input
+                type="password"
+                placeholder="Demo password"
+                value={demoPassword}
+                onChange={(e) => setDemoPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                style={{ marginBottom: 16 }}
+              />
+            ) : null}
             {error && <p className="auth-merged__error">{error}</p>}
             {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
               <p className="auth-merged__waitlist">
@@ -683,11 +749,21 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }}>
-              {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting}>
+              {isDemoEmail
+                ? demoSubmitting
+                  ? "Opening the demo…"
+                  : "Explore the demo"
+                : BETA_INVITE_AUTH_ENABLED
+                  ? betaInviteStepUnlocked
+                    ? "Enter beta"
+                    : "Continue"
+                  : "Continue"}
             </Button>
           </form>
-          <p className="auth-merged__footnote">Exclusive for IIT BHU alumni.</p>
+          <p className="auth-merged__footnote">
+            {isDemoEmail ? "Read-only demo with made-up alumni." : "Exclusive for IIT BHU alumni."}
+          </p>
         </div>
       )}
     </div>
