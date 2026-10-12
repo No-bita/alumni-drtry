@@ -75,7 +75,9 @@ export function Search() {
   const committedQ = normalizeQ(applied.q);
 
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   const urlCommitTimerRef = useRef<number | null>(null);
 

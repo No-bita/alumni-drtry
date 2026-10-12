@@ -48,13 +48,15 @@ describe("city draft storage", () => {
     expect(loadCityDrafts("p1", "needs")).toEqual([need()]);
   });
   it("drops entries missing fields the board reads, so they cannot crash it", () => {
-    const { city: _c, ...noCity } = need();
+    const noCity = need();
+    Reflect.deleteProperty(noCity, "city");
     window.localStorage.setItem(
       cityDraftsKey("p1", "needs"),
       JSON.stringify([noCity, need({ type: "other" }), need({ askedByBatchYear: "2020" }), need({ id: "keep" })])
     );
     expect(loadCityDrafts("p1", "needs").map((n) => n.id)).toEqual(["keep"]);
-    const { venue: _v, ...noVenue } = event();
+    const noVenue = event();
+    Reflect.deleteProperty(noVenue, "venue");
     window.localStorage.setItem(cityDraftsKey("p1", "events"), JSON.stringify([noVenue, event({ attendeeCount: "0" }), event({ id: "ok" })]));
     expect(loadCityDrafts("p1", "events").map((n) => n.id)).toEqual(["ok"]);
   });

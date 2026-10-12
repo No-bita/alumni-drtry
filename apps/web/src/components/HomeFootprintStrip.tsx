@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IntentcastFeedItem } from "../api/client";
 import { buildFootprint } from "../lib/homeFootprint";
 import "../styles/home-footprint.css";
@@ -17,10 +17,15 @@ const MAX_POSTS_SHOWN = 3;
 
 /** Your own footprint at the top of Home: live posts with expiry, and replies waiting. Renders nothing when empty. */
 export function HomeFootprintStrip({ myPosts, replyCount: totalReplies, viewerPersonId, onOpenReplies }: Props) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNow(Date.now()), 0);
+    return () => window.clearTimeout(timer);
+  }, [myPosts, totalReplies, viewerPersonId]);
   // Expiry labels are recomputed when the feed refetches (on focus and after publish/delete).
   const footprint = useMemo(
-    () => buildFootprint(myPosts, totalReplies, viewerPersonId, Date.now()),
-    [myPosts, totalReplies, viewerPersonId]
+    () => buildFootprint(myPosts, totalReplies, viewerPersonId, now),
+    [myPosts, totalReplies, viewerPersonId, now]
   );
   if (!footprint) return null;
   const { posts, replyCount } = footprint;

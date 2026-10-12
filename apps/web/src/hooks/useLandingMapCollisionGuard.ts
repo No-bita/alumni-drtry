@@ -26,9 +26,14 @@ export function useLandingMapCollisionGuard(
 ): LandingMapCollisionState {
   const [state, setState] = useState<LandingMapCollisionState>(DEFAULT_STATE);
 
+  const [previousEnabled, setPreviousEnabled] = useState(options.enabled);
+  if (previousEnabled !== options.enabled) {
+    setPreviousEnabled(options.enabled);
+    if (!options.enabled) setState(DEFAULT_STATE);
+  }
+
   useEffect(() => {
     if (!options.enabled) {
-      setState(DEFAULT_STATE);
       return;
     }
 
@@ -83,5 +88,5 @@ export function useLandingMapCollisionGuard(
     };
   }, [mapRootRef, options.enabled, options.dockVisible]);
 
-  return state;
+  return options.enabled ? state : DEFAULT_STATE;
 }

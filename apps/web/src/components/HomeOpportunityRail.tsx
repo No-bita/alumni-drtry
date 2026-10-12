@@ -12,11 +12,12 @@ import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog
 import { IconBriefcase, IconChatBubble, IconCity, IconRefer } from "./HomeIcons";
 import { demoDisplayFullName } from "../lib/demoProfile";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
+import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
-import { IntentcastActivityRowsList, mapIntentcastToRow, type CareerFeedRowModel } from "./CareerIntentFeedRows";
+import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
-type HomeOpportunityCategoryLegacy = HomeOpportunityCategory | "referrals" | "moving_cities";
+import type { HomeOpportunityCategoryLegacy } from "../lib/homeOpportunityCategory";
 
 export type HomeOpportunityItem = {
   id: string;
@@ -62,25 +63,6 @@ const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: st
   { id: "guidance", label: "Guidance" },
   { id: "replies", label: "Replies" },
 ];
-
-/** Aligns legacy mock / feed category values with the chip ids used for filtering + counts */
-export function normalizeHomeOpportunityCategory(cat: HomeOpportunityCategoryLegacy): Exclude<HomeOpportunityCategory, "all"> {
-  switch (cat) {
-    case "referrals":
-      return "careers";
-    case "moving_cities":
-      return "relocation";
-    case "careers":
-    case "hiring":
-    case "relocation":
-    case "startups":
-    case "guidance":
-    case "replies":
-      return cat;
-    case "all":
-      return "careers";
-  }
-}
 
 function intentcastHomeLane(ic: IntentcastFeedItem): Exclude<HomeOpportunityCategory, "all" | "replies"> {
   return normalizeOpportunityCard(ic.content, ic.category).category;

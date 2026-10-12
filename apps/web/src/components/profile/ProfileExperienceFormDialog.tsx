@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { Button } from "../Button";
 import { ProfileExperienceFields } from "./ProfileExperienceFields";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
@@ -24,18 +24,15 @@ export function ProfileExperienceFormDialog({
   onConfirm,
 }: ProfileExperienceFormDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [localDraft, setLocalDraft] = useState<OccupationDraft | null>(null);
+  const [localDraft, setLocalDraft] = useState<OccupationDraft | null>(() => open && draft ? { ...draft } : null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open && draft) {
-      setLocalDraft({ ...draft });
-      setError(null);
-    } else if (!open) {
-      setLocalDraft(null);
-      setError(null);
-    }
-  }, [open, draft]);
+  const [source, setSource] = useState({ open, draft });
+  if (source.open !== open || source.draft !== draft) {
+    setSource({ open, draft });
+    setLocalDraft(open && draft ? { ...draft } : null);
+    setError(null);
+  }
 
   useBodyScrollLock(open);
   useDialogFocusManager({

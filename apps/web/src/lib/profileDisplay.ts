@@ -150,7 +150,7 @@ export function formatOccupationDuration(
   const end = occ.isCurrent ? referenceDate : parseOccupationDate(occ.endDate);
   if (!end) return null;
 
-  let totalMonths =
+  const totalMonths =
     (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
   if (totalMonths < 0) return null;
   if (totalMonths < 1) return null;
