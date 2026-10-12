@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import "./OnboardingWelcome.css";
 
 type OnboardingWelcomeProps = {
   onBegin: () => void;
@@ -17,6 +18,17 @@ export function OnboardingWelcome({
 }: OnboardingWelcomeProps) {
   const auth = useAuth();
   const navigate = useNavigate();
+
+  /** The page is dark but <body> is cream; paint the document dark too so no cream band can show. */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("onboarding-dark");
+    document.body.classList.add("onboarding-dark");
+    return () => {
+      root.classList.remove("onboarding-dark");
+      document.body.classList.remove("onboarding-dark");
+    };
+  }, []);
 
   useEffect(() => {
     if (!showBeginButton) return;
@@ -50,11 +62,34 @@ export function OnboardingWelcome({
         }
       />
       <section
-        className={`onboarding-welcome${showBeginButton ? "" : " onboarding-welcome--questions"}`}
+        className={`onboarding-welcome${showBeginButton ? " onboarding-welcome--intro" : " onboarding-welcome--questions"}`}
         aria-labelledby={showBeginButton ? "onboarding-welcome-heading" : undefined}
         aria-label={showBeginButton ? undefined : "Onboarding questions"}
       >
         <div className="onboarding-welcome__grid">
+          {showBeginButton ? (
+            <div className="onboarding-welcome__left">
+              <p className="onboarding-welcome__eyebrow">Alma Mater · IIT BHU alumni</p>
+              <p className="onboarding-welcome__quote">
+                Everyone who ever called Banaras home is{" "}
+                <span className="onboarding-welcome__quote-accent">one message away</span>.
+              </p>
+              <ul className="onboarding-welcome__perks">
+                <li className="onboarding-welcome__perk">
+                  Find batchmates and seniors by city, department and batch.
+                </li>
+                <li className="onboarding-welcome__perk">
+                  Ask for intros, referrals and advice, and pass them on when it's your turn.
+                </li>
+                <li className="onboarding-welcome__perk">
+                  Hire, get hired, or find a decent flat in a city you just moved to.
+                </li>
+              </ul>
+              <p className="onboarding-welcome__walked">
+                Two minutes now, a lifetime of "bhaiya, ek minute" later.
+              </p>
+            </div>
+          ) : null}
           <div className="onboarding-welcome__right">
             {showBeginButton ? (
               <h1 id="onboarding-welcome-heading" className="onboarding-welcome__headline">

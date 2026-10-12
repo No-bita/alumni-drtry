@@ -14,8 +14,10 @@ import {
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
+import { OnboardingProgress } from "../components/onboarding/OnboardingProgress";
 import { assertApiGet } from "../lib/assertApiGet";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
+import { ALREADY_SET_UP_NOTICE, noticeState } from "../lib/routeNotices";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
@@ -296,6 +298,9 @@ export function Onboarding() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [gate, setGate] = useState<"loading" | "allow" | "redirect">("loading");
+  const [alreadySetUp, setAlreadySetUp] = useState(false);
+  /** True once the first profile load has been judged, so a same-session completion cannot flip the notice on. */
+  const firstProfileJudgedRef = useRef(false);
   const [welcomeProfile, setWelcomeProfile] = useState<MyProfileView | null>(null);
   const [stepRenderVersion, setStepRenderVersion] = useState(0);
   const [step1QuestionIndex, setStep1QuestionIndex] = useState(0);
@@ -335,6 +340,10 @@ export function Onboarding() {
     return questions;
   }, [activeOccupationFollowUpConfig]);
   const step2CurrentQuestion = step2Questions[step2QuestionIndex];
+  /** One running count across both sections (section two used to restart at 1). */
+  const progressTotal = step1QuestionCount + step2Questions.length;
+  const progressCurrent =
+    stepIndex === 2 ? step1QuestionCount + step2QuestionIndex + 1 : step1QuestionIndex + 1;
   const step1QuestionId = useMemo(() => {
     if (step1QuestionIndex === 0) return "first_name";
     if (step1QuestionIndex === 1) return "last_name";
@@ -383,6 +392,10 @@ export function Onboarding() {
       if (!p) {
         setGate("redirect");
         return;
+      }
+      if (!firstProfileJudgedRef.current) {
+        firstProfileJudgedRef.current = true;
+        if (p.onboardingCompletedAt) setAlreadySetUp(true);
       }
       if (!canResumeOnboarding(p, authPerson)) {
         setGate("redirect");
@@ -981,7 +994,13 @@ export function Onboarding() {
   }
 
   if (gate === "redirect") {
-    return <Navigate to="/home" replace />;
+    return (
+      <Navigate
+        to="/home"
+        replace
+        state={alreadySetUp ? noticeState(ALREADY_SET_UP_NOTICE) : undefined}
+      />
+    );
   }
 
   if (auth.status === "authenticated" && welcomeProfile) {
@@ -995,8 +1014,9 @@ export function Onboarding() {
             <div className="onboarding-welcome__inline-question" onKeyDown={handleInlineEnterAdvance}>
               {stepIndex === 1 ? (
                 <>
+                  <OnboardingProgress current={progressCurrent} total={progressTotal} />
                   <div className="onboarding-welcome__question-head">
-                    <span className="onboarding-welcome__question-index">{step1QuestionIndex + 1}</span>
+                    <span className="onboarding-welcome__question-index">{progressCurrent}</span>
                     <p className="onboarding-welcome__inline-label">
                       {step1QuestionIndex === 0 ? "What is your first name?" : null}
                       {step1QuestionIndex === 1 ? "What is your last name?" : null}
@@ -1043,8 +1063,9 @@ export function Onboarding() {
               ) : null}
               {stepIndex === 2 ? (
                 <>
+                  <OnboardingProgress current={progressCurrent} total={progressTotal} />
                   <div className="onboarding-welcome__question-head">
-                    <span className="onboarding-welcome__question-index">{step2QuestionIndex + 1}</span>
+                    <span className="onboarding-welcome__question-index">{progressCurrent}</span>
                     <p className="onboarding-welcome__inline-label">
                     {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role?" : null}
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}

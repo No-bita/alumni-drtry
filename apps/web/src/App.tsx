@@ -7,7 +7,13 @@ import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegi
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { DemoExperience } from "./components/DemoExperience";
 import { isDemoPerson } from "./lib/demoMode";
-import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
+import {
+  canAccessOnboardingFlow,
+  canResumeOnboarding,
+  superAdminSkipsAlumniJourney,
+} from "./lib/onboardingEligibility";
+import { RouteNotice } from "./components/RouteNotice";
+import { FINISH_PROFILE_NOTICE, noticeState } from "./lib/routeNotices";
 import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "./lib/devHubPages";
 
@@ -117,12 +123,22 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
     if (mode === "directory" && directoryAllowedIncomplete) {
       return <>{children}</>;
     }
-    return <Navigate to="/onboarding" replace />;
+    return (
+      <Navigate
+        to="/onboarding"
+        replace
+        state={mode === "directory" ? noticeState(FINISH_PROFILE_NOTICE) : undefined}
+      />
+    );
   }
 
   if (mode === "directory") {
     if (directoryAllowedIncomplete) {
       return <>{children}</>;
+    }
+    /** Returning incomplete members used to be bounced to /home with no explanation; send them to finish instead. */
+    if (canResumeOnboarding(profile, person)) {
+      return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
     }
     return <Navigate to="/home" replace />;
   }
@@ -148,10 +164,44 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
 
   const viewingOwnProfile = Boolean(routeProfileId && routeProfileId === profile.id);
   if (viewingOwnProfile && !profile.onboardingCompletedAt) {
-    return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
   }
 
   return <>{children}</>;
+}
+
+/** `/profile` is not a real route; send members to their own profile (or to finish setting one up). */
+function OwnProfileRedirect() {
+  const auth = useAuth();
+
+  if (auth.status !== "authenticated") return null;
+
+  if (auth.myProfileError) {
+    return (
+      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
+        <p className="body-text" style={{ color: "var(--ink-muted)" }}>
+          Couldn’t load your profile. Try refreshing.
+        </p>
+      </div>
+    );
+  }
+
+  const profile = auth.myProfile;
+  if (!profile) {
+    return (
+      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
+        Loading…
+      </div>
+    );
+  }
+
+  if (superAdminSkipsAlumniJourney(auth.person) || profile.profileCompletedAt) {
+    return <Navigate to={`/profiles/${profile.id}`} replace />;
+  }
+  if (canResumeOnboarding(profile, auth.person)) {
+    return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
+  }
+  return <Navigate to="/home" replace />;
 }
 
 function AppRoutes() {
@@ -279,6 +329,15 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <OwnProfileRedirect />
+            </RequireAuth>
+          }
+        />
+        <Route path="/directory" element={<Navigate to="/search" replace />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </Suspense>
@@ -293,6 +352,7 @@ export default function App() {
         <AuthSessionExpiredRegistrar />
         <DemoExperience />
         <AppRoutes />
+        <RouteNotice />
         <GlobalNotificationsWidget />
         <GlobalMessagingWidget />
       </AuthProvider>
