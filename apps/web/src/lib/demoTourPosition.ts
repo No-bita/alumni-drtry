@@ -3,8 +3,41 @@ import type { DemoTourStop } from "./demoMode";
 export type TourRect = { left: number; top: number; right: number; bottom: number; width: number; height: number };
 export type TourPlacement = { left: number; top: number; side: "top" | "bottom" | "left" | "right" | null; arrow: number };
 
+export type TourViewport = { width: number; top: number; bottom: number };
+
+/** Intersect the target with the usable viewport and each ancestor's scrollport. */
+export function visibleTourRect(el: HTMLElement, viewport: TourViewport): TourRect | null {
+  const style = getComputedStyle(el);
+  if (style.visibility === 'hidden' || style.display === 'none') return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  let left = Math.max(0, rect.left);
+  let top = Math.max(viewport.top, rect.top);
+  let right = Math.min(viewport.width, rect.right);
+  let bottom = Math.min(viewport.bottom, rect.bottom);
+  for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+    const css = getComputedStyle(parent);
+    const clipsX = /^(auto|scroll|hidden|clip)$/.test(css.overflowX || css.overflow);
+    const clipsY = /^(auto|scroll|hidden|clip)$/.test(css.overflowY || css.overflow);
+    if (!clipsX && !clipsY) continue;
+    const bounds = parent.getBoundingClientRect();
+    // client bounds exclude borders and scrollbars; overflow clips at this scrollport.
+    const clipLeft = bounds.left + parent.clientLeft;
+    const clipTop = bounds.top + parent.clientTop;
+    if (clipsX) {
+      left = Math.max(left, clipLeft);
+      right = Math.min(right, clipLeft + parent.clientWidth);
+    }
+    if (clipsY) {
+      top = Math.max(top, clipTop);
+      bottom = Math.min(bottom, clipTop + parent.clientHeight);
+    }
+  }
+  return right > left && bottom > top ? { left, top, right, bottom, width: right - left, height: bottom - top } : null;
+}
+
 /** Use real controls, not navigation avatars or the tour's own links. */
-export function findTourTarget(id: DemoTourStop["id"], ownId?: string, viewport = { width: window.innerWidth, top: 0, bottom: window.innerHeight }): HTMLElement | null {
+export function findTourTarget(id: DemoTourStop["id"], ownId?: string, viewport: TourViewport = { width: window.innerWidth, top: 0, bottom: window.innerHeight }): HTMLElement | null {
   const selectors: Record<DemoTourStop["id"], string> = {
     directory: '.search-page__career-toolbar input',
     profile: '.profile-page__header, a[href^="/profiles/"]',
@@ -13,9 +46,7 @@ export function findTourTarget(id: DemoTourStop["id"], ownId?: string, viewport 
   };
   return Array.from(document.querySelectorAll<HTMLElement>(selectors[id])).find((el) => {
     if (el.closest('nav, .demo-tour') || (ownId && el.getAttribute('href') === `/profiles/${ownId}`)) return false;
-    const style = getComputedStyle(el);
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && r.bottom > viewport.top && r.top < viewport.bottom && r.right > 0 && r.left < viewport.width && style.visibility !== 'hidden' && style.display !== 'none';
+    return visibleTourRect(el, viewport) !== null;
   }) ?? null;
 }
 
