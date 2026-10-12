@@ -1,0 +1,87 @@
+/*
+ * Onboarding welcome: fill the desktop layout and keep the dark background across the whole viewport.
+ * The page is dark but <body> is cream, so any height shortfall used to show a two-tone band.
+ */
+html.onboarding-dark,
+body.onboarding-dark {
+  background: #1a1412;
+}
+
+.onboarding-welcome-page {
+  min-height: 100vh;
+  min-height: max(100vh, 100dvh);
+}
+
+.onboarding-welcome {
+  min-height: calc(100vh - var(--nav-height));
+  min-height: calc(max(100vh, 100dvh) - var(--nav-height));
+}
+
+.onboarding-welcome--intro .onboarding-welcome__grid {
+  align-items: center;
+}
+
+.onboarding-welcome__perks {
+  list-style: none;
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.onboarding-welcome__perk {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  color: var(--onb-cream-dim);
+}
+
+.onboarding-welcome__perk::before {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--onb-gold);
+  transform: translateY(-2px);
+}
+
+@media (min-width: 961px) {
+  .onboarding-welcome--intro .onboarding-welcome__grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: var(--space-xl-2);
+  }
+
+  .onboarding-welcome--intro .onboarding-welcome__left {
+    justify-content: center;
+    padding: var(--space-xl) var(--space-xl) var(--space-xl) 0;
+  }
+
+  .onboarding-welcome--intro .onboarding-welcome__right {
+    margin: 0;
+    max-width: none;
+    justify-content: center;
+    padding: var(--space-xl) 0 var(--space-xl) var(--space-xl);
+  }
+
+  .onboarding-welcome--intro .onboarding-welcome__headline {
+    text-align: left;
+  }
+
+  .onboarding-welcome--intro .onboarding-welcome__start-shell {
+    justify-items: start;
+  }
+
+  .onboarding-welcome--intro .btn--onboarding-welcome {
+    align-self: flex-start;
+  }
+}
+
+/* Phones: lead with the headline and Start; the value points sit in the left column, which stays desktop-only. */
+@media (max-width: 960px) {
+  .onboarding-welcome--intro .onboarding-welcome__left {
+    display: none;
+  }
+}
