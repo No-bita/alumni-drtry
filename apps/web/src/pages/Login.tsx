@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
+import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
@@ -37,7 +38,8 @@ export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { refetch } = useAuth();
-  // Match the desktop right-rail breakpoint; do not load the map on phones/tablets.
+  const isPhone = usePhoneViewport();
+  // Match the desktop right-rail breakpoint; tablets retain their map-free layout.
   const [showDesktopMap, setShowDesktopMap] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches
   );
@@ -268,7 +270,7 @@ export function Login() {
   const renderAuthMarketingShell = (cardMount: ReactNode) => (
     <section className="auth-merged">
       <div className="auth-merged__hero">
-        {showDesktopMap && <LandingWorldMap className="auth-merged__map" />}
+        {(showDesktopMap || isPhone) && <LandingWorldMap className="auth-merged__map" showTestimonials={!isPhone} />}
         <div className="auth-merged__hero-copy">
           <h1 className="auth-merged__title">
             Where IIT BHU alumni
@@ -277,7 +279,7 @@ export function Login() {
               <span className="auth-merged__title-accent">open doors for each other.</span>
             </span>
           </h1>
-          <ul className="auth-merged__hero-stats" aria-label="Network highlights">
+          {!isPhone && <ul className="auth-merged__hero-stats" aria-label="Network highlights">
             {AUTH_HERO_STATS.map(({ value, keyword, label }) => (
               <li key={label} className="auth-merged__stat">
                 <span className="auth-merged__stat-headline">
@@ -287,7 +289,7 @@ export function Login() {
                 <span className="auth-merged__stat-label">{label}</span>
               </li>
             ))}
-          </ul>
+          </ul>}
         </div>
         <div className="auth-merged__card-mount">{cardMount}</div>
       </div>

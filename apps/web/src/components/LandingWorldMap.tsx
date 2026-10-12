@@ -48,13 +48,14 @@ function useDeferMapMount(): boolean {
 
 type Props = {
   className?: string;
+  showTestimonials?: boolean;
 };
 
 /**
  * World map visual for the landing hero. Map iframe loads after paint; static canvas
  * when the user prefers reduced motion. Testimonial pins overlay syncs via postMessage.
  */
-export function LandingWorldMap({ className }: Props) {
+export function LandingWorldMap({ className, showTestimonials = true }: Props) {
   const defer = useDeferMapMount();
   const reducedMotion = usePrefersReducedMotion();
   const isPhone = usePhoneViewport();
@@ -64,7 +65,7 @@ export function LandingWorldMap({ className }: Props) {
   const [pinLayout, setPinLayout] = useState<LandingMapPinLayoutMessage | null>(null);
   const [mapReady, setMapReady] = useState(reducedMotion);
 
-  const dockVisible = isPhone && (mapReady || reducedMotion);
+  const dockVisible = showTestimonials && isPhone && (mapReady || reducedMotion);
   const collision = useLandingMapCollisionGuard(mapRootRef, {
     enabled: dockVisible,
     dockVisible,
@@ -138,13 +139,13 @@ export function LandingWorldMap({ className }: Props) {
       ) : (
         <div className="landing-world-map__fallback" aria-hidden />
       )}
-      <LandingMapTestimonialPins
+      {showTestimonials && <LandingMapTestimonialPins
         layout={pinLayout}
         mapReady={mapReady}
         reducedMotion={reducedMotion}
         dockAnchor={collision.dockAnchor}
         className="landing-world-map__testimonials"
-      />
+      />}
     </div>
   );
 }
