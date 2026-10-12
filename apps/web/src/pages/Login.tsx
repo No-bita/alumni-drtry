@@ -156,7 +156,9 @@ export function Login() {
       try {
         const loaded = await demoConfigPromiseRef.current;
         if (loaded) activeDemoConfig = loaded;
-      } catch {}
+      } catch {
+        // Keep the current demo configuration if loading fails.
+      }
     }
 
     const isMatchDemoEmail = Boolean(
