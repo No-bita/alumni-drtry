@@ -12,14 +12,19 @@ const AUTO_DISMISS_MS = 9000;
 export function RouteNotice() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [notice, setNotice] = useState<RouteNoticeContent | null>(null);
+  const [notice, setNotice] = useState<RouteNoticeContent | null>(() => (location.state as RouteNoticeState | null)?.notice ?? null);
+
+  const [noticeLocation, setNoticeLocation] = useState(location);
+  const next = (location.state as RouteNoticeState | null)?.notice;
+  if (noticeLocation !== location) {
+    setNoticeLocation(location);
+    if (next?.message) setNotice(next);
+  }
 
   useEffect(() => {
-    const next = (location.state as RouteNoticeState | null)?.notice;
     if (!next?.message) return;
-    setNotice(next);
     navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
-  }, [location, navigate]);
+  }, [location, navigate, next]);
 
   useEffect(() => {
     if (!notice) return;
