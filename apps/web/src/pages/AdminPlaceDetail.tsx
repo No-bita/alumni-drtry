@@ -32,12 +32,12 @@ export function AdminPlaceDetail() {
     },
   });
 
-  useEffect(() => {
-    const row = detailQuery.data?.place;
-    if (row) {
-      setRenameDraft(row.displayCity);
-    }
-  }, [detailQuery.data?.place]);
+  const row = detailQuery.data?.place;
+  const [previousRow, setPreviousRow] = useState(row);
+  if (previousRow !== row) {
+    setPreviousRow(row);
+    if (row) setRenameDraft(row.displayCity);
+  }
 
   const invalidatePlace = useCallback(() => {
     if (!placeId) return;
@@ -102,7 +102,6 @@ export function AdminPlaceDetail() {
 
   useEffect(() => {
     if (!combineSearch.trim() || combineSearch.trim().length < 2) {
-      setCombineHits([]);
       return;
     }
     const handle = window.setTimeout(async () => {
@@ -245,6 +244,7 @@ export function AdminPlaceDetail() {
                   value={combineSearch}
                   onChange={(e) => {
                     setCombineSearch(e.target.value);
+                    if (e.target.value.trim().length < 2) setCombineHits([]);
                     setCombinePickId(null);
                   }}
                   placeholder="Type at least two characters"
