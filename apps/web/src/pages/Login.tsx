@@ -9,6 +9,7 @@ import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
+import { DemoLoginCard } from "../components/DemoLoginCard";
 
 type LoginPhase = "form" | "sending" | "timeout" | "sent";
 type SentAuthMethod = "otp" | "password";
@@ -673,6 +674,7 @@ export function Login() {
             </Button>
           </form>
           <p className="auth-merged__footnote">Exclusive for IIT BHU alumni.</p>
+          <DemoLoginCard />
         </div>
       )}
     </div>
