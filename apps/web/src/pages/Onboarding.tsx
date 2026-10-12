@@ -16,6 +16,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { OnboardingWelcome } from "../components/onboarding/OnboardingWelcome";
 import { assertApiGet } from "../lib/assertApiGet";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
+import { ALREADY_SET_UP_NOTICE, noticeState } from "../lib/routeNotices";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
@@ -296,6 +297,7 @@ export function Onboarding() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [gate, setGate] = useState<"loading" | "allow" | "redirect">("loading");
+  const [alreadySetUp, setAlreadySetUp] = useState(false);
   const [welcomeProfile, setWelcomeProfile] = useState<MyProfileView | null>(null);
   const [stepRenderVersion, setStepRenderVersion] = useState(0);
   const [step1QuestionIndex, setStep1QuestionIndex] = useState(0);
@@ -384,6 +386,7 @@ export function Onboarding() {
         setGate("redirect");
         return;
       }
+      if (p.onboardingCompletedAt) setAlreadySetUp(true);
       if (!canResumeOnboarding(p, authPerson)) {
         setGate("redirect");
         return;
@@ -981,7 +984,13 @@ export function Onboarding() {
   }
 
   if (gate === "redirect") {
-    return <Navigate to="/home" replace />;
+    return (
+      <Navigate
+        to="/home"
+        replace
+        state={alreadySetUp ? noticeState(ALREADY_SET_UP_NOTICE) : undefined}
+      />
+    );
   }
 
   if (auth.status === "authenticated" && welcomeProfile) {
