@@ -35,6 +35,7 @@ declare module "fastify" {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireSuperAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireNonDemoMutation: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 
   interface FastifyRequest {

@@ -63,6 +63,12 @@ const updateIntentcastSchema = z.object({
 });
 
 export const intentcastRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook("preHandler", async (request, reply) => {
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
+      await app.requireNonDemoMutation(request, reply);
+    }
+  });
+
   app.post("/v1/intentcasts", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = createIntentcastSchema.safeParse(request.body);
     if (!parsed.success) {

@@ -30,19 +30,23 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.post("/v1/contact-requests", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = createContactRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid contact request payload.");
-    }
+  app.post(
+    "/v1/contact-requests",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = createContactRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid contact request payload.");
+      }
 
-    const result = await app.contactRequestService.createRequest(request.actor.personId, parsed.data);
-    return reply.code(201).send(result);
-  });
+      const result = await app.contactRequestService.createRequest(request.actor.personId, parsed.data);
+      return reply.code(201).send(result);
+    }
+  );
 
   app.patch(
     "/v1/contact-requests/:id",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = contactRequestParamsSchema.safeParse(request.params);
       const parsed = respondContactRequestSchema.safeParse(request.body);

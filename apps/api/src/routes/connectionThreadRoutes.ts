@@ -40,6 +40,12 @@ const closeBodySchema = z.object({
 });
 
 export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook("preHandler", async (request, reply) => {
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
+      await app.requireNonDemoMutation(request, reply);
+    }
+  });
+
   app.post("/v1/connection-threads", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = createThreadBodySchema.safeParse(request.body);
     if (!parsed.success) {

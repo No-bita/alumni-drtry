@@ -66,10 +66,59 @@ const inviteLoginBodySchema = z.object({
   inviteCode: z.string().min(1).max(256)
 });
 
+const demoLoginBodySchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1).max(256)
+});
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   const inviteLoginAttemptsByEmail = new Map<string, number[]>();
   const inviteLoginAttemptsByIp = new Map<string, number[]>();
   const inviteLoginAttemptsGlobal: number[] = [];
+
+  const demoLoginAttemptsByEmail = new Map<string, number[]>();
+  const demoLoginAttemptsByIp = new Map<string, number[]>();
+  const demoLoginAttemptsGlobal: number[] = [];
+
+  const withinDemoWindow = (arr: number[], now: number) => {
+    const cutoff = now - env.DEMO_AUTH_WINDOW_MINUTES * 60_000;
+    while (arr.length > 0 && arr[0]! < cutoff) arr.shift();
+  };
+
+  const bumpDemoAttempt = (email: string, ip: string | null, now: number) => {
+    const emailArr = demoLoginAttemptsByEmail.get(email) ?? [];
+    emailArr.push(now);
+    demoLoginAttemptsByEmail.set(email, emailArr);
+    if (ip) {
+      const ipArr = demoLoginAttemptsByIp.get(ip) ?? [];
+      ipArr.push(now);
+      demoLoginAttemptsByIp.set(ip, ipArr);
+    }
+    demoLoginAttemptsGlobal.push(now);
+  };
+
+  const assertDemoRateLimit = (email: string, ip: string | null, now: number) => {
+    if (ip) {
+      const ipArr = demoLoginAttemptsByIp.get(ip) ?? [];
+      withinDemoWindow(ipArr, now);
+      demoLoginAttemptsByIp.set(ip, ipArr);
+      if (ipArr.length >= env.DEMO_AUTH_MAX_PER_IP_WINDOW) {
+        throw new AppError(429, "AUTH_RATE_LIMITED", "Too many demo login attempts. Try again later.", true, 60);
+      }
+    }
+
+    const emailArr = demoLoginAttemptsByEmail.get(email) ?? [];
+    withinDemoWindow(emailArr, now);
+    demoLoginAttemptsByEmail.set(email, emailArr);
+    if (emailArr.length >= env.DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW) {
+      throw new AppError(429, "AUTH_RATE_LIMITED", "Too many demo login attempts. Try again later.", true, 60);
+    }
+
+    withinDemoWindow(demoLoginAttemptsGlobal, now);
+    if (demoLoginAttemptsGlobal.length >= env.DEMO_AUTH_MAX_PER_IP_WINDOW * 20) {
+      throw new AppError(429, "AUTH_RATE_LIMITED", "Too many demo login attempts. Try again later.", true, 60);
+    }
+  };
 
   const withinInviteWindow = (arr: number[], now: number) => {
     const cutoff = now - env.BETA_INVITE_WINDOW_MINUTES * 60_000;
@@ -293,6 +342,61 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       person: result.person,
       sessionExpiresAt: result.sessionExpiresAt.toISOString()
     });
+  });
+
+  app.get("/v1/auth/demo/config", async (_request, reply) => {
+    const isConfigured = Boolean(env.DEMO_AUTH_ENABLED && env.DEMO_AUTH_EMAIL && env.DEMO_AUTH_PASSWORD_HASH);
+    return reply.code(200).send({
+      enabled: isConfigured,
+      ...(isConfigured && env.DEMO_AUTH_EMAIL ? { demoEmail: env.DEMO_AUTH_EMAIL } : {})
+    });
+  });
+
+  app.post("/v1/auth/demo-login", async (request, reply) => {
+    const parsed = demoLoginBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError(400, "AUTH_BAD_REQUEST", "Invalid demo login payload.");
+    }
+
+    const now = Date.now();
+    const email = parsed.data.email.trim().toLowerCase();
+    const ip = request.ip ?? null;
+    assertDemoRateLimit(email, ip, now);
+
+    try {
+      const result = await app.authService.loginWithDemoCredentials({
+        email,
+        password: parsed.data.password,
+        ipAddress: ip,
+        userAgent: request.headers["user-agent"] ?? null
+      });
+
+      reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
+        path: "/",
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: sessionSameSite(),
+        maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
+        ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
+      });
+
+      request.log.info(
+        {
+          event: "auth_demo_success",
+          personId: result.person.id,
+          ip: ip ?? null
+        },
+        "Demo login succeeded"
+      );
+
+      return reply.code(200).send({
+        person: result.person,
+        sessionExpiresAt: result.sessionExpiresAt.toISOString()
+      });
+    } catch (error) {
+      bumpDemoAttempt(email, ip, now);
+      throw error;
+    }
   });
 
   app.post("/v1/auth/invite-login", async (request, reply) => {

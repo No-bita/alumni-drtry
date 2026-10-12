@@ -38,6 +38,26 @@ export function personIsDiscoverableAlumniSql(tableAlias: string): string {
   return `(${production} OR ${personIsDemoAlumniSql(tableAlias)})`;
 }
 
+/**
+ * For demo sessions: only synthetic / demo alumni fixtures are discoverable.
+ * Real member records are strictly excluded.
+ */
+export function personIsDemoOnlyAlumniSql(tableAlias: string): string {
+  return personIsDemoAlumniSql(tableAlias);
+}
+
+/**
+ * Resolves discoverable alumni filter based on whether the viewer is a demo session.
+ * - Demo viewer: strictly demo / synthetic fixtures only.
+ * - Normal viewer: real alumni only in production; includes demo/test in dev/test.
+ */
+export function personIsDiscoverableForViewerSql(tableAlias: string, viewerIsDemo = false): string {
+  if (viewerIsDemo) {
+    return personIsDemoOnlyAlumniSql(tableAlias);
+  }
+  return personIsDiscoverableAlumniSql(tableAlias);
+}
+
 /** @deprecated Use {@link personIsDiscoverableAlumniSql}. */
 export function personIsPublicProfileViewableSql(tableAlias: string): string {
   return personIsDiscoverableAlumniSql(tableAlias);

@@ -44,7 +44,8 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
 
     const result = await app.discoveryService.search({
       ...parsed.data,
-      viewerPersonId: request.actor.personId
+      viewerPersonId: request.actor.personId,
+      viewerIsDemo: Boolean(request.actor.isDemo)
     });
     await app.adminMetricsService.logSearch();
     void app.adminMetricsService
@@ -107,7 +108,11 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
 
     assertDiscoveryReadAllowed(request.actor.personId, request.ip);
 
-    const result = await app.discoveryService.getPublicProfile(parsed.data.id, request.actor.personId);
+    const result = await app.discoveryService.getPublicProfile(
+      parsed.data.id,
+      request.actor.personId,
+      Boolean(request.actor.isDemo)
+    );
     void app.adminMetricsService
       .logBetaUsageEvent({
         eventType: "profile_viewed",

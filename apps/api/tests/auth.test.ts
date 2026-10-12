@@ -106,6 +106,38 @@ describe("auth", () => {
     expect(body.code).toBe("AUTH_BAD_REQUEST");
   });
 
+  it("returns demo auth config as disabled by default", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/auth/demo/config"
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.enabled).toBe(false);
+  });
+
+  it("rejects demo login with invalid payload", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/auth/demo-login",
+      payload: { email: "not-an-email" }
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe("AUTH_BAD_REQUEST");
+  });
+
+  it("rejects demo login when demo auth is disabled", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/auth/demo-login",
+      payload: { email: "demo@alumni.test", password: "password123" }
+    });
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.code).toBe("DEMO_AUTH_DISABLED");
+  });
+
   it("accepts allowed domain and returns challenge (requires DB)", async () => {
     const email = `auth-${Date.now()}@iitbhu.ac.in`;
     const res = await app.inject({

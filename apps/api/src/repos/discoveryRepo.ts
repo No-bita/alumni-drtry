@@ -1,5 +1,5 @@
 import { env } from "../config/env.js";
-import { personIsDiscoverableAlumniSql } from "../lib/demoPersonSql.js";
+import { personIsDiscoverableAlumniSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 import type { PoolExecutor } from "../db/types.js";
 import type { ProfileLinkView } from "./linkRepo.js";
@@ -23,6 +23,8 @@ export interface SearchProfilesInput {
   requireResidence?: boolean;
   /** Omit this person from ranked hits (directory UX: never surface “your own” card). */
   viewerPersonId?: string;
+  /** When true, scope directory search exclusively to synthetic / demo profiles. */
+  viewerIsDemo?: boolean;
   limit: number;
   /** Keyset cursor (rule-based sort). */
   cursor?: SearchRankCursor;
@@ -310,7 +312,7 @@ export class DiscoveryRepo {
       "p.suspended_at IS NULL",
       "p.full_name IS NOT NULL",
       "p.profile_completed_at IS NOT NULL",
-      personIsDiscoverableAlumniSql("p"),
+      personIsDiscoverableForViewerSql("p", Boolean(input.viewerIsDemo)),
     ];
 
     if (input.viewerPersonId) {
@@ -593,7 +595,8 @@ export class DiscoveryRepo {
    */
   async findPublicProfileBundleById(
     profileId: string,
-    viewerPersonId: string | null
+    viewerPersonId: string | null,
+    viewerIsDemo = false
   ): Promise<PublicProfileBundleView | null> {
     const result = await this.db.query<PublicProfileBundleRow>(
       `
@@ -681,7 +684,7 @@ export class DiscoveryRepo {
           OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
         )
         AND (
-          ${personIsDiscoverableAlumniSql("p")}
+          ${personIsDiscoverableForViewerSql("p", viewerIsDemo)}
           OR ($2::uuid IS NOT NULL AND p.id = $2::uuid)
         )
       LIMIT 1

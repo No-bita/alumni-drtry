@@ -27,6 +27,7 @@ export interface SearchInput {
   residenceCity?: string;
   requireResidence?: boolean;
   viewerPersonId?: string;
+  viewerIsDemo?: boolean;
   limit: number;
   cursor?: string;
 }
@@ -205,6 +206,7 @@ export class DiscoveryService {
       residenceCity: input.residenceCity?.trim() || undefined,
       requireResidence: input.requireResidence === true,
       ...(input.viewerPersonId ? { viewerPersonId: input.viewerPersonId } : {}),
+      viewerIsDemo: Boolean(input.viewerIsDemo),
       limit: input.limit,
       cursor: decodedCursor
     };
@@ -336,8 +338,16 @@ export class DiscoveryService {
     return residenceCitiesCache.rows.slice(0, lim);
   }
 
-  async getPublicProfile(profileId: string, viewerPersonId: string): Promise<PublicProfileOutput> {
-    const bundle = await this.discoveryRepo.findPublicProfileBundleById(profileId, viewerPersonId);
+  async getPublicProfile(
+    profileId: string,
+    viewerPersonId: string,
+    viewerIsDemo = false
+  ): Promise<PublicProfileOutput> {
+    const bundle = await this.discoveryRepo.findPublicProfileBundleById(
+      profileId,
+      viewerPersonId,
+      viewerIsDemo
+    );
     if (!bundle) {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
     }
