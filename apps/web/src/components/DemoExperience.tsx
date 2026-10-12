@@ -75,6 +75,7 @@ function DemoExperienceInner() {
   useEffect(() => {
     if (tour.status !== "active") return;
     let frame = 0;
+    let firstTarget = true;
     const measure = () => {
       const card = cardRef.current;
       if (!card) return;
@@ -92,7 +93,17 @@ function DemoExperienceInner() {
         }
       }
       const target = visible && rect ? { left: Math.max(0, rect.left), top: Math.max(safeTop, rect.top), right: Math.min(window.innerWidth, rect.right), bottom: Math.min(window.innerHeight, rect.bottom), width: rect.width, height: rect.height } : null;
-      const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight }, safeTop);
+      const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight - (window.innerWidth <= 640 ? 72 : 0) }, safeTop);
+      // On a new stop, make room below a visible target on short screens.
+      // Do this once only, so manual scrolling remains under the visitor's control.
+      if (target && firstTarget) {
+        firstTarget = false;
+        if (!placement.side && target.bottom - target.top + card.offsetHeight + 30 < window.innerHeight - safeTop - 72) {
+          window.scrollBy({ top: target.top - safeTop - 8, behavior: "instant" });
+          frame = requestAnimationFrame(measure);
+          return;
+        }
+      }
       setAnchor((prev) => JSON.stringify(prev) === JSON.stringify({ placement, target }) ? prev : { placement, target });
     };
     const schedule = () => {
@@ -219,4 +230,4 @@ function DemoExperienceInner() {
       ) : null}
     </>
   );
-}
+      }
