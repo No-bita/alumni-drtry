@@ -64,13 +64,15 @@ export class ProfileService {
     }
 
     // Guard: Institutional email cannot be changed at any time.
-    const attemptedInstEmail =
-      input.institutionalEmail ??
-      input.institutional_email ??
-      input.instituteEmail ??
-      input.institute_email;
-    if (attemptedInstEmail !== undefined) {
-      if (normalizeEmail(attemptedInstEmail) !== normalizeEmail(current.institutionalEmail)) {
+    // Check all supplied aliases to ensure none attempt to alter the institutional email.
+    const attemptedInstEmails = [
+      input.institutionalEmail,
+      input.institutional_email,
+      input.instituteEmail,
+      input.institute_email
+    ];
+    for (const email of attemptedInstEmails) {
+      if (email !== undefined && normalizeEmail(email) !== normalizeEmail(current.institutionalEmail)) {
         throw new AppError(400, "PROFILE_FROZEN_FIELD", "Institutional email cannot be changed.");
       }
     }
@@ -91,7 +93,7 @@ export class ProfileService {
 
       if (input.departmentCode !== undefined) {
         const inputDept = input.departmentCode.trim().toLowerCase();
-        const currentDept = (current.departmentCode ?? current.parsedDepartmentCode ?? "").trim().toLowerCase();
+        const currentDept = (current.departmentCode ?? "").trim().toLowerCase();
         if (inputDept !== currentDept) {
           throw new AppError(
             400,
@@ -114,8 +116,7 @@ export class ProfileService {
       }
 
       if (input.batchYear !== undefined) {
-        const currentBatch = current.batchYear ?? current.parsedJoiningYear;
-        if (input.batchYear !== current.batchYear && input.batchYear !== currentBatch) {
+        if (input.batchYear !== current.batchYear) {
           throw new AppError(
             400,
             "PROFILE_FROZEN_FIELD",
@@ -238,7 +239,7 @@ export class ProfileService {
     }
 
     try {
-      return await this.personRepo.updateProfile({
+      const updated = await this.personRepo.updateProfile({
         personId,
         fullName: nextFullName,
         departmentId: nextDepartmentId,
@@ -251,8 +252,17 @@ export class ProfileService {
         residenceCity: nextResidenceCity,
         openToPreferences: nextOpenToPreferences,
         profileCompletedAt: nextProfileCompletedAt,
-        onboardingCompletedAt: nextOnboardingCompletedAt
+        onboardingCompletedAt: nextOnboardingCompletedAt,
+        expectedOnboardingCompleted: current.onboardingCompletedAt != null
       });
+      if (!updated) {
+        throw new AppError(
+          409,
+          "PROFILE_CONFLICT",
+          "Profile was modified concurrently. Please refresh and try again."
+        );
+      }
+      return updated;
     } catch (error) {
       if (isPgUniqueViolation(error)) {
         throw new AppError(409, "PROFILE_PERSONAL_EMAIL_IN_USE", "Personal email is already in use.");

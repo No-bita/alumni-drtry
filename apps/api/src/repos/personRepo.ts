@@ -114,6 +114,7 @@ export interface UpdateProfileInput {
   openToPreferences: OpenToPreferences | null;
   profileCompletedAt: Date | null;
   onboardingCompletedAt: Date | null;
+  expectedOnboardingCompleted?: boolean;
 }
 
 export interface PersonProfileIds {
@@ -409,7 +410,14 @@ export class PersonRepo {
     }));
   }
 
-  async updateProfile(input: UpdateProfileInput): Promise<PersonProfileView> {
+  async updateProfile(input: UpdateProfileInput): Promise<PersonProfileView | null> {
+    const onboardingClause =
+      input.expectedOnboardingCompleted === true
+        ? "AND onboarding_completed_at IS NOT NULL"
+        : input.expectedOnboardingCompleted === false
+          ? "AND onboarding_completed_at IS NULL"
+          : "";
+
     const result = await this.db.query<PersonProfileRow>(
       `
       UPDATE people
@@ -427,6 +435,7 @@ export class PersonRepo {
         residence_city = $12,
         open_to_preferences = $13
       WHERE id = $1
+        ${onboardingClause}
       RETURNING
         id,
         institutional_email,
@@ -476,7 +485,10 @@ export class PersonRepo {
         input.openToPreferences
       ]
     );
-    const row = result.rows[0]!;
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
     return {
       id: row.id,
       institutionalEmail: row.institutional_email,

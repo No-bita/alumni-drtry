@@ -155,6 +155,39 @@ describe("ProfileService - frozen identity fields guard", () => {
       expect(updateProfileSpy).not.toHaveBeenCalled();
     });
 
+    it("rejects if any institutional email alias differs from current", async () => {
+      const { updateProfileSpy } = setupProfileMocks(mockCompletedProfile);
+
+      await expect(
+        profileService.updateMyProfile("person-123", {
+          institutionalEmail: "aaryan@iitbhu.ac.in",
+          institutional_email: "attacker@iitbhu.ac.in",
+        })
+      ).rejects.toThrow(
+        expect.objectContaining({
+          statusCode: 400,
+          code: "PROFILE_FROZEN_FIELD",
+        })
+      );
+
+      expect(updateProfileSpy).not.toHaveBeenCalled();
+    });
+
+    it("throws 409 PROFILE_CONFLICT if concurrent update happens", async () => {
+      setupProfileMocks(mockCompletedProfile);
+      const personRepo = (profileService as any).personRepo;
+      vi.spyOn(personRepo, "updateProfile").mockResolvedValue(null);
+
+      await expect(
+        profileService.updateMyProfile("person-123", { bio: "New Bio" })
+      ).rejects.toThrow(
+        expect.objectContaining({
+          statusCode: 409,
+          code: "PROFILE_CONFLICT",
+        })
+      );
+    });
+
     it("allows sending unchanged frozen fields", async () => {
       const { updateProfileSpy } = setupProfileMocks(mockCompletedProfile);
 
