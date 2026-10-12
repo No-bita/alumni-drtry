@@ -1,3 +1,4 @@
+import { isDemoBlockedResponse, notifyDemoBlocked } from "../lib/demoMode";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
@@ -51,6 +52,9 @@ async function request<T>(
     if (res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
+    if (isDemoBlockedResponse(res.status, body.code)) {
+      notifyDemoBlocked();
+    }
     const retryAfter = res.headers.get("retry-after");
     return {
       error: {
@@ -97,6 +101,9 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
     if (res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
+    if (isDemoBlockedResponse(res.status, b.code)) {
+      notifyDemoBlocked();
+    }
     return {
       error: {
         code: typeof b.code === "string" ? b.code : "UNKNOWN",
@@ -115,6 +122,8 @@ export type MePerson = {
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
+  /** Server-owned: true only for the shared read-only demo account. */
+  isDemo?: boolean;
 };
 
 export function isSuperAdmin(person: Pick<MePerson, "role"> | undefined | null): boolean {
