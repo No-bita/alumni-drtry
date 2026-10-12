@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { findTourTarget, placeTour, type TourRect } from "../lib/demoTourPosition";
+import { findTourTarget, placeTour, tourMaxHeight, type TourRect } from "../lib/demoTourPosition";
 import { useAuth } from "../contexts/AuthContext";
 import {
   DEMO_BLOCKED_EVENT,
@@ -79,10 +79,12 @@ function DemoExperienceInner() {
     const measure = () => {
       const card = cardRef.current;
       if (!card) return;
-      const el = findTourTarget(stop.id, ownId);
-      const rect = el?.getBoundingClientRect();
       const bannerBottom = document.querySelector(".demo-banner")?.getBoundingClientRect().bottom ?? 0;
       const safeTop = Math.max(16, bannerBottom + 12);
+      const dockClearance = window.innerWidth <= 640 ? 72 : 0;
+      card.style.maxHeight = `${tourMaxHeight(window.innerHeight, safeTop, dockClearance)}px`;
+      const el = findTourTarget(stop.id, ownId, { width: window.innerWidth, top: safeTop, bottom: window.innerHeight - dockClearance });
+      const rect = el?.getBoundingClientRect();
       // A scrolled-out or clipped target must not produce a misleading pointer.
       let visible = Boolean(rect && rect.bottom > safeTop && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth);
       for (let parent = el?.parentElement; visible && parent; parent = parent.parentElement) {
@@ -93,7 +95,7 @@ function DemoExperienceInner() {
         }
       }
       const target = visible && rect ? { left: Math.max(0, rect.left), top: Math.max(safeTop, rect.top), right: Math.min(window.innerWidth, rect.right), bottom: Math.min(window.innerHeight, rect.bottom), width: rect.width, height: rect.height } : null;
-      const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight - (window.innerWidth <= 640 ? 72 : 0) }, safeTop);
+      const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight - dockClearance }, safeTop);
       // On a new stop, make room below a visible target on short screens.
       // Do this once only, so manual scrolling remains under the visitor's control.
       if (target && firstTarget) {
