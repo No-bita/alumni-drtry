@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Login } from "../src/pages/Login";
 
@@ -7,7 +7,7 @@ const apiPost = vi.hoisted(() => vi.fn());
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: vi.fn() } }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: vi.fn() }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: () => <div /> }));
+vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className }: { className?: string }) => <div data-testid="landing-map" className={className} /> }));
 vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
@@ -104,5 +104,54 @@ describe("Login page", () => {
   it("explains an expired session", async () => {
     mount("?reason=session_expired");
     expect(await screen.findByText("Your session expired. Please sign in again.")).toBeTruthy();
+  });
+});
+
+// Exercise both initial mounting and live breakpoint changes, not just CSS hiding.
+describe("desktop login map", () => {
+  function viewport(width: number) {
+    const listeners = new Set<() => void>();
+    const mq = {
+      matches: width >= 900,
+      media: "(min-width: 900px)",
+      addEventListener: (_event: string, fn: () => void) => listeners.add(fn),
+      removeEventListener: (_event: string, fn: () => void) => listeners.delete(fn),
+    };
+    window.matchMedia = ((query: string) => query === mq.media ? mq : {
+      matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {},
+    }) as typeof window.matchMedia;
+    return {
+      resize(nextWidth: number) {
+        act(() => {
+          mq.matches = nextWidth >= 900;
+          listeners.forEach((listener) => listener());
+        });
+      },
+      listeners,
+    };
+  }
+
+  it.each([390, 639, 640, 820, 899])("does not mount the map at %ipx", (width) => {
+    viewport(width);
+    mount();
+    expect(screen.queryByTestId("landing-map")).toBeNull();
+  });
+
+  it.each([900, 1440])("restores the map at %ipx", (width) => {
+    viewport(width);
+    mount();
+    expect(screen.getByTestId("landing-map").className).toBe("auth-merged__map");
+  });
+
+  it("mounts and unmounts when crossing the breakpoint and removes its listener", () => {
+    const media = viewport(899);
+    const view = mount();
+    expect(screen.queryByTestId("landing-map")).toBeNull();
+    media.resize(900);
+    expect(screen.getByTestId("landing-map")).toBeTruthy();
+    media.resize(390);
+    expect(screen.queryByTestId("landing-map")).toBeNull();
+    view.unmount();
+    expect(media.listeners.size).toBe(0);
   });
 });
