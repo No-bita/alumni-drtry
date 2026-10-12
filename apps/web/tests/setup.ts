@@ -27,6 +27,6 @@ if (typeof window !== "undefined") {
       configurable: true,
     });
   } catch {
-    (window as any).localStorage = mockStorage;
+    (window as unknown as { localStorage: Storage }).localStorage = mockStorage;
   }
 }
