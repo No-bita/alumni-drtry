@@ -23,7 +23,7 @@
 import "dotenv/config";
 import pg from "pg";
 
-type Fixture = {
+export type Fixture = {
   name: string;
   deptCode: string;
   degreeCode: string;
@@ -35,7 +35,7 @@ type Fixture = {
   skills: string;
 };
 
-const FIXTURES: Fixture[] = [
+export const FIXTURES: Fixture[] = [
   { name: "Rahul Sharma", deptCode: "cse", degreeCode: "btech", batchYear: 2021, roleTitle: "Backend Engineer", organization: "Razorpay", city: "Bengaluru", country: "India", skills: "Go, Distributed Systems, PostgreSQL" },
   { name: "Sneha Gupta", deptCode: "cse", degreeCode: "btech", batchYear: 2020, roleTitle: "Senior Software Engineer", organization: "Razorpay", city: "Bengaluru", country: "India", skills: "Java, APIs, Kubernetes" },
   { name: "Arjun Singh", deptCode: "cse", degreeCode: "btech", batchYear: 2022, roleTitle: "Backend Developer", organization: "Swiggy", city: "Bengaluru", country: "India", skills: "Node.js, TypeScript, Redis" },
@@ -48,7 +48,7 @@ const FIXTURES: Fixture[] = [
   { name: "Karan Bhatt", deptCode: "cse", degreeCode: "mtech", batchYear: 2024, roleTitle: "MS Candidate", organization: "Georgia Tech", city: "Atlanta", country: "United States", skills: "Machine Learning, Research, Python" },
 ];
 
-const INTENTCASTS: { authorIdx: number; category: "hiring" | "mentorship" | "collaboration" | "guidance"; content: string }[] = [
+export const INTENTCASTS: { authorIdx: number; category: "hiring" | "mentorship" | "collaboration" | "guidance"; content: string }[] = [
   { authorIdx: 0, category: "hiring", content: "[DEMO] Hiring backend and platform engineers in Bengaluru. Referrals from IIT BHU welcome." },
   { authorIdx: 1, category: "mentorship", content: "[DEMO] Happy to mentor juniors on backend interviews and systems design. 30 minutes a week." },
   { authorIdx: 2, category: "guidance", content: "[DEMO] Moving to Bengaluru next month. Looking for advice on localities near HSR and Indiranagar and commute tips." },
@@ -56,44 +56,47 @@ const INTENTCASTS: { authorIdx: number; category: "hiring" | "mentorship" | "col
   { authorIdx: 4, category: "hiring", content: "[DEMO] Our platform team is growing. Open to alumni with 3+ years of backend experience in Bengaluru." },
 ];
 
-const EMAIL_DOMAIN = "iitbhu.ac.in";
-const fixtureEmail = (i: number) => `demo.alumni.tour.${String(i + 1).padStart(2, "0")}@${EMAIL_DOMAIN}`;
-const fixtureId = (i: number) => `de300001-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
-const VIEWER_ID = "de300001-0000-4000-8000-000000000999";
+export const EMAIL_DOMAIN = "iitbhu.ac.in";
+export const fixtureEmail = (i: number) => `demo.alumni.tour.${String(i + 1).padStart(2, "0")}@${EMAIL_DOMAIN}`;
+export const fixtureId = (i: number) => `de300001-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
+export const VIEWER_ID = "de300001-0000-4000-8000-000000000999";
+export const ALL_DEMO_PERSON_IDS = [VIEWER_ID, ...FIXTURES.map((_, i) => fixtureId(i))];
 
-const argv = process.argv.slice(2);
-const cleanup = argv.includes("--cleanup");
-const dryRun = argv.includes("--dry-run");
-const viewerArgIdx = argv.indexOf("--viewer-email");
-const viewerEmail = (viewerArgIdx >= 0 ? argv[viewerArgIdx + 1] : process.env.DEMO_AUTH_EMAIL)?.trim().toLowerCase();
-const dbUrl = process.env.DATABASE_URL;
+export type SeedOptions = {
+  client: Pick<pg.PoolClient, "query">;
+  viewerEmail: string;
+  cleanup?: boolean;
+  dryRun?: boolean;
+  logger?: { log: (...args: any[]) => void; error: (...args: any[]) => void };
+};
 
-if (!dbUrl) {
-  console.error("DATABASE_URL is not set.");
-  process.exit(1);
-}
-if (!viewerEmail || !/^[^@\s]+@[^@\s]+$/.test(viewerEmail)) {
-  console.error("Set DEMO_AUTH_EMAIL (or pass --viewer-email <email>) to the demo viewer address.");
-  process.exit(1);
-}
+export type SeedResult = {
+  removed: { people: number; intentcasts: number; organizations: number };
+  seeded?: { viewerEmail: string; alumniCount: number; intentcastsCount: number };
+};
 
-const ALL_EMAILS = [viewerEmail, ...FIXTURES.map((_, i) => fixtureEmail(i))];
+export async function runDemoTourSeed({
+  client,
+  viewerEmail,
+  cleanup = false,
+  dryRun = false,
+  logger = console,
+}: SeedOptions): Promise<SeedResult> {
+  const viewer = viewerEmail.trim().toLowerCase();
+  const allEmails = [viewer, ...FIXTURES.map((_, i) => fixtureEmail(i))];
+  const orgNames = Array.from(new Set(FIXTURES.map((f) => f.organization)));
 
-async function main() {
-  const pool = new pg.Pool({ connectionString: dbUrl, max: 2 });
-  const client = await pool.connect();
+  await client.query("BEGIN");
   try {
-    await client.query("BEGIN");
-
     const existing = await client.query<{ id: string; email: string; role: string; is_test_user: boolean; is_demo: boolean }>(
       `SELECT id, institutional_email::text AS email, role, COALESCE(is_test_user, FALSE) AS is_test_user, is_demo
        FROM people WHERE lower(institutional_email::text) = ANY($1::text[])`,
-      [ALL_EMAILS]
+      [allEmails]
     );
     const unsafe = existing.rows.filter((r) =>
       r.role !== "alumni" ||
       !r.is_test_user ||
-      (r.email.toLowerCase() === viewerEmail ? !r.is_demo : r.is_demo)
+      (r.email.toLowerCase() === viewer ? !r.is_demo : r.is_demo)
     );
     if (unsafe.length > 0) {
       throw new Error(
@@ -103,7 +106,15 @@ async function main() {
     }
     const existingIds = existing.rows.map((r) => r.id);
 
-    const removed = { intentcasts: 0, people: 0 };
+    // Track organizations created by this seed using the dedicated demo_seed_organizations table.
+    // Querying demo_seed_organizations does not depend on people rows or created_by_person_id
+    // (which would be nullified by ON DELETE SET NULL on people deletion).
+    const seedCreatedOrgRows = await client.query<{ id: string }>(
+      `SELECT organization_id AS id FROM demo_seed_organizations`
+    );
+    const seedCreatedOrgIds = seedCreatedOrgRows.rows.map((r) => r.id);
+
+    const removed = { intentcasts: 0, people: 0, organizations: 0 };
     if (existingIds.length > 0) {
       removed.intentcasts = (
         await client.query(`DELETE FROM intentcasts WHERE author_person_id = ANY($1::uuid[])`, [existingIds])
@@ -116,11 +127,33 @@ async function main() {
         await client.query(`DELETE FROM people WHERE id = ANY($1::uuid[])`, [existingIds])
       ).rowCount ?? 0;
     }
-    console.log(`${cleanup ? "Cleanup" : "Reset"}: removed ${removed.people} demo people, ${removed.intentcasts} intentcasts.`);
+
+    // Clean up seed-created organizations only if no occupations (or canonical references) still point to them.
+    // Deleting an org cascades its tracking row in demo_seed_organizations (ON DELETE CASCADE).
+    // An org that is still referenced stays tracked, so a later cleanup can still find it.
+    if (seedCreatedOrgIds.length > 0) {
+      removed.organizations = (
+        await client.query(
+          `DELETE FROM organizations
+           WHERE id = ANY($1::uuid[])
+             AND NOT EXISTS (
+               SELECT 1 FROM occupations WHERE occupations.organization_id = organizations.id
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM organizations o2 WHERE o2.canonical_organization_id = organizations.id
+             )`,
+          [seedCreatedOrgIds]
+        )
+      ).rowCount ?? 0;
+    }
+
+    logger.log(
+      `${cleanup ? "Cleanup" : "Reset"}: removed ${removed.people} demo people, ${removed.intentcasts} intentcasts, ${removed.organizations} demo organizations.`
+    );
 
     if (cleanup) {
-      await finish(client, dryRun, "cleanup");
-      return;
+      await finish(client, dryRun, "cleanup", logger);
+      return { removed };
     }
 
     const depts = await client.query<{ id: string; code: string }>(`SELECT id, lower(code) AS code FROM departments`);
@@ -132,21 +165,6 @@ async function main() {
     const deptId = new Map(depts.rows.map((r) => [r.code, r.id]));
     const degreeId = new Map(degrees.rows.map((r) => [r.code, r.id]));
 
-    const orgNames = Array.from(new Set(FIXTURES.map((f) => f.organization)));
-    for (const name of orgNames) {
-      await client.query(
-        `INSERT INTO organizations (name, approval_status, created_by_person_id)
-         VALUES ($1, 'approved', NULL::uuid)
-         ON CONFLICT (name) DO UPDATE SET approval_status = 'approved', updated_at = now()`,
-        [name]
-      );
-    }
-    const orgRows = await client.query<{ id: string; name: string }>(
-      `SELECT id, name::text AS name FROM organizations WHERE name = ANY($1::citext[])`,
-      [orgNames]
-    );
-    const orgId = new Map(orgRows.rows.map((r) => [r.name.toLowerCase(), r.id]));
-
     const insertPerson = `
       INSERT INTO people (
         id, institutional_email, role, full_name, department_id, degree_id, batch_year, bio, skills_text,
@@ -154,14 +172,41 @@ async function main() {
       ) VALUES ($1::uuid, $2, 'alumni', $3, $4::uuid, $5::uuid, $6, $7, $8, $9, $10, TRUE, $11, now(), now(), now())`;
 
     // Demo viewer: lands on /home with a complete profile. Role is always 'alumni'.
+    // Inserted before organizations so organizations can reference VIEWER_ID as created_by_person_id.
     const cse = deptId.get("cse");
     const btech = degreeId.get("btech");
     if (!cse || !btech) throw new Error("Missing department 'cse' or degree 'btech'.");
     await client.query(insertPerson, [
-      VIEWER_ID, viewerEmail, "Demo Guest", cse, btech, 2020,
+      VIEWER_ID, viewer, "Demo Guest", cse, btech, 2020,
       "[DEMO] Shared guided-tour account. Read-only.", "Exploring the alumni network",
       "Bengaluru", "India", true,
     ]);
+
+    // Insert fixture organizations without mutating existing rows (no approval_status or updated_at overwrite).
+    // Track newly created organizations in demo_seed_organizations for independent provenance.
+    for (const name of orgNames) {
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO organizations (name, approval_status, created_by_person_id)
+         VALUES ($1, 'approved', $2::uuid)
+         ON CONFLICT (name) DO NOTHING
+         RETURNING id`,
+        [name, VIEWER_ID]
+      );
+      const newOrgId = inserted.rows[0]?.id;
+      if (newOrgId) {
+        await client.query(
+          `INSERT INTO demo_seed_organizations (organization_id)
+           VALUES ($1::uuid)
+           ON CONFLICT DO NOTHING`,
+          [newOrgId]
+        );
+      }
+    }
+    const orgRows = await client.query<{ id: string; name: string }>(
+      `SELECT id, name::text AS name FROM organizations WHERE name = ANY($1::citext[])`,
+      [orgNames]
+    );
+    const orgId = new Map(orgRows.rows.map((r) => [r.name.toLowerCase(), r.id]));
 
     for (let i = 0; i < FIXTURES.length; i++) {
       const f = FIXTURES[i]!;
@@ -196,10 +241,59 @@ async function main() {
       );
     }
 
-    console.log(`Seeded viewer (${viewerEmail}), ${FIXTURES.length} alumni (${FIXTURES.filter((f) => f.city === "Bengaluru").length} in Bengaluru), ${INTENTCASTS.length} intentcasts.`);
-    await finish(client, dryRun, "seed");
+    logger.log(`Seeded viewer (${viewer}), ${FIXTURES.length} alumni (${FIXTURES.filter((f) => f.city === "Bengaluru").length} in Bengaluru), ${INTENTCASTS.length} intentcasts.`);
+    await finish(client, dryRun, "seed", logger);
+    return {
+      removed,
+      seeded: {
+        viewerEmail: viewer,
+        alumniCount: FIXTURES.length,
+        intentcastsCount: INTENTCASTS.length,
+      },
+    };
   } catch (err) {
     await client.query("ROLLBACK");
+    throw err;
+  }
+}
+
+async function finish(
+  client: Pick<pg.PoolClient, "query">,
+  dry: boolean,
+  label: string,
+  logger: { log: (...args: any[]) => void }
+): Promise<void> {
+  if (dry) {
+    await client.query("ROLLBACK");
+    logger.log(`[dry-run] ${label} rolled back; no changes applied.`);
+  } else {
+    await client.query("COMMIT");
+    logger.log(`Committed ${label}.`);
+  }
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const cleanup = argv.includes("--cleanup");
+  const dryRun = argv.includes("--dry-run");
+  const viewerArgIdx = argv.indexOf("--viewer-email");
+  const viewerEmail = (viewerArgIdx >= 0 ? argv[viewerArgIdx + 1] : process.env.DEMO_AUTH_EMAIL)?.trim().toLowerCase();
+  const dbUrl = process.env.DATABASE_URL;
+
+  if (!dbUrl) {
+    console.error("DATABASE_URL is not set.");
+    process.exit(1);
+  }
+  if (!viewerEmail || !/^[^@\s]+@[^@\s]+$/.test(viewerEmail)) {
+    console.error("Set DEMO_AUTH_EMAIL (or pass --viewer-email <email>) to the demo viewer address.");
+    process.exit(1);
+  }
+
+  const pool = new pg.Pool({ connectionString: dbUrl, max: 2 });
+  const client = await pool.connect();
+  try {
+    await runDemoTourSeed({ client, viewerEmail, cleanup, dryRun });
+  } catch (err) {
     console.error(err instanceof Error ? err.message : err);
     process.exitCode = 1;
   } finally {
@@ -208,14 +302,6 @@ async function main() {
   }
 }
 
-async function finish(client: pg.PoolClient, dry: boolean, label: string): Promise<void> {
-  if (dry) {
-    await client.query("ROLLBACK");
-    console.log(`[dry-run] ${label} rolled back; no changes applied.`);
-  } else {
-    await client.query("COMMIT");
-    console.log(`Committed ${label}.`);
-  }
+if (process.argv[1]?.includes("seed-demo-tour-fixtures")) {
+  void main();
 }
-
-void main();
