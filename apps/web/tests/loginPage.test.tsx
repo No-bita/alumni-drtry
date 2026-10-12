@@ -108,25 +108,36 @@ describe("Login page", () => {
     expect(await screen.findByText("Your session expired. Please sign in again.")).toBeTruthy();
   });
 
-  it("renders demo access option when enabled and submits demo credentials", async () => {
+  it("shows the demo password in the same form only once the demo email is typed, and logs in without OTP", async () => {
     apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
     apiPost.mockResolvedValue({ data: { person: { id: "p1", isDemo: true } } });
     mount();
-    const demoBtn = await screen.findByRole("button", { name: /Try Demo Access/i });
-    expect(demoBtn).toBeTruthy();
-    fireEvent.click(demoBtn);
+    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in") as HTMLInputElement;
+    expect(emailInput.value).toBe("");
+    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
+    expect(screen.queryByText(/Try Demo Access/i)).toBeNull();
 
-    expect(screen.getByPlaceholderText("Demo email")).toBeTruthy();
-    const passwordInput = screen.getByPlaceholderText("Demo password");
-    expect(passwordInput).toBeTruthy();
-
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/demo/config"));
+    fireEvent.change(emailInput, { target: { value: "Guest@Alumni.test" } });
+    const passwordInput = await screen.findByPlaceholderText("Demo password");
     fireEvent.change(passwordInput, { target: { value: "demo-secret" } });
-    fireEvent.click(screen.getByRole("button", { name: /Explore Demo Directory/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Explore the demo/i }));
 
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/auth/demo-login", {
-      email: "guest@alumni.test",
-      password: "demo-secret"
-    }));
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith("/v1/auth/demo-login", {
+        email: "guest@alumni.test",
+        password: "demo-secret",
+      })
+    );
+    expect(apiPost).not.toHaveBeenCalledWith("/v1/auth/start", expect.anything());
+  });
+
+  it("keeps normal emails on the OTP path even when demo is enabled", async () => {
+    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
+    mount();
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    fireEvent.change(screen.getByPlaceholderText("you@itbhu.ac.in"), { target: { value: "someone@itbhu.ac.in" } });
+    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
   });
 });
 
