@@ -8,7 +8,7 @@ export function findTourTarget(id: DemoTourStop["id"], ownId?: string): HTMLElem
   const selectors: Record<DemoTourStop["id"], string> = {
     directory: '.search-page__career-toolbar input',
     profile: '.profile-page__header, a[href^="/profiles/"]',
-    city: '.cities-redesign__quick-grid',
+    city: '.cities-redesign__quick-card:nth-child(2)',
     map: '.cities-v2__popular-strip',
   };
   return Array.from(document.querySelectorAll<HTMLElement>(selectors[id])).find((el) => {
