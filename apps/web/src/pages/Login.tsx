@@ -85,20 +85,24 @@ export function Login() {
   const [demoPassword, setDemoPassword] = useState("");
   const [demoSubmitting, setDemoSubmitting] = useState(false);
   const [demoConfigLoading, setDemoConfigLoading] = useState(true);
+  const demoConfigPromiseRef = useRef<Promise<{ enabled: boolean; demoEmail?: string } | null> | null>(null);
 
   useEffect(() => {
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
     // The demo email is never prefilled. The password field only appears once it is typed.
-    void api
+    const req = api
       .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config")
       .then((res) => {
         if (res?.data?.enabled) {
           setDemoConfig(res.data);
+          return res.data;
         }
+        return null;
       })
-      .catch(() => {})
+      .catch(() => null)
       .finally(() => setDemoConfigLoading(false));
+    demoConfigPromiseRef.current = req;
     return () => startAbortRef.current?.abort();
   }, []);
 
@@ -141,12 +145,27 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending" || demoSubmitting || demoConfigLoading) return;
+    if (phase === "sending" || demoSubmitting) return;
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
-    if (isDemoEmail) {
+
+    let activeDemoConfig = demoConfig;
+    if (demoConfigLoading && demoConfigPromiseRef.current) {
+      try {
+        const loaded = await demoConfigPromiseRef.current;
+        if (loaded) activeDemoConfig = loaded;
+      } catch {}
+    }
+
+    const isMatchDemoEmail = Boolean(
+      activeDemoConfig?.enabled &&
+        activeDemoConfig.demoEmail &&
+        normalizedEmail === activeDemoConfig.demoEmail.trim().toLowerCase()
+    );
+
+    if (isMatchDemoEmail) {
       await handleDemoLogin(normalizedEmail);
       return;
     }
@@ -754,7 +773,7 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || demoConfigLoading}>
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting}>
               {isDemoEmail
                 ? demoSubmitting
                   ? "Opening the demo…"
