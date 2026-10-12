@@ -119,6 +119,12 @@ export function getTourStorage(): Storage | null {
   }
 }
 
+/** Tour step index for a backend-provided tour start; unknown or missing starts at the first stop. */
+export function demoStartStep(start?: string | null): number {
+  const i = DEMO_TOUR_STOPS.findIndex((s) => s.id === start);
+  return i < 0 ? 0 : i;
+}
+
 /** Where to send a visitor straight after a successful demo login. */
 export function demoLandingPath(tour?: { start?: string } | null): string {
   const start = tour?.start;
