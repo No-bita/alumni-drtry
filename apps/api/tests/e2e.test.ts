@@ -69,6 +69,13 @@ describe("e2e: full flow", () => {
     const meBody = meRes.json() as { person?: { personId: string; institutionalEmail: string } };
     expect(meBody.person?.personId).toBeDefined();
     expect(meBody.person?.institutionalEmail).toBe(email);
+
+    const logoutRes = await app.inject({
+      method: "POST",
+      url: "/v1/auth/logout",
+      headers: { cookie: `${cookieName}=${sessionCookie}` },
+    });
+    expect(logoutRes.statusCode).toBe(204);
   });
 
   it("authenticated: PATCH /v1/me/profile and GET /v1/me/profile", async () => {

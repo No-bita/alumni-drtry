@@ -36,6 +36,7 @@ import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
+import { verifyCsrfOrigin } from "./lib/csrfProtection.js";
 
 function buildEmailSender(): EmailSender {
   if (env.EMAIL_PROVIDER === "resend") {
@@ -72,6 +73,10 @@ export async function createApp() {
       fields: 12,
       parts: 24
     }
+  });
+
+  app.addHook("preHandler", async (request, _reply) => {
+    verifyCsrfOrigin(request);
   });
 
   const emailSender = buildEmailSender();
