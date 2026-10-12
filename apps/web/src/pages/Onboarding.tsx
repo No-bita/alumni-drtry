@@ -298,6 +298,8 @@ export function Onboarding() {
   const navigate = useNavigate();
   const [gate, setGate] = useState<"loading" | "allow" | "redirect">("loading");
   const [alreadySetUp, setAlreadySetUp] = useState(false);
+  /** True once the first profile load has been judged, so a same-session completion cannot flip the notice on. */
+  const firstProfileJudgedRef = useRef(false);
   const [welcomeProfile, setWelcomeProfile] = useState<MyProfileView | null>(null);
   const [stepRenderVersion, setStepRenderVersion] = useState(0);
   const [step1QuestionIndex, setStep1QuestionIndex] = useState(0);
@@ -386,7 +388,10 @@ export function Onboarding() {
         setGate("redirect");
         return;
       }
-      if (p.onboardingCompletedAt) setAlreadySetUp(true);
+      if (!firstProfileJudgedRef.current) {
+        firstProfileJudgedRef.current = true;
+        if (p.onboardingCompletedAt) setAlreadySetUp(true);
+      }
       if (!canResumeOnboarding(p, authPerson)) {
         setGate("redirect");
         return;
