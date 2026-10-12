@@ -40,7 +40,10 @@ const closeBodySchema = z.object({
 });
 
 export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/v1/connection-threads", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post(
+    "/v1/connection-threads",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
     const parsed = createThreadBodySchema.safeParse(request.body);
     if (!parsed.success) {
       throw new AppError(400, "CONNECTION_THREAD_BAD_REQUEST", "Invalid body.");
@@ -101,7 +104,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/connection-threads/:threadId/messages",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = uuidParam.safeParse(request.params);
       const parsed = postMessageBodySchema.safeParse(request.body);
@@ -141,7 +144,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     "/v1/connection-threads/:threadId/messages/:messageId",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = threadMessageParam.safeParse(request.params);
       const parsed = editMessageBodySchema.safeParse(request.body);
@@ -170,7 +173,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/connection-threads/:threadId/disclose",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = uuidParam.safeParse(request.params);
       const parsed = discloseBodySchema.safeParse(request.body);
@@ -202,7 +205,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/connection-threads/:threadId/nudge/dismiss",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = uuidParam.safeParse(request.params);
       if (!params.success) {
@@ -216,7 +219,7 @@ export const connectionThreadRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/connection-threads/:threadId/close",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = uuidParam.safeParse(request.params);
       const parsed = closeBodySchema.safeParse(request.body);

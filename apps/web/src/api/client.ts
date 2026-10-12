@@ -115,6 +115,7 @@ export type MePerson = {
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
+  isDemo?: boolean;
 };
 
 export function isSuperAdmin(person: Pick<MePerson, "role"> | undefined | null): boolean {

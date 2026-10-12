@@ -151,6 +151,12 @@ export async function createApp() {
     }
   });
 
+  app.decorate("requireNonDemoMutation", async (request, _reply) => {
+    if (request.actor?.isDemo) {
+      throw new AppError(403, "DEMO_READ_ONLY", "Demo accounts are read-only.");
+    }
+  });
+
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(discoveryRoutes);

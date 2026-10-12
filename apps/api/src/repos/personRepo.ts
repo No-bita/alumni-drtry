@@ -9,6 +9,8 @@ export interface PersonRow {
   role: PersonRole;
   /** True for e2e test accounts (see `isTestInstitutionalEmail`). */
   is_test_user: boolean;
+  /** True for dedicated shared demo accounts. */
+  is_demo: boolean;
   full_name: string | null;
   department_code: string | null;
   department_name: string | null;
@@ -170,6 +172,14 @@ export class PersonRepo {
     return result.rows[0] ?? null;
   }
 
+  async findByInstitutionalEmail(normalizedEmail: string): Promise<PersonRow | null> {
+    const result = await this.db.query<PersonRow>(
+      `SELECT * FROM people WHERE institutional_email = $1 AND deleted_at IS NULL AND suspended_at IS NULL LIMIT 1`,
+      [normalizedEmail]
+    );
+    return result.rows[0] ?? null;
+  }
+
   /** Minimal row for auth bypass / actor resolution (active accounts only). */
   async findActorByInstitutionalEmail(normalizedEmail: string): Promise<{
     id: string;
@@ -178,6 +188,7 @@ export class PersonRepo {
     department_code: string | null;
     department_name: string | null;
     joining_year: number | null;
+    is_demo: boolean;
   } | null> {
     const result = await this.db.query<{
       id: string;
@@ -186,9 +197,10 @@ export class PersonRepo {
       department_code: string | null;
       department_name: string | null;
       joining_year: number | null;
+      is_demo: boolean;
     }>(
       `
-      SELECT id, institutional_email, role, department_code, department_name, joining_year
+      SELECT id, institutional_email, role, department_code, department_name, joining_year, is_demo
       FROM people
       WHERE institutional_email = $1
         AND deleted_at IS NULL

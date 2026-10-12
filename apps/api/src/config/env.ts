@@ -141,7 +141,17 @@ const envSchema = z.object({
    */
   ENABLE_PASSWORD_LOGIN: environmentBoolean.default(false),
   DEV_PASSWORD_LOGIN_EMAIL: optionalEmailSchema.default("seed-admin-placeholder@example.invalid"),
-  DEV_PASSWORD_LOGIN_PASSWORD_HASH: optionalStringSchema
+  DEV_PASSWORD_LOGIN_PASSWORD_HASH: optionalStringSchema,
+  /**
+   * Shared demo login (email + password) for prospects and guided tours.
+   * Default-off killswitch. Requires DEMO_AUTH_EMAIL and DEMO_AUTH_PASSWORD_HASH when enabled.
+   */
+  DEMO_AUTH_ENABLED: environmentBoolean.default(false),
+  DEMO_AUTH_EMAIL: optionalEmailSchema,
+  DEMO_AUTH_PASSWORD_HASH: optionalStringSchema,
+  DEMO_AUTH_MAX_PER_IP_WINDOW: z.coerce.number().int().min(1).max(500).default(30),
+  DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW: z.coerce.number().int().min(1).max(500).default(60),
+  DEMO_AUTH_WINDOW_MINUTES: z.coerce.number().int().min(1).max(120).default(15)
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -198,6 +208,14 @@ if (parsed.data.BETA_INVITE_AUTH_ENABLED && !parsed.data.BETA_SHARED_INVITE_CODE
   throw new Error(
     "Invalid environment: BETA_SHARED_INVITE_CODE_HASH is required when BETA_INVITE_AUTH_ENABLED=true."
   );
+}
+
+if (parsed.data.DEMO_AUTH_ENABLED) {
+  if (!parsed.data.DEMO_AUTH_EMAIL || !parsed.data.DEMO_AUTH_PASSWORD_HASH) {
+    throw new Error(
+      "Invalid environment: DEMO_AUTH_EMAIL and DEMO_AUTH_PASSWORD_HASH are required when DEMO_AUTH_ENABLED=true."
+    );
+  }
 }
 
 let googleOauthHostedDomain: string | undefined = parsed.data.GOOGLE_OAUTH_HOSTED_DOMAIN?.trim().toLowerCase();

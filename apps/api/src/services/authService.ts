@@ -52,6 +52,13 @@ export interface InviteCodeLoginInput {
   userAgent: string | null;
 }
 
+export interface DemoLoginInput {
+  email: string;
+  password: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
 export interface VerifyAuthResult {
   sessionToken: string;
   sessionExpiresAt: Date;
@@ -61,6 +68,7 @@ export interface VerifyAuthResult {
     departmentCode: string | null;
     departmentName: string | null;
     joiningYear: number | null;
+    isDemo?: boolean;
   };
 }
 
@@ -71,6 +79,7 @@ export interface SessionActor {
   departmentCode: string | null;
   departmentName: string | null;
   joiningYear: number | null;
+  isDemo?: boolean;
 }
 
 /** Initial expiry: sliding window from login, capped at hard max since session creation. */
@@ -378,6 +387,80 @@ export class AuthService {
     }
   }
 
+  /**
+   * Dedicated demo login with email + password for prospective partners/investors and guided tours.
+   * Gated by DEMO_AUTH_ENABLED, matches configured DEMO_AUTH_EMAIL, and verifies against DEMO_AUTH_PASSWORD_HASH.
+   * Does NOT auto-create a user, never promotes to admin, and fails closed when unconfigured or unprovisioned.
+   */
+  async loginWithDemoCredentials(input: DemoLoginInput): Promise<VerifyAuthResult> {
+    if (!env.DEMO_AUTH_ENABLED) {
+      throw new AppError(403, "DEMO_AUTH_DISABLED", "Demo login is disabled.");
+    }
+    if (!env.DEMO_AUTH_EMAIL || !env.DEMO_AUTH_PASSWORD_HASH) {
+      throw new AppError(503, "DEMO_AUTH_MISCONFIGURED", "Demo login is not configured.");
+    }
+
+    const email = normalizeEmail(input.email);
+    const expectedEmail = normalizeEmail(env.DEMO_AUTH_EMAIL);
+    if (email !== expectedEmail) {
+      throw new AppError(401, "AUTH_INVALID_CREDENTIALS", "Incorrect demo credentials.");
+    }
+
+    if (!verifySecret(input.password, env.DEMO_AUTH_PASSWORD_HASH, env.AUTH_SECRET_PEPPER)) {
+      throw new AppError(401, "AUTH_INVALID_CREDENTIALS", "Incorrect demo credentials.");
+    }
+
+    const client = await this.pool.connect();
+    let shouldRollback = true;
+    try {
+      await client.query("BEGIN");
+      const personRepo = new PersonRepo(client);
+      const sessionRepo = new SessionRepo(client);
+
+      const person = await personRepo.findActorByInstitutionalEmail(expectedEmail);
+      if (!person || !person.is_demo) {
+        throw new AppError(503, "DEMO_NOT_PROVISIONED", "Demo account is not provisioned.");
+      }
+
+      await personRepo.incrementAppLoginCount(person.id);
+
+      const sessionToken = generateOpaqueToken(48);
+      const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
+      const createdAtMs = Date.now();
+      const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
+      await sessionRepo.create({
+        personId: person.id,
+        sessionHash,
+        expiresAt: sessionExpiresAt,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent
+      });
+
+      await client.query("COMMIT");
+      shouldRollback = false;
+
+      return {
+        sessionToken,
+        sessionExpiresAt,
+        person: {
+          id: person.id,
+          institutionalEmail: person.institutional_email,
+          departmentCode: person.department_code,
+          departmentName: person.department_name,
+          joiningYear: person.joining_year,
+          isDemo: true
+        }
+      };
+    } catch (error) {
+      if (shouldRollback) {
+        await client.query("ROLLBACK");
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async loginWithInviteCode(input: InviteCodeLoginInput): Promise<VerifyAuthResult> {
     if (!env.BETA_INVITE_AUTH_ENABLED) {
       throw new AppError(403, "AUTH_INVITE_DISABLED", "Invite-code login is disabled.");
@@ -573,6 +656,11 @@ export class AuthService {
     if (!row) {
       return null;
     }
+    const isDemo = Boolean(row.is_demo);
+    if (isDemo && !env.DEMO_AUTH_ENABLED) {
+      // Kill switch: reject existing demo sessions immediately when demo auth is disabled
+      return null;
+    }
     await this.sessionRepo.touchSlidingThrottled({
       sessionId: row.id,
       throttleSeconds: env.SESSION_TOUCH_MIN_INTERVAL_SECONDS,
@@ -582,10 +670,11 @@ export class AuthService {
     return {
       personId: row.person_id,
       institutionalEmail: row.institutional_email,
-      role: row.role,
+      role: isDemo ? "alumni" : row.role,
       departmentCode: row.department_code,
       departmentName: row.department_name,
-      joiningYear: row.joining_year
+      joiningYear: row.joining_year,
+      isDemo
     };
   }
 
@@ -595,13 +684,15 @@ export class AuthService {
     if (!row) {
       return null;
     }
+    const isDemo = Boolean(row.is_demo);
     return {
       personId: row.id,
       institutionalEmail: row.institutional_email,
-      role: row.role,
+      role: isDemo ? "alumni" : row.role,
       departmentCode: row.department_code,
       departmentName: row.department_name,
-      joiningYear: row.joining_year
+      joiningYear: row.joining_year,
+      isDemo
     };
   }
 

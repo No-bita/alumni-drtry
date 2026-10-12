@@ -124,90 +124,118 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(200).send({ profile });
   });
 
-  app.patch("/v1/me/profile", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = patchProfileSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new AppError(400, "PROFILE_BAD_REQUEST", "Invalid profile update payload.");
-    }
+  app.patch(
+    "/v1/me/profile",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = patchProfileSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "PROFILE_BAD_REQUEST", "Invalid profile update payload.");
+      }
 
-    const profile = await app.profileService.updateMyProfile(request.actor.personId, parsed.data);
-    return reply.code(200).send({ profile });
-  });
+      const profile = await app.profileService.updateMyProfile(request.actor.personId, parsed.data);
+      return reply.code(200).send({ profile });
+    }
+  );
 
   app.get("/v1/me/occupations", { preHandler: app.authenticate }, async (request, reply) => {
     const occupations = await app.occupationService.listMyOccupations(request.actor.personId);
     return reply.code(200).send({ occupations });
   });
 
-  app.post("/v1/me/occupations", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = occupationCreateSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation payload.");
+  app.post(
+    "/v1/me/occupations",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = occupationCreateSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation payload.");
+      }
+
+      const occupation = await app.occupationService.createMyOccupation(
+        request.actor.personId,
+        parsed.data
+      );
+      return reply.code(201).send({ occupation });
     }
+  );
 
-    const occupation = await app.occupationService.createMyOccupation(
-      request.actor.personId,
-      parsed.data
-    );
-    return reply.code(201).send({ occupation });
-  });
+  app.patch(
+    "/v1/me/occupations/:id",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const params = uuidParamSchema.safeParse(request.params);
+      const parsed = occupationPatchSchema.safeParse(request.body);
+      if (!params.success || !parsed.success) {
+        throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation update payload.");
+      }
 
-  app.patch("/v1/me/occupations/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const params = uuidParamSchema.safeParse(request.params);
-    const parsed = occupationPatchSchema.safeParse(request.body);
-    if (!params.success || !parsed.success) {
-      throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation update payload.");
+      const occupation = await app.occupationService.updateMyOccupation(
+        request.actor.personId,
+        params.data.id,
+        parsed.data
+      );
+      return reply.code(200).send({ occupation });
     }
+  );
 
-    const occupation = await app.occupationService.updateMyOccupation(
-      request.actor.personId,
-      params.data.id,
-      parsed.data
-    );
-    return reply.code(200).send({ occupation });
-  });
-
-  app.delete("/v1/me/occupations/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const params = uuidParamSchema.safeParse(request.params);
-    if (!params.success) {
-      throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation id.");
+  app.delete(
+    "/v1/me/occupations/:id",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const params = uuidParamSchema.safeParse(request.params);
+      if (!params.success) {
+        throw new AppError(400, "OCCUPATION_BAD_REQUEST", "Invalid occupation id.");
+      }
+      await app.occupationService.deleteMyOccupation(request.actor.personId, params.data.id);
+      return reply.code(204).send();
     }
-    await app.occupationService.deleteMyOccupation(request.actor.personId, params.data.id);
-    return reply.code(204).send();
-  });
+  );
 
   app.get("/v1/me/links", { preHandler: app.authenticate }, async (request, reply) => {
     const links = await app.linkService.listMyLinks(request.actor.personId);
     return reply.code(200).send({ links });
   });
 
-  app.post("/v1/me/links", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = createLinkSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link payload.");
+  app.post(
+    "/v1/me/links",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = createLinkSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link payload.");
+      }
+
+      const link = await app.linkService.createMyLink(request.actor.personId, parsed.data);
+      return reply.code(201).send({ link });
     }
+  );
 
-    const link = await app.linkService.createMyLink(request.actor.personId, parsed.data);
-    return reply.code(201).send({ link });
-  });
+  app.patch(
+    "/v1/me/links/:id",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const params = uuidParamSchema.safeParse(request.params);
+      const parsed = patchLinkSchema.safeParse(request.body);
+      if (!params.success || !parsed.success) {
+        throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link update payload.");
+      }
 
-  app.patch("/v1/me/links/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const params = uuidParamSchema.safeParse(request.params);
-    const parsed = patchLinkSchema.safeParse(request.body);
-    if (!params.success || !parsed.success) {
-      throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link update payload.");
+      const link = await app.linkService.updateMyLink(request.actor.personId, params.data.id, parsed.data);
+      return reply.code(200).send({ link });
     }
+  );
 
-    const link = await app.linkService.updateMyLink(request.actor.personId, params.data.id, parsed.data);
-    return reply.code(200).send({ link });
-  });
-
-  app.delete("/v1/me/links/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const params = uuidParamSchema.safeParse(request.params);
-    if (!params.success) {
-      throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link id.");
+  app.delete(
+    "/v1/me/links/:id",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const params = uuidParamSchema.safeParse(request.params);
+      if (!params.success) {
+        throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link id.");
+      }
+      await app.linkService.deleteMyLink(request.actor.personId, params.data.id);
+      return reply.code(204).send();
     }
-    await app.linkService.deleteMyLink(request.actor.personId, params.data.id);
-    return reply.code(204).send();
-  });
+  );
 };
