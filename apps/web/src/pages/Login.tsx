@@ -4,6 +4,7 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { LankaGate } from "../components/LankaGate";
+import { LandingWorldMap } from "../components/LandingWorldMap";
 import { api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
@@ -36,6 +37,17 @@ export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { refetch } = useAuth();
+  // Match the desktop right-rail breakpoint; do not load the map on phones/tablets.
+  const [showDesktopMap, setShowDesktopMap] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 900px)");
+    const apply = () => setShowDesktopMap(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const [email, setEmail] = useState("");
   const [phase, setPhase] = useState<LoginPhase>("form");
@@ -256,6 +268,7 @@ export function Login() {
   const renderAuthMarketingShell = (cardMount: ReactNode) => (
     <section className="auth-merged">
       <div className="auth-merged__hero">
+        {showDesktopMap && <LandingWorldMap className="auth-merged__map" />}
         <div className="auth-merged__hero-copy">
           <h1 className="auth-merged__title">
             Where IIT BHU alumni
