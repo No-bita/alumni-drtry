@@ -20,7 +20,7 @@ function getInitials(name: string): string {
   return w.length >= 2 ? w.slice(0, 2).toUpperCase() : w.toUpperCase();
 }
 
-export function Avatar({ name, size = "md", className = "", tone: _tone = "default" }: AvatarProps) {
+export function Avatar({ name, size = "md", className = "" }: AvatarProps) {
   const initials = getInitials(name || "?");
   return (
     <div className={`avatar avatar--${size} ${className}`.trim()} aria-hidden>
