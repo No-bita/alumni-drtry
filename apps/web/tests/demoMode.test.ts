@@ -4,6 +4,7 @@ import {
   DEMO_TOUR_STORAGE_KEY,
   clampStep,
   demoLandingPath,
+  demoStartStep,
   isDemoBlockedResponse,
   isDemoPerson,
   readDemoTourState,
@@ -57,5 +58,8 @@ describe("demoMode", () => {
     expect(demoLandingPath()).toBe("/search");
     expect(demoLandingPath({ start: "city" })).toBe("/intent/location/bengaluru");
     expect(demoLandingPath({ start: "nonsense" })).toBe("/search");
+    expect(demoStartStep("city")).toBe(2);
+    expect(demoStartStep("nonsense")).toBe(0);
+    expect(demoStartStep(undefined)).toBe(0);
   });
 });
