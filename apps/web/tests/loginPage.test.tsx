@@ -108,39 +108,55 @@ describe("Login page", () => {
 });
 
 // Exercise both initial mounting and live breakpoint changes, not just CSS hiding.
-describe("desktop login map", () => {
+describe("responsive login map", () => {
   function viewport(width: number) {
     const listeners = new Set<() => void>();
+    const phoneListeners = new Set<() => void>();
+    const phoneMq = {
+      matches: width <= 639, media: "(max-width: 639px)",
+      addEventListener: (_event: string, fn: () => void) => phoneListeners.add(fn),
+      removeEventListener: (_event: string, fn: () => void) => phoneListeners.delete(fn),
+    };
     const mq = {
       matches: width >= 900,
       media: "(min-width: 900px)",
       addEventListener: (_event: string, fn: () => void) => listeners.add(fn),
       removeEventListener: (_event: string, fn: () => void) => listeners.delete(fn),
     };
-    window.matchMedia = ((query: string) => query === mq.media ? mq : {
+    window.matchMedia = ((query: string) => query === mq.media ? mq : query === phoneMq.media ? phoneMq : {
       matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {},
     }) as typeof window.matchMedia;
     return {
       resize(nextWidth: number) {
         act(() => {
           mq.matches = nextWidth >= 900;
+          phoneMq.matches = nextWidth <= 639;
+          phoneListeners.forEach((listener) => listener());
           listeners.forEach((listener) => listener());
         });
       },
-      listeners,
+      listeners, phoneListeners,
     };
   }
 
-  it.each([390, 639, 640, 820, 899])("does not mount the map at %ipx", (width) => {
+  it.each([640, 820, 899])("does not mount the map at %ipx", (width) => {
     viewport(width);
     mount();
     expect(screen.queryByTestId("landing-map")).toBeNull();
+  });
+
+  it.each([390, 639])("replaces the stats with the map on phones at %ipx", (width) => {
+    viewport(width);
+    mount();
+    expect(screen.getByTestId("landing-map")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
   });
 
   it.each([900, 1440])("restores the map at %ipx", (width) => {
     viewport(width);
     mount();
     expect(screen.getByTestId("landing-map").className).toBe("auth-merged__map");
+    expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
   });
 
   it("mounts and unmounts when crossing the breakpoint and removes its listener", () => {
@@ -150,8 +166,13 @@ describe("desktop login map", () => {
     media.resize(900);
     expect(screen.getByTestId("landing-map")).toBeTruthy();
     media.resize(390);
+    expect(screen.getByTestId("landing-map")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
+    media.resize(820);
     expect(screen.queryByTestId("landing-map")).toBeNull();
+    expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
     view.unmount();
     expect(media.listeners.size).toBe(0);
+    expect(media.phoneListeners.size).toBe(0);
   });
 });
