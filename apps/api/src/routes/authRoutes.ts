@@ -5,14 +5,12 @@ import { generateOpaqueToken } from "../lib/crypto.js";
 import { buildGoogleAuthorizationUrl } from "../lib/googleOAuth.js";
 import { AppError, isAppError } from "../lib/errors.js";
 
-const GOOGLE_STATE_COOKIE = "google_oauth_state";
-const GOOGLE_STATE_MAX_AGE_SEC = 600;
-
-function sessionSameSite(): "none" | "lax" {
-  // Production deployments commonly host web + API on different domains
-  // (e.g. Vercel + Railway), which requires SameSite=None for cookie-based auth.
-  return env.NODE_ENV === "production" ? "none" : "lax";
-}
+import {
+  setSessionCookie,
+  clearSessionCookie,
+  setOAuthStateCookie,
+  GOOGLE_STATE_COOKIE
+} from "../lib/sessionCookie.js";
 
 function webAppBaseUrl(): string {
   return (env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL).replace(/\/+$/, "");
@@ -174,14 +172,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(503, "AUTH_GOOGLE_DISABLED", "Google sign-in is not configured.");
     }
     const state = generateOpaqueToken(24);
-    reply.setCookie(GOOGLE_STATE_COOKIE, state, {
-      path: "/",
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: GOOGLE_STATE_MAX_AGE_SEC,
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    setOAuthStateCookie(reply, state);
     const url = buildGoogleAuthorizationUrl({
       clientId: env.GOOGLE_CLIENT_ID!,
       redirectUri: googleOAuthRedirectUri(),
@@ -236,14 +227,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         userAgent: request.headers["user-agent"] ?? null
       });
 
-      reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-        path: "/",
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: sessionSameSite(),
-        maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-        ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-      });
+      setSessionCookie(reply, result.sessionToken);
 
       return reply.redirect(`${webBase}/login?google=1`);
     } catch (err) {
@@ -301,14 +285,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const result = await app.authService.verifyAuth(verificationPayload);
 
-    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-      path: "/",
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: sessionSameSite(),
-      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    setSessionCookie(reply, result.sessionToken);
 
     return reply.code(200).send({
       person: result.person,
@@ -329,14 +306,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       userAgent: request.headers["user-agent"] ?? null
     });
 
-    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-      path: "/",
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: sessionSameSite(),
-      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    setSessionCookie(reply, result.sessionToken);
 
     return reply.code(200).send({
       person: result.person,
@@ -371,14 +341,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         userAgent: request.headers["user-agent"] ?? null
       });
 
-      reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-        path: "/",
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: sessionSameSite(),
-        maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-        ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-      });
+      setSessionCookie(reply, result.sessionToken);
 
       request.log.info(
         {
@@ -467,14 +430,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       throw error;
     }
 
-    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-      path: "/",
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: sessionSameSite(),
-      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    setSessionCookie(reply, result.sessionToken);
 
     request.log.info(
       {
@@ -511,14 +467,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       userAgent: request.headers["user-agent"] ?? null
     });
 
-    reply.setCookie(env.SESSION_COOKIE_NAME, result.sessionToken, {
-      path: "/",
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: sessionSameSite(),
-      maxAge: env.SESSION_HARD_CAP_HOURS * 60 * 60,
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    setSessionCookie(reply, result.sessionToken);
 
     return reply.code(200).send({
       person: result.person,
@@ -532,10 +481,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       await app.authService.logout(token);
     }
 
-    reply.clearCookie(env.SESSION_COOKIE_NAME, {
-      path: "/",
-      ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
-    });
+    clearSessionCookie(reply);
     return reply.code(204).send();
   });
 };
