@@ -13,6 +13,10 @@ export interface UpdateMyProfileInput {
   departmentCode?: string;
   batchYear?: number | null;
   degreeCode?: string | null;
+  institutionalEmail?: string;
+  institutional_email?: string;
+  instituteEmail?: string;
+  institute_email?: string;
   personalEmail?: string | null;
   bio?: string | null;
   mobilePhone?: string | null;
@@ -57,6 +61,68 @@ export class ProfileService {
     const currentIds = await this.personRepo.findProfileIdsById(personId);
     if (!currentIds) {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
+    }
+
+    // Guard: Institutional email cannot be changed at any time.
+    const attemptedInstEmail =
+      input.institutionalEmail ??
+      input.institutional_email ??
+      input.instituteEmail ??
+      input.institute_email;
+    if (attemptedInstEmail !== undefined) {
+      if (normalizeEmail(attemptedInstEmail) !== normalizeEmail(current.institutionalEmail)) {
+        throw new AppError(400, "PROFILE_FROZEN_FIELD", "Institutional email cannot be changed.");
+      }
+    }
+
+    // Guard: Once onboarding is complete, identity fields are frozen.
+    if (current.onboardingCompletedAt != null) {
+      if (input.fullName !== undefined) {
+        const inputName = input.fullName.trim();
+        const currentName = (current.fullName ?? "").trim();
+        if (inputName !== currentName) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Full name cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.departmentCode !== undefined) {
+        const inputDept = input.departmentCode.trim().toLowerCase();
+        const currentDept = (current.departmentCode ?? current.parsedDepartmentCode ?? "").trim().toLowerCase();
+        if (inputDept !== currentDept) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Department cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.degreeCode !== undefined) {
+        const inputDeg = input.degreeCode === null ? null : input.degreeCode.trim().toLowerCase();
+        const currentDeg = current.degreeCode === null ? null : current.degreeCode.trim().toLowerCase();
+        if (inputDeg !== currentDeg) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Degree cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.batchYear !== undefined) {
+        const currentBatch = current.batchYear ?? current.parsedJoiningYear;
+        if (input.batchYear !== current.batchYear && input.batchYear !== currentBatch) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Batch year cannot be changed after onboarding is complete."
+          );
+        }
+      }
     }
 
     let nextFullName = current.fullName;
