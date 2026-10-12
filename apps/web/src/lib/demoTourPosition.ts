@@ -4,7 +4,7 @@ export type TourRect = { left: number; top: number; right: number; bottom: numbe
 export type TourPlacement = { left: number; top: number; side: "top" | "bottom" | "left" | "right" | null; arrow: number };
 
 /** Use real controls, not navigation avatars or the tour's own links. */
-export function findTourTarget(id: DemoTourStop["id"], ownId?: string): HTMLElement | null {
+export function findTourTarget(id: DemoTourStop["id"], ownId?: string, viewport = { width: window.innerWidth, top: 0, bottom: window.innerHeight }): HTMLElement | null {
   const selectors: Record<DemoTourStop["id"], string> = {
     directory: '.search-page__career-toolbar input',
     profile: '.profile-page__header, a[href^="/profiles/"]',
@@ -15,8 +15,13 @@ export function findTourTarget(id: DemoTourStop["id"], ownId?: string): HTMLElem
     if (el.closest('nav, .demo-tour') || (ownId && el.getAttribute('href') === `/profiles/${ownId}`)) return false;
     const style = getComputedStyle(el);
     const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+    return r.width > 0 && r.height > 0 && r.bottom > viewport.top && r.top < viewport.bottom && r.right > 0 && r.left < viewport.width && style.visibility !== 'hidden' && style.display !== 'none';
   }) ?? null;
+}
+
+/** Available card height below the banner and above the mobile dock. */
+export function tourMaxHeight(viewportHeight: number, safeTop: number, dockClearance = 0): number {
+  return Math.max(0, viewportHeight - safeTop - dockClearance - 16);
 }
 
 /** Clamp to a usable viewport and keep the card outside the highlighted target. */
