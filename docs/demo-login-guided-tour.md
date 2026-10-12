@@ -63,9 +63,7 @@ AUTH_SECRET_PEPPER="<your-pepper>" npm run auth:hash-password -- "<chosen-passwo
 Set the resulting hex string as `DEMO_AUTH_PASSWORD_HASH`.
 
 ### Provisioning the Demo Account
-1. Ensure the demo email exists in the database `people` table with `role = 'alumni'`.
-2. Ensure its associated profile is populated and has `onboarding_completed_at` set so it can immediately access `/home`.
-3. Set `DEMO_AUTH_ENABLED=true` in deployment environment secrets.
+Use the `seed:demo-tour` command below to create the dedicated demo viewer row with `role = 'alumni'`, `is_demo = TRUE`, and a complete profile. Run the dry-run first. The seed refuses to replace any existing row with the viewer email unless it is already a test alumni flagged `is_demo`; do not manually promote an email collision or real member to a demo account. If it reports a conflict, stop and choose a different dedicated demo email after inspecting the row. Enable `DEMO_AUTH_ENABLED=true` only after the account is provisioned and the required migrations are applied.
 
 ### Seeding & Cleaning Demo Fixtures
 Owner-run from `apps/api` with `DATABASE_URL` pointing at the target database. Apply database migrations first, including migration `044_people_is_demo.sql`, before running this script. One script creates the demo viewer account (`DEMO_AUTH_EMAIL`, role `alumni`, onboarding complete, `is_demo = TRUE`) plus 10 synthetic alumni (`is_test_user = TRUE`, `is_demo = FALSE`; 6 in Bengaluru) and 5 `[DEMO]` intentcasts for the Bengaluru city board:
