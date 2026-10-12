@@ -418,7 +418,7 @@ export class AuthService {
       const sessionRepo = new SessionRepo(client);
 
       const person = await personRepo.findActorByInstitutionalEmail(expectedEmail);
-      if (!person) {
+      if (!person || !person.is_demo) {
         throw new AppError(503, "DEMO_NOT_PROVISIONED", "Demo account is not provisioned.");
       }
 
@@ -656,11 +656,8 @@ export class AuthService {
     if (!row) {
       return null;
     }
-    const isDemoEmail = Boolean(
-      env.DEMO_AUTH_EMAIL &&
-      row.institutional_email.trim().toLowerCase() === env.DEMO_AUTH_EMAIL.trim().toLowerCase()
-    );
-    if (isDemoEmail && !env.DEMO_AUTH_ENABLED) {
+    const isDemo = Boolean(row.is_demo);
+    if (isDemo && !env.DEMO_AUTH_ENABLED) {
       // Kill switch: reject existing demo sessions immediately when demo auth is disabled
       return null;
     }
@@ -673,11 +670,11 @@ export class AuthService {
     return {
       personId: row.person_id,
       institutionalEmail: row.institutional_email,
-      role: isDemoEmail ? "alumni" : row.role,
+      role: isDemo ? "alumni" : row.role,
       departmentCode: row.department_code,
       departmentName: row.department_name,
       joiningYear: row.joining_year,
-      isDemo: isDemoEmail
+      isDemo
     };
   }
 
@@ -687,18 +684,15 @@ export class AuthService {
     if (!row) {
       return null;
     }
-    const isDemoEmail = Boolean(
-      env.DEMO_AUTH_EMAIL &&
-      row.institutional_email.trim().toLowerCase() === env.DEMO_AUTH_EMAIL.trim().toLowerCase()
-    );
+    const isDemo = Boolean(row.is_demo);
     return {
       personId: row.id,
       institutionalEmail: row.institutional_email,
-      role: isDemoEmail ? "alumni" : row.role,
+      role: isDemo ? "alumni" : row.role,
       departmentCode: row.department_code,
       departmentName: row.department_name,
       joiningYear: row.joining_year,
-      isDemo: isDemoEmail
+      isDemo
     };
   }
 

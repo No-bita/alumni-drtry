@@ -47,12 +47,9 @@ This document describes the design, configuration, provisioning, and operational
 | `DEMO_AUTH_ENABLED` | boolean | `false` | Master kill switch for demo auth. |
 | `DEMO_AUTH_EMAIL` | string | `""` | Dedicated institutional email for the demo account. |
 | `DEMO_AUTH_PASSWORD_HASH` | string | `""` | SHA256 HMAC hash of the shared demo password keyed with `AUTH_SECRET_PEPPER`. |
-| `DEMO_AUTH_IP_WINDOW_SECONDS` | number | `300` | Rate limit window per client IP (default 5 min). |
-| `DEMO_AUTH_IP_MAX_ATTEMPTS` | number | `10` | Max attempts per IP per window. |
-| `DEMO_AUTH_ACCOUNT_WINDOW_SECONDS`| number | `900` | Rate limit window per demo account (default 15 min). |
-| `DEMO_AUTH_ACCOUNT_MAX_ATTEMPTS` | number | `30` | Max attempts per demo account per window. |
-| `DEMO_AUTH_GLOBAL_WINDOW_SECONDS` | number | `60` | Global rate limit window (default 1 min). |
-| `DEMO_AUTH_GLOBAL_MAX_ATTEMPTS` | number | `60` | Max global attempts per window. |
+| `DEMO_AUTH_MAX_PER_IP_WINDOW` | number | `30` | Max attempts allowed per IP within the rate-limit window. |
+| `DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW`| number | `60` | Max attempts allowed per demo account within the window. |
+| `DEMO_AUTH_WINDOW_MINUTES` | number | `15` | Duration of the rate-limit window in minutes. |
 
 ---
 
@@ -66,7 +63,12 @@ AUTH_SECRET_PEPPER="<your-pepper>" npm run auth:hash-password -- "<chosen-passwo
 Set the resulting hex string as `DEMO_AUTH_PASSWORD_HASH`.
 
 ### Provisioning the Demo Account
-1. Ensure the demo email exists in the database `people` table with `role = 'alumni'`.
+1. Ensure the demo account exists in the database `people` table with `role = 'alumni'` and `is_demo = TRUE`:
+   ```sql
+   INSERT INTO people (institutional_email, role, is_demo)
+   VALUES ('demo@alumni.test', 'alumni', TRUE)
+   ON CONFLICT (institutional_email) DO UPDATE SET is_demo = TRUE, role = 'alumni';
+   ```
 2. Ensure its associated profile is populated and has `onboarding_completed_at` set so it can immediately access `/home`.
 3. Set `DEMO_AUTH_ENABLED=true` in deployment environment secrets.
 
@@ -94,11 +96,11 @@ When rotating `DEMO_AUTH_PASSWORD_HASH`:
 
 ## 4. Frontend Experience
 
-1. **Login Page (`/login`)**:
-   - Queries `GET /v1/auth/demo/config`.
-   - When enabled, renders a "Try Demo Access" button.
-   - Submitting demo credentials bypasses onboarding directly to `/home`.
+1. **Dedicated Guided Tour Flow**:
+   - The dedicated demo entry point, guided tour overlays, skip/replay controls, and disabled action explanations are integrated in the guided tour PR.
+   - Any demo session resolves with `isDemo: true` on `/v1/me`.
 
 2. **Navigation & Badges**:
-   - Active demo sessions display a distinct `Demo Tour` badge and banner in the navigation bar.
+   - Active demo sessions display a distinct `Demo Tour` badge and indicator in the navigation bar.
    - Profiles and search cards distinguish demo alumni records with the `Demo` badge.
+

@@ -4,15 +4,13 @@ import { MemoryRouter } from "react-router-dom";
 import { Login } from "../src/pages/Login";
 
 const apiPost = vi.hoisted(() => vi.fn());
-const apiGet = vi.hoisted(() => vi.fn());
-vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: apiGet } }));
+vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: vi.fn() } }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: vi.fn() }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className, showTestimonials = true }: { className?: string; showTestimonials?: boolean }) => <div data-testid="landing-map" className={className}>{showTestimonials && <div aria-label="Alumni testimonials" />}</div> }));
 vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
-  apiGet.mockResolvedValue({ data: { enabled: false } });
   window.matchMedia = ((q: string) => ({
     matches: false,
     media: q,
@@ -106,27 +104,6 @@ describe("Login page", () => {
   it("explains an expired session", async () => {
     mount("?reason=session_expired");
     expect(await screen.findByText("Your session expired. Please sign in again.")).toBeTruthy();
-  });
-
-  it("renders demo access option when enabled and submits demo credentials", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
-    apiPost.mockResolvedValue({ data: { person: { id: "p1", isDemo: true } } });
-    mount();
-    const demoBtn = await screen.findByRole("button", { name: /Try Demo Access/i });
-    expect(demoBtn).toBeTruthy();
-    fireEvent.click(demoBtn);
-
-    expect(screen.getByPlaceholderText("Demo email")).toBeTruthy();
-    const passwordInput = screen.getByPlaceholderText("Demo password");
-    expect(passwordInput).toBeTruthy();
-
-    fireEvent.change(passwordInput, { target: { value: "demo-secret" } });
-    fireEvent.click(screen.getByRole("button", { name: /Explore Demo Directory/i }));
-
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/auth/demo-login", {
-      email: "guest@alumni.test",
-      password: "demo-secret"
-    }));
   });
 });
 

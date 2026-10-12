@@ -149,7 +149,8 @@ describe("AuthService demo login and kill switch", () => {
               role: "admin", // Even if DB had admin, it must be forced to alumni
               department_code: "cse",
               department_name: "Computer Science",
-              joining_year: 2020
+              joining_year: 2020,
+              is_demo: true
             }
           ]
         };
@@ -176,23 +177,39 @@ describe("AuthService demo login and kill switch", () => {
     expect(mockClient.release).toHaveBeenCalled();
   });
 
-  it("kill switch: invalidates active demo sessions when DEMO_AUTH_ENABLED is turned off", async () => {
+  it("kill switch: invalidates active demo sessions when DEMO_AUTH_ENABLED is turned off without affecting normal users", async () => {
     const demoPersonId = "11111111-2222-3333-4444-555555555555";
-    const sessionToken = "demo-session-token-12345";
-    const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
+    const normalPersonId = "99999999-8888-7777-6666-555555555555";
+    const demoToken = "demo-session-token-12345";
+    const normalToken = "normal-session-token-67890";
+    const demoHash = hashSecret(demoToken, env.AUTH_SECRET_PEPPER);
+    const normalHash = hashSecret(normalToken, env.AUTH_SECRET_PEPPER);
 
     // Mock active session lookup
     (authService as any).sessionRepo = {
       findActiveByHash: vi.fn().mockImplementation(async (hash: string) => {
-        if (hash === sessionHash) {
+        if (hash === demoHash) {
           return {
-            id: "session-1",
+            id: "session-demo",
             person_id: demoPersonId,
             institutional_email: demoEmail,
             role: "alumni",
             department_code: "cse",
             department_name: "Computer Science",
-            joining_year: 2020
+            joining_year: 2020,
+            is_demo: true
+          };
+        }
+        if (hash === normalHash) {
+          return {
+            id: "session-normal",
+            person_id: normalPersonId,
+            institutional_email: "regular@alumni.test",
+            role: "alumni",
+            department_code: "ece",
+            department_name: "Electronics",
+            joining_year: 2018,
+            is_demo: false
           };
         }
         return null;
@@ -200,18 +217,22 @@ describe("AuthService demo login and kill switch", () => {
       touchSlidingThrottled: vi.fn()
     };
 
-    (env as any).DEMO_AUTH_EMAIL = demoEmail;
-
-    // When DEMO_AUTH_ENABLED is true, session resolves with isDemo: true
+    // When DEMO_AUTH_ENABLED is true, demo session resolves with isDemo: true
     (env as any).DEMO_AUTH_ENABLED = true;
-    const actorEnabled = await authService.getActorFromSessionToken(sessionToken);
+    const actorEnabled = await authService.getActorFromSessionToken(demoToken);
     expect(actorEnabled).not.toBeNull();
     expect(actorEnabled?.isDemo).toBe(true);
 
-    // When DEMO_AUTH_ENABLED is false, killswitch activates immediately: actor resolution fails closed
+    // When DEMO_AUTH_ENABLED is false, killswitch activates immediately for demo sessions
     (env as any).DEMO_AUTH_ENABLED = false;
-    const actorDisabled = await authService.getActorFromSessionToken(sessionToken);
+    const actorDisabled = await authService.getActorFromSessionToken(demoToken);
     expect(actorDisabled).toBeNull();
+
+    // Normal user sessions remain completely unaffected when DEMO_AUTH_ENABLED is false
+    const normalActor = await authService.getActorFromSessionToken(normalToken);
+    expect(normalActor).not.toBeNull();
+    expect(normalActor?.isDemo).toBe(false);
+    expect(normalActor?.personId).toBe(normalPersonId);
   });
 });
 

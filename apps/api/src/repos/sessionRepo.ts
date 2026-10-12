@@ -28,6 +28,7 @@ export interface SessionWithPersonRow extends SessionRow {
   department_code: string | null;
   department_name: string | null;
   joining_year: number | null;
+  is_demo: boolean;
 }
 
 export class SessionRepo {
@@ -57,7 +58,7 @@ export class SessionRepo {
   async findActiveByHash(sessionHash: string, hardCapHours: number): Promise<SessionWithPersonRow | null> {
     const result = await this.db.query<SessionWithPersonRow>(
       `
-      SELECT s.*, p.institutional_email, p.role, p.department_code, p.department_name, p.joining_year
+      SELECT s.*, p.institutional_email, p.role, p.department_code, p.department_name, p.joining_year, p.is_demo
       FROM sessions s
       JOIN people p ON p.id = s.person_id
       WHERE s.session_hash = $1

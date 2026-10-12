@@ -63,13 +63,10 @@ const updateIntentcastSchema = z.object({
 });
 
 export const intentcastRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook("preHandler", async (request, reply) => {
-    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
-      await app.requireNonDemoMutation(request, reply);
-    }
-  });
-
-  app.post("/v1/intentcasts", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post(
+    "/v1/intentcasts",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
     const parsed = createIntentcastSchema.safeParse(request.body);
     if (!parsed.success) {
       throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid intentcast payload.");
@@ -158,7 +155,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     "/v1/intentcasts/:id",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = intentcastParamsSchema.safeParse(request.params);
       const parsed = updateIntentcastSchema.safeParse(request.body);
@@ -182,7 +179,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     "/v1/intentcasts/:id/close",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = intentcastParamsSchema.safeParse(request.params);
       if (!params.success) {
@@ -195,7 +192,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete(
     "/v1/intentcasts/:id",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = intentcastParamsSchema.safeParse(request.params);
       if (!params.success) {
@@ -211,7 +208,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/intentcasts/:id/restore",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = intentcastParamsSchema.safeParse(request.params);
       if (!params.success) {
@@ -227,7 +224,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     "/v1/intentcasts/:id/respond",
-    { preHandler: app.authenticate },
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const params = intentcastParamsSchema.safeParse(request.params);
       const parsed = respondIntentcastSchema.safeParse(request.body);
