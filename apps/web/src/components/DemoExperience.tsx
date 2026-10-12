@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { findTourTarget, placeTour, tourMaxHeight, type TourRect } from "../lib/demoTourPosition";
+import { findTourTarget, placeTour, tourMaxHeight, visibleTourRect, type TourRect } from "../lib/demoTourPosition";
 import { useAuth } from "../contexts/AuthContext";
 import {
   DEMO_BLOCKED_EVENT,
@@ -83,18 +83,9 @@ function DemoExperienceInner() {
       const safeTop = Math.max(16, bannerBottom + 12);
       const dockClearance = window.innerWidth <= 640 ? 72 : 0;
       card.style.maxHeight = `${tourMaxHeight(window.innerHeight, safeTop, dockClearance)}px`;
-      const el = findTourTarget(stop.id, ownId, { width: window.innerWidth, top: safeTop, bottom: window.innerHeight - dockClearance });
-      const rect = el?.getBoundingClientRect();
-      // A scrolled-out or clipped target must not produce a misleading pointer.
-      let visible = Boolean(rect && rect.bottom > safeTop && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth);
-      for (let parent = el?.parentElement; visible && parent; parent = parent.parentElement) {
-        const style = getComputedStyle(parent);
-        if (/(auto|scroll|hidden|clip)/.test(`${style.overflowX} ${style.overflowY}`)) {
-          const clip = parent.getBoundingClientRect();
-          visible = Boolean(rect && rect.bottom > clip.top && rect.top < clip.bottom && rect.right > clip.left && rect.left < clip.right);
-        }
-      }
-      const target = visible && rect ? { left: Math.max(0, rect.left), top: Math.max(safeTop, rect.top), right: Math.min(window.innerWidth, rect.right), bottom: Math.min(window.innerHeight, rect.bottom), width: rect.width, height: rect.height } : null;
+      const viewport = { width: window.innerWidth, top: safeTop, bottom: window.innerHeight - dockClearance };
+      const el = findTourTarget(stop.id, ownId, viewport);
+      const target = el ? visibleTourRect(el, viewport) : null;
       const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight - dockClearance }, safeTop);
       // On a new stop, make room below a visible target on short screens.
       // Do this once only, so manual scrolling remains under the visitor's control.
@@ -177,7 +168,7 @@ function DemoExperienceInner() {
 
       {tour.status === "active" ? (
         <>
-        {anchor?.target ? <div className="demo-tour-target" aria-hidden style={{ left: anchor.target.left - 4, top: anchor.target.top - 4, width: anchor.target.right - anchor.target.left + 8, height: anchor.target.bottom - anchor.target.top + 8 }} /> : null}
+        {anchor?.target ? <div className="demo-tour-target" aria-hidden style={{ left: anchor.target.left, top: anchor.target.top, width: anchor.target.width, height: anchor.target.height, boxShadow: "inset 0 0 0 4px rgba(212, 154, 74, 0.25)" }} /> : null}
         <aside ref={cardRef} className="demo-tour" role="dialog" aria-label="Guided tour" aria-live="polite"
           style={anchor ? { left: anchor.placement.left, top: anchor.placement.top } : undefined}>
           {anchor?.placement.side ? <span className={`demo-tour__arrow demo-tour__arrow--${anchor.placement.side}`} aria-hidden style={anchor.placement.side === "top" || anchor.placement.side === "bottom" ? { left: anchor.placement.arrow } : { top: anchor.placement.arrow }} /> : null}
