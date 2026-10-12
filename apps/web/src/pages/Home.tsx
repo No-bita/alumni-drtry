@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -17,12 +17,12 @@ import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import {
   HomeOpportunityRail,
-  normalizeHomeOpportunityCategory,
   type HomeOpportunityCategory,
   type HomeOpportunityItem,
 } from "../components/HomeOpportunityRail";
 import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
+import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
 import { HomeIntentHero } from "../components/HomeIntentHero";
 import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
@@ -657,9 +657,6 @@ export function Home() {
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
   const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("all");
-  useEffect(() => {
-    setActiveCategory((prev) => (prev === "hiring" ? "all" : prev));
-  }, []);
   const useDevMocks =
     import.meta.env.DEV &&
     typeof window !== "undefined" &&
