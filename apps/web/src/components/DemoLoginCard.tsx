@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { NETWORK_ERROR_MESSAGE, api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  clearDemoTourState,
   demoLandingPath,
+  demoStartStep,
   getTourStorage,
+  writeDemoTourState,
 } from "../lib/demoMode";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -41,15 +42,19 @@ export function DemoLoginCard() {
       if (retryAfterSeconds) {
         setError(`Lots of visitors right now. Try again in about ${retryAfterSeconds} seconds.`);
       } else if (err?.code === "NETWORK_ERROR") {
-        setError(err.message);
+        setError(err.message ?? NETWORK_ERROR_MESSAGE);
       } else {
         setError("That email and password don't match. Double-check what you were sent.");
       }
       return;
     }
-    clearDemoTourState(getTourStorage());
-    await auth.refetch();
+    writeDemoTourState(getTourStorage(), { status: "active", step: demoStartStep(data.tour?.start) });
+    const snapshot = await auth.refetch();
     setBusy(false);
+    if (!snapshot) {
+      setError("You are in, but we could not load your session. Please try again.");
+      return;
+    }
     navigate(demoLandingPath(data.tour), { replace: true });
   };
 
@@ -71,6 +76,7 @@ export function DemoLoginCard() {
       </p>
       <Input
         type="email"
+        label="Demo email"
         placeholder="Demo email"
         value={email}
         onChange={(ev) => setEmail(ev.target.value)}
@@ -79,6 +85,7 @@ export function DemoLoginCard() {
       />
       <Input
         type="password"
+        label="Demo password"
         placeholder="Demo password"
         value={password}
         onChange={(ev) => setPassword(ev.target.value)}
