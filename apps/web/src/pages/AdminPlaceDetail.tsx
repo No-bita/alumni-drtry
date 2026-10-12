@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -15,6 +15,7 @@ export function AdminPlaceDetail() {
   const [renameDraft, setRenameDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
   const [combineSearch, setCombineSearch] = useState("");
+  const combineSearchVersion = useRef(0);
   const [combineHits, setCombineHits] = useState<AdminPlacesListResponse["places"]>([]);
   const [combinePickId, setCombinePickId] = useState<string | null>(null);
 
@@ -93,6 +94,7 @@ export function AdminPlaceDetail() {
     onSuccess: () => {
       setBannerError(null);
       setCombinePickId(null);
+      combineSearchVersion.current += 1;
       setCombineSearch("");
       setCombineHits([]);
       invalidatePlace();
@@ -104,17 +106,22 @@ export function AdminPlaceDetail() {
     if (!combineSearch.trim() || combineSearch.trim().length < 2) {
       return;
     }
+    let active = true;
+    const version = combineSearchVersion.current;
     const handle = window.setTimeout(async () => {
       const q = combineSearch.trim();
       const { data, error } = await api.get<AdminPlacesListResponse>(
         `/v1/admin/places?${new URLSearchParams({ q, limit: "12" }).toString()}`
       );
-      if (!error && data) {
+      if (active && version === combineSearchVersion.current && !error && data) {
         const filtered = data.places.filter((p) => p.id !== placeId);
         setCombineHits(filtered);
       }
     }, 320);
-    return () => window.clearTimeout(handle);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
   }, [combineSearch, placeId]);
 
   const combinePickLabel = useMemo(() => {
@@ -243,6 +250,7 @@ export function AdminPlaceDetail() {
                   label="Search cities"
                   value={combineSearch}
                   onChange={(e) => {
+                    combineSearchVersion.current += 1;
                     setCombineSearch(e.target.value);
                     if (e.target.value.trim().length < 2) setCombineHits([]);
                     setCombinePickId(null);
