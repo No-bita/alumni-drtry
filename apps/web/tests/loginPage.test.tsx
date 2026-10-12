@@ -7,7 +7,7 @@ const apiPost = vi.hoisted(() => vi.fn());
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: vi.fn() } }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: vi.fn() }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className }: { className?: string }) => <div data-testid="landing-map" className={className} /> }));
+vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className, showTestimonials = true }: { className?: string; showTestimonials?: boolean }) => <div data-testid="landing-map" className={className}>{showTestimonials && <div aria-label="Alumni testimonials" />}</div> }));
 vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
@@ -150,12 +150,14 @@ describe("responsive login map", () => {
     mount();
     expect(screen.getByTestId("landing-map")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
+    expect(screen.queryByLabelText("Alumni testimonials")).toBeNull();
   });
 
   it.each([900, 1440])("restores the map at %ipx", (width) => {
     viewport(width);
     mount();
     expect(screen.getByTestId("landing-map").className).toBe("auth-merged__map");
+    expect(screen.getByLabelText("Alumni testimonials")).toBeTruthy();
     expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
   });
 
@@ -168,6 +170,7 @@ describe("responsive login map", () => {
     media.resize(390);
     expect(screen.getByTestId("landing-map")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
+    expect(screen.queryByLabelText("Alumni testimonials")).toBeNull();
     media.resize(820);
     expect(screen.queryByTestId("landing-map")).toBeNull();
     expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
