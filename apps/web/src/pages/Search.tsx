@@ -501,8 +501,4 @@ export function Search() {
               ) : null}
             </>
           ) : null}
-        </main>
-      </div>
-    </>
-  );
-                                                               }
+          }
