@@ -5,6 +5,8 @@ import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { DemoExperience } from "./components/DemoExperience";
+import { isDemoPerson } from "./lib/demoMode";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "./lib/onboardingEligibility";
 import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "./lib/devHubPages";
@@ -78,6 +80,11 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
     return <>{children}</>;
   }
 
+  /** The shared demo account lands in the prepared demo experience, never real-member onboarding. */
+  if (isDemoPerson(person)) {
+    return <>{children}</>;
+  }
+
   if (auth.myProfileError) {
     return (
       <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
@@ -128,7 +135,7 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
   const { id: routeProfileId } = useParams();
 
   if (auth.status !== "authenticated") return null;
-  if (superAdminSkipsAlumniJourney(auth.person)) return <>{children}</>;
+  if (superAdminSkipsAlumniJourney(auth.person) || isDemoPerson(auth.person)) return <>{children}</>;
 
   const profile = auth.myProfile;
   if (!profile) {
@@ -284,6 +291,7 @@ export default function App() {
       {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
         <AuthSessionExpiredRegistrar />
+        <DemoExperience />
         <AppRoutes />
         <GlobalNotificationsWidget />
         <GlobalMessagingWidget />
