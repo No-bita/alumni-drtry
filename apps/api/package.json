@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/db/migrate.ts",
     "auth:hash-password": "tsx scripts/generate-password-hash.ts",
+    "seed:demo-tour": "tsx scripts/seed-demo-tour-fixtures.ts",
     "seed:platform-mock": "tsx scripts/seed-platform-mock-data.ts",
     "clear-person-analytics": "tsx scripts/clear-person-analytics-by-email.ts",
     "delete-person-full": "tsx scripts/delete-person-full-by-email.ts",
