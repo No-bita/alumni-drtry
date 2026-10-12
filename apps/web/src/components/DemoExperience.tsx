@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -30,6 +30,12 @@ function DemoExperienceInner() {
     () => readDemoTourState(getTourStorage()) ?? { status: "active", step: 0 }
   );
   const [notice, setNotice] = useState(false);
+  /* Profile pages have per-person URLs, so remember the one opened during the tour. */
+  const lastProfilePath = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (pathname.startsWith("/profiles/")) lastProfilePath.current = pathname;
+  }, [pathname]);
 
   const update = useCallback((next: DemoTourState) => {
     setTour(next);
@@ -65,7 +71,12 @@ function DemoExperienceInner() {
     const s = clampStep(nextStep);
     update({ status: "active", step: s });
     const path = DEMO_TOUR_STOPS[s].path;
-    if (path && pathname !== path) navigate(path);
+    if (path && pathname !== path) {
+      navigate(path);
+    } else if (!path && s < step && lastProfilePath.current && pathname !== lastProfilePath.current) {
+      /* Going Back onto the profile stop: return to the profile that was opened. */
+      navigate(lastProfilePath.current);
+    }
   };
 
   const openFirstProfile = () => {
