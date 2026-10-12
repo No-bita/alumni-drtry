@@ -28,6 +28,9 @@ export function setSessionCookie(reply: FastifyReply, sessionToken: string): voi
 export function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(env.SESSION_COOKIE_NAME, {
     path: "/",
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: sessionSameSite(),
     ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {})
   });
 }

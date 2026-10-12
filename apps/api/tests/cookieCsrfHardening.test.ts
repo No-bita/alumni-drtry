@@ -51,6 +51,9 @@ describe("Session cookie helper", () => {
       env.SESSION_COOKIE_NAME,
       expect.objectContaining({
         path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
       })
     );
   });
