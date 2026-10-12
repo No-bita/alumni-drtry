@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { findTourTarget, placeTour, tourMaxHeight, visibleTourRect, type TourRect } from "../lib/demoTourPosition";
 import { useAuth } from "../contexts/AuthContext";
 import {
   DEMO_BLOCKED_EVENT,
@@ -67,6 +68,57 @@ function DemoExperienceInner() {
   const step = clampStep(tour.step);
   const stop = DEMO_TOUR_STOPS[step];
 
+  const cardRef = useRef<HTMLElement>(null);
+  const [anchor, setAnchor] = useState<{ placement: ReturnType<typeof placeTour>; target: TourRect | null } | null>(null);
+  const ownId = auth.status === "authenticated" ? auth.myProfile?.id : undefined;
+
+  useEffect(() => {
+    if (tour.status !== "active") return;
+    let frame = 0;
+    let firstTarget = true;
+    const measure = () => {
+      const card = cardRef.current;
+      if (!card) return;
+      const bannerBottom = document.querySelector(".demo-banner")?.getBoundingClientRect().bottom ?? 0;
+      const safeTop = Math.max(16, bannerBottom + 12);
+      const dockClearance = window.innerWidth <= 640 ? 72 : 0;
+      card.style.maxHeight = `${tourMaxHeight(window.innerHeight, safeTop, dockClearance)}px`;
+      const viewport = { width: window.innerWidth, top: safeTop, bottom: window.innerHeight - dockClearance };
+      const el = findTourTarget(stop.id, ownId, viewport);
+      const target = el ? visibleTourRect(el, viewport) : null;
+      const placement = placeTour(target, card.offsetWidth, card.offsetHeight, { width: window.innerWidth, height: window.innerHeight - dockClearance }, safeTop);
+      // On a new stop, make room below a visible target on short screens.
+      // Do this once only, so manual scrolling remains under the visitor's control.
+      if (target && firstTarget) {
+        firstTarget = false;
+        if (!placement.side && target.bottom - target.top + card.offsetHeight + 30 < window.innerHeight - safeTop - 72) {
+          window.scrollBy({ top: target.top - safeTop - 8, behavior: "instant" });
+          frame = requestAnimationFrame(measure);
+          return;
+        }
+      }
+      setAnchor((prev) => JSON.stringify(prev) === JSON.stringify({ placement, target }) ? prev : { placement, target });
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(document.body, { childList: true, subtree: true });
+    const resize = new ResizeObserver(schedule);
+    if (cardRef.current) resize.observe(cardRef.current);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      mutation.disconnect();
+      resize.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [stop.id, pathname, tour.status, ownId]);
+
   const goTo = (nextStep: number) => {
     const s = clampStep(nextStep);
     update({ status: "active", step: s });
@@ -115,7 +167,11 @@ function DemoExperienceInner() {
       </div>
 
       {tour.status === "active" ? (
-        <aside className="demo-tour" role="dialog" aria-label="Guided tour" aria-live="polite">
+        <>
+        {anchor?.target ? <div className="demo-tour-target" aria-hidden style={{ left: anchor.target.left, top: anchor.target.top, width: anchor.target.width, height: anchor.target.height, boxShadow: "inset 0 0 0 4px rgba(212, 154, 74, 0.25)" }} /> : null}
+        <aside ref={cardRef} className="demo-tour" role="dialog" aria-label="Guided tour" aria-live="polite"
+          style={anchor ? { left: anchor.placement.left, top: anchor.placement.top } : undefined}>
+          {anchor?.placement.side ? <span className={`demo-tour__arrow demo-tour__arrow--${anchor.placement.side}`} aria-hidden style={anchor.placement.side === "top" || anchor.placement.side === "bottom" ? { left: anchor.placement.arrow } : { top: anchor.placement.arrow }} /> : null}
           <p className="demo-tour__count">
             Stop {step + 1} of {DEMO_TOUR_STOPS.length}
           </p>
@@ -154,6 +210,7 @@ function DemoExperienceInner() {
             </button>
           </div>
         </aside>
+        </>
       ) : null}
 
       {notice ? (

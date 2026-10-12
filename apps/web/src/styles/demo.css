@@ -12,7 +12,7 @@
 .demo-banner__btn:hover { background: rgba(255, 255, 255, 0.85); }
 
 .demo-tour {
-  position: fixed; right: 20px; bottom: 20px; z-index: 80; width: min(340px, calc(100vw - 32px));
+  position: fixed; left: 16px; top: 80px; z-index: 1300; box-sizing: border-box; max-height: calc(100dvh - 96px); overflow-y: auto; width: min(340px, calc(100vw - 32px));
   padding: 16px 18px; border-radius: 14px; background: var(--surface, #fcf8f0); color: var(--ink, #3a2a1e);
   border: 1px solid var(--border-muted, #dccfbc); box-shadow: 0 12px 36px rgba(58, 42, 30, 0.22);
 }
@@ -45,10 +45,25 @@
 .demo-notice__close { background: none; border: 0; color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
 
 @media (max-width: 640px) {
-  .demo-tour { right: 16px; left: 16px; bottom: 76px; width: auto; }
+  .demo-tour { max-height: calc(100dvh - 120px); }
   .demo-notice { bottom: 84px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .demo-tour, .demo-notice { animation: demo-pop 180ms ease-out; }
   @keyframes demo-pop { from { opacity: 0; transform: translateY(8px); } }
 }
+
+/* Demo messaging is read-only. Keep the launcher out of the guided tour,
+   then restore it as soon as the visitor skips or finishes. */
+body:has(.demo-tour) .global-messaging-widget { visibility: hidden; }
+.demo-tour-target {
+  position: fixed; z-index: 1290; pointer-events: none; border-radius: 8px;
+  border: 2px solid var(--brick, #5f2614); box-shadow: 0 0 0 4px rgba(212, 154, 74, 0.25);
+  box-sizing: border-box;
+}
+/* Inset triangles stay visible even when the card needs internal scrolling. */
+.demo-tour__arrow { position: absolute; width: 0; height: 0; border: 6px solid transparent; }
+.demo-tour__arrow--top { top: 0; transform: translateX(-50%); border-bottom-color: var(--brick, #5f2614); border-top: 0; }
+.demo-tour__arrow--bottom { bottom: 0; transform: translateX(-50%); border-top-color: var(--brick, #5f2614); border-bottom: 0; }
+.demo-tour__arrow--left { left: 0; transform: translateY(-50%); border-right-color: var(--brick, #5f2614); border-left: 0; }
+.demo-tour__arrow--right { right: 0; transform: translateY(-50%); border-left-color: var(--brick, #5f2614); border-right: 0; }
