@@ -270,7 +270,7 @@ export function Login() {
   const renderAuthMarketingShell = (cardMount: ReactNode) => (
     <section className="auth-merged">
       <div className="auth-merged__hero">
-        {(showDesktopMap || isPhone) && <LandingWorldMap className="auth-merged__map" />}
+        {(showDesktopMap || isPhone) && <LandingWorldMap className="auth-merged__map" showTestimonials={!isPhone} />}
         <div className="auth-merged__hero-copy">
           <h1 className="auth-merged__title">
             Where IIT BHU alumni
