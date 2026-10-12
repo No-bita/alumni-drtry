@@ -13,6 +13,10 @@ export interface UpdateMyProfileInput {
   departmentCode?: string;
   batchYear?: number | null;
   degreeCode?: string | null;
+  institutionalEmail?: string;
+  institutional_email?: string;
+  instituteEmail?: string;
+  institute_email?: string;
   personalEmail?: string | null;
   bio?: string | null;
   mobilePhone?: string | null;
@@ -57,6 +61,69 @@ export class ProfileService {
     const currentIds = await this.personRepo.findProfileIdsById(personId);
     if (!currentIds) {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
+    }
+
+    // Guard: Institutional email cannot be changed at any time.
+    // Check all supplied aliases to ensure none attempt to alter the institutional email.
+    const attemptedInstEmails = [
+      input.institutionalEmail,
+      input.institutional_email,
+      input.instituteEmail,
+      input.institute_email
+    ];
+    for (const email of attemptedInstEmails) {
+      if (email !== undefined && normalizeEmail(email) !== normalizeEmail(current.institutionalEmail)) {
+        throw new AppError(400, "PROFILE_FROZEN_FIELD", "Institutional email cannot be changed.");
+      }
+    }
+
+    // Guard: Once onboarding is complete, identity fields are frozen.
+    if (current.onboardingCompletedAt != null) {
+      if (input.fullName !== undefined) {
+        const inputName = input.fullName.trim();
+        const currentName = (current.fullName ?? "").trim();
+        if (inputName !== currentName) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Full name cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.departmentCode !== undefined) {
+        const inputDept = input.departmentCode.trim().toLowerCase();
+        const currentDept = (current.departmentCode ?? "").trim().toLowerCase();
+        if (inputDept !== currentDept) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Department cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.degreeCode !== undefined) {
+        const inputDeg = input.degreeCode === null ? null : input.degreeCode.trim().toLowerCase();
+        const currentDeg = current.degreeCode === null ? null : current.degreeCode.trim().toLowerCase();
+        if (inputDeg !== currentDeg) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Degree cannot be changed after onboarding is complete."
+          );
+        }
+      }
+
+      if (input.batchYear !== undefined) {
+        if (input.batchYear !== current.batchYear) {
+          throw new AppError(
+            400,
+            "PROFILE_FROZEN_FIELD",
+            "Batch year cannot be changed after onboarding is complete."
+          );
+        }
+      }
     }
 
     let nextFullName = current.fullName;
@@ -172,7 +239,7 @@ export class ProfileService {
     }
 
     try {
-      return await this.personRepo.updateProfile({
+      const updated = await this.personRepo.updateProfile({
         personId,
         fullName: nextFullName,
         departmentId: nextDepartmentId,
@@ -185,8 +252,17 @@ export class ProfileService {
         residenceCity: nextResidenceCity,
         openToPreferences: nextOpenToPreferences,
         profileCompletedAt: nextProfileCompletedAt,
-        onboardingCompletedAt: nextOnboardingCompletedAt
+        onboardingCompletedAt: nextOnboardingCompletedAt,
+        expectedOnboardingCompleted: current.onboardingCompletedAt != null
       });
+      if (!updated) {
+        throw new AppError(
+          409,
+          "PROFILE_CONFLICT",
+          "Profile was modified concurrently. Please refresh and try again."
+        );
+      }
+      return updated;
     } catch (error) {
       if (isPgUniqueViolation(error)) {
         throw new AppError(409, "PROFILE_PERSONAL_EMAIL_IN_USE", "Personal email is already in use.");
