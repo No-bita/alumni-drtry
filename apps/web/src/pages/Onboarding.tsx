@@ -1127,4 +1127,5 @@ export function Onboarding() {
         </div>
       </div>
     </>
-    }
+  );
+  }
