@@ -32,6 +32,9 @@ const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ de
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+const FixtureDemoEntry = lazy(() =>
+  import("./pages/FixtureDemoEntry").then((m) => ({ default: m.FixtureDemoEntry }))
+);
 
 function LocationHubRedirect() {
   const { search } = useLocation();
@@ -210,6 +213,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
+        {/* No-login fixture demo; the route itself redirects to /login when the flag is off. */}
+        <Route path="/demo" element={<FixtureDemoEntry />} />
         <Route path="/auth/verify" element={<AuthVerify />} />
         <Route
           path="/search"
