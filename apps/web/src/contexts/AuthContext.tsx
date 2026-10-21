@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { api, type MePerson, type MyProfileView } from "../api/client";
 import {
   AUTH_SESSION_QUERY_KEY,
@@ -72,12 +73,13 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   /* The /demo entry seeds its own fixture session in a layout effect: the sample
      experience must not perform the real login check at all. Skip only the boot
-     fetch on that route - a manual refetch (a real login submit) still works, and
-     once the visitor navigates on, the query re-enables and is fixture-intercepted. */
+     fetch on that route - a manual refetch (a real login submit) still works. The
+     pathname comes from the router so the gate re-evaluates after the entry
+     navigates on: the query re-enables and is fixture-intercepted during the demo,
+     and the real session check resumes once the visitor leaves it. */
+  const { pathname } = useLocation();
   const skipBootLoginCheck =
-    isFixtureDemoPageEnabled &&
-    typeof window !== "undefined" &&
-    window.location.pathname === "/demo";
+    isFixtureDemoPageEnabled && pathname.replace(/\/+$/, "") === "/demo";
   const query = useQuery({
     queryKey: AUTH_SESSION_QUERY_KEY,
     queryFn: ({ signal }) => fetchAuthSession(signal),
@@ -99,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.post("/v1/auth/logout");
     queryClient.clear();
     queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, { kind: "unauthenticated" });
+    /* Leaving the fixture demo routes through this same logout: invalidate so the real
+       session check refires immediately instead of trusting the freshly seeded
+       unauthenticated entry for the whole staleTime window (a signed-in member who
+       peeked at the demo gets their real session back). */
+    void queryClient.invalidateQueries({ queryKey: AUTH_SESSION_QUERY_KEY });
   }, []);
 
   const value = useMemo((): AuthContextValue => {
