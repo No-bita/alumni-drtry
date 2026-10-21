@@ -40,6 +40,8 @@ import {
 import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../components/LocationPageIcons";
 import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
+import { notifyDemoBlocked } from "../lib/demoMode";
+import { isFixtureDemoActive } from "../lib/fixtureDemo";
 import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE, CITY_SIGNED_OUT_NOTE } from "../lib/cityDraftCopy";
 import { loadCityDrafts, saveCityDrafts } from "../lib/cityDraftStorage";
 import "../styles/city-draft-board.css";
@@ -610,6 +612,14 @@ export function LocationPage() {
 
   function handleCreateRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isFixtureDemoActive()) {
+      /* Fixture demo is read-only: show the standard blocked notice and keep demo-made
+         drafts out of this browser's real city-board storage. */
+      setComposerMode(null);
+      setComposerError(null);
+      notifyDemoBlocked();
+      return;
+    }
     if (!myPersonId) return;
     const hubCity = selected.city.trim();
     const hubCountry = selected.country.trim();
@@ -648,6 +658,12 @@ export function LocationPage() {
 
   function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isFixtureDemoActive()) {
+      setComposerMode(null);
+      setComposerError(null);
+      notifyDemoBlocked();
+      return;
+    }
     const hubCity = selected.city.trim();
     const hubCountry = selected.country.trim();
     if (!eventForm.title.trim() || !eventForm.date || !eventForm.time || !eventForm.venue.trim() || !hubCity || !hubCountry) {
@@ -1222,4 +1238,4 @@ export function LocationPage() {
       </main>
     </div>
   );
-}
+        }
