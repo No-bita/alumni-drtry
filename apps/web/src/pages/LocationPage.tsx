@@ -1238,4 +1238,4 @@ export function LocationPage() {
       </main>
     </div>
   );
-        }
+}
