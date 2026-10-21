@@ -146,6 +146,20 @@ describe("api client interception", () => {
   });
 });
 
+  it("does not intercept when the build flag is removed, even if the tab marker lingers", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_ENABLE_DEMO_MODE", "");
+    vi.resetModules();
+    const freshClient = await import("../src/api/client");
+    const freshFixture = await import("../src/lib/fixtureDemo");
+    freshFixture.activateFixtureDemoSession();
+    const fetchSpy = vi.fn().mockRejectedValue(new Error("network off"));
+    vi.stubGlobal("fetch", fetchSpy);
+    const res = await freshClient.api.get<Me>("/v1/me");
+    expect(res.error?.code).toBe("NETWORK_ERROR");
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
 describe("isFixtureDemoPageEnabled flag", () => {
   async function load() {
     vi.resetModules();
@@ -178,6 +192,7 @@ describe("city board sample rows in the fixture demo", () => {
 
   it("serves sample needs and events only while the fixture session is active", async () => {
     vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_ENABLE_DEMO_MODE", "true");
     const mod = await load();
     expect(mod.cityBoardSeedNeeds()).toEqual([]);
     expect(mod.cityBoardSeedEvents()).toEqual([]);
@@ -186,6 +201,15 @@ describe("city board sample rows in the fixture demo", () => {
     expect(mod.cityBoardSeedEvents().length).toBeGreaterThan(0);
     deactivateFixtureDemoSession();
     expect(mod.cityBoardSeedNeeds()).toEqual([]);
+  });
+
+  it("stays off when the build flag is removed, even if the tab marker lingers", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_ENABLE_DEMO_MODE", "");
+    const mod = await load();
+    activateFixtureDemoSession();
+    expect(mod.cityBoardSeedNeeds()).toEqual([]);
+    expect(mod.cityBoardSeedEvents()).toEqual([]);
   });
 
   it("sample board rows include the Bengaluru tour city and unique ids", async () => {
