@@ -80,8 +80,8 @@ function resolveCityFromSlug(citySlug: string | undefined, residenceRows: Reside
 
   const cityPool = [
     ...LOCATION_LENS_TOP_CITIES_FALLBACK.map(({ city, country }) => ({ city, country })),
-    ...CITY_NEEDS.map(({ city, country }) => ({ city, country })),
-    ...CITY_EVENTS.map(({ city, country }) => ({ city, country })),
+    ...cityBoardSeedNeeds().map(({ city, country }) => ({ city, country })),
+    ...cityBoardSeedEvents().map(({ city, country }) => ({ city, country })),
   ];
   for (const pick of cityPool) {
     if (normalizeCityIntentSlug(pick.city) === normalizedSlug) {
