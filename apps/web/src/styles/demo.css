@@ -41,7 +41,7 @@
   padding: 12px 14px; border-radius: 12px; background: var(--ink, #3a2a1e); color: #fff; font-size: 14px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
-.demo-notice p { margin: 0; line-height: 1.4; }
+.demo-notice p { margin: 0; line-height: 1.4; color: inherit; }
 .demo-notice__close { background: none; border: 0; color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
 
 @media (max-width: 640px) {
