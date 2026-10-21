@@ -26,8 +26,8 @@ import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import {
-  CITY_EVENTS,
-  CITY_NEEDS,
+  cityBoardSeedEvents,
+  cityBoardSeedNeeds,
   matchCityItem,
   type CityEventItem,
   type CityNeedItem,
@@ -339,7 +339,10 @@ export function LocationPage() {
   });
 
   const cityNeeds = useMemo(
-    () => [...createdNeeds, ...CITY_NEEDS].filter((item) => matchCityItem(item, selected.city, selected.country)),
+    () =>
+      [...createdNeeds, ...cityBoardSeedNeeds()].filter((item) =>
+        matchCityItem(item, selected.city, selected.country)
+      ),
     [selected, createdNeeds]
   );
   const filteredNeeds = useMemo(
@@ -364,7 +367,10 @@ export function LocationPage() {
   );
 
   const cityEvents = useMemo(
-    () => [...createdEvents, ...CITY_EVENTS].filter((item) => matchCityItem(item, selected.city, selected.country)).slice(0, 2),
+    () =>
+      [...createdEvents, ...cityBoardSeedEvents()]
+        .filter((item) => matchCityItem(item, selected.city, selected.country))
+        .slice(0, 2),
     [selected, createdEvents]
   );
   const residenceHubHasCountry = selected.country.trim().length > 0;
