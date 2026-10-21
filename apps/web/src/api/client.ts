@@ -61,7 +61,9 @@ async function request<T>(
   }
   const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
   if (!res.ok) {
-    if (res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
+    if (!isFixtureDemoActive() && res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
+      /* A request started before demo activation can 401 after it; the fixture session
+         must never trigger the real-session expiry bounce to /login. */
       notifyAuthSessionExpired();
     }
     if (isDemoBlockedResponse(res.status, body.code)) {
@@ -110,7 +112,7 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
   const body: unknown = await res.json().catch(() => ({}));
   const b = body as Record<string, unknown>;
   if (!res.ok) {
-    if (res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
+    if (!isFixtureDemoActive() && res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
     if (isDemoBlockedResponse(res.status, b.code)) {
