@@ -1,4 +1,4 @@
-import { isFixtureDemoSessionActive } from "../lib/fixtureDemo";
+import { isFixtureDemoActive } from "../lib/fixtureDemo";
 
 export type CityEventItem = {
   id: string;
@@ -104,12 +104,12 @@ export const CITY_NEEDS: CityNeedItem[] = import.meta.env.DEV ? DEV_CITY_NEEDS :
  */
 export function cityBoardSeedNeeds(): CityNeedItem[] {
   if (import.meta.env.DEV) return DEV_CITY_NEEDS;
-  return isFixtureDemoSessionActive() ? DEV_CITY_NEEDS : [];
+  return isFixtureDemoActive() ? DEV_CITY_NEEDS : [];
 }
 
 export function cityBoardSeedEvents(): CityEventItem[] {
   if (import.meta.env.DEV) return DEV_CITY_EVENTS;
-  return isFixtureDemoSessionActive() ? DEV_CITY_EVENTS : [];
+  return isFixtureDemoActive() ? DEV_CITY_EVENTS : [];
 }
 
 export function matchCityItem(item: { city: string; country: string }, city: string | null, country: string | null): boolean {
