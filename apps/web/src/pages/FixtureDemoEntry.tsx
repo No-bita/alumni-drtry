@@ -23,6 +23,14 @@ export function FixtureDemoEntry() {
   useLayoutEffect(() => {
     if (!isFixtureDemoPageEnabled) return;
     activateFixtureDemoSession();
+    /* A signed-in member can arrive with real directory/city/profile data cached. Drop
+       every OTHER cached query (and discard in-flight ones) before seeding, so the demo
+       only ever renders fixtures. The auth query itself must keep its object identity:
+       removing it detaches the AuthProvider observer from later cache writes. */
+    const isNotAuthQuery = (query: { queryKey: readonly unknown[] }) =>
+      !(query.queryKey[0] === "auth" && query.queryKey[1] === "session");
+    void queryClient.cancelQueries({ predicate: isNotAuthQuery });
+    queryClient.removeQueries({ predicate: isNotAuthQuery });
     const session: AuthSessionData = {
       kind: "authenticated",
       person: FIXTURE_DEMO_PERSON,
