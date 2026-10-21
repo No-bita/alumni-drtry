@@ -23,6 +23,10 @@ export function DemoExperience() {
   return <DemoExperienceInner />;
 }
 
+/* Guided tour disabled on request (Oct 22, 2026): the tour code stays in place,
+   commented out of the render path only - flip this back to true to re-enable it. */
+const TOUR_ENABLED = false;
+
 function DemoExperienceInner() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -45,7 +49,7 @@ function DemoExperienceInner() {
 
   /* First visit in this browser session: persist the starting state. */
   useEffect(() => {
-    if (!readDemoTourState(getTourStorage())) {
+    if (TOUR_ENABLED && !readDemoTourState(getTourStorage())) {
       writeDemoTourState(getTourStorage(), { status: "active", step: 0 });
     }
   }, []);
@@ -73,7 +77,7 @@ function DemoExperienceInner() {
   const ownId = auth.status === "authenticated" ? auth.myProfile?.id : undefined;
 
   useEffect(() => {
-    if (tour.status !== "active") return;
+    if (!TOUR_ENABLED || tour.status !== "active") return;
     let frame = 0;
     let firstTarget = true;
     const measure = () => {
@@ -157,16 +161,18 @@ function DemoExperienceInner() {
           <strong>Demo mode.</strong> You&apos;re exploring with made-up alumni. Look, click, wander.
         </span>
         <span className="demo-banner__actions">
-          <button type="button" className="demo-banner__btn" onClick={() => goTo(0)}>
-            {tour.status === "active" ? "Restart tour" : "Replay tour"}
-          </button>
+          {TOUR_ENABLED ? (
+            <button type="button" className="demo-banner__btn" onClick={() => goTo(0)}>
+              {tour.status === "active" ? "Restart tour" : "Replay tour"}
+            </button>
+          ) : null}
           <button type="button" className="demo-banner__btn" onClick={() => void signOut()}>
             Leave demo
           </button>
         </span>
       </div>
 
-      {tour.status === "active" ? (
+      {TOUR_ENABLED && tour.status === "active" ? (
         <>
         {anchor?.target ? <div className="demo-tour-target" aria-hidden style={{ left: anchor.target.left, top: anchor.target.top, width: anchor.target.width, height: anchor.target.height, boxShadow: "inset 0 0 0 4px rgba(212, 154, 74, 0.25)" }} /> : null}
         <aside ref={cardRef} className="demo-tour" role="dialog" aria-label="Guided tour" aria-live="polite"
