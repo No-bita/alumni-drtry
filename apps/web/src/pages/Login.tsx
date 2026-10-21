@@ -8,6 +8,8 @@ import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
 import { clearDemoTourState, getTourStorage } from "../lib/demoMode";
+import { endFixtureDemoAuthSession } from "../lib/authSessionQuery";
+import { queryClient } from "../queryClient";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
@@ -88,6 +90,10 @@ export function Login() {
   const demoConfigPromiseRef = useRef<Promise<{ enabled: boolean; demoEmail?: string } | null> | null>(null);
 
   useEffect(() => {
+    // Reaching the real login page always ends a fixture-demo session, and the seeded
+    // fixture identity leaves the auth cache with it (otherwise RequireAuth would keep
+    // admitting protected routes on the stale fixture session).
+    endFixtureDemoAuthSession(queryClient);
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
     // The demo email is never prefilled. The password field only appears once it is typed.

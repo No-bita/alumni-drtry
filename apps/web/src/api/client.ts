@@ -1,4 +1,5 @@
 import { isDemoBlockedResponse, notifyDemoBlocked } from "../lib/demoMode";
+import { handleFixtureDemoRequest, isFixtureDemoActive } from "../lib/fixtureDemo";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
@@ -19,6 +20,17 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean; status?: number }> {
+  if (isFixtureDemoActive()) {
+    /* No-login fixture demo: answer from local fixtures; null means pass through (real /v1/auth/*).
+       Combined gate: a lingering tab marker does nothing once the build flag is off. */
+    const fixture = handleFixtureDemoRequest<T>(path, options.method ?? "GET");
+    if (fixture) {
+      if (fixture.error && isDemoBlockedResponse(fixture.status ?? 0, fixture.error.code)) {
+        notifyDemoBlocked();
+      }
+      return fixture;
+    }
+  }
   const url = `${API_BASE}${path}`;
   const { signal, headers: optHeaders, ...rest } = options;
   const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };

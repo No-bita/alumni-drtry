@@ -26,8 +26,8 @@ import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import {
-  CITY_EVENTS,
-  CITY_NEEDS,
+  cityBoardSeedEvents,
+  cityBoardSeedNeeds,
   matchCityItem,
   type CityEventItem,
   type CityNeedItem,
@@ -40,6 +40,8 @@ import {
 import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../components/LocationPageIcons";
 import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
+import { notifyDemoBlocked } from "../lib/demoMode";
+import { isFixtureDemoActive } from "../lib/fixtureDemo";
 import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE, CITY_SIGNED_OUT_NOTE } from "../lib/cityDraftCopy";
 import { loadCityDrafts, saveCityDrafts } from "../lib/cityDraftStorage";
 import "../styles/city-draft-board.css";
@@ -80,8 +82,8 @@ function resolveCityFromSlug(citySlug: string | undefined, residenceRows: Reside
 
   const cityPool = [
     ...LOCATION_LENS_TOP_CITIES_FALLBACK.map(({ city, country }) => ({ city, country })),
-    ...CITY_NEEDS.map(({ city, country }) => ({ city, country })),
-    ...CITY_EVENTS.map(({ city, country }) => ({ city, country })),
+    ...cityBoardSeedNeeds().map(({ city, country }) => ({ city, country })),
+    ...cityBoardSeedEvents().map(({ city, country }) => ({ city, country })),
   ];
   for (const pick of cityPool) {
     if (normalizeCityIntentSlug(pick.city) === normalizedSlug) {
@@ -339,7 +341,10 @@ export function LocationPage() {
   });
 
   const cityNeeds = useMemo(
-    () => [...createdNeeds, ...CITY_NEEDS].filter((item) => matchCityItem(item, selected.city, selected.country)),
+    () =>
+      [...createdNeeds, ...cityBoardSeedNeeds()].filter((item) =>
+        matchCityItem(item, selected.city, selected.country)
+      ),
     [selected, createdNeeds]
   );
   const filteredNeeds = useMemo(
@@ -364,7 +369,10 @@ export function LocationPage() {
   );
 
   const cityEvents = useMemo(
-    () => [...createdEvents, ...CITY_EVENTS].filter((item) => matchCityItem(item, selected.city, selected.country)).slice(0, 2),
+    () =>
+      [...createdEvents, ...cityBoardSeedEvents()]
+        .filter((item) => matchCityItem(item, selected.city, selected.country))
+        .slice(0, 2),
     [selected, createdEvents]
   );
   const residenceHubHasCountry = selected.country.trim().length > 0;
@@ -604,6 +612,14 @@ export function LocationPage() {
 
   function handleCreateRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isFixtureDemoActive()) {
+      /* Fixture demo is read-only: show the standard blocked notice and keep demo-made
+         drafts out of this browser's real city-board storage. */
+      setComposerMode(null);
+      setComposerError(null);
+      notifyDemoBlocked();
+      return;
+    }
     if (!myPersonId) return;
     const hubCity = selected.city.trim();
     const hubCountry = selected.country.trim();
@@ -642,6 +658,12 @@ export function LocationPage() {
 
   function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isFixtureDemoActive()) {
+      setComposerMode(null);
+      setComposerError(null);
+      notifyDemoBlocked();
+      return;
+    }
     const hubCity = selected.city.trim();
     const hubCountry = selected.country.trim();
     if (!eventForm.title.trim() || !eventForm.date || !eventForm.time || !eventForm.venue.trim() || !hubCity || !hubCountry) {
