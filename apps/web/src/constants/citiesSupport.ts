@@ -1,3 +1,5 @@
+import { isFixtureDemoSessionActive } from "../lib/fixtureDemo";
+
 export type CityEventItem = {
   id: string;
   city: string;
@@ -94,6 +96,21 @@ const DEV_CITY_NEEDS: CityNeedItem[] = [
 export const CITY_EVENTS: CityEventItem[] = import.meta.env.DEV ? DEV_CITY_EVENTS : [];
 
 export const CITY_NEEDS: CityNeedItem[] = import.meta.env.DEV ? DEV_CITY_NEEDS : [];
+
+/**
+ * Seed rows for the city board: dev gets sample rows, the no-login fixture demo session
+ * gets the same sample rows (so the city-board tour stop is populated), and production
+ * members see only real content. Session-gated, never build-gated.
+ */
+export function cityBoardSeedNeeds(): CityNeedItem[] {
+  if (import.meta.env.DEV) return DEV_CITY_NEEDS;
+  return isFixtureDemoSessionActive() ? DEV_CITY_NEEDS : [];
+}
+
+export function cityBoardSeedEvents(): CityEventItem[] {
+  if (import.meta.env.DEV) return DEV_CITY_EVENTS;
+  return isFixtureDemoSessionActive() ? DEV_CITY_EVENTS : [];
+}
 
 export function matchCityItem(item: { city: string; country: string }, city: string | null, country: string | null): boolean {
   if (!city || !country) return false;
