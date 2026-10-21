@@ -41,6 +41,15 @@ export function isFixtureDemoSessionActive(): boolean {
   }
 }
 
+/**
+ * True only when the /demo page is enabled in this build AND this tab activated the
+ * fixture session. Every fixture consumer must use this combined gate so turning the
+ * build flag off fully retires the demo, even in tabs that still hold the marker.
+ */
+export function isFixtureDemoActive(): boolean {
+  return isFixtureDemoPageEnabled && isFixtureDemoSessionActive();
+}
+
 export function activateFixtureDemoSession(): void {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, "active");
