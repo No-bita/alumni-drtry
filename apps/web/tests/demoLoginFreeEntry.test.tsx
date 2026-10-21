@@ -1,10 +1,30 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../src/api/client";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import { setAuthSessionExpiredListener } from "../src/lib/authSessionExpiredBridge";
 import { activateFixtureDemoSession, deactivateFixtureDemoSession } from "../src/lib/fixtureDemo";
+
+function renderProviderOn(path: string) {
+  const client = new QueryClient();
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <QueryClientProvider client={client}>
+        <AuthProvider>
+          <div />
+        </AuthProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+  return client;
+}
+
+function NavigationProbe() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate("/search")}>go</button>;
+}
 
 const unauthorized = () =>
   new Response(JSON.stringify({ code: "AUTH_UNAUTHORIZED", message: "nope" }), {
@@ -24,35 +44,42 @@ afterEach(() => {
 });
 
 describe("sample demo entry is login-free", () => {
-  it("fires no auth request at all when booting directly on /demo", async () => {
-    window.history.pushState({}, "", "/demo");
+  it.each(["/demo", "/demo/"])(
+    "fires no auth request at all when booting directly on %s",
+    async (path) => {
+      const fetchSpy = vi.fn(() => new Promise<Response>(() => {}));
+      vi.stubGlobal("fetch", fetchSpy);
+      const client = renderProviderOn(path);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(fetchSpy).not.toHaveBeenCalled();
+      client.clear();
+    }
+  );
+
+  it("re-enables the session query after navigating away from /demo", async () => {
     const fetchSpy = vi.fn(() => new Promise<Response>(() => {}));
     vi.stubGlobal("fetch", fetchSpy);
     const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <AuthProvider>
-          <div />
-        </AuthProvider>
-      </QueryClientProvider>
+    const { getByText } = render(
+      <MemoryRouter initialEntries={["/demo"]}>
+        <QueryClientProvider client={client}>
+          <AuthProvider>
+            <NavigationProbe />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
     );
     await new Promise((r) => setTimeout(r, 50));
     expect(fetchSpy).not.toHaveBeenCalled();
+    fireEvent.click(getByText("go"));
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     client.clear();
   });
 
   it("still performs the real login check on non-demo routes", async () => {
-    window.history.pushState({}, "", "/login");
     const fetchSpy = vi.fn(() => new Promise<Response>(() => {}));
     vi.stubGlobal("fetch", fetchSpy);
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <AuthProvider>
-          <div />
-        </AuthProvider>
-      </QueryClientProvider>
-    );
+    const client = renderProviderOn("/login");
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     client.clear();
   });
