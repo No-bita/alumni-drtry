@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { type SearchProfileView } from "../api/client";
-import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
 import { residenceLine, roleOrgLineFromSearchProfile } from "../lib/profileDisplay";
 import { DeptBatchMeta } from "./DeptBatchMeta";
@@ -45,9 +44,8 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
   );
   const loc = residenceLine(profile.residenceCity, profile.residenceCountry);
   const showContextLine = Boolean(hasDeptBatchMeta || loc);
-  const isDemo = isDemoProfileBio(profile.bio);
   const rawFullName = (profile.fullName ?? "").trim();
-  const displayName = demoDisplayFullName(profile.fullName) || rawFullName;
+  const displayName = (profile.fullName ?? "").trim() || rawFullName;
   const matchChipItems = [...new Set(profile.matchReasons ?? [])].slice(0, 6).map((reason) => ({
     key: reason,
     label: matchReasonLabel(reason),
@@ -104,7 +102,6 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
         <div className="search-result-row__top">
           <span className="search-result-row__name-row">
             <span className="search-result-row__name">{displayName}</span>
-            {isDemo ? <span className="badge badge--hiring search-result-row__demo-badge">Demo</span> : null}
           </span>
           {matchChipItems.length > 0 ? (
             <span className="search-result-row__match-chips" aria-label="Why this profile matched">
