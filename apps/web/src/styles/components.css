@@ -815,21 +815,24 @@ input[type="reset"]:not(:disabled) {
     left: 0;
   }
 
+  /* Floating pill dock (all signed-in screens). Occupied space = --nav-bottom-dock-height (pill + gap). */
   .nav-bottom-dock {
     display: flex;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 24px;
+    right: 24px;
+    width: auto;
     z-index: 196;
     box-sizing: border-box;
-    height: calc(var(--nav-bottom-dock-height) + env(safe-area-inset-bottom, 0px));
-    padding: 0 4px env(safe-area-inset-bottom, 0px);
+    height: 76px;
+    padding: 5px 8px;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: center;
     background: var(--nav-sidebar-bg);
-    border-top: 1px solid var(--nav-sidebar-border);
-    box-shadow: 0 -4px 24px rgba(20, 14, 10, 0.14);
+    border: 0;
+    border-radius: 42px;
+    box-shadow: 0 6px 18px rgba(64, 43, 32, 0.2);
   }
 
   .nav-bottom-dock__list {
@@ -840,10 +843,10 @@ input[type="reset"]:not(:disabled) {
     flex-direction: row;
     align-items: stretch;
     justify-content: space-around;
-    gap: 0;
+    gap: 4px;
     width: 100%;
-    height: var(--nav-bottom-dock-height);
-    min-height: var(--nav-bottom-dock-height);
+    height: 66px;
+    min-height: 66px;
   }
 
   .nav-bottom-dock__item {
@@ -858,13 +861,13 @@ input[type="reset"]:not(:disabled) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 4px 2px 2px;
-    border-radius: 12px;
+    gap: 4px;
+    padding: 6px 2px;
+    border-radius: 36px;
     text-decoration: none;
     color: var(--nav-sidebar-text-muted);
     font-family: var(--font-body);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
     text-align: center;
@@ -880,14 +883,14 @@ input[type="reset"]:not(:disabled) {
   }
 
   .nav-bottom-dock__link--active {
-    color: var(--nav-sidebar-text);
-    background: var(--nav-sidebar-active-pill);
-    border-color: var(--nav-sidebar-active-ring);
+    color: #fff;
+    background: #a45e43;
+    border-color: transparent;
   }
 
   .nav-bottom-dock__icon {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     color: inherit;
   }
