@@ -22,7 +22,6 @@ import {
 } from "../api/client";
 import { RESIDENCE_CITIES_AGGREGATE_LIMIT } from "../constants/directorySearch";
 import { assertApiGet } from "../lib/assertApiGet";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import {
@@ -40,7 +39,7 @@ import {
 import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../components/LocationPageIcons";
 import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
-import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE, CITY_SIGNED_OUT_NOTE } from "../lib/cityDraftCopy";
+import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE } from "../lib/cityDraftCopy";
 import { loadCityDrafts, saveCityDrafts } from "../lib/cityDraftStorage";
 import "../styles/city-draft-board.css";
 
@@ -436,7 +435,7 @@ export function LocationPage() {
 
   const displayName =
     auth.status === "authenticated"
-      ? demoDisplayFullName(profile?.fullName).trim() ||
+      ? (profile?.fullName ?? "").trim() ||
           profile?.fullName?.trim() ||
           displayFirstNameFromEmail(auth.person.institutionalEmail)
       : "";
@@ -618,7 +617,7 @@ export function LocationPage() {
     const departmentCode = profile?.departmentCode?.toUpperCase() ?? "ALUM";
     const batchYear = profile?.batchYear ?? new Date().getFullYear();
     const askedByName =
-      demoDisplayFullName(profile?.fullName).trim() || profile?.fullName?.trim() || displayName || "Alumni member";
+      (profile?.fullName ?? "").trim() || profile?.fullName?.trim() || displayName || "Alumni member";
     setCreatedNeeds((prev) => [
       {
         id: `need-local-${Date.now()}`,
@@ -758,7 +757,7 @@ export function LocationPage() {
               <h2 className="cities-redesign__section-title">
                 City board
               </h2>
-              <p className="cities-redesign__draft-note">{auth.status === "authenticated" ? CITY_DRAFT_NOTE : CITY_SIGNED_OUT_NOTE}</p>
+              <p className="cities-redesign__draft-note">{CITY_DRAFT_NOTE}</p>
             </header>
             <div className="cities-redesign__tabs">
               {requestTabs.map((tab) => (
@@ -933,7 +932,7 @@ export function LocationPage() {
                       <div className="cities-redesign__people-card-grid">
                         {visiblePeople.map((person) => {
                           const rawPersonName = (person.fullName ?? "").trim();
-                          const personDisplay = demoDisplayFullName(person.fullName) || rawPersonName;
+                          const personDisplay = (person.fullName ?? "").trim() || rawPersonName;
                           const firstToken = personDisplay.split(/\s+/)[0] ?? personDisplay;
                           return (
                             <Link
