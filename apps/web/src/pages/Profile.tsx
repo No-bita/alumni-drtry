@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
+import { PersonProfileView } from "../components/profile/PersonProfileView";
 import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileAbout } from "../components/profile/ProfileAbout";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
@@ -55,6 +56,7 @@ export function Profile() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const navigate = useNavigate();
+  const [previewProfile, setPreviewProfile] = useState(false);
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -144,9 +146,11 @@ export function Profile() {
       : undefined;
 
   const beginEdit = useCallback(() => {
+    const p = profileQuery.data?.profile;
+    if (!p) return;
+    setPreviewProfile(false);
     setEditError(null);
     editLinksHydratedRef.current = false;
-    const p = profileQuery.data?.profile;
     const me = auth.status === "authenticated" ? auth.myProfile : null;
     if (p) {
       setDraftPersonalEmail(me?.personalEmail ?? "");
@@ -163,17 +167,17 @@ export function Profile() {
 
   useEffect(() => {
     const editMode = searchParams.get("edit");
-    if (!isOwnProfile || isEditing || editMode !== "contact") return;
+    if (!isOwnProfile || isEditing || editMode !== "contact" || !profileQuery.data?.profile) return;
     const t = window.setTimeout(() => {
       beginEdit();
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("edit");
+        return next;
+      }, { replace: true });
     }, 0);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete("edit");
-      return next;
-    }, { replace: true });
     return () => window.clearTimeout(t);
-  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams]);
+  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams, profileQuery.data]);
 
   const cancelEdit = useCallback(() => {
     setOpenSocialPlatform(null);
@@ -530,6 +534,15 @@ export function Profile() {
               : undefined
           }
         */}
+        {!loading && profile && !isEditing ? (
+          <PersonProfileView profile={profile} occupations={occupations} links={links}
+            isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
+            privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
+            openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
+            onEdit={() => void beginEdit()}
+            onSignOut={() => { void auth.logout().then(() => navigate("/", { replace: true })); }} />
+        ) : null}
+        {loading || isEditing ? <>
         <ProfileHero
           loading={loading}
           profile={profile}
@@ -576,7 +589,8 @@ export function Profile() {
           </section>
         </div>
 
-        <div
+        </> : null}
+        {loading || isEditing || (isOwnProfile && isAdminViewer && !previewProfile) ? <div
           className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
         >
           <div className="home-dashboard__col home-dashboard__col--wide profile-page__sections">
@@ -586,6 +600,7 @@ export function Profile() {
               </p>
             ) : null}
 
+            {loading || isEditing ? <>
             <ProfileIitBhu
               loading={loading}
               profile={profile}
@@ -608,7 +623,8 @@ export function Profile() {
               onDraftResidenceCity={setDraftResidenceCity}
             />
 
-            {isOwnProfile && isAdminViewer ? (
+            </> : null}
+            {isOwnProfile && isAdminViewer && !previewProfile ? (
               <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
                 <div className="profile-page__analytics-header">
                   <h2 className="profile-page__section-title">Admin analytics dashboard</h2>
@@ -768,19 +784,7 @@ export function Profile() {
               </article>
             ) : null}
 
-            {isOwnProfile && !isEditing && auth.status === "authenticated" ? (
-              <div className="profile-page__signout">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    void auth.logout().then(() => navigate("/", { replace: true }));
-                  }}
-                >
-                  Sign out
-                </Button>
-              </div>
-            ) : null}
+
           </div>
 
           {showProfileSidebar ? (
@@ -807,8 +811,8 @@ export function Profile() {
               </article>
             </aside>
           ) : null}
-        </div>
+        </div> : null}
       </div>
     </>
   );
-}
+    }
