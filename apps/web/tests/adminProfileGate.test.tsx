@@ -27,14 +27,24 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-function mountApp(role: string, profileFails: boolean) {
+type ProfileMode = "fail" | "missing" | "incomplete";
+
+function mountApp(role: string, mode: ProfileMode, path = "/intent/location/bengaluru") {
   vi.stubEnv("PROD", true);
-  window.history.pushState({}, "", "/intent/location/bengaluru");
+  window.history.pushState({}, "", path);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       const u = String(url);
-      if (u.includes("/v1/me/profile")) return profileFails ? json({ error: "x" }, 500) : json({});
+      if (u.includes("/v1/me/profile")) {
+        if (mode === "fail") return json({ error: "x" }, 500);
+        if (mode === "incomplete") {
+          return json({
+            profile: { id: "p1", role, onboardingCompletedAt: null, profileCompletedAt: null, appLoginCount: 1 },
+          });
+        }
+        return json({});
+      }
       if (u.includes("/v1/me")) return json({ person: { id: "p1", role, email: "a@b.c", fullName: "Test" } });
       return json({});
     }),
@@ -54,13 +64,21 @@ afterEach(() => {
 
 describe("profile gate has no admin bypass", () => {
   it.each([
-    ["super_admin", true],
-    ["super_admin", false],
-    ["alumni", true],
-  ])("%s with failed=%s profile load stops at the error, no navigation", async (role, fails) => {
-    mountApp(role, fails);
+    ["super_admin", "fail", "/intent/location/bengaluru"],
+    ["super_admin", "missing", "/intent/location/bengaluru"],
+    ["alumni", "fail", "/intent/location/bengaluru"],
+    ["super_admin", "fail", "/profiles/p1"],
+    ["alumni", "missing", "/profiles/p1"],
+  ] as const)("%s with %s profile on %s stops at the error, no navigation", async (role, mode, path) => {
+    mountApp(role, mode, path);
     await waitFor(() => expect(screen.getByText(/load your profile/)).toBeTruthy());
+    expect(screen.queryByText("Loading…")).toBeNull();
     expect(document.querySelector("nav")).toBeNull();
     expect(document.querySelector(".nav__user-menu")).toBeNull();
+  });
+
+  it("sends a super admin with a valid incomplete profile to onboarding, like alumni", async () => {
+    mountApp("super_admin", "incomplete");
+    await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
   });
 });
