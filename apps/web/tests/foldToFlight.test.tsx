@@ -56,4 +56,25 @@ describe("fold to flight", () => {
     await act(async () => resolve({ default: () => <p>Ready destination</p> }));
     expect(screen.getByRole("button", { name: "Take me in" })).toBeTruthy();
   });
+  it("keys readiness to the current location and keeps the fold across a lazy redirect", async () => {
+    let resolve!: (value: { default: () => React.ReactNode }) => void;
+    const Next = lazy(() => new Promise<{ default: () => React.ReactNode }>(r => { resolve = r; }));
+    const view = render(<FoldToFlightGate sessionReady locationKey="/profile"><p>Redirecting</p></FoldToFlightGate>);
+    fireEvent.click(screen.getByRole("button", { name: /fold down/ }));
+    expect(screen.getByRole("button", { name: "Take me in" })).toBeTruthy();
+    view.rerender(<FoldToFlightGate sessionReady locationKey="/profiles/1"><Next /></FoldToFlightGate>);
+    expect(screen.queryByText("Take me in")).toBeNull();
+    expect(screen.getByText("Pointy end first.")).toBeTruthy();
+    await act(async () => resolve({ default: () => <p>Profile page</p> }));
+    expect(screen.getByRole("button", { name: "Take me in" })).toBeTruthy();
+    expect(screen.getByText("Pointy end first.")).toBeTruthy();
+  });
+  it("escapes signed-in shell spacing and keeps short viewports scrollable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("src/components/FoldToFlight.css", "utf8");
+    const surface = css.slice(css.indexOf(".fold-flight {"), css.indexOf(".fold-flight__brand"));
+    expect(surface).toContain("position: fixed");
+    expect(surface).toContain("inset: 0");
+    expect(surface).toContain("overflow-y: auto");
+  });
 });
