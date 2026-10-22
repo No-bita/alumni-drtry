@@ -68,6 +68,19 @@ describe("approved referral compose form", () => {
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
   });
 
+  it("rejects links with an explicit non-http(s) scheme instead of prefixing them", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp://example.com/jobs/123" } });
+    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
+    fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
+    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com/jobs/123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("requires company and the fit answer", () => {
     mount();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
