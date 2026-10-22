@@ -7,6 +7,3 @@ export const CITY_REQUEST_SAVED_NOTICE =
 
 export const CITY_EVENT_SAVED_NOTICE =
   "Event drafted. It sits on your board on this device only, so nobody else sees it yet. Invites are coming.";
-
-export const CITY_SIGNED_OUT_NOTE =
-  "You're browsing the demo board. Sign in to see who is really in your city.";
