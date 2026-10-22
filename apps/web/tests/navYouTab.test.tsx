@@ -22,10 +22,10 @@ const authed = (role = "alumni", profile: Record<string, unknown> | null = { id:
 });
 
 
-function renderNav() {
+function renderNav(props: { hideNotificationsBell?: boolean } = {}) {
   return render(
     <MemoryRouter initialEntries={["/intent/location/bengaluru"]}>
-      <Nav />
+      <Nav {...props} />
     </MemoryRouter>,
   );
 }
@@ -70,6 +70,16 @@ describe("bottom dock You tab", () => {
     const without = renderNav().container.querySelector(".nav__user-menu") as HTMLElement;
     expect(without.className).not.toContain("nav__user-menu--dock-replaced");
     expect(within(without).getByText("Sign out")).toBeTruthy();
+  });
+
+  it("shows the notifications bell by default and hides it when the page opts out", () => {
+    authState.value = authed();
+    const shown = renderNav().container;
+    expect(shown.querySelector(".nav__notif-link")).toBeTruthy();
+    cleanup();
+    const hidden = renderNav({ hideNotificationsBell: true }).container;
+    expect(hidden.querySelector(".nav__notif-link")).toBeNull();
+    expect(hidden.querySelector(".nav__user-menu")).toBeTruthy();
   });
 
   it("keeps the desktop account menu with Sign out", () => {
