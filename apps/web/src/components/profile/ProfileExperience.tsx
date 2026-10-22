@@ -15,7 +15,6 @@ import {
   formatOccupationDatesDurationLine,
   formatOccupationCompanyTypeLine,
   occupationWorkLocationLine,
-  sortOccupationsForDisplay,
 } from "../../lib/profileDisplay";
 
 type ProfileExperienceProps = {
@@ -104,7 +103,11 @@ export function ProfileExperience({
   onCommitExperience,
   onRemoveExperience,
 }: ProfileExperienceProps) {
-  const sorted = sortOccupationsForDisplay(occupations);
+  const pathOccupations = [...occupations].sort((a, b) => {
+    const startA = Date.parse(a.startDate ?? "");
+    const startB = Date.parse(b.startDate ?? "");
+    return (Number.isFinite(startA) ? startA : Infinity) - (Number.isFinite(startB) ? startB : Infinity);
+  });
   const sortedDrafts = draftOccupations ? sortOccupationDrafts(draftOccupations) : [];
   const residenceHint = profile
     ? { city: profile.residenceCity, country: profile.residenceCountry }
@@ -148,7 +151,7 @@ export function ProfileExperience({
         <header className="profile-page__exp-section-head profile-page__exp-section-head--edit">
           <div className="profile-page__exp-section-title-wrap">
             <IconBriefcase className="profile-page__exp-section-icon" aria-hidden />
-            <h2 className="profile-page__exp-section-title">Experience</h2>
+            <h2 className="profile-page__exp-section-title">{isEditing ? "Experience" : "Their path"}</h2>
           </div>
           {isEditing ? (
             <button type="button" className="profile-page__exp-add-btn" onClick={openAddDialog}>
@@ -193,9 +196,17 @@ export function ProfileExperience({
               </Button>
             </div>
           )
-        ) : sorted.length > 0 ? (
+        ) : pathOccupations.length > 0 ? (
           <ul className="profile-page__exp-list">
-            {sorted.map((occ) => {
+            {profile ? <li className="profile-page__exp-item profile-page__exp-item--past">
+              <span className="profile-page__exp-dot" aria-hidden />
+              <div className="profile-page__exp-body">
+                <p className="profile-page__exp-role">IIT BHU</p>
+                <p className="profile-page__exp-company-line">{[profile.degreeName || profile.degreeCode, profile.departmentName || profile.departmentCode].filter(Boolean).join(", ")}</p>
+                <p className="profile-page__exp-dates">{profile.parsedJoiningYear ? `Joined ${profile.parsedJoiningYear} · ` : ""}{profile.batchYear ? `Class of ${profile.batchYear}` : ""}</p>
+              </div>
+            </li> : null}
+            {pathOccupations.map((occ) => {
               const role = occ.roleTitle?.trim() || "—";
               const companyLine = formatOccupationCompanyTypeLine(occ);
               const datesLine = formatOccupationDatesDurationLine(occ);

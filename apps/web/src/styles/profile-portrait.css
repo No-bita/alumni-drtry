@@ -1,0 +1,57 @@
+/* Person portrait: scoped to Profile, with existing editing and privacy controls retained. */
+.profile-portrait { max-width: 920px; }
+.profile-portrait .profile-page__header { margin-bottom: 0; padding-bottom: 0; }
+.profile-portrait .profile-page__hero-card { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 16px; border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 8px 0 16px; }
+.profile-portrait .profile-page__hero-avatar-col { grid-column: 2; grid-row: 1; align-self: start; }
+.profile-portrait .profile-page__hero-avatar-wrap { width: 40px; height: 40px; }
+.profile-portrait .profile-page__hero-avatar { width: 40px; height: 40px; min-width: 40px; font-size: 13px; box-shadow: none; }
+.profile-portrait .profile-page__hero-body { display: contents; }
+.profile-portrait .profile-page__hero-name-row { grid-column: 1; grid-row: 1; align-self: center; min-width: 0; }
+.profile-portrait .profile-page__hero-name { font-size: clamp(30px, 5vw, 44px); line-height: 1.12; overflow-wrap: anywhere; }
+.profile-portrait__identity-meta { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-muted); padding-top: 16px; }
+.profile-portrait__identity-meta p { margin: 0; font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.profile-portrait__identity-meta p:last-child { text-align: right; }
+.profile-portrait .profile-page__hero-social { grid-column: 1 / -1; margin: 0; }
+.profile-portrait .profile-page__hero-actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; flex-wrap: wrap; width: 100%; min-width: 0; }
+.profile-portrait .profile-page__hero-menu { flex: 0 0 auto; }
+.profile-portrait .profile-page__hero-more-btn { width: 44px; min-height: 44px; }
+.profile-portrait__voice { padding: 28px; background: var(--brick); color: var(--cream); margin-bottom: 24px; }
+.profile-portrait__voice h2 { font-family: inherit; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .12em; margin: 0 0 14px; opacity: .75; }
+.profile-portrait__voice p { font-family: var(--font-display, Georgia, serif); font-size: clamp(24px, 4vw, 32px); line-height: 1.35; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.profile-portrait__context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 10px 0 28px; border-bottom: 1px solid var(--border-muted); margin-bottom: 24px; }
+.profile-portrait__context h2 { font-family: inherit; font-size: 11px; font-weight: 400; color: var(--ink-muted); margin: 0 0 6px; }
+.profile-portrait__context p { font-size: 14px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.profile-portrait__context span { font-size: 12px; color: var(--ink-muted); }
+.profile-portrait .profile-page__engage-row { display: flex; flex-direction: column; gap: 24px; }
+.profile-portrait .profile-page__exp-card, .profile-portrait .profile-page__engage-card { width: 100%; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0 0 26px; border-bottom: 1px solid var(--border-muted); }
+.profile-portrait .profile-page__exp-section-icon, .profile-portrait .profile-page__engage-card-icon-wrap--header { display: none; }
+.profile-portrait .profile-page__exp-section-title, .profile-portrait .profile-page__engage-card-title { font-family: var(--font-display, Georgia, serif); font-size: 24px; font-weight: 400; }
+.profile-portrait .profile-page__exp-item--past .profile-page__exp-role, .profile-portrait .profile-page__exp-item--past .profile-page__exp-company-line { opacity: 1; }
+@media (max-width: 480px) {
+  .profile-portrait__voice { padding: 26px 24px; }
+  .profile-portrait__identity-meta { flex-wrap: wrap; }
+}
+
+.profile-portrait__voice h2, .profile-portrait__voice p { color: var(--cream); }
+.profile-portrait__context { padding-left: 24px; padding-right: 24px; }
+.profile-portrait .profile-page__hero-actions { min-height: 0; margin: 0; padding: 0; }
+.profile-portrait .profile-page__iit-card { background: transparent; border: 0; box-shadow: none; padding: 0; }
+.profile-portrait .profile-page__exp-dot { display: block; background: var(--cream); border: 1px solid var(--brick); }
+
+.profile-portrait .profile-page__hero-social { grid-column: 1; grid-row: 3; align-self: center; }
+.profile-portrait .profile-page__hero-actions { grid-column: 2; grid-row: 3; width: auto; }
+.profile-portrait .profile-page__hero-actions--editing { grid-column: 1 / -1; grid-row: 4; }
+
+.profile-portrait__identity-meta p { color: #725e4b; font-size: 12px; }
+.profile-portrait .profile-page__exp-dates, .profile-portrait .profile-page__exp-location, .profile-portrait .profile-page__exp-desc { color: #725e4b; opacity: 1; font-size: 13px; }
+.profile-portrait .profile-page__engage-card-hint { color: #725e4b; }
+.profile-portrait__context h2, .profile-portrait__context span { color: #725e4b; }
+.profile-portrait .profile-page__sections { padding-bottom: 100px; }
+
+.profile-portrait .profile-page__exp-item--past .profile-page__exp-dates,
+.profile-portrait .profile-page__exp-item--past .profile-page__exp-location { opacity: 1; }
+
+.profile-page__intro-edit { display: grid; gap: 8px; margin: 20px 0; }
+.profile-page__intro-edit label { font-size: 14px; font-weight: 600; }
+.profile-page__intro-edit p, .profile-page__intro-edit span { margin: 0; font-size: 12px; color: #725e4b; }
+.profile-page__intro-edit textarea { width: 100%; resize: vertical; min-height: 140px; }

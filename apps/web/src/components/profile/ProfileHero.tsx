@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "../Avatar";
-import { IconGradCap } from "../HomeIcons";
-import { IconMapPin } from "../LocationPageIcons";
 import type { OccupationView, ProfileLinkView, PublicProfileView } from "../../api/client";
 import {
-  currentOccupation,
   profileEducationHeadlineLine,
   residenceLine,
-  roleOrgPartsFromOccupation,
 } from "../../lib/profileDisplay";
 import type { SocialPlatformKey } from "../../lib/socialLinks";
 import { MessageIcon } from "../MessageIcon";
@@ -147,7 +143,6 @@ function ProfileHeroMoreMenu({
 export function ProfileHero({
   loading,
   profile,
-  occupations,
   links,
   profileDisplayName,
   isOwnProfile,
@@ -168,7 +163,6 @@ export function ProfileHero({
 }: ProfileHeroProps) {
   const [shareLabel, setShareLabel] = useState("Share profile");
 
-  const roleParts = loading ? null : roleOrgPartsFromOccupation(currentOccupation(occupations));
   const loc = residenceLine(profile?.residenceCity, profile?.residenceCountry);
   const educationLine = loading
     ? null
@@ -203,7 +197,7 @@ export function ProfileHero({
             {loading ? (
               <span className="profile-page__skeleton-line profile-page__skeleton-line--avatar" />
             ) : (
-              <Avatar name={profileDisplayName} size="xl" tone="pastel" className="profile-page__hero-avatar" />
+              <Avatar name={profileDisplayName} size="sm" tone="pastel" className="profile-page__hero-avatar" />
             )}
           </div>
         </div>
@@ -211,46 +205,13 @@ export function ProfileHero({
         <div className="profile-page__hero-body">
           <div className="profile-page__hero-name-row">
             <h1 id="profile-hero-heading" className="profile-page__hero-name">
-              {loading ? (
-                <span className="profile-page__skeleton-line profile-page__skeleton-line--title" />
-              ) : (
-                profileDisplayName
-              )}
+              {loading ? <span className="profile-page__skeleton-line profile-page__skeleton-line--title" /> : profileDisplayName}
             </h1>
           </div>
-
-          {loading ? (
-            <span className="profile-page__skeleton-line profile-page__skeleton-line--headline" aria-hidden />
-          ) : roleParts ? (
-            <p className="profile-page__hero-headline">
-              {roleParts.role}
-              {roleParts.org ? (
-                <>
-                  {" "}
-                  <span className="profile-page__hero-headline-at">@</span>{" "}
-                  <span className="profile-page__hero-headline-org">{roleParts.org}</span>
-                </>
-              ) : null}
-            </p>
-          ) : null}
-
-          {loading ? (
-            <span className="profile-page__skeleton-line profile-page__skeleton-line--body" aria-hidden />
-          ) : loc ? (
-            <p className="profile-page__hero-meta-row">
-              <IconMapPin className="profile-page__hero-meta-icon" aria-hidden />
-              <span>{loc}</span>
-            </p>
-          ) : null}
-
-          {loading ? (
-            <span className="profile-page__skeleton-line profile-page__skeleton-line--body" aria-hidden />
-          ) : educationLine ? (
-            <p className="profile-page__hero-education">
-              <IconGradCap className="profile-page__hero-education-icon" aria-hidden />
-              <span>{educationLine}</span>
-            </p>
-          ) : null}
+          <div className="profile-portrait__identity-meta">
+            {educationLine ? <p>{educationLine} · IIT BHU</p> : null}
+            {loc ? <p>{loc}</p> : null}
+          </div>
 
           {!loading ? (
             <ProfileHeroSocialRow
