@@ -184,7 +184,10 @@ function NavUserMenu({
   }, []);
 
   return (
-    <details ref={menuRef} className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}`}>
+    <details
+      ref={menuRef}
+      className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}${profileId ? " nav__user-menu--dock-replaced" : ""}`}
+    >
       <summary className="nav__user-menu-summary">
         <span className="nav__user-menu-summary-inner">
           <Avatar name={name} size="sm" tone={isHome ? "pastel" : "default"} />
