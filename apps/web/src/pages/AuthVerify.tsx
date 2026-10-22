@@ -5,7 +5,7 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../api/client";
-import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
+import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { queryKeys } from "../lib/queryKeys";
 
 export function AuthVerify() {
@@ -55,10 +55,6 @@ export function AuthVerify() {
         return;
       }
       const { person, profile: p } = snap;
-      if (superAdminSkipsAlumniJourney(person)) {
-        navigate("/home", { replace: true });
-        return;
-      }
       if (!p) {
         navigate("/home", { replace: true });
         return;
