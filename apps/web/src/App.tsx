@@ -1,9 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 // import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 // Messaging paused (product decision): the entire messaging feature is commented out app-wide for now.
 // Restore this import together with the <GlobalMessagingWidget /> mount at the bottom.
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
+import { FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -55,15 +56,10 @@ function RouteFallback() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  if (auth.status === "loading") {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        Loading…
-      </div>
-    );
-  }
-  if (auth.status === "unauthenticated") {
-    return <Navigate to="/login" replace />;
+  const [beganWhileLoading] = useState(auth.status === "loading");
+  if (auth.status === "unauthenticated") return <Navigate to="/login" replace />;
+  if (beganWhileLoading && !(auth.status === "authenticated" && auth.myProfileError)) {
+    return <FoldToFlightGate sessionReady={auth.status === "authenticated"}>{children}</FoldToFlightGate>;
   }
   return <>{children}</>;
 }
