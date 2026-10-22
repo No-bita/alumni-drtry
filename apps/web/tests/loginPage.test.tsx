@@ -135,12 +135,15 @@ describe("Login page", () => {
 
   it("acknowledges Continue immediately, and stops with a retryable error if the demo config never answers", async () => {
     vi.useFakeTimers();
-    apiGet.mockReturnValue(new Promise(() => {})); // preflight never settles
+    let resolveConfig: (v: unknown) => void = () => {};
+    apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
     mount();
     submit("x@itbhu.ac.in");
-    // No waiting: the pending state must be visible right after the tap.
-    expect(screen.getByText(/Hang tight/)).toBeTruthy();
+    // No waiting: the pending state must be visible right after the tap,
+    // and it must not claim a sign-in link is being sent before it is.
+    expect(screen.getByText("Checking the connection…")).toBeTruthy();
+    expect(screen.queryByText(/sign-in link/)).toBeNull();
     expect(apiPost).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
@@ -149,16 +152,44 @@ describe("Login page", () => {
     // email could be the demo address.
     expect(apiPost).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Still checking the server. Give it a moment, then tap Continue again.")
+      screen.getByText("Couldn't connect. Please try again.")
     ).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    // Guard, not copy: Continue stays blocked while the preflight is unanswered.
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    resolveConfig({ data: { enabled: false } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    // Preflight settled: another tap can actually proceed now.
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
+    vi.useFakeTimers();
+    apiGet.mockResolvedValue({ data: { enabled: false } });
+    apiPost.mockResolvedValue({
+      error: { code: "AUTH_RATE_LIMITED", message: "Too many tries." },
+      retryAfterSeconds: 20,
+    });
+    mount();
+    submit("x@itbhu.ac.in");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(screen.getByText("Too many tries. Try again in 1 minute.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("waits for a slow demo-config answer, then starts sign-in normally", async () => {
     vi.useFakeTimers();
     let resolveConfig: (v: unknown) => void = () => {};
     apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
-    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+    apiPost.mockReturnValue(new Promise(() => {})); // sign-in request stays in flight
     mount();
     submit("x@itbhu.ac.in");
     expect(apiPost).not.toHaveBeenCalled();
@@ -166,6 +197,8 @@ describe("Login page", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
     });
+    // Preflight answered: now the sending line is accurate.
+    expect(screen.getByText("Sending your sign-in link…")).toBeTruthy();
     expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
     expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
   });
