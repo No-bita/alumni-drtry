@@ -27,6 +27,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function mount(search = "") {
@@ -130,6 +131,57 @@ describe("Login page", () => {
       })
     );
     expect(apiPost).not.toHaveBeenCalledWith("/v1/auth/start", expect.anything());
+  });
+
+  it("acknowledges Continue immediately, and stops with a retryable error if the demo config never answers", async () => {
+    vi.useFakeTimers();
+    apiGet.mockReturnValue(new Promise(() => {})); // preflight never settles
+    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+    mount();
+    submit("x@itbhu.ac.in");
+    // No waiting: the pending state must be visible right after the tap.
+    expect(screen.getByText(/Hang tight/)).toBeTruthy();
+    expect(apiPost).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    // An unanswered preflight must not fall through to sign-in: the typed
+    // email could be the demo address.
+    expect(apiPost).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Still checking the server. Give it a moment, then tap Continue again.")
+    ).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+  });
+
+  it("waits for a slow demo-config answer, then starts sign-in normally", async () => {
+    vi.useFakeTimers();
+    let resolveConfig: (v: unknown) => void = () => {};
+    apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
+    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+    mount();
+    submit("x@itbhu.ac.in");
+    expect(apiPost).not.toHaveBeenCalled();
+    resolveConfig({ data: { enabled: false } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
+    expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
+  });
+
+  it("ignores a rapid second submit while the first is still in flight", async () => {
+    apiGet.mockResolvedValue({ data: { enabled: false } });
+    let resolveStart: (v: unknown) => void = () => {};
+    apiPost.mockReturnValue(new Promise((r) => { resolveStart = r; }));
+    mount();
+    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in");
+    const form = emailInput.closest("form")!;
+    fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    resolveStart({ data: { challengeId: "c1" } });
   });
 
   it("keeps normal emails on the OTP path even when demo is enabled", async () => {
