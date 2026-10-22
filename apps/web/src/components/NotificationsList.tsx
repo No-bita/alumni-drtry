@@ -42,7 +42,7 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
 
     switch (item.kind) {
       case "connection_thread_reply":
-        navigate(`/connections/${item.threadId}`);
+        // Messaging paused: the thread page is commented out, so message notifications do not deep-link for now.
         break;
       case "contact_request_received":
         navigate(`/profiles/${item.senderPersonId}`);
