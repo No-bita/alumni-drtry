@@ -7,8 +7,6 @@ import { checklistSteps, doneCount, isNewEnough } from "../src/lib/onboardingChe
 
 const authState = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
-vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: vi.fn() }));
-import { assertApiGet } from "../src/lib/assertApiGet";
 
 const fresh = new Date(Date.now() - 2 * 86400000).toISOString();
 function setAuth(over: Record<string, unknown> = {}, createdAt = fresh) {
@@ -27,7 +25,6 @@ function mount() {
 
 beforeEach(() => {
   window.localStorage.clear();
-  vi.mocked(assertApiGet).mockResolvedValue({ threads: [] });
 });
 afterEach(cleanup);
 
@@ -45,16 +42,17 @@ describe("checklist logic", () => {
 });
 
 describe("OnboardingChecklistCard", () => {
-  it("opens the first time with three deep links, then comes back slim", async () => {
+  it("opens the first time with two deep links, then comes back slim", async () => {
     setAuth();
     mount();
     await waitFor(() => expect(screen.getByText("Complete your profile")).toBeTruthy());
     expect(screen.getByText("Join your city board")).toBeTruthy();
-    expect(screen.getByText("Send your first message")).toBeTruthy();
+    // Messaging paused: the "Send your first message" step is commented out.
+    expect(screen.queryByText("Send your first message")).toBeNull();
     expect(screen.getByText("Complete your profile").closest("a")?.getAttribute("href")).toBe("/profiles/p1");
     cleanup();
     mount();
-    await waitFor(() => expect(screen.getByText("Getting started: 0 of 3 done")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Getting started: 0 of 2 done")).toBeTruthy());
     expect(screen.queryByText("Complete your profile")).toBeNull();
   });
   it("is dismissible and stays dismissed", async () => {
@@ -75,8 +73,10 @@ describe("OnboardingChecklistCard", () => {
     expect(screen.getByText("Join your city board").closest("a")?.getAttribute("href")).toBe("/intent/location/pune");
     fireEvent.click(screen.getByText("Join your city board"));
     cleanup();
+    // Messaging paused: with two steps, both done means the card hides itself.
     mount();
-    await waitFor(() => expect(screen.getByText("Getting started: 2 of 3 done")).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByText(/Getting started/)).toBeNull();
   });
   it("renders nothing for old accounts and when everything is done", async () => {
     setAuth({}, "2020-01-01T00:00:00Z");
@@ -85,7 +85,6 @@ describe("OnboardingChecklistCard", () => {
     expect(container.textContent).toBe("");
     cleanup();
     setAuth({ batchYear: 2022, residenceCity: "Pune" });
-    vi.mocked(assertApiGet).mockResolvedValue({ threads: [{ id: "t" }] });
     window.localStorage.setItem("alma.checklist.p1.city", "1");
     const r2 = mount();
     await new Promise((r) => setTimeout(r, 30));
