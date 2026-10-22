@@ -1564,11 +1564,11 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
               </p>
               {ic.roleListingUrl != null ? (
-                <div className="home-dashboard__bulletin-edit-links">
-                  <label className="home-dashboard__bulletin-edit-link-field">
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                     Job link
                     <input
-                      className="input home-dashboard__bulletin-edit-link-input"
+                      className="input"
                       aria-label="Edit job link"
                       maxLength={LISTING_URL_MAX_CHARS}
                       value={editRoleLink}
@@ -1576,10 +1576,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       disabled={editSubmitting}
                     />
                   </label>
-                  <label className="home-dashboard__bulletin-edit-link-field">
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                     Resume link (optional)
                     <input
-                      className="input home-dashboard__bulletin-edit-link-input"
+                      className="input"
                       aria-label="Edit resume link"
                       maxLength={LISTING_URL_MAX_CHARS}
                       value={editResumeLink}
