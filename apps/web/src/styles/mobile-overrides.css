@@ -29,9 +29,9 @@
   }
 }
 
-/* Phone: "You" lives in the bottom dock, so the top-bar account avatar is hidden (desktop unchanged). */
+/* Phone: "You" lives in the bottom dock, so the top-bar account avatar is hidden only when the You tab is available (desktop unchanged). */
 @media (max-width: 639px) {
-  html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__user-menu {
+  html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__user-menu--dock-replaced {
     display: none;
   }
 }
