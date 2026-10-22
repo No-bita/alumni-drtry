@@ -401,7 +401,7 @@ export function Onboarding() {
         firstProfileJudgedRef.current = true;
         if (p.onboardingCompletedAt) setAlreadySetUp(true);
       }
-      if (!canResumeOnboarding(p, authPerson)) {
+      if (!canResumeOnboarding(p)) {
         setGate("redirect");
         return;
       }
@@ -1128,4 +1128,4 @@ export function Onboarding() {
       </div>
     </>
   );
-  }
+}
