@@ -78,6 +78,9 @@ export interface IntentcastFeedOutput {
 export interface UpdateIntentcastInput {
   category?: IntentcastCategory;
   content?: string;
+  /** Structured listing URL edit: value sets, null clears, undefined leaves unchanged. */
+  roleListingUrl?: string | null;
+  resumeListingUrl?: string | null;
 }
 
 /** Signed-in author — aggregated bulletin replies for Home “Replies” tab. */
@@ -258,11 +261,22 @@ export class IntentcastService {
       assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
     }
 
+    const nextRoleListingUrl =
+      input.roleListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
+    const nextResumeListingUrl =
+      input.resumeListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
+
     const updated = await this.intentcastRepo.updateWithinEditWindow({
       intentcastId,
       authorPersonId,
       content: nextContent,
-      category: input.category
+      category: input.category,
+      roleListingUrl: nextRoleListingUrl,
+      resumeListingUrl: nextResumeListingUrl
     });
     if (!updated) {
       throw new AppError(
