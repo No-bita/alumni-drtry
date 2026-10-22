@@ -150,8 +150,8 @@
 
   /* Nav */
   --nav-height: 78px;
-  /** Phone bottom tab bar (signed-in shell ≤639px); keep in sync with `.nav-bottom-dock` padding + row. */
-  --nav-bottom-dock-height: 56px;
+  /** Phone bottom tab bar (signed-in shell ≤639px); floating pill: 76px tall + 16px bottom gap; keep in sync with `.nav-bottom-dock`. */
+  --nav-bottom-dock-height: 92px;
   /** Signed-in shell: primary links live in a fixed left rail; main column uses top toolbar only. */
   --nav-sidebar-width: 264px;
   /** Left rail — Chunar sandstone field + cream typography */
