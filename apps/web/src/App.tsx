@@ -73,6 +73,16 @@ type ProfileGateMode = "directory" | "home";
  * directory: requires completed profile; onboarding-eligible incomplete → /onboarding; returning incomplete → /home
  * home: onboarding-eligible incomplete → /onboarding; complete or returning incomplete → allow
  */
+function ProfileLoadError() {
+  return (
+    <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
+      <p className="body-text" style={{ color: "var(--ink-muted)" }}>
+        Couldn’t load your profile. Try refreshing.
+      </p>
+    </div>
+  );
+}
+
 function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: React.ReactNode }) {
   const auth = useAuth();
   const { id: routeProfileId } = useParams();
@@ -82,13 +92,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
   }
 
   if (auth.myProfileError) {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-          Couldn’t load your profile. Try refreshing.
-        </p>
-      </div>
-    );
+    return <ProfileLoadError />;
   }
 
   const profile = auth.myProfile;
@@ -141,6 +145,8 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
   const { id: routeProfileId } = useParams();
 
   if (auth.status !== "authenticated") return null;
+
+  if (auth.myProfileError) return <ProfileLoadError />;
 
   const profile = auth.myProfile;
   if (!profile) {
