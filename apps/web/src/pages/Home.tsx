@@ -13,7 +13,6 @@ import {
 } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import {
   HomeOpportunityRail,
@@ -35,7 +34,7 @@ import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
 const EMPTY_POSTS: IntentcastFeedItem[] = [];
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
-  const fn = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim();
+  const fn = (profile.fullName ?? "").trim() || profile.fullName?.trim();
   if (fn) {
     const parts = fn.split(/\s+/);
     return parts[0] ?? fn;
@@ -333,7 +332,6 @@ function homeMockOpportunityToIntentcast(item: (typeof HOME_MOCK_OPPORTUNITIES)[
     editableUntil: HOME_MOCK_INTENTCAST_ISO,
     responseCount: 0,
     viewerHasResponded: false,
-    authorIsDemo: item.authorIsDemo === true,
   };
 }
 
@@ -834,7 +832,7 @@ export function Home() {
     profile,
     auth.status === "authenticated" ? auth.person.institutionalEmail : undefined
   );
-  const displayName = demoDisplayFullName(profile.fullName).trim() || profile.fullName?.trim() || firstName;
+  const displayName = (profile.fullName ?? "").trim() || profile.fullName?.trim() || firstName;
   const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
   const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
   const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => setActiveCategory(category);
