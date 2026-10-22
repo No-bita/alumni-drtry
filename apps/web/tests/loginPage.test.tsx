@@ -118,7 +118,7 @@ describe("Login page", () => {
     expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
     expect(screen.queryByText(/Try Demo Access/i)).toBeNull();
 
-    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/demo/config"));
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/demo/config", expect.anything()));
     fireEvent.change(emailInput, { target: { value: "Guest@Alumni.test" } });
     const passwordInput = await screen.findByPlaceholderText("Demo password");
     fireEvent.change(passwordInput, { target: { value: "demo-secret" } });
@@ -133,10 +133,12 @@ describe("Login page", () => {
     expect(apiPost).not.toHaveBeenCalledWith("/v1/auth/start", expect.anything());
   });
 
-  it("acknowledges Continue immediately, and stops with a retryable error if the demo config never answers", async () => {
+  it("acknowledges Continue immediately, and recovers with a fresh check if the demo config never answers", async () => {
     vi.useFakeTimers();
-    let resolveConfig: (v: unknown) => void = () => {};
-    apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
+    let resolveRetry: (v: unknown) => void = () => {};
+    apiGet
+      .mockReturnValueOnce(new Promise(() => {})) // mount read never settles
+      .mockImplementationOnce(() => new Promise((r) => { resolveRetry = r; }));
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
     mount();
     submit("x@itbhu.ac.in");
@@ -155,14 +157,21 @@ describe("Login page", () => {
       screen.getByText("Couldn't connect. Please try again.")
     ).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
-    // Guard, not copy: Continue stays blocked while the preflight is unanswered.
-    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
-    resolveConfig({ data: { enabled: false } });
+    // The retry wording is only honest if another tap can help: the dead
+    // read is abandoned (a safe, unauthenticated idempotent GET) and
+    // Continue is enabled again immediately.
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
+    // The retry starts a fresh config read and checks again.
+    submit("x@itbhu.ac.in");
+    expect(apiGet).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Checking the connection…")).toBeTruthy();
+    expect(apiPost).not.toHaveBeenCalled();
+    // Once the fresh read answers, the same tap proceeds to sign-in.
+    resolveRetry({ data: { enabled: false } });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
     });
-    // Preflight settled: another tap can actually proceed now.
-    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(apiPost).toHaveBeenCalledWith("/v1/auth/start", expect.anything(), expect.anything());
   });
 
   it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
