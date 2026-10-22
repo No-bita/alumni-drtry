@@ -2,6 +2,8 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
+import "../styles/profile-portrait.css";
+import { ProfilePortrait } from "../components/profile/ProfilePortrait";
 import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileAbout } from "../components/profile/ProfileAbout";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
@@ -475,7 +477,7 @@ export function Profile() {
     return (
       <>
         <Nav variant="home" avatarName={navAvatarName} />
-        <div className="home-dashboard profile-page">
+        <div className="home-dashboard profile-page profile-portrait">
           <div className="profile-page__loading">
             <PageStateBlock
               title="Profile not found"
@@ -507,7 +509,7 @@ export function Profile() {
   return (
     <>
       <Nav variant="home" avatarName={navAvatarName} />
-      <div className="home-dashboard profile-page">
+      <div className="home-dashboard profile-page profile-portrait">
         {/* Messaging paused: Message button on other people's profiles hidden while messaging is commented out.
             The removed ProfileHero prop was:
           onSendMessage={
@@ -551,15 +553,10 @@ export function Profile() {
           socialLinksError={isEditing ? editError : linksError}
         />
 
+        <ProfilePortrait loading={loading} profile={profile} occupations={occupations} />
+
         <div className="profile-page__engage-wrap">
           <section className="profile-page__engage-row" aria-label="Profile highlights">
-            <ProfileEngagementCards
-              loading={loading}
-              openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
-              isEditing={isOwnProfile && isEditing}
-              draftOpenTo={isEditing ? draftOpenTo : undefined}
-              onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
-            />
             <ProfileExperience
               loading={loading}
               occupations={occupations}
@@ -571,6 +568,13 @@ export function Profile() {
               onDraftOccupationChange={isEditing ? updateDraftOccupation : undefined}
               onCommitExperience={isEditing ? commitExperienceDraft : undefined}
               onRemoveExperience={isEditing ? removeDraftExperience : undefined}
+            />
+            <ProfileEngagementCards
+              loading={loading}
+              openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
+              isEditing={isOwnProfile && isEditing}
+              draftOpenTo={isEditing ? draftOpenTo : undefined}
+              onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
             />
           </section>
         </div>
@@ -585,14 +589,14 @@ export function Profile() {
               </p>
             ) : null}
 
-            <ProfileIitBhu
+            {(!occupations.length || isEditing) ? <ProfileIitBhu
               loading={loading}
               profile={profile}
               isOwnProfile={isOwnProfile}
               onboardingIncomplete={onboardingIncomplete}
-            />
+            /> : null}
 
-            <ProfileAbout
+            {isOwnProfile && isEditing ? <ProfileAbout
               loading={loading}
               profile={profile}
               isOwnProfile={isOwnProfile}
@@ -605,7 +609,7 @@ export function Profile() {
               onDraftMobilePhone={setDraftMobilePhone}
               onDraftResidenceCountry={setDraftResidenceCountry}
               onDraftResidenceCity={setDraftResidenceCity}
-            />
+            /> : null}
 
             {isOwnProfile && isAdminViewer ? (
               <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
