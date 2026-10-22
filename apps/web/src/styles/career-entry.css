@@ -1,4 +1,4 @@
-/* Approved Careers entry only. Other screens keep their existing shell. */
+/* Careers entry. The floating bottom dock is global (components.css). */
 .career-entry { padding: 28px var(--page-x) 0; }
 .career-entry__shell { max-width: 760px; margin: 0 auto; }
 .career-entry__actions { display: grid; gap: 12px; }
@@ -13,11 +13,3 @@
 .career-entry__activity button { min-height: 44px; padding: 8px; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
 .career-entry :is(button, a):focus-visible { outline: 3px solid var(--ochre); outline-offset: 4px; }
 .career-page-shell .career-page-intent-feed[hidden] { display: none; }
-@media (max-width: 639px) {
-  .career-page-shell { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
-  .career-page-shell .nav-bottom-dock { left: 24px; right: 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: auto; height: 76px; padding: 5px 8px; border: 0; border-radius: 42px; box-shadow: 0 6px 18px rgba(64, 43, 32, .2); }
-  .career-page-shell .nav-bottom-dock__list { height: 66px; min-height: 66px; gap: 4px; }
-  .career-page-shell .nav-bottom-dock__link { border-radius: 36px; padding: 6px 2px; gap: 4px; font-size: 12px; }
-  .career-page-shell .nav-bottom-dock__link--active { background: #a45e43; border-color: transparent; color: #fff; }
-  .career-page-shell .nav-bottom-dock__icon { width: 22px; height: 22px; }
-  }
