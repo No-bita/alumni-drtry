@@ -4,6 +4,7 @@ import {
   BULLETIN_CONTENT_MAX_LENGTH,
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_INTENTCAST_OPEN_DAYS,
+  BULLETIN_LISTING_URL_MAX_CHARS,
   BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH,
   BULLETIN_TITLE_MAX_CHARS
 } from "../constants/bulletin.js";
@@ -16,6 +17,7 @@ import {
   type IntentcastStatus
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
+import { tryNormalizeListingUrl } from "../lib/listingUrl.js";
 import type { EmailSender } from "./emailSender.js";
 
 function splitBulletinHeadlineAndDetails(raw: string): { headline: string; details: string } {
@@ -59,6 +61,10 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
   content: string;
+  /** Referral asks only: structured job listing URL (validated http(s), stored in its own column). */
+  roleListingUrl?: string | null;
+  /** Referral asks only: structured resume URL (validated http(s), stored in its own column). */
+  resumeListingUrl?: string | null;
 }
 
 export interface IntentcastFeedOutput {
@@ -98,6 +104,23 @@ export interface RespondIntentcastInput {
   message: string;
 }
 
+/** Optional structured listing URL: trimmed, normalized to http(s), length-capped; null when absent/blank. */
+function normalizeListingUrlInput(raw: string | null | undefined, field: string): string | null {
+  if (raw === undefined || raw === null || !raw.trim()) return null;
+  if (raw.trim().length > BULLETIN_LISTING_URL_MAX_CHARS) {
+    throw new AppError(
+      400,
+      "INTENTCAST_LISTING_URL_TOO_LONG",
+      `${field} must be at most ${BULLETIN_LISTING_URL_MAX_CHARS} characters.`
+    );
+  }
+  const normalized = tryNormalizeListingUrl(raw);
+  if (!normalized) {
+    throw new AppError(400, "INTENTCAST_LISTING_URL_INVALID", `${field} must be a valid http(s) URL.`);
+  }
+  return normalized;
+}
+
 function isPgUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -134,6 +157,9 @@ export class IntentcastService {
     }
     assertGeneralIntentcastHeadlineDetails(content, input.category);
 
+    const roleListingUrl = normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
+    const resumeListingUrl = normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
+
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -141,7 +167,9 @@ export class IntentcastService {
       authorPersonId,
       content,
       category: input.category,
-      expiresAt
+      expiresAt,
+      roleListingUrl,
+      resumeListingUrl
     });
     const view = await this.intentcastRepo.findFeedItemById(created.id, authorPersonId);
     if (!view) {
