@@ -78,21 +78,22 @@ export function FoldToFlight({ ready, onEnter }: { ready: boolean; onEnter: () =
   );
 }
 
-function RouteReady({ onReady, children }: { onReady: () => void; children: ReactNode }) {
-  useEffect(onReady, [onReady]);
+function RouteReady({ locationKey, onReady, children }: { locationKey: string; onReady: (key: string) => void; children: ReactNode }) {
+  useEffect(() => onReady(locationKey), [locationKey, onReady]);
   return children;
 }
 
 /** Keep one play surface mounted across session resolution and lazy-route loading. */
-export function FoldToFlightGate({ sessionReady, children }: { sessionReady: boolean; children: ReactNode }) {
-  const [routeReady, setRouteReady] = useState(false);
+export function FoldToFlightGate({ sessionReady, locationKey = "", children }: { sessionReady: boolean; locationKey?: string; children: ReactNode }) {
+  // Readiness belongs to the current location, so a redirect that is still lazy-loading is not ready.
+  const [readyKey, setReadyKey] = useState<string | null>(null);
   const [entered, setEntered] = useState(false);
   // React's stable state setter lets the marker signal once the destination's Suspense resolves.
-  const markReady = useCallback(() => setRouteReady(true), []);
+  const markReady = useCallback((key: string) => setReadyKey(key), []);
   return <>
-    {!entered && <FoldToFlight ready={sessionReady && routeReady} onEnter={() => setEntered(true)} />}
+    {!entered && <FoldToFlight ready={sessionReady && readyKey === locationKey} onEnter={() => setEntered(true)} />}
     {sessionReady && <div hidden={!entered} inert={!entered}>
-      <Suspense fallback={null}><RouteReady onReady={markReady}>{children}</RouteReady></Suspense>
+      <Suspense fallback={null}><RouteReady locationKey={locationKey} onReady={markReady}>{children}</RouteReady></Suspense>
     </div>}
   </>;
-}
+            }
