@@ -82,6 +82,20 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   }
 }
 
+function IconYou({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5 19.5c1-3.3 3.8-5 7-5s6 1.7 7 5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function IconAnalytics({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -493,6 +507,20 @@ export function Nav({
                 </Link>
               </li>
             ) : null}
+            <li className="nav-bottom-dock__item">
+              {myProfileId ? (
+                <NavLink
+                  to={`/profiles/${myProfileId}`}
+                  end
+                  className={({ isActive }) =>
+                    `nav-bottom-dock__link${isActive && location.hash !== "#admin-analytics" ? " nav-bottom-dock__link--active" : ""}`.trim()
+                  }
+                >
+                  <IconYou className="nav-bottom-dock__icon" />
+                  <span className="nav-bottom-dock__label">You</span>
+                </NavLink>
+              ) : null}
+            </li>
           </ul>
         </nav>
       </>
