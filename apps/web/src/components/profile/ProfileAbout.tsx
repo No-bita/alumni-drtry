@@ -1,12 +1,10 @@
 import type { PublicProfileView } from "../../api/client";
-import { isDemoProfileBio } from "../../lib/demoProfile";
 import { profileShowsAboutSection } from "../../lib/profileAbout";
 import { Input } from "../Input";
 
 type ProfileAboutProps = {
   loading: boolean;
   profile: PublicProfileView | null | undefined;
-  isDemoProfile: boolean;
   isOwnProfile: boolean;
   isEditing: boolean;
   draftPersonalEmail: string;
@@ -22,7 +20,6 @@ type ProfileAboutProps = {
 export function ProfileAbout({
   loading,
   profile,
-  isDemoProfile,
   isOwnProfile,
   isEditing,
   draftPersonalEmail,
@@ -35,13 +32,13 @@ export function ProfileAbout({
   onDraftResidenceCity,
 }: ProfileAboutProps) {
   if (
-    !profileShowsAboutSection({ loading, profile, isDemoProfile, isOwnProfile, isEditing })
+    !profileShowsAboutSection({ loading, profile, isOwnProfile, isEditing })
   ) {
     return null;
   }
 
   const bioRaw = profile?.bio?.trim() ?? "";
-  const showBio = !loading && bioRaw.length > 0 && !isDemoProfile && !isDemoProfileBio(profile?.bio);
+  const showBio = !loading && bioRaw.length > 0;
 
   return (
     <article className="home-dashboard__card profile-page__about-card">
