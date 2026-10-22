@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   canAccessOnboardingFlow,
   shouldUseOnboardingFlow,
-  superAdminSkipsAlumniJourney,
 } from "../../src/lib/onboardingEligibility";
 import { cohortLabelFromProfile, firstNameForGreeting } from "../../src/lib/onboardingDisplay";
 
@@ -45,17 +44,6 @@ describe("canAccessOnboardingFlow", () => {
   it("blocks super admins in production once past the login cap", () => {
     vi.stubEnv("PROD", true);
     expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }), admin)).toBe(false);
-  });
-});
-
-describe("superAdminSkipsAlumniJourney", () => {
-  it("only skips for super admins in production", () => {
-    vi.stubEnv("PROD", true);
-    expect(superAdminSkipsAlumniJourney(admin)).toBe(true);
-    expect(superAdminSkipsAlumniJourney(alum)).toBe(false);
-    expect(superAdminSkipsAlumniJourney(null)).toBe(false);
-    vi.stubEnv("PROD", false);
-    expect(superAdminSkipsAlumniJourney(admin)).toBe(false);
   });
 });
 
