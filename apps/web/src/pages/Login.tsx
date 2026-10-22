@@ -239,7 +239,7 @@ export function Login() {
         navigate("/home", { replace: true });
         return;
       }
-      navigate(canAccessOnboardingFlow(p, person) ? "/onboarding" : "/home", { replace: true });
+      navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });
     },
     [navigate, refetch]
   );
