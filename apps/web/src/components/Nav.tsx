@@ -137,6 +137,8 @@ type NavProps = {
   hideIntentNav?: boolean;
   /** Sidebar shell: omit toolbar bottom rule (e.g. Careers page). */
   appToolbarNoBorder?: boolean;
+  /** Hide the toolbar notifications bell on this page (e.g. Cities). The bell stays on other pages. */
+  hideNotificationsBell?: boolean;
 };
 
 type NavUserMenuProps = {
@@ -239,6 +241,7 @@ export function Nav({
   avatarName,
   hideIntentNav = false,
   appToolbarNoBorder = false,
+  hideNotificationsBell = false,
 }: NavProps) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -309,21 +312,23 @@ export function Nav({
   const toolbarActionsAuthenticated =
     auth.status === "authenticated" && !hideSignOut ? (
       <>
-        <button
-          type="button"
-          className={`nav__notif-link${notificationCount > 0 ? " nav__notif-link--active" : ""}`}
-          aria-label={
-            notificationCount > 0
-              ? `Notifications, ${formatNotificationBadgeCount(notificationCount)} unread`
-              : "Notifications"
-          }
-          onClick={() => openNotificationsPanel()}
-        >
-          <IconBell className="nav__notif-icon" />
-          {notificationCount > 0 ? (
-            <span className="nav__count-badge nav__count-badge--nav">{formatNotificationBadgeCount(notificationCount)}</span>
-          ) : null}
-        </button>
+        {hideNotificationsBell ? null : (
+          <button
+            type="button"
+            className={`nav__notif-link${notificationCount > 0 ? " nav__notif-link--active" : ""}`}
+            aria-label={
+              notificationCount > 0
+                ? `Notifications, ${formatNotificationBadgeCount(notificationCount)} unread`
+                : "Notifications"
+            }
+            onClick={() => openNotificationsPanel()}
+          >
+            <IconBell className="nav__notif-icon" />
+            {notificationCount > 0 ? (
+              <span className="nav__count-badge nav__count-badge--nav">{formatNotificationBadgeCount(notificationCount)}</span>
+            ) : null}
+          </button>
+        )}
         <NavUserMenu
           name={resolvedAvatarName}
           variant={navUserMenuVariant}
