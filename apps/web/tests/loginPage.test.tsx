@@ -109,74 +109,20 @@ describe("Login page", () => {
     expect(await screen.findByText("Your session expired. Please sign in again.")).toBeTruthy();
   });
 
-  it("shows the demo password in the same form only once the demo email is typed, and logs in without OTP", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
-    apiPost.mockResolvedValue({ data: { person: { id: "p1", isDemo: true } } });
-    mount();
-    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in") as HTMLInputElement;
-    expect(emailInput.value).toBe("");
-    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
-    expect(screen.queryByText(/Try Demo Access/i)).toBeNull();
-
-    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/demo/config", expect.anything()));
-    fireEvent.change(emailInput, { target: { value: "Guest@Alumni.test" } });
-    const passwordInput = await screen.findByPlaceholderText("Demo password");
-    fireEvent.change(passwordInput, { target: { value: "demo-secret" } });
-    fireEvent.click(screen.getByRole("button", { name: /Explore the demo/i }));
-
-    await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith("/v1/auth/demo-login", {
-        email: "guest@alumni.test",
-        password: "demo-secret",
-      })
-    );
-    expect(apiPost).not.toHaveBeenCalledWith("/v1/auth/start", expect.anything());
-  });
-
-  it("acknowledges Continue immediately, and recovers with a fresh check if the demo config never answers", async () => {
-    vi.useFakeTimers();
-    let resolveRetry: (v: unknown) => void = () => {};
-    apiGet
-      .mockReturnValueOnce(new Promise(() => {})) // mount read never settles
-      .mockImplementationOnce(() => new Promise((r) => { resolveRetry = r; }));
-    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+  it("acknowledges Continue immediately with an accurate pending line", async () => {
+    apiPost.mockReturnValue(new Promise(() => {})); // sign-in request stays in flight
     mount();
     submit("x@itbhu.ac.in");
-    // No waiting: the pending state must be visible right after the tap,
-    // and it must not claim a sign-in link is being sent before it is.
-    expect(screen.getByText("Checking the connection…")).toBeTruthy();
-    expect(screen.queryByText(/sign-in link/)).toBeNull();
-    expect(apiPost).not.toHaveBeenCalled();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
-    });
-    // An unanswered preflight must not fall through to sign-in: the typed
-    // email could be the demo address.
-    expect(apiPost).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("Couldn't connect. Please try again.")
-    ).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
-    // The retry wording is only honest if another tap can help: the dead
-    // read is abandoned (a safe, unauthenticated idempotent GET) and
-    // Continue is enabled again immediately.
-    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
-    // The retry starts a fresh config read and checks again.
-    submit("x@itbhu.ac.in");
-    expect(apiGet).toHaveBeenCalledTimes(2);
-    expect(screen.getByText("Checking the connection…")).toBeTruthy();
-    expect(apiPost).not.toHaveBeenCalled();
-    // Once the fresh read answers, the same tap proceeds to sign-in.
-    resolveRetry({ data: { enabled: false } });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    expect(apiPost).toHaveBeenCalledWith("/v1/auth/start", expect.anything(), expect.anything());
+    // The request fires on the tap, so the pending line can say so immediately.
+    expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
+    expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
+    expect(screen.getByText("Sending your sign-in link…")).toBeTruthy();
+    // No demo-config preflight exists anymore.
+    expect(apiGet).not.toHaveBeenCalled();
   });
 
   it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
     vi.useFakeTimers();
-    apiGet.mockResolvedValue({ data: { enabled: false } });
     apiPost.mockResolvedValue({
       error: { code: "AUTH_RATE_LIMITED", message: "Too many tries." },
       retryAfterSeconds: 20,
@@ -194,26 +140,7 @@ describe("Login page", () => {
     expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("waits for a slow demo-config answer, then starts sign-in normally", async () => {
-    vi.useFakeTimers();
-    let resolveConfig: (v: unknown) => void = () => {};
-    apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
-    apiPost.mockReturnValue(new Promise(() => {})); // sign-in request stays in flight
-    mount();
-    submit("x@itbhu.ac.in");
-    expect(apiPost).not.toHaveBeenCalled();
-    resolveConfig({ data: { enabled: false } });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    // Preflight answered: now the sending line is accurate.
-    expect(screen.getByText("Sending your sign-in link…")).toBeTruthy();
-    expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
-    expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
-  });
-
   it("ignores a rapid second submit while the first is still in flight", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: false } });
     let resolveStart: (v: unknown) => void = () => {};
     apiPost.mockReturnValue(new Promise((r) => { resolveStart = r; }));
     mount();
@@ -226,14 +153,7 @@ describe("Login page", () => {
     resolveStart({ data: { challengeId: "c1" } });
   });
 
-  it("keeps normal emails on the OTP path even when demo is enabled", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
-    mount();
-    await waitFor(() => expect(apiGet).toHaveBeenCalled());
-    fireEvent.change(screen.getByPlaceholderText("you@itbhu.ac.in"), { target: { value: "someone@itbhu.ac.in" } });
-    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
   });
-});
 
 // Exercise both initial mounting and live breakpoint changes, not just CSS hiding.
 describe("responsive login map", () => {
