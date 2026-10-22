@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNotificationsSummary } from "../lib/notificationsQueries";
+import { useNotificationsList } from "../lib/notificationsQueries";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { useAuth } from "../contexts/AuthContext";
@@ -229,8 +229,14 @@ export function Nav({
   const isHomeNav = variant === "home" && auth.status === "authenticated";
   const isOnboardingNav = variant === "onboarding";
 
-  const notificationsSummary = useNotificationsSummary(auth.status === "authenticated");
-  const notificationCount = notificationsSummary.data?.count ?? 0;
+  // Messaging paused: the badge derives from the existing notifications list with message
+  // notifications excluded, so paused messages cannot leave a stuck, unclearable badge.
+  // Original: const notificationsSummary = useNotificationsSummary(auth.status === "authenticated");
+  //           const notificationCount = notificationsSummary.data?.count ?? 0;
+  const notificationsList = useNotificationsList(auth.status === "authenticated");
+  const notificationCount = (notificationsList.data?.items ?? []).filter(
+    (item) => item.kind !== "connection_thread_reply"
+  ).length;
 
   const handleSignOut = async () => {
     if (auth.status === "authenticated") {
