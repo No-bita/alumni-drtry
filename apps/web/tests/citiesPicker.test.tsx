@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { LocationPage } from "../src/pages/LocationPage";
@@ -104,5 +104,40 @@ describe("Cities picker keyboard", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("Cities picker vs delayed help form", () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  it("cancels the pending 'Ask for help' auto-open when the picker opens", () => {
+    vi.useFakeTimers();
+    try {
+      mount();
+      fireEvent.click(screen.getByRole("button", { name: /Ask for help/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Change city/ }));
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(screen.getByRole("dialog", { name: "Pick a city" })).toBeTruthy();
+      expect(screen.queryByText("Draft a request")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still opens the help form after the delay when the picker is not opened", () => {
+    vi.useFakeTimers();
+    try {
+      mount();
+      fireEvent.click(screen.getByRole("button", { name: /Ask for help/ }));
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(screen.getByText("Draft a request")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
