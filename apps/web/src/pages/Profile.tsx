@@ -1,4 +1,4 @@
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -54,6 +54,7 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const auth = useAuth();
+  const navigate = useNavigate();
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -765,6 +766,20 @@ export function Profile() {
                   </div>
                 )}
               </article>
+            ) : null}
+
+            {isOwnProfile && !isEditing && auth.status === "authenticated" ? (
+              <div className="profile-page__signout">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    void auth.logout().then(() => navigate("/", { replace: true }));
+                  }}
+                >
+                  Sign out
+                </Button>
+              </div>
             ) : null}
           </div>
 
