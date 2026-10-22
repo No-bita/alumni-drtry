@@ -284,6 +284,9 @@ export function Nav({
   const analyticsActive = myProfileId != null &&
     location.pathname === `/profiles/${myProfileId}` &&
     location.hash === "#admin-analytics";
+  const youActive = myProfileId != null &&
+    location.pathname === `/profiles/${myProfileId}` &&
+    location.hash !== "#admin-analytics";
 
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 
@@ -517,16 +520,14 @@ export function Nav({
             ) : null}
             <li className="nav-bottom-dock__item">
               {myProfileId ? (
-                <NavLink
+                <Link
                   to={`/profiles/${myProfileId}`}
-                  end
-                  className={({ isActive }) =>
-                    `nav-bottom-dock__link${isActive && location.hash !== "#admin-analytics" ? " nav-bottom-dock__link--active" : ""}`.trim()
-                  }
+                  className={`nav-bottom-dock__link${youActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
+                  aria-current={youActive ? "page" : undefined}
                 >
                   <IconYou className="nav-bottom-dock__icon" />
                   <span className="nav-bottom-dock__label">You</span>
-                </NavLink>
+                </Link>
               ) : null}
             </li>
           </ul>
