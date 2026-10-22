@@ -32,8 +32,8 @@ function Paper({ step }: { step: number }) {
   );
 }
 
-/** Local, optional play only. Readiness comes from the real session/route, never the folds. */
-export function FoldToFlight({ ready, onEnter }: { ready: boolean; onEnter: () => void }) {
+/** Local, optional play while Alma loads. Entry is automatic and driven by the real session/route, never the folds. */
+export function FoldToFlight({ ready }: { ready: boolean }) {
   const [step, setStep] = useState(0);
   const [launched, setLaunched] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -67,12 +67,9 @@ export function FoldToFlight({ ready, onEnter }: { ready: boolean; onEnter: () =
       </div>
       <div className="fold-flight__status">
         <p role="status" aria-live="polite" aria-atomic="true">
-          {ready ? (step < 3 ? "Alma's ready. Your plane? Almost." : "Alma's ready. Your call.") : slow ? "This is taking longer than expected." : "Opening Alma..."}
+          {slow ? "This is taking longer than expected." : "Opening Alma..."}
         </p>
-        {ready ? <>
-          <button className="fold-flight__enter" type="button" onClick={onEnter}>Take me in</button>
-          <p className="fold-flight__choice">Or keep {launched ? "playing" : "folding"}. Your call.</p>
-        </> : slow ? <>
+        {slow ? <>
           <p className="fold-flight__detail">Still waiting for Alma to open. You can reload and try again.</p>
           <button type="button" className="fold-flight__again" onClick={() => window.location.reload()}>Reload Alma</button>
         </> : null}
@@ -96,10 +93,14 @@ export function FoldToFlightGate({ sessionReady, locationKey = "", children }: {
   // Readiness belongs to the current location, so a redirect that is still lazy-loading is not ready.
   const [readyKey, setReadyKey] = useState<string | null>(null);
   const [entered, setEntered] = useState(false);
+  // Enter automatically once the session and the current destination are really ready. Sticky, so a later
+  // lazy route never brings the play surface back.
+  const ready = sessionReady && readyKey === locationKey;
+  if (ready && !entered) setEntered(true);
   // React's stable state setter lets the marker signal once the destination's Suspense resolves.
   const markReady = useCallback((key: string) => setReadyKey(key), []);
   return <>
-    {!entered && <FoldToFlight ready={sessionReady && readyKey === locationKey} onEnter={() => setEntered(true)} />}
+    {!entered && <FoldToFlight ready={ready} />}
     {sessionReady && <div hidden={!entered} inert={!entered}>
       <Suspense fallback={null}><RouteReady locationKey={locationKey} onReady={markReady}>{children}</RouteReady></Suspense>
     </div>}
