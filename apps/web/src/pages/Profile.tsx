@@ -146,6 +146,7 @@ export function Profile() {
       : undefined;
 
   const beginEdit = useCallback(() => {
+    setPreviewProfile(false);
     setEditError(null);
     editLinksHydratedRef.current = false;
     const p = profileQuery.data?.profile;
@@ -811,4 +812,4 @@ export function Profile() {
       </div>
     </>
   );
-}
+    }
