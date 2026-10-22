@@ -59,9 +59,11 @@ describe("fold to flight", () => {
   it("keys readiness to the current location and keeps the fold across a lazy redirect", async () => {
     let resolve!: (value: { default: () => React.ReactNode }) => void;
     const Next = lazy(() => new Promise<{ default: () => React.ReactNode }>(r => { resolve = r; }));
+    window.history.pushState({}, "", "/profile");
     const view = render(<FoldToFlightGate sessionReady locationKey="/profile"><p>Redirecting</p></FoldToFlightGate>);
     fireEvent.click(screen.getByRole("button", { name: /fold down/ }));
     expect(screen.getByRole("button", { name: "Take me in" })).toBeTruthy();
+    window.history.pushState({}, "", "/profiles/1");
     view.rerender(<FoldToFlightGate sessionReady locationKey="/profiles/1"><Next /></FoldToFlightGate>);
     expect(screen.queryByText("Take me in")).toBeNull();
     expect(screen.getByText("Pointy end first.")).toBeTruthy();
@@ -76,5 +78,10 @@ describe("fold to flight", () => {
     expect(surface).toContain("position: fixed");
     expect(surface).toContain("inset: 0");
     expect(surface).toContain("overflow-y: auto");
+  });
+  it("does not count a redirect as ready when the browser URL already moved on", () => {
+    window.history.pushState({}, "", "/profiles/1");
+    render(<FoldToFlightGate sessionReady locationKey="/profile"><p>Redirecting</p></FoldToFlightGate>);
+    expect(screen.queryByText("Take me in")).toBeNull();
   });
 });
