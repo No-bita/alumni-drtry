@@ -18,6 +18,7 @@ import {
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { tryNormalizeListingUrl } from "../lib/listingUrl.js";
+import { REFERRAL_FIT_ANSWER_MAX_CHARS } from "../constants/bulletin.js";
 import type { EmailSender } from "./emailSender.js";
 
 function splitBulletinHeadlineAndDetails(raw: string): { headline: string; details: string } {
@@ -259,6 +260,17 @@ export class IntentcastService {
     const effectiveCategory = input.category ?? existing.category;
     if (nextContent !== undefined) {
       assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
+      // Referral asks: the fit answer keeps its compose-time 500-char budget on edit too.
+      if (existing.role_listing_url != null) {
+        const { details } = splitBulletinHeadlineAndDetails(nextContent);
+        if (details.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+          throw new AppError(
+            400,
+            "INTENTCAST_REFERRAL_FIT_TOO_LONG",
+            `Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`
+          );
+        }
+      }
     }
 
     const nextRoleListingUrl =
