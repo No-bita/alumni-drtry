@@ -61,6 +61,17 @@ describe("bottom dock You tab", () => {
     expect(labels).toContain("You");
   });
 
+  it("only marks the avatar menu as replaced when a profile id exists (Sign out never lost)", () => {
+    authState.value = authed();
+    const withProfile = renderNav().container.querySelector(".nav__user-menu") as HTMLElement;
+    expect(withProfile.className).toContain("nav__user-menu--dock-replaced");
+    cleanup();
+    authState.value = authed("alumni", null);
+    const without = renderNav().container.querySelector(".nav__user-menu") as HTMLElement;
+    expect(without.className).not.toContain("nav__user-menu--dock-replaced");
+    expect(within(without).getByText("Sign out")).toBeTruthy();
+  });
+
   it("keeps the desktop account menu with Sign out", () => {
     authState.value = authed();
     const { container } = renderNav();
