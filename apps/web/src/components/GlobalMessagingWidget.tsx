@@ -11,7 +11,6 @@ import {
   type CreateConnectionThreadResponse,
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { formatThreadCompactTime, replySnippet } from "../lib/threadMessageFormat";
 import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
@@ -420,7 +419,7 @@ export function GlobalMessagingWidget() {
       ? baseVisibleThreads
       : baseVisibleThreads.filter((thread) => {
           const raw = (thread.counterpartyFullName ?? "").trim();
-          const display = demoDisplayFullName(thread.counterpartyFullName).trim() || raw;
+          const display = (thread.counterpartyFullName ?? "").trim() || raw;
           const haystack = `${display} ${raw}`.toLowerCase();
           return haystack.includes(normalizedSearchQuery);
         });
@@ -433,7 +432,7 @@ export function GlobalMessagingWidget() {
     composerDraft?.recipientName?.trim() ||
     threadDetailQuery.data?.counterpartyFullName?.trim() ||
     "";
-  const selectedName = demoDisplayFullName(rawSelectedName).trim() || rawSelectedName || "Alumni";
+  const selectedName = (rawSelectedName ?? "").trim() || rawSelectedName || "Alumni";
 
   /** Profile deep-link target for the conversation header name. */
   let counterpartyProfileId: string | null = composerDraft?.recipientPersonId ?? null;
@@ -510,7 +509,7 @@ export function GlobalMessagingWidget() {
       <ul className="global-messaging-widget__list" role="list">
         {list.map((thread) => {
           const rawCp = thread.counterpartyFullName?.trim() || "";
-          const counterpartyName = demoDisplayFullName(thread.counterpartyFullName).trim() || rawCp || "Alumni";
+          const counterpartyName = (thread.counterpartyFullName ?? "").trim() || rawCp || "Alumni";
           const unread = isThreadUnread(thread);
           return (
             <li key={thread.id}>
