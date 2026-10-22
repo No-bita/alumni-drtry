@@ -17,7 +17,6 @@ import {
   splitBulletinPostBody,
   validateGeneralBulletinHeadlineDetails,
 } from "../lib/bulletinPostCardUtils";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import {
   extractStructuredCareerRoleLink,
   hiringCompensationChipFromParsed,
@@ -346,7 +345,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         ? {
             personId: auth.person.personId,
             fullName:
-              demoDisplayFullName(auth.myProfile?.fullName).trim() || auth.myProfile?.fullName?.trim() || "You",
+              (auth.myProfile?.fullName ?? "").trim() || auth.myProfile?.fullName?.trim() || "You",
             dept: auth.myProfile?.departmentCode ?? null,
             batchYear: auth.myProfile?.batchYear ?? null,
           }
