@@ -314,7 +314,7 @@ export function Nav({
           onboardingCompleted={onboardingCompleted}
           canResumeOnboarding={
             auth.status === "authenticated" && auth.myProfile
-              ? canResumeOnboarding(auth.myProfile, auth.person)
+              ? canResumeOnboarding(auth.myProfile)
               : false
           }
           onSignOut={handleSignOut}
