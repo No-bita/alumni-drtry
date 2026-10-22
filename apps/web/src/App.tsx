@@ -81,7 +81,6 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
     return null;
   }
 
-  const person = auth.person;
   if (auth.myProfileError) {
     return (
       <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
@@ -110,7 +109,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
   const viewingSomeoneElseProfile = Boolean(routeProfileId && routeProfileId !== profile.id);
   const directoryAllowedIncomplete = viewingOwnProfile || viewingSomeoneElseProfile;
 
-  if (canAccessOnboardingFlow(profile, person)) {
+  if (canAccessOnboardingFlow(profile)) {
     if (mode === "directory" && directoryAllowedIncomplete) {
       return <>{children}</>;
     }
@@ -128,7 +127,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
       return <>{children}</>;
     }
     /** Returning incomplete members used to be bounced to /home with no explanation; send them to finish instead. */
-    if (canResumeOnboarding(profile, person)) {
+    if (canResumeOnboarding(profile)) {
       return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
     }
     return <Navigate to="/home" replace />;
@@ -188,7 +187,7 @@ function OwnProfileRedirect() {
   if (profile.profileCompletedAt) {
     return <Navigate to={`/profiles/${profile.id}`} replace />;
   }
-  if (canResumeOnboarding(profile, auth.person)) {
+  if (canResumeOnboarding(profile)) {
     return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
   }
   return <Navigate to="/home" replace />;
