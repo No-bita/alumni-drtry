@@ -58,8 +58,7 @@ export function ProfileAbout({
       {isOwnProfile && isEditing ? (
         <div className="profile-page__edit-grid">
           <p className="profile-page__pii-notice">
-            Personal email and mobile are private. They are only shared when you choose to disclose
-            them in a conversation.
+            Personal email and mobile are private. They are not shown on your public profile.
           </p>
           <Input
             label="Personal email (optional)"
@@ -91,4 +90,4 @@ export function ProfileAbout({
       ) : null}
     </article>
   );
-}
+            }
