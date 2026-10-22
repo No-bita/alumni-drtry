@@ -782,6 +782,20 @@ export function Profile() {
                 )}
               </article>
             ) : null}
+
+            {isOwnProfile && !isEditing && auth.status === "authenticated" ? (
+              <div className="profile-page__signout">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    void auth.logout().then(() => navigate("/", { replace: true }));
+                  }}
+                >
+                  Sign out
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           {showProfileSidebar ? (
