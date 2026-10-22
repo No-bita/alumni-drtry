@@ -20,6 +20,8 @@ interface IntentcastFeedRow {
   author_current_organization_name: string | null;
   content: string;
   category: IntentcastCategory;
+  role_listing_url: string | null;
+  resume_listing_url: string | null;
   status: IntentcastStatus;
   expires_at: Date;
   closed_at: Date | null;
@@ -46,6 +48,10 @@ export interface IntentcastFeedView {
   authorCurrentOrganizationName: string | null;
   content: string;
   category: IntentcastCategory;
+  /** Structured referral job listing URL (dedicated column; null for other posts). */
+  roleListingUrl: string | null;
+  /** Structured referral resume URL (dedicated column; null for other posts). */
+  resumeListingUrl: string | null;
   status: IntentcastStatus;
   expiresAt: Date;
   closedAt: Date | null;
@@ -72,6 +78,8 @@ interface IntentcastRow {
   author_person_id: string;
   content: string;
   category: IntentcastCategory;
+  role_listing_url: string | null;
+  resume_listing_url: string | null;
   status: IntentcastStatus;
   expires_at: Date;
   closed_at: Date | null;
@@ -117,6 +125,8 @@ export interface CreateIntentcastInput {
   content: string;
   category: IntentcastCategory;
   expiresAt: Date;
+  roleListingUrl?: string | null;
+  resumeListingUrl?: string | null;
 }
 
 export interface FeedInput {
@@ -214,6 +224,8 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     authorCurrentOrganizationName: row.author_current_organization_name,
     content: row.content,
     category: row.category,
+    roleListingUrl: row.role_listing_url,
+    resumeListingUrl: row.resume_listing_url,
     status: row.status,
     expiresAt: row.expires_at,
     closedAt: row.closed_at,
@@ -248,11 +260,18 @@ export class IntentcastRepo {
   async create(input: CreateIntentcastInput): Promise<IntentcastRow> {
     const result = await this.db.query<IntentcastRow>(
       `
-      INSERT INTO intentcasts (author_person_id, content, category, expires_at, editable_until)
-      VALUES ($1, $2, $3, $4, now() + interval '5 minutes')
+      INSERT INTO intentcasts (author_person_id, content, category, expires_at, editable_until, role_listing_url, resume_listing_url)
+      VALUES ($1, $2, $3, $4, now() + interval '5 minutes', $5, $6)
       RETURNING *
       `,
-      [input.authorPersonId, input.content, input.category, input.expiresAt]
+      [
+        input.authorPersonId,
+        input.content,
+        input.category,
+        input.expiresAt,
+        input.roleListingUrl ?? null,
+        input.resumeListingUrl ?? null
+      ]
     );
     return result.rows[0]!;
   }
@@ -363,6 +382,8 @@ export class IntentcastRepo {
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.role_listing_url,
+        i.resume_listing_url,
         i.status,
         i.expires_at,
         i.closed_at,
@@ -444,6 +465,8 @@ export class IntentcastRepo {
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.role_listing_url,
+        i.resume_listing_url,
         i.status,
         i.expires_at,
         i.closed_at,
@@ -510,6 +533,8 @@ export class IntentcastRepo {
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.role_listing_url,
+        i.resume_listing_url,
         i.status,
         i.expires_at,
         i.closed_at,
