@@ -36,8 +36,12 @@ import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
-  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(t);
-  if (scheme && !/^https?$/i.test(scheme[1])) return null;
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(t);
+  if (scheme && !/^https?$/i.test(scheme[1])) {
+    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme — allow prefixing.
+    const rest = t.slice(scheme[0].length);
+    if (!/^\d+(\/|$)/.test(rest)) return null;
+  }
   const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
   try {
     const u = new URL(candidate);
