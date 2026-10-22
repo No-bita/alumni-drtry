@@ -25,6 +25,10 @@ describe("tryNormalizeListingUrl", () => {
     expect(tryNormalizeListingUrl("example.com:8080/jobs/123")).toBe("https://example.com:8080/jobs/123");
   });
 
+  it("rejects scheme-like input with a numeric tail that is not a host", () => {
+    expect(tryNormalizeListingUrl("ftp:21/download")).toBeNull();
+  });
+
   it("rejects blank and non-URL input", () => {
     expect(tryNormalizeListingUrl("")).toBeNull();
     expect(tryNormalizeListingUrl("   ")).toBeNull();
