@@ -9,7 +9,7 @@ import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
-import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
+import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
 
 type LoginPhase = "form" | "sending" | "timeout" | "sent";
@@ -229,10 +229,6 @@ export function Login() {
       const { person, profile: p } = snap;
       if (person.isDemo) {
         navigate("/search", { replace: true });
-        return;
-      }
-      if (superAdminSkipsAlumniJourney(person)) {
-        navigate("/home", { replace: true });
         return;
       }
       if (!p) {
