@@ -16,10 +16,8 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { invalidateConnectionThreadQueries } from "../lib/invalidateAppQueries";
 import { queryKeys } from "../lib/queryKeys";
 import { THREAD_REFRESH_OPTIONS } from "../lib/threadRefresh";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { formatThreadMessageTime, replySnippet } from "../lib/threadMessageFormat";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import { DemoAuthorBadge } from "../components/DemoAuthorBadge";
 
 function disclosureLabel(kind: string): string {
   switch (kind) {
@@ -222,7 +220,7 @@ function ConnectionThreadBody({
   } = detail;
   const isOpen = thread.status === "open";
   const counterpartyDisplayName =
-    demoDisplayFullName(counterpartyFullName).trim() || counterpartyFullName?.trim() || "";
+    (counterpartyFullName ?? "").trim() || counterpartyFullName?.trim() || "";
   const title = counterpartyDisplayName || "Conversation";
   return (
     <>
@@ -352,7 +350,6 @@ function ConnectionThreadBody({
                     <time className="connection-thread-page__msg-time" dateTime={m.createdAt}>
                       {formatThreadMessageTime(m.createdAt)}
                     </time>
-                    {m.authorIsDemo ? <DemoAuthorBadge /> : null}
                   </span>
                   <button
                     type="button"
