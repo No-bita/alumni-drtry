@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
+import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_LISTING_URL_MAX_CHARS, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
 import type { IntentcastCategory } from "../repos/intentcastRepo.js";
 
@@ -8,7 +8,10 @@ const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", 
 
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,
-  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH)
+  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH),
+  /** Referral asks only: structured job / resume listing URLs (validated in the service). */
+  roleListingUrl: z.string().max(BULLETIN_LISTING_URL_MAX_CHARS).nullish(),
+  resumeListingUrl: z.string().max(BULLETIN_LISTING_URL_MAX_CHARS).nullish()
 });
 
 /** Query helper — comma-separated `category` tokens */
@@ -264,4 +267,3 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 };
-
