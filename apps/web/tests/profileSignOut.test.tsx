@@ -72,6 +72,16 @@ describe("Profile sign out", () => {
     await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/"));
   });
 
+  it("has only one owner Sign out, hides it in Preview and restores it on Back", async () => {
+    mount("/profiles/me-1");
+    await screen.findByRole("button", { name: "Sign out" });
+    expect(screen.getAllByRole("button", { name: "Sign out" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Preview", exact: true }));
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back", exact: true }));
+    expect(screen.getAllByRole("button", { name: "Sign out" })).toHaveLength(1);
+  });
+
   it("does not show Sign out on someone else's profile", async () => {
     mount("/profiles/other-2");
     await screen.findByText("Test Alum");
