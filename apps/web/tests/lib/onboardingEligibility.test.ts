@@ -5,8 +5,6 @@ import {
 } from "../../src/lib/onboardingEligibility";
 import { cohortLabelFromProfile, firstNameForGreeting } from "../../src/lib/onboardingDisplay";
 
-const admin = { role: "super_admin" } as never;
-const alum = { role: "alumni" } as never;
 const prof = (o: Record<string, unknown>) => ({ onboardingCompletedAt: null, appLoginCount: 1, role: "alumni", ...o }) as never;
 
 afterEach(() => vi.unstubAllEnvs());
@@ -28,22 +26,20 @@ describe("shouldUseOnboardingFlow", () => {
 
 describe("canAccessOnboardingFlow", () => {
   it("never reopens a completed onboarding", () => {
-    expect(canAccessOnboardingFlow(prof({ onboardingCompletedAt: "x", appLoginCount: 1 }), admin)).toBe(false);
+    expect(canAccessOnboardingFlow(prof({ onboardingCompletedAt: "x", appLoginCount: 1 }))).toBe(false);
   });
   it("lets eligible alumni in", () => {
-    expect(canAccessOnboardingFlow(prof({}), alum)).toBe(true);
+    expect(canAccessOnboardingFlow(prof({}))).toBe(true);
   });
   it("blocks returning incomplete alumni", () => {
-    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }), alum)).toBe(false);
+    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }))).toBe(false);
   });
-  it("lets super admins in outside production, via session or profile role", () => {
-    vi.stubEnv("PROD", false);
-    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }), admin)).toBe(true);
-    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9, role: "super_admin" }), null)).toBe(true);
-  });
-  it("blocks super admins in production once past the login cap", () => {
-    vi.stubEnv("PROD", true);
-    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }), admin)).toBe(false);
+  it("treats super admins like alumni in every build", () => {
+    for (const prod of [true, false]) {
+      vi.stubEnv("PROD", prod);
+      expect(canAccessOnboardingFlow(prof({ appLoginCount: 9, role: "super_admin" }))).toBe(false);
+      expect(canAccessOnboardingFlow(prof({ appLoginCount: 1, role: "super_admin" }))).toBe(true);
+    }
   });
 });
 
