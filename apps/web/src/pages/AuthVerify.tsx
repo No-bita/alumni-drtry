@@ -54,7 +54,7 @@ export function AuthVerify() {
         setSessionRefetchFailed(true);
         return;
       }
-      const { person, profile: p } = snap;
+      const { profile: p } = snap;
       if (!p) {
         navigate("/home", { replace: true });
         return;
@@ -63,7 +63,7 @@ export function AuthVerify() {
         navigate("/home", { replace: true });
         return;
       }
-      navigate(canAccessOnboardingFlow(p, person) ? "/onboarding" : "/home", { replace: true });
+      navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });
     })();
   }, [verifyQuery.isSuccess, navigate]);
 
