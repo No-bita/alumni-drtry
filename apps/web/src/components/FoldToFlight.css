@@ -1,0 +1,38 @@
+.fold-flight {
+  min-height: 100svh;
+  width: 100%;
+  background: var(--cream, #f8f2e7);
+  color: var(--ink, #3a2a1e);
+  padding: max(32px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fold-flight__brand { font-family: var(--font-display, Georgia, serif); font-size: 23px; text-align: center; }
+.fold-flight__play { width: 100%; max-width: 440px; flex: 1; display: flex; align-items: center; flex-direction: column; justify-content: center; padding: 28px 0 40px; }
+.fold-flight__sheet { background: transparent; border: 0; padding: 0; width: clamp(180px, 30svh, 260px); height: clamp(210px, 34svh, 280px); cursor: pointer; color: inherit; }
+.fold-flight__sheet svg { width: 100%; height: 100%; overflow: visible; }
+.fold-flight__sheet:disabled { cursor: default; }
+.fold-flight__paper { fill: #fdf9f0; stroke: #a27a51; stroke-width: 1.8; }
+.fold-flight__crease { fill: none; stroke: #b59a77; stroke-width: 1.5; }
+.fold-flight__crease--dashed { stroke-dasharray: 5 5; }
+.fold-flight__arrow { fill: none; stroke: #5f2614; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.fold-flight__plane { fill: #5f2614; }
+.fold-flight__wing { fill: #a06d4b; }
+.fold-flight__prompt { text-align: center; margin-top: 20px; }
+.fold-flight__step { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted, #796553); }
+.fold-flight h1 { font-family: var(--font-display, Georgia, serif); font-size: clamp(27px, 6vw, 33px); line-height: 1.2; font-weight: 400; margin: 10px 0; letter-spacing: -.025em; }
+.fold-flight__prompt p { color: var(--ink-muted, #796553); font-size: 13px; margin: 0; }
+.fold-flight__status { width: 100%; max-width: 440px; border-top: 1px solid #dccab0; padding-top: 20px; }
+.fold-flight__status > p:first-child { font-size: 15px; margin: 0 0 14px; }
+.fold-flight__enter { width: 100%; min-height: 50px; border: 0; border-radius: 12px; background: #5f2614; color: #f8f2e7; font: inherit; font-size: 14px; cursor: pointer; padding: 12px 18px; }
+.fold-flight__choice { text-align: center; font-size: 11px; margin: 12px 0 0; color: var(--ink-muted, #796553); }
+.fold-flight__detail { font-size: 13px; color: var(--ink-muted, #796553); margin: 0; }
+.fold-flight__again { background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; color: #5f2614; min-height: 44px; padding: 10px 8px; font: inherit; font-size: 13px; cursor: pointer; }
+.fold-flight button:focus-visible { outline: 3px solid #8d5638; outline-offset: 5px; border-radius: 12px; }
+.fold-flight__fold { animation: fold-flight-fold .35s ease-out; transform-origin: center; }
+@keyframes fold-flight-fold { from { transform: perspective(600px) rotateY(-20deg) scale(.96); } to { transform: perspective(600px) rotateY(0) scale(1); } }
+.fold-flight__sheet--flying svg { animation: fold-flight-launch 1.2s ease-in-out forwards; }
+@keyframes fold-flight-launch { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 55% { transform: translate(35px, -60px) rotate(12deg); opacity: 1; } 100% { transform: translate(70px, -120px) rotate(20deg) scale(.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fold-flight__fold { animation: none; } .fold-flight__sheet--flying svg { animation: none; opacity: .45; } }
+@media (min-width: 640px) { .fold-flight { padding-top: 40px; padding-bottom: 32px; } }
