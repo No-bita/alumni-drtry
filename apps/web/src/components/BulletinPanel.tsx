@@ -1564,7 +1564,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
               </p>
               {ic.roleListingUrl != null ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, marginBottom: 8 }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                     Job link
                     <input
@@ -1572,7 +1572,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       aria-label="Edit job link"
                       maxLength={LISTING_URL_MAX_CHARS}
                       value={editRoleLink}
-                      onChange={(e) => setEditRoleLink(e.target.value)}
+                      onChange={(e) => {
+                        setEditRoleLink(e.target.value);
+                        setEditError(null);
+                      }}
                       disabled={editSubmitting}
                     />
                   </label>
@@ -1583,7 +1586,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                       aria-label="Edit resume link"
                       maxLength={LISTING_URL_MAX_CHARS}
                       value={editResumeLink}
-                      onChange={(e) => setEditResumeLink(e.target.value)}
+                      onChange={(e) => {
+                        setEditResumeLink(e.target.value);
+                        setEditError(null);
+                      }}
                       disabled={editSubmitting}
                     />
                   </label>
