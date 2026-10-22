@@ -56,10 +56,11 @@ function RouteFallback() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
+  const location = useLocation();
   const [beganWhileLoading] = useState(auth.status === "loading");
   if (auth.status === "unauthenticated") return <Navigate to="/login" replace />;
   if (beganWhileLoading && !(auth.status === "authenticated" && auth.myProfileError)) {
-    return <FoldToFlightGate sessionReady={auth.status === "authenticated"}>{children}</FoldToFlightGate>;
+    return <FoldToFlightGate sessionReady={auth.status === "authenticated"} locationKey={`${location.pathname}${location.search}`}>{children}</FoldToFlightGate>;
   }
   return <>{children}</>;
 }
