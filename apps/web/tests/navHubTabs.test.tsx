@@ -20,6 +20,7 @@ vi.mock("../src/contexts/AuthContext", () => ({
 }));
 vi.mock("../src/lib/notificationsQueries", () => ({
   useNotificationsSummary: () => ({ data: undefined }),
+  useNotificationsList: () => ({ data: undefined }),
 }));
 vi.mock("../src/components/AppToolbarGlobalSearch", () => ({ AppToolbarGlobalSearch: () => <div /> }));
 

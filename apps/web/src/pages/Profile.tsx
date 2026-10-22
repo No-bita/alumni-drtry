@@ -508,6 +508,27 @@ export function Profile() {
     <>
       <Nav variant="home" avatarName={navAvatarName} />
       <div className="home-dashboard profile-page">
+        {/* Messaging paused: Message button on other people's profiles hidden while messaging is commented out.
+            The removed ProfileHero prop was:
+          onSendMessage={
+            !isOwnProfile && profile
+              ? () => {
+                  window.dispatchEvent(
+                    new CustomEvent("messaging:open-draft", {
+                      detail: {
+                        recipientPersonId: profile.id,
+                        recipientName: profileDisplayName,
+                        initialMessage: "",
+                        kind: "general",
+                        recipientDepartmentCode: profile.departmentCode,
+                        recipientBatchYear: profile.batchYear,
+                      },
+                    }),
+                  );
+                }
+              : undefined
+          }
+        */}
         <ProfileHero
           loading={loading}
           profile={profile}
@@ -528,24 +549,6 @@ export function Profile() {
           onSaveSocialLinks={isOwnProfile ? () => void handleSaveSocialLinks() : undefined}
           socialLinksBusy={linksSaving}
           socialLinksError={isEditing ? editError : linksError}
-          onSendMessage={
-            !isOwnProfile && profile
-              ? () => {
-                  window.dispatchEvent(
-                    new CustomEvent("messaging:open-draft", {
-                      detail: {
-                        recipientPersonId: profile.id,
-                        recipientName: profileDisplayName,
-                        initialMessage: "",
-                        kind: "general",
-                        recipientDepartmentCode: profile.departmentCode,
-                        recipientBatchYear: profile.batchYear,
-                      },
-                    }),
-                  );
-                }
-              : undefined
-          }
         />
 
         <div className="profile-page__engage-wrap">

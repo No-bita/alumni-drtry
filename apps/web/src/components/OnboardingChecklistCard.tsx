@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+// Messaging paused: the threads query behind the "Send your first message" step is commented out with the step.
+// import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/AuthContext";
-import { assertApiGet } from "../lib/assertApiGet";
-import { queryKeys } from "../lib/queryKeys";
+// import { assertApiGet } from "../lib/assertApiGet";
+// import { queryKeys } from "../lib/queryKeys";
 import { normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
-import type { ConnectionThreadsListResponse } from "../api/client";
+// import type { ConnectionThreadsListResponse } from "../api/client";
 import {
   checklistSteps,
   doneCount,
@@ -16,17 +17,19 @@ import {
 } from "../lib/onboardingChecklist";
 import "../styles/onboarding-checklist.css";
 
-/** Small first-week card: three steps, deep links, ticks itself off. No tooltip tour. */
+/** Small first-week card: deep links, ticks itself off. No tooltip tour. Messaging paused: two steps while the message step is commented out. */
 export function OnboardingChecklistCard() {
   const auth = useAuth();
   const personId = auth.status === "authenticated" ? auth.person.personId : null;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
 
+  /* Messaging paused: message step commented out, so no threads query.
   const threadsQuery = useQuery({
     queryKey: [...queryKeys.connectionThreads.list(), personId],
     queryFn: ({ signal }) => assertApiGet<ConnectionThreadsListResponse>("/v1/connection-threads", signal),
     enabled: Boolean(personId),
   });
+  */
 
   const [dismissed, setDismissed] = useState(() => (personId ? readFlag(personId, "dismissed") : false));
   const [cityVisited, setCityVisited] = useState(() => (personId ? readFlag(personId, "city") : false));
@@ -35,7 +38,7 @@ export function OnboardingChecklistCard() {
   const [now] = useState(() => Date.now());
 
   // Only count the card as seen once it can actually be on screen.
-  const readyToShow = Boolean(personId && profile && !dismissed && isNewEnough(profile.createdAt, now) && threadsQuery.isSuccess);
+  const readyToShow = Boolean(personId && profile && !dismissed && isNewEnough(profile.createdAt, now));
 
   useEffect(() => {
     if (personId && open && readyToShow) writeFlag(personId, "seen");
@@ -43,22 +46,23 @@ export function OnboardingChecklistCard() {
 
   if (!personId || !profile || dismissed) return null;
   if (!isNewEnough(profile.createdAt, now)) return null;
-  // Hide on error too: absent thread data must not read as "no messages sent yet".
-  if (!threadsQuery.isSuccess) return null;
 
   const steps = checklistSteps({
     profile,
-    hasThreads: (threadsQuery.data?.threads?.length ?? 0) > 0,
+    // Messaging paused: no thread data while messaging is commented out; the message step is hidden below.
+    hasThreads: false,
     cityVisited,
   });
   const done = doneCount(steps);
-  if (done === 3) return null;
+  // Messaging paused: two steps remain, so the card is done at 2.
+  if (done === 2) return null;
 
   const citySlug = profile.residenceCity?.trim() ? normalizeCityIntentSlug(profile.residenceCity) : "";
   const rows: Array<{ id: ChecklistStepId; title: string; hint: string; to: string }> = [
     { id: "profile", title: "Complete your profile", hint: "Batch and current city, so people can actually find you.", to: `/profiles/${personId}` },
     { id: "city", title: "Join your city board", hint: "See who is nearby and what they are asking for.", to: citySlug ? `/intent/location/${citySlug}` : "/intent/location" },
-    { id: "message", title: "Send your first message", hint: "Say hi to someone. We promise it is less weird than it sounds.", to: "/search" },
+    // Messaging paused: message step commented out while messaging is disabled.
+    // { id: "message", title: "Send your first message", hint: "Say hi to someone. We promise it is less weird than it sounds.", to: "/search" },
   ];
 
   return (
@@ -71,7 +75,7 @@ export function OnboardingChecklistCard() {
           onClick={() => setOpen((v) => !v)}
         >
           <span id="onboarding-checklist-title" className="onboarding-checklist__title">
-            {open ? "Three quick things and you're officially a regular" : `Getting started: ${done} of 3 done`}
+            {open ? "Two quick things and you're officially a regular" : `Getting started: ${done} of 2 done`}
           </span>
         </button>
         <button

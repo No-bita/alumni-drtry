@@ -42,7 +42,7 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
 
     switch (item.kind) {
       case "connection_thread_reply":
-        navigate(`/connections/${item.threadId}`);
+        // Messaging paused: the thread page is commented out, so message notifications do not deep-link for now.
         break;
       case "contact_request_received":
         navigate(`/profiles/${item.senderPersonId}`);
@@ -99,24 +99,29 @@ function NotificationListItem({
   switch (item.kind) {
     case "connection_thread_reply": {
       const name = displayName(item.counterpartyFullName);
+      // Messaging paused: the thread page is commented out, so a message notification renders as
+      // non-interactive content instead of a dead button that only closes the panel. Original:
+      // <ClickableNotificationBody
+      //   title={<>...{name} sent you a message</>}
+      //   preview={item.lastMessagePreview}
+      //   onActivate={onActivate}
+      // />
       return (
         <>
-          <ClickableNotificationBody
-            title={
-              <>
-                <Link
-                  to={`/profiles/${item.counterpartyPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
-                sent you a message
-              </>
-            }
-            preview={item.lastMessagePreview}
-            onActivate={onActivate}
-          />
+          <div className="notifications-page__item-main">
+            <p className="notifications-page__item-title">
+              <Link
+                to={`/profiles/${item.counterpartyPersonId}`}
+                className="notifications-page__item-name"
+              >
+                {name}
+              </Link>{" "}
+              sent you a message
+            </p>
+            {item.lastMessagePreview ? (
+              <p className="notifications-page__item-detail">{item.lastMessagePreview}</p>
+            ) : null}
+          </div>
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}
           </time>

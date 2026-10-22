@@ -18,7 +18,9 @@ export function GlobalNotificationsWidget() {
 
   const authenticated = auth.status === "authenticated";
   const listQuery = useNotificationsList(authenticated && isOpen && !hiddenOnRoutes);
-  const items = listQuery.data?.items ?? [];
+  // Messaging paused: message reply notifications are hidden from the panel for now (display-only;
+  // the backend list still returns them and no data is touched). Original: const items = listQuery.data?.items ?? [];
+  const items = (listQuery.data?.items ?? []).filter((item) => item.kind !== "connection_thread_reply");
 
   useEffect(() => {
     function onOpen() {
@@ -45,7 +47,8 @@ export function GlobalNotificationsWidget() {
         <header className="global-notifications-widget__head">
           <div>
             <h2>Notifications</h2>
-            <p>Connection requests, bulletin replies, and new messages</p>
+            {/* Messaging paused: message notifications are hidden while messaging is off. Original: Connection requests, bulletin replies, and new messages */}
+            <p>Connection requests and bulletin replies</p>
           </div>
           <button
             type="button"
