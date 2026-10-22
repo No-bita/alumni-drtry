@@ -38,6 +38,9 @@ import {
 import { buildIntentcastFeedQuery, buildVisibleIntentcasts } from "./bulletinFeedHelpers";
 import { patchIntentcastInFeedCache, prependIntentcastToFeedCache } from "./bulletinCacheHelpers";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
+import { tryNormalizeListingUrl } from "../lib/listingUrl";
+
+const LISTING_URL_MAX_CHARS = 2048;
 import {
   formatBatchYearShort,
   intentcastCategoryBadgeLabel,
@@ -756,6 +759,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [repliedIntentcastIds, setRepliedIntentcastIds] = useState<Set<string>>(() => new Set());
     const [editIntentcastId, setEditIntentcastId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+    const [editRoleLink, setEditRoleLink] = useState("");
+    const [editResumeLink, setEditResumeLink] = useState("");
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
     const {
@@ -1021,11 +1026,26 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
           return;
         }
       }
+      // Referral asks store the job/resume links in structured columns; keep them editable too.
+      let linkFields: { roleListingUrl?: string; resumeListingUrl?: string | null } = {};
+      if (existing.roleListingUrl != null) {
+        const roleLink = tryNormalizeListingUrl(editRoleLink);
+        if (!roleLink) {
+          setEditError("Add a valid job link (e.g. https://boards.greenhouse.io/acme/jobs/12345).");
+          return;
+        }
+        const resumeLink = tryNormalizeListingUrl(editResumeLink);
+        if (editResumeLink.trim() && !resumeLink) {
+          setEditError("That resume link does not look like a URL.");
+          return;
+        }
+        linkFields = { roleListingUrl: roleLink, resumeListingUrl: resumeLink };
+      }
       setEditError(null);
       setEditSubmitting(true);
       const { data, error } = await api.patch<{ intentcast: IntentcastFeedItem }>(
         `/v1/intentcasts/${intentcastId}`,
-        { content, category: existing.category }
+        { content, category: existing.category, ...linkFields }
       );
       setEditSubmitting(false);
       if (error || !data?.intentcast) {
@@ -1043,6 +1063,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       setEditIntentcastId(null);
       setEditError(null);
       setEditContent("");
+      setEditRoleLink("");
+      setEditResumeLink("");
     };
 
     const executeRestoreIntentcast = async (intentcastId: string) => {
@@ -1501,6 +1523,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     onClick={() => {
                       setEditIntentcastId(ic.id);
                       setEditContent(ic.content);
+                      setEditRoleLink(ic.roleListingUrl ?? "");
+                      setEditResumeLink(ic.resumeListingUrl ?? "");
                       setEditError(null);
                       setRespondTargetId(null);
                       setBulletinDeleteError(null);
@@ -1539,6 +1563,32 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
               <p className="home-dashboard__bulletin-char-count" aria-live="polite">
                 {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
               </p>
+              {ic.roleListingUrl != null ? (
+                <div className="home-dashboard__bulletin-edit-links">
+                  <label className="home-dashboard__bulletin-edit-link-field">
+                    Job link
+                    <input
+                      className="input home-dashboard__bulletin-edit-link-input"
+                      aria-label="Edit job link"
+                      maxLength={LISTING_URL_MAX_CHARS}
+                      value={editRoleLink}
+                      onChange={(e) => setEditRoleLink(e.target.value)}
+                      disabled={editSubmitting}
+                    />
+                  </label>
+                  <label className="home-dashboard__bulletin-edit-link-field">
+                    Resume link (optional)
+                    <input
+                      className="input home-dashboard__bulletin-edit-link-input"
+                      aria-label="Edit resume link"
+                      maxLength={LISTING_URL_MAX_CHARS}
+                      value={editResumeLink}
+                      onChange={(e) => setEditResumeLink(e.target.value)}
+                      disabled={editSubmitting}
+                    />
+                  </label>
+                </div>
+              ) : null}
               {editError ? <p className="home-dashboard__respond-error">{editError}</p> : null}
               <div className="home-dashboard__respond-actions home-dashboard__respond-actions--wrap">
                 <Button
@@ -1817,6 +1867,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 onClick={() => {
                   setEditIntentcastId(ic.id);
                   setEditContent(ic.content);
+                  setEditRoleLink(ic.roleListingUrl ?? "");
+                  setEditResumeLink(ic.resumeListingUrl ?? "");
                   setEditError(null);
                   setRespondTargetId(null);
                   setBulletinDeleteError(null);
