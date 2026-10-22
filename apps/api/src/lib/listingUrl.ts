@@ -1,23 +1,27 @@
-/**
- * Accepts absolute http(s) URLs or host/path input (prefixed with https://).
- * Rejects explicit non-http(s) schemes (e.g. ftp://, javascript:) instead of prefixing them.
- * Mirrors the web composer's rule in apps/web PostBulletinFlow.
- */
+// Mirrors PostBulletinFlow.tryNormalizeExternalHttpUrl and the API listingUrl helper (keep in sync).
 export function tryNormalizeListingUrl(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(t)?.[1];
   if (scheme && !/^https?$/i.test(scheme)) {
-    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme — allow prefixing.
+    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme - allow prefixing,
+    // but only when the part before ':' looks like a host; ftp:21/x style input is rejected.
     const rest = t.slice(scheme.length + 1);
-    if (!/^\d+(\/|$)/.test(rest)) return null;
+    if (!/^\d+(\/|$)/.test(rest) || !scheme.includes(".")) return null;
   }
-  const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  let parsed: URL;
   try {
-    const u = new URL(candidate);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.href;
+    parsed = new URL(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(t) ? t : `https://${t}`);
   } catch {
     return null;
   }
+  if (!/^https?:$/.test(parsed.protocol)) return null;
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(hostname)
+  ) {
+    return null;
+  }
+  parsed.hostname = hostname;
+  return parsed.toString();
 }
