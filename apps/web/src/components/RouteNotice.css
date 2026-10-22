@@ -40,8 +40,8 @@
   opacity: 1;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .route-notice {
-    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--nav-bottom-dock-height, 92px) + 12px + env(safe-area-inset-bottom, 0px));
   }
 }
