@@ -1,5 +1,9 @@
 .fold-flight {
-  min-height: 100svh;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  box-sizing: border-box;
   width: 100%;
   background: var(--cream, #f8f2e7);
   color: var(--ink, #3a2a1e);
