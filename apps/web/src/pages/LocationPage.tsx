@@ -19,7 +19,6 @@ import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constant
 import {
   type ResidenceCitiesResponse,
   type ResidenceCityAggregate,
-  type SearchResult,
 } from "../api/client";
 import { RESIDENCE_CITIES_AGGREGATE_LIMIT } from "../constants/directorySearch";
 import { assertApiGet } from "../lib/assertApiGet";
@@ -52,10 +51,6 @@ const HIGHLIGHT_NAV_SEARCH_QUERY = "highlightNavSearch";
 /** Empty feed on the location hub — same message for every city so the page feels consistent while content is sparse. */
 const LOCATION_PAGE_EMPTY_POSTS_COPY =
   "No posts to show yet—this hub is quiet across cities for now. Switch city above or add a request or event below.";
-
-/** City-only slug hubs (opened via @)—directory search skips country; explain instead of implying zero alumni forever. */
-const LOCATION_UNKNOWN_REGION_PEOPLE_COPY =
-  "We're not querying directory residency without a mapped region yet—browse Search to find alumni, or add a request for this hub.";
 
 /**
  * Prefer merge list from `/v1/directory/residence-cities` so any surfaced city slug (e.g. Pune) resolves.
@@ -367,34 +362,6 @@ export function LocationPage() {
     () => [...createdEvents, ...CITY_EVENTS].filter((item) => matchCityItem(item, selected.city, selected.country)).slice(0, 2),
     [selected, createdEvents]
   );
-  const residenceHubHasCountry = selected.country.trim().length > 0;
-
-  const peopleQuery = useQuery({
-    queryKey: ["cities", "people", selected.city, selected.country],
-    queryFn: ({ signal }) => {
-      const params = new URLSearchParams({
-        residenceCity: selected.city,
-        residenceCountry: selected.country,
-        requireResidence: "true",
-        limit: "24",
-      });
-      return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
-    },
-    enabled: auth.status === "authenticated" && residenceHubHasCountry,
-  });
-  const people = peopleQuery.data?.results ?? [];
-  const peopleLoading = peopleQuery.isLoading;
-  const peopleUpdating = peopleQuery.isFetching && !peopleQuery.isLoading;
-  const peopleError =
-    peopleQuery.error instanceof Error
-      ? peopleQuery.error.message
-      : peopleQuery.error
-        ? String(peopleQuery.error)
-        : null;
-
-  const visiblePeople = people.slice(0, 5);
-  const extraPeople = Math.max(0, people.length - visiblePeople.length);
-
   /** Match Active requests panel height to the right column stack on desktop so the hub row stays fixed and the list scrolls. */
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -432,7 +399,7 @@ export function LocationPage() {
       mq.removeEventListener("change", applyRequestsCapFromSideStack);
       panel.style.removeProperty("--location-requests-cap");
     };
-  }, [people.length, peopleLoading, cityEvents.length]);
+  }, [cityEvents.length]);
 
   const displayName =
     auth.status === "authenticated"
@@ -909,63 +876,6 @@ export function LocationPage() {
                 </div>
               </article>
             ) : null}
-
-            <article className="cities-redesign__panel">
-              <header className="cities-redesign__panel-head">
-                <h3>People in {selected.city}</h3>
-              </header>
-              <div className="cities-redesign__people-feed">
-                {!selected.country.trim() ? (
-                  <p className="cities-redesign__state cities-redesign__state--feed-empty" role="status">
-                    {LOCATION_UNKNOWN_REGION_PEOPLE_COPY}
-                  </p>
-                ) : peopleLoading ? (
-                  <p className="cities-redesign__state" role="status">
-                    Loading people…
-                  </p>
-                ) : peopleError ? (
-                  <p className="cities-redesign__state cities-redesign__state--error" role="alert">
-                    {peopleError}
-                  </p>
-                ) : visiblePeople.length === 0 ? (
-                  <p className="cities-redesign__state" role="status">
-                    No alumni found for this city yet.
-                  </p>
-                ) : (
-                  <div className="cities-redesign__people-feed-inner">
-                    <div className="cities-redesign__people-feed-scroll">
-                      <div className="cities-redesign__people-card-grid">
-                        {visiblePeople.map((person) => {
-                          const rawPersonName = (person.fullName ?? "").trim();
-                          const personDisplay = (person.fullName ?? "").trim() || rawPersonName;
-                          const firstToken = personDisplay.split(/\s+/)[0] ?? personDisplay;
-                          return (
-                            <Link
-                              key={person.id}
-                              to={`/profiles/${person.id}`}
-                              className="cities-redesign__person-card"
-                            >
-                              <Avatar name={personDisplay} size="md" tone="pastel" />
-                              <span className="cities-redesign__person-card-name">{firstToken}</span>
-                            </Link>
-                          );
-                        })}
-                        {extraPeople > 0 ? (
-                          <span className="cities-redesign__person-card cities-redesign__person-card--extra" aria-label={`${extraPeople} more alumni in this city`}>
-                            +{extraPeople}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    {peopleUpdating ? (
-                      <p className="cities-redesign__updating cities-redesign__people-feed-footer" role="status">
-                        Updating people…
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            </article>
 
             <article ref={composerPanelRef} className="cities-redesign__panel cities-redesign__composer-card">
               <header className="cities-redesign__panel-head">
