@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import type { SearchProfileView } from "../api/client";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { buildInviteLink, buildWhatsAppShareUrl, copyText } from "../lib/inviteLink";
 import "../styles/home-network-invite.css";
 
@@ -56,7 +55,7 @@ export function HomeNetworkPanel({
         <>
           <div className="home-ideal__avatars" aria-label="Batch avatars">
             {avatars.map((member) => {
-              const displayName = demoDisplayFullName(member.fullName) || member.fullName.trim();
+              const displayName = (member.fullName ?? "").trim() || member.fullName.trim();
               return (
                 <Link key={member.id} to={`/profiles/${member.id}`}>
                   <Avatar name={displayName} size="sm" tone="pastel" />
