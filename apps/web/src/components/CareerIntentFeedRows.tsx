@@ -10,7 +10,8 @@ import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 import { CareerStyleSearchToolbar } from "./CareerStyleSearchToolbar";
 import { DirectoryFilterDrawer } from "./DirectoryFilterDrawer";
-import { IconChatBubble } from "./HomeIcons";
+// Messaging paused: unused while the career feed Message CTA is commented out.
+// import { IconChatBubble } from "./HomeIcons";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 import { queryKeys } from "../lib/queryKeys";
 import { PageStateBlock } from "./PageStateBlock";
@@ -166,7 +167,8 @@ export function IntentcastActivityRowsList({
           (!row.companySubtitle || summaryCollapsed !== collapseWs(row.companySubtitle))
             ? row.summary
             : null;
-        const messageTitle = [row.roleHeader, row.companySubtitle].filter(Boolean).join(" · ");
+        // Messaging paused: only used by the commented-out Message CTA below.
+        // const messageTitle = [row.roleHeader, row.companySubtitle].filter(Boolean).join(" · ");
         const detailChipCandidates = [row.employmentType, row.experience, row.compensation].filter(
           (x): x is string => Boolean(x?.trim())
         );
@@ -239,6 +241,7 @@ export function IntentcastActivityRowsList({
 
                 <div className="career-feed-rows__row-rail-col">
                   <div className="career-feed-rows__rail-top">
+                    {/* Messaging paused: career feed Message CTA commented out for now. Original:
                     {!isOwn ? (
                       <button
                         type="button"
@@ -263,6 +266,8 @@ export function IntentcastActivityRowsList({
                         Message
                       </button>
                     ) : ownerDeleteMenu ? (
+                    */}
+                    {isOwn && ownerDeleteMenu ? (
                       <BulletinOwnPostMenu
                         detachDropdown
                         deleteDisabled={deleteSubmittingId === row.id}
