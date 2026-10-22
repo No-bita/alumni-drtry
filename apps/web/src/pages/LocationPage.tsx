@@ -12,7 +12,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
-import type { MessagingOpenDraftDetail } from "../components/GlobalMessagingWidget";
+// Messaging paused: unused while city-request Message actions are commented out.
+// import type { MessagingOpenDraftDetail } from "../components/GlobalMessagingWidget";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constants/locationLens";
 import {
@@ -442,6 +443,7 @@ export function LocationPage() {
 
   const myPersonId = auth.status === "authenticated" ? auth.person.personId : null;
 
+  /* Messaging paused: city-request Message action commented out for now.
   function openMessagingForCityNeed(need: CityNeedItem) {
     if (!myPersonId) return;
     if (need.askedByPersonId === myPersonId) return;
@@ -471,6 +473,7 @@ export function LocationPage() {
       })
     );
   }
+  */
 
   const requestTabs = [
     { id: "housing" as const, label: "Housing" },
@@ -839,6 +842,7 @@ export function LocationPage() {
                           </p>
                         </div>
                       </div>
+                      {/* Messaging paused: city-request Message button commented out for now.
                       <div className="cities-redesign__request-actions">
                         <Button
                           type="button"
@@ -854,6 +858,7 @@ export function LocationPage() {
                           Message
                         </Button>
                       </div>
+                      */}
                     </li>
                     );
                   })}
