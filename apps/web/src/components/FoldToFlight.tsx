@@ -79,7 +79,12 @@ export function FoldToFlight({ ready, onEnter }: { ready: boolean; onEnter: () =
 }
 
 function RouteReady({ locationKey, onReady, children }: { locationKey: string; onReady: (key: string) => void; children: ReactNode }) {
-  useEffect(() => onReady(locationKey), [locationKey, onReady]);
+  useEffect(() => {
+    // A redirect starts navigating in its own effect, before this one runs. The browser URL has already moved on,
+    // so a page that rendered for an older location must not count as ready.
+    if (locationKey && `${window.location.pathname}${window.location.search}` !== locationKey) return;
+    onReady(locationKey);
+  }, [locationKey, onReady]);
   return children;
 }
 
