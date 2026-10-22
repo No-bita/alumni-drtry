@@ -10,7 +10,6 @@ import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
 import { IconBriefcase, IconChatBubble, IconCity, IconRefer } from "./HomeIcons";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
@@ -29,7 +28,6 @@ export type HomeOpportunityItem = {
   /** Relative posted time (footer, right) */
   postedRelative?: string | null;
   postedAtIso?: string | null;
-  authorIsDemo?: boolean;
   title: string;
   summary: string;
   chips: string[];
@@ -84,7 +82,7 @@ function truncateChipLabel(s: string, max: number): string {
 function mapBulletinReplyToActivityRow(reply: ReceivedBulletinReplyFeedItem): CareerFeedRowModel {
   const postHeadline = bulletinReplyPostHeadline(reply.intentcastContent);
   const chip = truncateChipLabel(postHeadline, 52);
-  const authorFullName = demoDisplayFullName(reply.responderFullName).trim() || reply.responderFullName.trim();
+  const authorFullName = (reply.responderFullName ?? "").trim() || reply.responderFullName.trim();
   return {
     id: reply.responseId,
     tone: "inbound_reply",
@@ -102,7 +100,6 @@ function mapBulletinReplyToActivityRow(reply: ReceivedBulletinReplyFeedItem): Ca
     authorRoleLine: null,
     postedRelative: formatRelativeTime(reply.responseCreatedAt),
     postedAtIso: reply.responseCreatedAt,
-    authorIsDemo: reply.responderIsDemo === true,
     roleListingUrl: null,
     resumeListingUrl: null,
   };
