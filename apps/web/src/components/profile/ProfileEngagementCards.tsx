@@ -115,7 +115,8 @@ export function ProfileEngagementCards({
           <IconOpenToHeader className="profile-page__engage-card-icon" />
         </span>
         <div className="profile-page__engage-card-head-copy">
-          <h2 className="profile-page__engage-card-title">Open to</h2>
+          <h2 className="profile-page__engage-card-title">{isEditing ? "Open to" : "What they welcome"}</h2>
+          {!isEditing ? <p className="profile-page__engage-card-hint">Chosen by this alum.</p> : null}
           {isEditing ? (
             <p className="profile-page__engage-card-hint">
               Choose up to {OPEN_TO_MAX_SELECTED} ({selectedCount}/{OPEN_TO_MAX_SELECTED} selected)
@@ -192,7 +193,7 @@ export function ProfileEngagementCards({
         </ul>
       ) : (
         <p className="body-text profile-page__muted-text profile-page__flush-text">
-          Not open to anything right now.
+          No help preferences shared.
         </p>
       )}
     </article>
