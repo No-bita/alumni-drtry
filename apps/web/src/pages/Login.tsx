@@ -7,7 +7,6 @@ import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
-import { clearDemoTourState, getTourStorage } from "../lib/demoMode";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
@@ -21,15 +20,6 @@ const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => 
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
 const BETA_INVITE_AUTH_ENABLED = false;
 const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
-/**
- * How long a Continue click waits for the demo-config preflight before giving
- * up with a retryable error. Bounds the silent wait when the API is asleep or
- * unreachable; an unanswered preflight must never fall through to sign-in,
- * because the typed email could be the demo address.
- */
-const DEMO_CONFIG_WAIT_MS = 10_000;
-const DEMO_CONFIG_WAIT_TIMEOUT = Symbol("demo-config-wait-timeout");
-
 const AUTH_HERO_STATS = [
   { value: "400+", keyword: "alumni", label: "active this week" },
   { value: "38", keyword: "referrals", label: "completed last week" },
@@ -65,8 +55,6 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   /** True once the first sign-in request got no answer and we are retrying quietly. */
   const [serverWaking, setServerWaking] = useState(false);
-  /** True while the demo-config preflight is still unanswered: no sign-in request has fired yet. */
-  const [checkingConnection, setCheckingConnection] = useState(false);
   /** Guards, not copy, decide when Continue may be tapped: during the server's rate-limit countdown another tap cannot help. */
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,89 +84,18 @@ export function Login() {
   const [inviteCode, setInviteCode] = useState("");
   const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
   const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
-  const [demoConfig, setDemoConfig] = useState<{ enabled: boolean; demoEmail?: string } | null>(null);
-  const [demoPassword, setDemoPassword] = useState("");
-  const [demoSubmitting, setDemoSubmitting] = useState(false);
-  const demoConfigPromiseRef = useRef<Promise<{ enabled: boolean; demoEmail?: string } | null> | null>(null);
-  const demoConfigAbortRef = useRef<AbortController | null>(null);
-
-  const startDemoConfigFetch = useCallback(() => {
-    demoConfigAbortRef.current?.abort();
-    const controller = new AbortController();
-    demoConfigAbortRef.current = controller;
-    const req = api
-      .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config", { signal: controller.signal })
-      .then((res) => {
-        if (res?.data?.enabled) {
-          setDemoConfig(res.data);
-          return res.data;
-        }
-        return null;
-      })
-      .catch(() => null);
-    demoConfigPromiseRef.current = req;
-  }, []);
-
-  /** Give up on the in-flight config read so a retry starts fresh. Safe: the
-      config GET is an unauthenticated idempotent read; aborting sends nothing. */
-  const abortDemoConfigFetch = useCallback(() => {
-    demoConfigAbortRef.current?.abort();
-    demoConfigAbortRef.current = null;
-    demoConfigPromiseRef.current = null;
-  }, []);
-
   useEffect(() => {
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
-    // The demo email is never prefilled. The password field only appears once it is typed.
-    startDemoConfigFetch();
     return () => {
       startAbortRef.current?.abort();
-      demoConfigAbortRef.current?.abort();
       if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
     };
-  }, [startDemoConfigFetch]);
-
-  const isDemoEmail = Boolean(
-    demoConfig?.enabled &&
-      demoConfig.demoEmail &&
-      email.trim().toLowerCase() === demoConfig.demoEmail.trim().toLowerCase()
-  );
-
-  const handleDemoLogin = async (normalizedEmail: string) => {
-    if (!demoPassword.trim()) {
-      setError("Enter the demo password.");
-      return;
-    }
-    setDemoSubmitting(true);
-    const { data, error: err, retryAfterSeconds } = await api.post<{ person?: { isDemo?: boolean } }>(
-      "/v1/auth/demo-login",
-      { email: normalizedEmail, password: demoPassword }
-    );
-    setDemoSubmitting(false);
-    if (err || data?.person?.isDemo !== true) {
-      if (retryAfterSeconds) {
-        setError(`Lots of visitors right now. Try again in about ${retryAfterSeconds} seconds.`);
-      } else if (err?.code === "NETWORK_ERROR") {
-        setError(err.message ?? "We couldn't reach the server. Try again in a moment.");
-      } else {
-        setError("That email and password don't match. Double-check what you were sent.");
-      }
-      return;
-    }
-    clearDemoTourState(getTourStorage());
-    setDemoPassword("");
-    if (!prefersReduceMotion) {
-      sessionPrefetchRef.current = refetch();
-      void import("../pages/Search");
-    }
-    setPhase("sent");
-    setShowSuccessVideo(true);
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending" || demoSubmitting || submitInFlightRef.current) return;
+    if (phase === "sending" || submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     try {
       await submitLogin();
@@ -193,54 +110,11 @@ export function Login() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
 
-    // Acknowledge the click immediately: the demo-config preflight and the
-    // sign-in request can both wait on a sleeping or unreachable API, and a
-    // button that shows nothing reads as dead.
+    // Acknowledge the click immediately: the sign-in request can wait on a
+    // sleeping or unreachable API, and a button that shows nothing reads as
+    // dead.
     setPhase("sending");
 
-    let activeDemoConfig = demoConfig;
-    if (!activeDemoConfig) {
-      // No sign-in request may fire while the demo config is unknown: the
-      // typed email might be the demo address. Start a fresh read if none is
-      // in flight (e.g. the previous one was abandoned after a timeout).
-      if (!demoConfigPromiseRef.current) startDemoConfigFetch();
-      setCheckingConnection(true);
-      try {
-        const loaded = await Promise.race([
-          demoConfigPromiseRef.current as Promise<{ enabled: boolean; demoEmail?: string } | null>,
-          new Promise<typeof DEMO_CONFIG_WAIT_TIMEOUT>((resolve) =>
-            setTimeout(() => resolve(DEMO_CONFIG_WAIT_TIMEOUT), DEMO_CONFIG_WAIT_MS)
-          ),
-        ]);
-        if (loaded === DEMO_CONFIG_WAIT_TIMEOUT) {
-          // Config unanswered: stop with a retryable error rather than fall
-          // through to sign-in. Abandon the dead read so the retry wording is
-          // honest - the next tap starts a fresh check instead of waiting on
-          // a request that may never answer.
-          abortDemoConfigFetch();
-          setError("Couldn't connect. Please try again.");
-          setPhase("form");
-          return;
-        }
-        if (loaded) activeDemoConfig = loaded;
-      } catch {
-        // Keep the current demo configuration if loading fails.
-      } finally {
-        setCheckingConnection(false);
-      }
-    }
-
-    const isMatchDemoEmail = Boolean(
-      activeDemoConfig?.enabled &&
-        activeDemoConfig.demoEmail &&
-        normalizedEmail === activeDemoConfig.demoEmail.trim().toLowerCase()
-    );
-
-    if (isMatchDemoEmail) {
-      setPhase("form");
-      await handleDemoLogin(normalizedEmail);
-      return;
-    }
     if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
       const isAllowedInstitutionalEmail =
         normalizedEmail.endsWith("@iitbhu.ac.in") || normalizedEmail.endsWith("@itbhu.ac.in");
@@ -748,11 +622,9 @@ export function Login() {
               <p className="login-sending__line">
                 {BETA_INVITE_AUTH_ENABLED
                   ? "Signing you in…"
-                  : checkingConnection
-                    ? "Checking the connection…"
-                    : serverWaking
-                      ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
-                      : "Sending your sign-in link…"}
+                  : serverWaking
+                    ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
+                    : "Sending your sign-in link…"}
               </p>
             </div>
           </div>
@@ -831,17 +703,6 @@ export function Login() {
                 style={{ marginBottom: 16 }}
               />
             ) : null}
-            {isDemoEmail ? (
-              <Input
-                type="password"
-                placeholder="Demo password"
-                value={demoPassword}
-                onChange={(e) => setDemoPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                style={{ marginBottom: 16 }}
-              />
-            ) : null}
             {error && <p className="auth-merged__error">{error}</p>}
             {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
               <p className="auth-merged__waitlist">
@@ -852,20 +713,12 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || rateLimitedUntil !== null}>
-              {isDemoEmail
-                ? demoSubmitting
-                  ? "Opening the demo…"
-                  : "Explore the demo"
-                : BETA_INVITE_AUTH_ENABLED
-                  ? betaInviteStepUnlocked
-                    ? "Enter beta"
-                    : "Continue"
-                  : "Continue"}
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null}>
+              {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
             </Button>
           </form>
           <p className="auth-merged__footnote">
-            {isDemoEmail ? "Read-only demo with made-up alumni." : "Exclusive for IIT BHU alumni."}
+            Exclusive for IIT BHU alumni.
           </p>
         </div>
       )}
