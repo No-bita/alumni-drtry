@@ -76,7 +76,7 @@ describe("OnboardingChecklistCard", () => {
     // Messaging paused: with two steps, both done means the card hides itself.
     mount();
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText(/Getting started/)).toBeNull();
+    expect(screen.queryByRole("region", { name: /getting started/i })).toBeNull();
   });
   it("renders nothing for old accounts and when everything is done", async () => {
     setAuth({}, "2020-01-01T00:00:00Z");
