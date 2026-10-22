@@ -5,7 +5,6 @@ import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 /** Legacy route wrapper: unauthenticated users now start at `/login`. */
 export function Landing() {
   const auth = useAuth();
-  const person = auth.status === "authenticated" ? auth.person : undefined;
 
   if (auth.status === "loading") {
     return (
@@ -41,7 +40,7 @@ export function Landing() {
       return <Navigate to="/home" replace />;
     }
     return (
-      <Navigate to={canAccessOnboardingFlow(profile, person) ? "/onboarding" : "/home"} replace />
+      <Navigate to={canAccessOnboardingFlow(profile) ? "/onboarding" : "/home"} replace />
     );
   }
 
