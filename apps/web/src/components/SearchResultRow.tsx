@@ -4,7 +4,8 @@ import { type SearchProfileView } from "../api/client";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
 import { residenceLine, roleOrgLineFromSearchProfile } from "../lib/profileDisplay";
 import { DeptBatchMeta } from "./DeptBatchMeta";
-import { MessageIcon } from "./MessageIcon";
+// Messaging paused: unused while the directory Message CTA is commented out.
+// import { MessageIcon } from "./MessageIcon";
 import { IconMapPin } from "./LocationPageIcons";
 
 type SearchResultRowProps = {
@@ -139,6 +140,7 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
           <span className="search-result-row__meta">IIT BHU alum</span>
         ) : null}
         <span className="search-result-row__actions">
+          {/* Messaging paused: directory Message CTA commented out for now.
           <button
             type="button"
             className="search-result-row__cta-primary"
@@ -160,6 +162,7 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
             <MessageIcon className="search-result-row__cta-primary-icon" />
             Message
           </button>
+          */}
           {viewProfileControl}
         </span>
       </div>
