@@ -59,6 +59,7 @@ export function Profile() {
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
+  const [draftBio, setDraftBio] = useState("");
   const [draftPersonalEmail, setDraftPersonalEmail] = useState("");
   const [draftMobilePhone, setDraftMobilePhone] = useState("");
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
@@ -150,6 +151,7 @@ export function Profile() {
     const p = profileQuery.data?.profile;
     const me = auth.status === "authenticated" ? auth.myProfile : null;
     if (p) {
+      setDraftBio(p.bio ?? "");
       setDraftPersonalEmail(me?.personalEmail ?? "");
       setDraftMobilePhone(me?.mobilePhone ?? "");
       setDraftResidenceCountry(p.residenceCountry ?? "");
@@ -274,6 +276,11 @@ export function Profile() {
     clearOrganizationIdCache();
 
     // Check everything BEFORE the first write, so a typo can't leave a half-saved profile.
+    if (draftBio.length > 3000) {
+      setSaving(false);
+      setEditError("Keep your introduction within 3000 characters.");
+      return;
+    }
     const preflightError = preflightProfileEdits(draftOccupations, draftSocialLinks, draftPersonalEmail);
     if (preflightError) {
       setSaving(false);
@@ -282,6 +289,7 @@ export function Profile() {
     }
 
     const { error: profileError } = await api.patch("/v1/me/profile", {
+      bio: draftBio.trim() || null,
       personalEmail: draftPersonalEmail.trim() || null,
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
@@ -353,6 +361,7 @@ export function Profile() {
     setIsEditing(false);
   }, [
     data,
+    draftBio,
     draftPersonalEmail,
     draftMobilePhone,
     draftResidenceCountry,
@@ -601,6 +610,8 @@ export function Profile() {
               profile={profile}
               isOwnProfile={isOwnProfile}
               isEditing={isEditing}
+              draftBio={draftBio}
+              onDraftBio={setDraftBio}
               draftPersonalEmail={draftPersonalEmail}
               draftMobilePhone={draftMobilePhone}
               draftResidenceCountry={draftResidenceCountry}
@@ -800,4 +811,4 @@ export function Profile() {
       </div>
     </>
   );
-}
+         }
