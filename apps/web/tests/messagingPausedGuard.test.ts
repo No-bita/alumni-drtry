@@ -36,4 +36,13 @@ describe("messaging paused guard", () => {
     expect(sourceWithoutComments("components/OnboardingChecklistCard.tsx")).not.toContain("Send your first message");
     expect(sourceWithoutComments("components/NotificationsList.tsx")).not.toContain("/connections/");
   });
+
+  it("keeps message notifications out of the paused panel and badge", () => {
+    const widget = sourceWithoutComments("components/GlobalNotificationsWidget.tsx");
+    expect(widget).toContain('item.kind !== "connection_thread_reply"');
+    expect(widget).not.toContain("and new messages");
+    const nav = sourceWithoutComments("components/Nav.tsx");
+    expect(nav).not.toContain("useNotificationsSummary");
+    expect(nav).toContain('item.kind !== "connection_thread_reply"');
+  });
 });
