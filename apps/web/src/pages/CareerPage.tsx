@@ -7,7 +7,6 @@ import { PostRoleHiringFlow, type PostRoleHiringFlowHandle } from "../components
 import type { IntentcastFeedResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 
@@ -68,7 +67,7 @@ function CareerOpportunitiesHub({
 }
 
 function navDisplayName(profile: { fullName?: string | null } | undefined, email: string | undefined): string {
-  const fn = demoDisplayFullName(profile?.fullName).trim() || profile?.fullName?.trim();
+  const fn = (profile?.fullName ?? "").trim() || profile?.fullName?.trim();
   if (fn) {
     const parts = fn.split(/\s+/);
     return parts[0] ?? fn;
@@ -102,7 +101,7 @@ export function CareerPage() {
   }
 
   const displayName =
-    demoDisplayFullName(auth.myProfile?.fullName).trim() ||
+    (auth.myProfile?.fullName ?? "").trim() ||
     auth.myProfile?.fullName?.trim() ||
     navDisplayName(auth.myProfile ?? undefined, auth.person.institutionalEmail);
 
