@@ -146,10 +146,11 @@ export function Profile() {
       : undefined;
 
   const beginEdit = useCallback(() => {
+    const p = profileQuery.data?.profile;
+    if (!p) return;
     setPreviewProfile(false);
     setEditError(null);
     editLinksHydratedRef.current = false;
-    const p = profileQuery.data?.profile;
     const me = auth.status === "authenticated" ? auth.myProfile : null;
     if (p) {
       setDraftPersonalEmail(me?.personalEmail ?? "");
@@ -166,17 +167,17 @@ export function Profile() {
 
   useEffect(() => {
     const editMode = searchParams.get("edit");
-    if (!isOwnProfile || isEditing || editMode !== "contact") return;
+    if (!isOwnProfile || isEditing || editMode !== "contact" || !profileQuery.data?.profile) return;
     const t = window.setTimeout(() => {
       beginEdit();
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("edit");
+        return next;
+      }, { replace: true });
     }, 0);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete("edit");
-      return next;
-    }, { replace: true });
     return () => window.clearTimeout(t);
-  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams]);
+  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams, profileQuery.data]);
 
   const cancelEdit = useCallback(() => {
     setOpenSocialPlatform(null);
