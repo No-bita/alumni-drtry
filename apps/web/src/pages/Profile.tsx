@@ -539,7 +539,7 @@ export function Profile() {
             privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
             openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
             onEdit={() => void beginEdit()}
-            onSignOut={() => { void auth.logout().then(() => navigate("/login", { replace: true })); }} />
+            onSignOut={() => { void auth.logout().then(() => navigate("/", { replace: true })); }} />
         ) : null}
         {loading || isEditing ? <>
         <ProfileHero
@@ -589,7 +589,7 @@ export function Profile() {
         </div>
 
         </> : null}
-        <div
+        {loading || isEditing || (isOwnProfile && isAdminViewer && !previewProfile) ? <div
           className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
         >
           <div className="home-dashboard__col home-dashboard__col--wide profile-page__sections">
@@ -783,19 +783,7 @@ export function Profile() {
               </article>
             ) : null}
 
-            {isOwnProfile && !isEditing && auth.status === "authenticated" ? (
-              <div className="profile-page__signout">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    void auth.logout().then(() => navigate("/", { replace: true }));
-                  }}
-                >
-                  Sign out
-                </Button>
-              </div>
-            ) : null}
+
           </div>
 
           {showProfileSidebar ? (
@@ -822,7 +810,7 @@ export function Profile() {
               </article>
             </aside>
           ) : null}
-        </div>
+        </div> : null}
       </div>
     </>
   );
