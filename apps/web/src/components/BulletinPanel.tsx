@@ -37,7 +37,6 @@ import {
 } from "../lib/parseHiringBulletin";
 import { buildIntentcastFeedQuery, buildVisibleIntentcasts } from "./bulletinFeedHelpers";
 import { patchIntentcastInFeedCache, prependIntentcastToFeedCache } from "./bulletinCacheHelpers";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 import {
   formatBatchYearShort,
@@ -47,7 +46,6 @@ import {
   validateGeneralBulletinHeadlineDetails,
 } from "../lib/bulletinPostCardUtils";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
-import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { BulletinPostCard } from "./BulletinPostCard";
 import { useBulletinComposeState } from "./useBulletinComposeState";
@@ -73,7 +71,6 @@ function hiringPreviewIntentcast(authorFullName: string, content: string): Inten
     editableUntil: now,
     responseCount: 0,
     viewerHasResponded: false,
-    authorIsDemo: false,
   };
 }
 
@@ -145,7 +142,7 @@ const BULLETIN_AUTO_SCROLL_WHEEL_PAUSE_MS = 12_000;
 
 function safeFullName(fullName: string | null | undefined): string {
   const raw = (fullName ?? "").trim();
-  return demoDisplayFullName(raw) || raw;
+  return (raw ?? "").trim() || raw;
 }
 
 /** Dept code + batch for author tooltip (e.g. `CSE '21`). */
@@ -320,7 +317,6 @@ function CareerOpportunityPosterRow({
         <span className="career-opportunity-card__posted-by">
           Posted by {postedByShortLabel(authorName || "Alumni")}
         </span>
-        {ic.authorIsDemo ? <DemoAuthorBadge /> : null}
       </span>
     </>
   );
@@ -361,7 +357,6 @@ function CareerOpportunityPosterRow({
             <span className="career-opportunity-card__posted-by">
               Posted by {postedByShortLabel(authorName || "Alumni")}
             </span>
-            {ic.authorIsDemo ? <DemoAuthorBadge /> : null}
           </span>
         </Link>
       </div>
@@ -1120,7 +1115,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
 
     const hiringPreviewAuthor =
       auth.status === "authenticated"
-        ? demoDisplayFullName(auth.myProfile?.fullName).trim() || auth.myProfile?.fullName?.trim() || "You"
+        ? (auth.myProfile?.fullName ?? "").trim() || auth.myProfile?.fullName?.trim() || "You"
         : "You";
 
     const handlePostIntentcast = async () => {
@@ -1633,7 +1628,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
                                           <span className="bulletin-reply-meta__lead">
                                             <span>{r.responderFullName}</span>
-                                            {r.responderIsDemo ? <DemoAuthorBadge /> : null}
                                           </span>
                                           {r.responderDepartmentCode
                                             ? ` · ${r.responderDepartmentCode.toUpperCase()}`
@@ -1700,7 +1694,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                       <p className="career-post-replies__meta">
                                         <span className="bulletin-reply-meta__lead">
                                           <span>{r.responderFullName}</span>
-                                          {r.responderIsDemo ? <DemoAuthorBadge /> : null}
                                         </span>
                                         {r.responderDepartmentCode ? ` · ${r.responderDepartmentCode.toUpperCase()}` : ""}
                                         {r.createdAt ? ` · ${formatRelativeTime(r.createdAt)}` : ""}
@@ -1777,7 +1770,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                                         <p className="home-dashboard__bulletin-archived-reply-meta">
                                           <span className="bulletin-reply-meta__lead">
                                             <span>{r.responderFullName}</span>
-                                            {r.responderIsDemo ? <DemoAuthorBadge /> : null}
                                           </span>
                                           {r.responderDepartmentCode
                                             ? ` · ${r.responderDepartmentCode.toUpperCase()}`
@@ -1804,7 +1796,6 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     batchYear={ic.authorBatchYear ?? null}
                     postedRelative={cardPostedRelative}
                     postedAtIso={ic.createdAt ?? null}
-                    authorIsDemo={Boolean(ic.authorIsDemo)}
                     tone={cardTone}
                     categoryBadgeLabel={cardBadge}
                     title={splitBody.title.trim() ? splitBody.title : ic.content.trim()}
