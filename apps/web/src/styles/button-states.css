@@ -1,0 +1,10 @@
+/* Button state styling that must win over .btn--primary:hover in components.css.
+   Loaded after components.css (see index.css) so equal-specificity state rules
+   take source-order precedence. */
+/* Guards, not copy, gate the action: a disabled primary button must look it. */
+.btn--primary:disabled,
+.btn--primary:disabled:hover {
+  background: var(--color-cta-bg);
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -27,6 +27,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function mount(search = "") {
@@ -108,38 +109,51 @@ describe("Login page", () => {
     expect(await screen.findByText("Your session expired. Please sign in again.")).toBeTruthy();
   });
 
-  it("shows the demo password in the same form only once the demo email is typed, and logs in without OTP", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
-    apiPost.mockResolvedValue({ data: { person: { id: "p1", isDemo: true } } });
+  it("acknowledges Continue immediately with an accurate pending line", async () => {
+    apiPost.mockReturnValue(new Promise(() => {})); // sign-in request stays in flight
     mount();
-    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in") as HTMLInputElement;
-    expect(emailInput.value).toBe("");
-    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
-    expect(screen.queryByText(/Try Demo Access/i)).toBeNull();
-
-    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/demo/config"));
-    fireEvent.change(emailInput, { target: { value: "Guest@Alumni.test" } });
-    const passwordInput = await screen.findByPlaceholderText("Demo password");
-    fireEvent.change(passwordInput, { target: { value: "demo-secret" } });
-    fireEvent.click(screen.getByRole("button", { name: /Explore the demo/i }));
-
-    await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith("/v1/auth/demo-login", {
-        email: "guest@alumni.test",
-        password: "demo-secret",
-      })
-    );
-    expect(apiPost).not.toHaveBeenCalledWith("/v1/auth/start", expect.anything());
+    submit("x@itbhu.ac.in");
+    // The request fires on the tap, so the pending line can say so immediately.
+    expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
+    expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
+    expect(screen.getByText("Sending your sign-in link…")).toBeTruthy();
+    // No demo-config preflight exists anymore.
+    expect(apiGet).not.toHaveBeenCalled();
   });
 
-  it("keeps normal emails on the OTP path even when demo is enabled", async () => {
-    apiGet.mockResolvedValue({ data: { enabled: true, demoEmail: "guest@alumni.test" } });
+  it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
+    vi.useFakeTimers();
+    apiPost.mockResolvedValue({
+      error: { code: "AUTH_RATE_LIMITED", message: "Too many tries." },
+      retryAfterSeconds: 20,
+    });
     mount();
-    await waitFor(() => expect(apiGet).toHaveBeenCalled());
-    fireEvent.change(screen.getByPlaceholderText("you@itbhu.ac.in"), { target: { value: "someone@itbhu.ac.in" } });
-    expect(screen.queryByPlaceholderText("Demo password")).toBeNull();
+    submit("x@itbhu.ac.in");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(screen.getByText("Too many tries. Try again in 1 minute.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(false);
   });
-});
+
+  it("ignores a rapid second submit while the first is still in flight", async () => {
+    let resolveStart: (v: unknown) => void = () => {};
+    apiPost.mockReturnValue(new Promise((r) => { resolveStart = r; }));
+    mount();
+    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in");
+    const form = emailInput.closest("form")!;
+    fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    resolveStart({ data: { challengeId: "c1" } });
+  });
+
+  });
 
 // Exercise both initial mounting and live breakpoint changes, not just CSS hiding.
 describe("responsive login map", () => {

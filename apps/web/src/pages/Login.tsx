@@ -20,7 +20,6 @@ const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => 
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
 const BETA_INVITE_AUTH_ENABLED = false;
 const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
-
 const AUTH_HERO_STATS = [
   { value: "400+", keyword: "alumni", label: "active this week" },
   { value: "38", keyword: "referrals", label: "completed last week" },
@@ -56,7 +55,12 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   /** True once the first sign-in request got no answer and we are retrying quietly. */
   const [serverWaking, setServerWaking] = useState(false);
+  /** Guards, not copy, decide when Continue may be tapped: during the server's rate-limit countdown another tap cannot help. */
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
+  const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
+  /** Synchronous double-submit guard: state updates batch, so rapid taps could both pass the phase check. */
+  const submitInFlightRef = useRef(false);
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [showSuccessVideo, setShowSuccessVideo] = useState(false);
@@ -80,111 +84,55 @@ export function Login() {
   const [inviteCode, setInviteCode] = useState("");
   const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
   const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
-  const [demoConfig, setDemoConfig] = useState<{ enabled: boolean; demoEmail?: string } | null>(null);
-  const [demoPassword, setDemoPassword] = useState("");
-  const [demoSubmitting, setDemoSubmitting] = useState(false);
-  const [demoConfigLoading, setDemoConfigLoading] = useState(true);
-  const demoConfigPromiseRef = useRef<Promise<{ enabled: boolean; demoEmail?: string } | null> | null>(null);
-
   useEffect(() => {
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
-    // The demo email is never prefilled. The password field only appears once it is typed.
-    const req = api
-      .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config")
-      .then((res) => {
-        if (res?.data?.enabled) {
-          setDemoConfig(res.data);
-          return res.data;
-        }
-        return null;
-      })
-      .catch(() => null)
-      .finally(() => setDemoConfigLoading(false));
-    demoConfigPromiseRef.current = req;
-    return () => startAbortRef.current?.abort();
+    return () => {
+      startAbortRef.current?.abort();
+      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+    };
   }, []);
-
-  const isDemoEmail = Boolean(
-    demoConfig?.enabled &&
-      demoConfig.demoEmail &&
-      email.trim().toLowerCase() === demoConfig.demoEmail.trim().toLowerCase()
-  );
-
-  const handleDemoLogin = async (normalizedEmail: string) => {
-    if (!demoPassword.trim()) {
-      setError("Enter the demo password.");
-      return;
-    }
-    setDemoSubmitting(true);
-    const { data, error: err, retryAfterSeconds } = await api.post<{ person?: { isDemo?: boolean } }>(
-      "/v1/auth/demo-login",
-      { email: normalizedEmail, password: demoPassword }
-    );
-    setDemoSubmitting(false);
-    if (err || data?.person?.isDemo !== true) {
-      if (retryAfterSeconds) {
-        setError(`Lots of visitors right now. Try again in about ${retryAfterSeconds} seconds.`);
-      } else if (err?.code === "NETWORK_ERROR") {
-        setError(err.message ?? "We couldn't reach the server. Try again in a moment.");
-      } else {
-        setError("That email and password don't match. Double-check what you were sent.");
-      }
-      return;
-    }
-    setDemoPassword("");
-    if (!prefersReduceMotion) {
-      sessionPrefetchRef.current = refetch();
-      void import("../pages/Search");
-    }
-    setPhase("sent");
-    setShowSuccessVideo(true);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending" || demoSubmitting) return;
+    if (phase === "sending" || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
+      await submitLogin();
+    } finally {
+      submitInFlightRef.current = false;
+    }
+  };
+
+  const submitLogin = async () => {
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
 
-    let activeDemoConfig = demoConfig;
-    if (demoConfigLoading && demoConfigPromiseRef.current) {
-      try {
-        const loaded = await demoConfigPromiseRef.current;
-        if (loaded) activeDemoConfig = loaded;
-      } catch {
-        // Keep the current demo configuration if loading fails.
-      }
-    }
+    // Acknowledge the click immediately: the sign-in request can wait on a
+    // sleeping or unreachable API, and a button that shows nothing reads as
+    // dead.
+    setPhase("sending");
 
-    const isMatchDemoEmail = Boolean(
-      activeDemoConfig?.enabled &&
-        activeDemoConfig.demoEmail &&
-        normalizedEmail === activeDemoConfig.demoEmail.trim().toLowerCase()
-    );
-
-    if (isMatchDemoEmail) {
-      await handleDemoLogin(normalizedEmail);
-      return;
-    }
     if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
       const isAllowedInstitutionalEmail =
         normalizedEmail.endsWith("@iitbhu.ac.in") || normalizedEmail.endsWith("@itbhu.ac.in");
       if (!isAllowedInstitutionalEmail) {
         setError("Beta access is currently limited. Request access using the form below.");
         setShowBetaWaitlistCta(true);
+        setPhase("form");
         return;
       }
       setBetaInviteStepUnlocked(true);
+      setPhase("form");
       return;
     }
     if (BETA_INVITE_AUTH_ENABLED && !inviteCode.trim()) {
       setError("Enter your invite code.");
+      setPhase("form");
       return;
     }
-    setPhase("sending");
     try {
       if (BETA_INVITE_AUTH_ENABLED) {
         const { error: inviteErr } = await api.post("/v1/auth/invite-login", {
@@ -238,6 +186,9 @@ export function Login() {
         if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
           const mins = Math.ceil(retryAfterSeconds / 60);
           msg += ` Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`;
+          setRateLimitedUntil(Date.now() + retryAfterSeconds * 1000);
+          if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+          rateLimitTimerRef.current = setTimeout(() => setRateLimitedUntil(null), retryAfterSeconds * 1000);
         }
         setError(msg);
         setPhase("form");
@@ -673,7 +624,7 @@ export function Login() {
                   ? "Signing you in…"
                   : serverWaking
                     ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
-                    : "Hang tight — we’re sending your sign-in link."}
+                    : "Sending your sign-in link…"}
               </p>
             </div>
           </div>
@@ -752,17 +703,6 @@ export function Login() {
                 style={{ marginBottom: 16 }}
               />
             ) : null}
-            {isDemoEmail ? (
-              <Input
-                type="password"
-                placeholder="Demo password"
-                value={demoPassword}
-                onChange={(e) => setDemoPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                style={{ marginBottom: 16 }}
-              />
-            ) : null}
             {error && <p className="auth-merged__error">{error}</p>}
             {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
               <p className="auth-merged__waitlist">
@@ -773,20 +713,12 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting}>
-              {isDemoEmail
-                ? demoSubmitting
-                  ? "Opening the demo…"
-                  : "Explore the demo"
-                : BETA_INVITE_AUTH_ENABLED
-                  ? betaInviteStepUnlocked
-                    ? "Enter beta"
-                    : "Continue"
-                  : "Continue"}
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null}>
+              {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
             </Button>
           </form>
           <p className="auth-merged__footnote">
-            {isDemoEmail ? "Read-only demo with made-up alumni." : "Exclusive for IIT BHU alumni."}
+            Exclusive for IIT BHU alumni.
           </p>
         </div>
       )}
