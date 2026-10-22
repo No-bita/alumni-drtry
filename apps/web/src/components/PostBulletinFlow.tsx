@@ -36,6 +36,8 @@ import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(t);
+  if (scheme && !/^https?$/i.test(scheme[1])) return null;
   const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
   try {
     const u = new URL(candidate);
