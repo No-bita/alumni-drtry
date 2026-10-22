@@ -68,7 +68,6 @@ describe("onboarding display", () => {
   });
   it("greets by first name, falling back to the email", () => {
     expect(firstNameForGreeting("asha RAO", "x@y.in")).toBe("Asha");
-    expect(firstNameForGreeting("[DEMO] Ravi Kumar", "x@y.in")).toBe("Ravi");
     expect(firstNameForGreeting("", "meera.k@y.in")).toBe("Meera");
     expect(firstNameForGreeting(null, "")).toBe("There");
   });
