@@ -67,8 +67,7 @@ export function Login() {
   const [serverWaking, setServerWaking] = useState(false);
   /** True while the demo-config preflight is still unanswered: no sign-in request has fired yet. */
   const [checkingConnection, setCheckingConnection] = useState(false);
-  /** Guards, not copy, decide when Continue may be tapped: while the preflight is unanswered or a rate-limit countdown is running, another tap cannot help. */
-  const [preflightUnsettled, setPreflightUnsettled] = useState(false);
+  /** Guards, not copy, decide when Continue may be tapped: during the server's rate-limit countdown another tap cannot help. */
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
@@ -100,15 +99,15 @@ export function Login() {
   const [demoConfig, setDemoConfig] = useState<{ enabled: boolean; demoEmail?: string } | null>(null);
   const [demoPassword, setDemoPassword] = useState("");
   const [demoSubmitting, setDemoSubmitting] = useState(false);
-  const [demoConfigLoading, setDemoConfigLoading] = useState(true);
   const demoConfigPromiseRef = useRef<Promise<{ enabled: boolean; demoEmail?: string } | null> | null>(null);
+  const demoConfigAbortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    // Invisible: start waking the API host while the user types their email.
-    warmUpApi();
-    // The demo email is never prefilled. The password field only appears once it is typed.
+  const startDemoConfigFetch = useCallback(() => {
+    demoConfigAbortRef.current?.abort();
+    const controller = new AbortController();
+    demoConfigAbortRef.current = controller;
     const req = api
-      .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config")
+      .get<{ enabled: boolean; demoEmail?: string }>("/v1/auth/demo/config", { signal: controller.signal })
       .then((res) => {
         if (res?.data?.enabled) {
           setDemoConfig(res.data);
@@ -116,18 +115,29 @@ export function Login() {
         }
         return null;
       })
-      .catch(() => null)
-      .finally(() => setDemoConfigLoading(false));
+      .catch(() => null);
     demoConfigPromiseRef.current = req;
-    return () => {
-      startAbortRef.current?.abort();
-      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
-    };
+  }, []);
+
+  /** Give up on the in-flight config read so a retry starts fresh. Safe: the
+      config GET is an unauthenticated idempotent read; aborting sends nothing. */
+  const abortDemoConfigFetch = useCallback(() => {
+    demoConfigAbortRef.current?.abort();
+    demoConfigAbortRef.current = null;
+    demoConfigPromiseRef.current = null;
   }, []);
 
   useEffect(() => {
-    if (!demoConfigLoading) setPreflightUnsettled(false);
-  }, [demoConfigLoading]);
+    // Invisible: start waking the API host while the user types their email.
+    warmUpApi();
+    // The demo email is never prefilled. The password field only appears once it is typed.
+    startDemoConfigFetch();
+    return () => {
+      startAbortRef.current?.abort();
+      demoConfigAbortRef.current?.abort();
+      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+    };
+  }, [startDemoConfigFetch]);
 
   const isDemoEmail = Boolean(
     demoConfig?.enabled &&
@@ -189,21 +199,25 @@ export function Login() {
     setPhase("sending");
 
     let activeDemoConfig = demoConfig;
-    if (demoConfigLoading && demoConfigPromiseRef.current) {
+    if (!activeDemoConfig) {
+      // No sign-in request may fire while the demo config is unknown: the
+      // typed email might be the demo address. Start a fresh read if none is
+      // in flight (e.g. the previous one was abandoned after a timeout).
+      if (!demoConfigPromiseRef.current) startDemoConfigFetch();
       setCheckingConnection(true);
       try {
         const loaded = await Promise.race([
-          demoConfigPromiseRef.current,
+          demoConfigPromiseRef.current as Promise<{ enabled: boolean; demoEmail?: string } | null>,
           new Promise<typeof DEMO_CONFIG_WAIT_TIMEOUT>((resolve) =>
             setTimeout(() => resolve(DEMO_CONFIG_WAIT_TIMEOUT), DEMO_CONFIG_WAIT_MS)
           ),
         ]);
         if (loaded === DEMO_CONFIG_WAIT_TIMEOUT) {
-          // Config unanswered: the typed email might be the demo address, so
-          // stop with a retryable error rather than fall through to sign-in.
-          // Keep Continue blocked until the preflight settles - only then can
-          // another tap actually proceed.
-          setPreflightUnsettled(true);
+          // Config unanswered: stop with a retryable error rather than fall
+          // through to sign-in. Abandon the dead read so the retry wording is
+          // honest - the next tap starts a fresh check instead of waiting on
+          // a request that may never answer.
+          abortDemoConfigFetch();
           setError("Couldn't connect. Please try again.");
           setPhase("form");
           return;
@@ -838,7 +852,7 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || preflightUnsettled || rateLimitedUntil !== null}>
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || rateLimitedUntil !== null}>
               {isDemoEmail
                 ? demoSubmitting
                   ? "Opening the demo…"
@@ -857,4 +871,4 @@ export function Login() {
       )}
     </div>
   );
-}
+                      }
