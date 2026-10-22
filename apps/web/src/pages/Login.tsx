@@ -21,6 +21,14 @@ const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => 
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
 const BETA_INVITE_AUTH_ENABLED = false;
 const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
+/**
+ * How long a Continue click waits for the demo-config preflight before giving
+ * up with a retryable error. Bounds the silent wait when the API is asleep or
+ * unreachable; an unanswered preflight must never fall through to sign-in,
+ * because the typed email could be the demo address.
+ */
+const DEMO_CONFIG_WAIT_MS = 10_000;
+const DEMO_CONFIG_WAIT_TIMEOUT = Symbol("demo-config-wait-timeout");
 
 const AUTH_HERO_STATS = [
   { value: "400+", keyword: "alumni", label: "active this week" },
@@ -58,6 +66,8 @@ export function Login() {
   /** True once the first sign-in request got no answer and we are retrying quietly. */
   const [serverWaking, setServerWaking] = useState(false);
   const startAbortRef = useRef<AbortController | null>(null);
+  /** Synchronous double-submit guard: state updates batch, so rapid taps could both pass the phase check. */
+  const submitInFlightRef = useRef(false);
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [showSuccessVideo, setShowSuccessVideo] = useState(false);
@@ -145,16 +155,42 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase === "sending" || demoSubmitting) return;
+    if (phase === "sending" || demoSubmitting || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
+      await submitLogin();
+    } finally {
+      submitInFlightRef.current = false;
+    }
+  };
+
+  const submitLogin = async () => {
     setError(null);
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
 
+    // Acknowledge the click immediately: the demo-config preflight and the
+    // sign-in request can both wait on a sleeping or unreachable API, and a
+    // button that shows nothing reads as dead.
+    setPhase("sending");
+
     let activeDemoConfig = demoConfig;
     if (demoConfigLoading && demoConfigPromiseRef.current) {
       try {
-        const loaded = await demoConfigPromiseRef.current;
+        const loaded = await Promise.race([
+          demoConfigPromiseRef.current,
+          new Promise<typeof DEMO_CONFIG_WAIT_TIMEOUT>((resolve) =>
+            setTimeout(() => resolve(DEMO_CONFIG_WAIT_TIMEOUT), DEMO_CONFIG_WAIT_MS)
+          ),
+        ]);
+        if (loaded === DEMO_CONFIG_WAIT_TIMEOUT) {
+          // Config unanswered: the typed email might be the demo address, so
+          // stop with a retryable error rather than fall through to sign-in.
+          setError("Still checking the server. Give it a moment, then tap Continue again.");
+          setPhase("form");
+          return;
+        }
         if (loaded) activeDemoConfig = loaded;
       } catch {
         // Keep the current demo configuration if loading fails.
@@ -168,6 +204,7 @@ export function Login() {
     );
 
     if (isMatchDemoEmail) {
+      setPhase("form");
       await handleDemoLogin(normalizedEmail);
       return;
     }
@@ -177,16 +214,18 @@ export function Login() {
       if (!isAllowedInstitutionalEmail) {
         setError("Beta access is currently limited. Request access using the form below.");
         setShowBetaWaitlistCta(true);
+        setPhase("form");
         return;
       }
       setBetaInviteStepUnlocked(true);
+      setPhase("form");
       return;
     }
     if (BETA_INVITE_AUTH_ENABLED && !inviteCode.trim()) {
       setError("Enter your invite code.");
+      setPhase("form");
       return;
     }
-    setPhase("sending");
     try {
       if (BETA_INVITE_AUTH_ENABLED) {
         const { error: inviteErr } = await api.post("/v1/auth/invite-login", {
