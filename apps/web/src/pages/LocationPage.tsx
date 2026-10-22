@@ -670,7 +670,10 @@ export function LocationPage() {
                 aria-haspopup="dialog"
                 aria-expanded={cityPickerOpen}
                 aria-label={`${cityLabel(selected.city, selected.country)}. Change city`}
-                onClick={() => setCityPickerOpen(true)}
+                onClick={() => {
+                  clearAutoOpenRequestTimer();
+                  setCityPickerOpen(true);
+                }}
               >
                 <span className="cities-switcher__trigger-label">{selected.city}</span>
                 <span className="cities-switcher__trigger-chevron" aria-hidden>
