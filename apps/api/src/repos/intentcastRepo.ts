@@ -210,6 +210,9 @@ export interface UpdateIntentcastInput {
   authorPersonId: string;
   content?: string;
   category?: IntentcastCategory;
+  /** Value sets, null clears, undefined leaves unchanged. */
+  roleListingUrl?: string | null;
+  resumeListingUrl?: string | null;
 }
 
 function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
@@ -701,6 +704,14 @@ export class IntentcastRepo {
     if (input.category !== undefined) {
       const ph = bind(input.category);
       setParts.push(`category = ${ph}`);
+    }
+    if (input.roleListingUrl !== undefined) {
+      const ph = bind(input.roleListingUrl);
+      setParts.push(`role_listing_url = ${ph}`);
+    }
+    if (input.resumeListingUrl !== undefined) {
+      const ph = bind(input.resumeListingUrl);
+      setParts.push(`resume_listing_url = ${ph}`);
     }
     if (setParts.length === 0) {
       return this.findById(input.intentcastId);
