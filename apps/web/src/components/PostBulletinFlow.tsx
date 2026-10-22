@@ -38,9 +38,10 @@ function tryNormalizeExternalHttpUrl(raw: string): string | null {
   if (!t) return null;
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(t);
   if (scheme && !/^https?$/i.test(scheme[1])) {
-    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme — allow prefixing.
+    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme — allow prefixing,
+    // but only when the part before ':' looks like a host; ftp:21/x style input is rejected.
     const rest = t.slice(scheme[0].length);
-    if (!/^\d+(\/|$)/.test(rest)) return null;
+    if (!/^\d+(\/|$)/.test(rest) || !scheme[1].includes(".")) return null;
   }
   const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
   try {
