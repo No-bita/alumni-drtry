@@ -7,14 +7,6 @@ import { isSuperAdmin, type MePerson, type MyProfileView } from "../api/client";
 const ONBOARDING_ELIGIBLE_LOGIN_CAP = 2;
 
 /**
- * In **production**, super admins skip profile gates and onboarding redirects (fast path to the app).
- * In **development**, they follow the same journey as alumni so flows can be exercised.
- */
-export function superAdminSkipsAlumniJourney(person: MePerson | undefined | null): boolean {
-  return isSuperAdmin(person) && import.meta.env.PROD;
-}
-
-/**
  * True when the user may still be routed through `/onboarding` (funnel not finished).
  * Uses login cap: after `ONBOARDING_ELIGIBLE_LOGIN_CAP` auths, users follow returning rules → `/home`.
  * Full funnel completion is `onboardingCompletedAt` (all steps); minimum directory eligibility is `profileCompletedAt` (step 2).
