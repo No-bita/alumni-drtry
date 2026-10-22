@@ -7,7 +7,6 @@ import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
-import { clearDemoTourState, getTourStorage } from "../lib/demoMode";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
@@ -133,7 +132,6 @@ export function Login() {
       }
       return;
     }
-    clearDemoTourState(getTourStorage());
     setDemoPassword("");
     if (!prefersReduceMotion) {
       sessionPrefetchRef.current = refetch();
