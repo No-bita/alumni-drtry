@@ -92,3 +92,17 @@ describe("Cities city switcher", () => {
     expect(screen.getByTestId("where").textContent).toBe("/intent/location/bengaluru");
   });
 });
+
+describe("Cities picker keyboard", () => {
+  it("moves focus into the sheet, closes on Escape and returns focus to the title button", () => {
+    mount();
+    const trigger = screen.getByRole("button", { name: /Change city/ });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Pick a city" });
+    expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+});
