@@ -62,7 +62,10 @@ const respondIntentcastSchema = z.object({
 
 const updateIntentcastSchema = z.object({
   category: intentcastCategoryEnum.optional(),
-  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH).optional()
+  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH).optional(),
+  /** Referral asks: edit/clear structured listing URLs (null clears; omitted leaves unchanged). */
+  roleListingUrl: z.string().max(BULLETIN_LISTING_URL_MAX_CHARS).nullish(),
+  resumeListingUrl: z.string().max(BULLETIN_LISTING_URL_MAX_CHARS).nullish()
 });
 
 export const intentcastRoutes: FastifyPluginAsync = async (app) => {
