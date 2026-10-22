@@ -1,0 +1,23 @@
+/* Approved Careers entry only. Other screens keep their existing shell. */
+.career-entry { padding: 28px var(--page-x) 0; }
+.career-entry__shell { max-width: 760px; margin: 0 auto; }
+.career-entry__actions { display: grid; gap: 12px; }
+.career-entry button, .career-entry a { font: inherit; font-size: 14px; }
+.career-entry__actions button { min-height: 48px; border: 1px solid var(--brick); border-radius: 9px; font-weight: 700; cursor: pointer; }
+.career-entry__primary { background: var(--brick); color: var(--cream); }
+.career-entry__secondary { background: transparent; color: var(--brick); }
+.career-entry__utilities { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.career-entry__utilities > * { display: flex; justify-content: center; align-items: center; gap: 6px; min-height: 48px; padding: 10px; border: 1px solid var(--border-muted); border-radius: 16px; background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; cursor: pointer; }
+.career-entry__activity { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border-muted); margin-top: 28px; padding: 18px 0; }
+.career-entry__activity h2 { margin: 0; font: inherit; font-size: 14px; font-weight: 700; }
+.career-entry__activity button { min-height: 44px; padding: 8px; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.career-entry :is(button, a):focus-visible { outline: 3px solid var(--ochre); outline-offset: 4px; }
+.career-page-shell .career-page-intent-feed[hidden] { display: none; }
+@media (max-width: 639px) {
+  .career-page-shell { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+  .career-page-shell .nav-bottom-dock { left: 24px; right: 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: auto; height: 76px; padding: 5px 8px; border: 0; border-radius: 42px; box-shadow: 0 6px 18px rgba(64, 43, 32, .2); }
+  .career-page-shell .nav-bottom-dock__list { height: 66px; min-height: 66px; gap: 4px; }
+  .career-page-shell .nav-bottom-dock__link { border-radius: 36px; padding: 6px 2px; gap: 4px; font-size: 12px; }
+  .career-page-shell .nav-bottom-dock__link--active { background: #a45e43; border-color: transparent; color: #fff; }
+  .career-page-shell .nav-bottom-dock__icon { width: 22px; height: 22px; }
+  }
