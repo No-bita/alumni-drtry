@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
+import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 
 /** Legacy route wrapper: unauthenticated users now start at `/login`. */
 export function Landing() {
@@ -17,13 +17,8 @@ export function Landing() {
     );
   }
 
-  if (auth.status === "authenticated" && superAdminSkipsAlumniJourney(person)) {
-    return <Navigate to="/home" replace />;
-  }
-
   if (
     auth.status === "authenticated" &&
-    !superAdminSkipsAlumniJourney(person) &&
     !auth.myProfileError &&
     !auth.myProfile
   ) {
@@ -36,11 +31,11 @@ export function Landing() {
     );
   }
 
-  if (auth.status === "authenticated" && !superAdminSkipsAlumniJourney(person) && auth.myProfileError) {
+  if (auth.status === "authenticated" && auth.myProfileError) {
     return <Navigate to="/login" replace />;
   }
 
-  if (auth.status === "authenticated" && !superAdminSkipsAlumniJourney(person) && auth.myProfile) {
+  if (auth.status === "authenticated" && auth.myProfile) {
     const profile = auth.myProfile;
     if (profile.onboardingCompletedAt) {
       return <Navigate to="/home" replace />;
