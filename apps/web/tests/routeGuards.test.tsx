@@ -96,7 +96,7 @@ describe("IntentPage guards", () => {
 
 describe("EventsPage", () => {
   it("shows Coming Soon honestly, with the first name in the nav", () => {
-    authState.value = authed({ myProfile: { fullName: "[DEMO] Asha Rao", role: "alumni" } });
+    authState.value = authed({ myProfile: { fullName: "Asha Rao", role: "alumni" } });
     render(<MemoryRouter><EventsPage /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "Coming Soon" })).toBeTruthy();
     expect(screen.getByTestId("nav").textContent).toBe("Asha Rao");
