@@ -2,10 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
-import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import type { BulletinCardTone } from "../lib/bulletinPostCardUtils";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
-import { demoDisplayFullName } from "../lib/demoProfile";
 
 export type BulletinPostCardVariant = "rail" | "stack";
 
@@ -24,8 +22,6 @@ export type BulletinPostCardProps = {
   title: string;
   summary: string | null;
   chips?: string[];
-  /** Demo/test alumni author — shows a compact Demo badge next to the name. */
-  authorIsDemo?: boolean;
   footer?: ReactNode;
   /** Own-post overflow (e.g. kebab menu) — top-right of header, with card hover affordance in CSS */
   ownerActions?: ReactNode;
@@ -45,14 +41,13 @@ export function BulletinPostCard({
   title,
   summary,
   chips,
-  authorIsDemo = false,
   footer,
   ownerActions,
   className,
 }: BulletinPostCardProps) {
   const shellClass = variant === "rail" ? "bb-post-card bb-post-card--rail" : "bb-post-card bb-post-card--stack";
   const postChips = (chips ?? []).filter(Boolean).slice(0, 4);
-  const displayAuthorName = demoDisplayFullName(authorFullName) || authorFullName.trim();
+  const displayAuthorName = (authorFullName ?? "").trim() || authorFullName.trim();
 
   /** Description only — hide when empty or duplicates the headline (after normalize). */
   const collapseWs = (s: string) => s.trim().replace(/\s+/g, " ");
@@ -67,7 +62,6 @@ export function BulletinPostCard({
           <span className="bb-post-card__person-text">
             <span className="bb-post-card__name-row">
               <span className="bb-post-card__name">{displayAuthorName}</span>
-              {authorIsDemo ? <DemoAuthorBadge /> : null}
             </span>
             <DeptBatchMeta
               className="bb-post-card__meta dept-batch-meta"

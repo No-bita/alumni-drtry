@@ -1,6 +1,5 @@
 import type { MyProfileView } from "../api/client";
 import { DEPARTMENTS } from "../constants/departments";
-import { demoDisplayFullName } from "./demoProfile";
 import { displayFirstNameFromEmail } from "./emailDisplayName";
 
 function departmentLabelFromCode(code: string | null | undefined): string | null {
@@ -21,7 +20,7 @@ export function cohortLabelFromProfile(profile: Pick<MyProfileView, "departmentC
 }
 
 export function firstNameForGreeting(fullName: string | null | undefined, email: string): string {
-  const t = demoDisplayFullName(fullName);
+  const t = (fullName ?? "").trim();
   if (t) {
     const first = t.split(/\s+/)[0];
     if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();

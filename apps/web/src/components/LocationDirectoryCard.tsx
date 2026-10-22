@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import { type SearchProfileView } from "../api/client";
-import { demoDisplayFullName } from "../lib/demoProfile";
 
 type LocationDirectoryCardProps = {
   profile: SearchProfileView;
@@ -28,7 +27,7 @@ function tintFromName(name: string): string {
 export function LocationDirectoryCard({ profile, resultIndex, searchSessionId }: LocationDirectoryCardProps) {
   void resultIndex;
   const loc = residenceLine(profile);
-  const displayName = demoDisplayFullName(profile.fullName) || (profile.fullName ?? "").trim() || profile.id;
+  const displayName = (profile.fullName ?? "").trim() || (profile.fullName ?? "").trim() || profile.id;
   const tint = tintFromName(displayName || profile.id);
 
   const handleClick = () => {

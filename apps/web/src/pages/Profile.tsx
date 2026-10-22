@@ -23,7 +23,6 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import { preflightProfileEdits } from "../lib/profileSavePreflight";
-import { demoDisplayFullName, isDemoProfileBio } from "../lib/demoProfile";
 import {
   emptySocialLinkDraft,
   linkToSocialPlatformKey,
@@ -91,7 +90,6 @@ export function Profile() {
 
   const data = profileQuery.data ?? null;
   const loading = profileQuery.isPending;
-  const isDemoProfile = isDemoProfileBio(data?.profile.bio);
 
   const linksQuery = useQuery({
     queryKey: queryKeys.me.links(),
@@ -498,7 +496,7 @@ export function Profile() {
   const occupations = data?.occupations ?? [];
   const links = data?.links ?? [];
   const profileDisplayName =
-    demoDisplayFullName(profile?.fullName ?? "") || profile?.fullName?.trim() || "Profile";
+    (profile?.fullName ?? "").trim() || "Profile";
   const onboardingIncomplete =
     isOwnProfile && auth.status === "authenticated" && !auth.myProfile?.onboardingCompletedAt;
   const adminMetrics = adminMetricsQuery.data;
@@ -516,7 +514,6 @@ export function Profile() {
           occupations={occupations}
           links={isEditing ? editLinks : links}
           profileDisplayName={profileDisplayName}
-          isDemoProfile={isDemoProfile}
           isOwnProfile={isOwnProfile}
           isEditing={isEditing}
           onEdit={isOwnProfile && !isEditing ? () => void beginEdit() : undefined}
@@ -595,7 +592,6 @@ export function Profile() {
             <ProfileAbout
               loading={loading}
               profile={profile}
-              isDemoProfile={isDemoProfile}
               isOwnProfile={isOwnProfile}
               isEditing={isEditing}
               draftPersonalEmail={draftPersonalEmail}

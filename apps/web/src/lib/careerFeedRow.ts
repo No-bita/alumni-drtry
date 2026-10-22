@@ -6,7 +6,6 @@ import {
   splitBulletinPostBody,
   stripBulletinUiCategory,
 } from "./bulletinPostCardUtils";
-import { demoDisplayFullName } from "./demoProfile";
 import { formatRelativeTime } from "./formatRelativeTime";
 import { normalizeOpportunityCard } from "./intentcastOpportunityCard";
 import {
@@ -83,7 +82,7 @@ export function mapIntentcastToRow(
     const chips = mergeCareerLaneChip(tone, normalized.chips.filter(Boolean).slice(0, 6));
     const parts = [item.authorCurrentRoleTitle?.trim(), item.authorCurrentOrganizationName?.trim()].filter(Boolean);
     const authorRoleLine = parts.length ? parts.join(", ") : null;
-    const authorFullName = demoDisplayFullName(item.authorFullName).trim() || item.authorFullName.trim();
+    const authorFullName = (item.authorFullName ?? "").trim() || item.authorFullName.trim();
     return {
       id: item.id,
       tone,
@@ -101,7 +100,6 @@ export function mapIntentcastToRow(
       authorRoleLine,
       postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
       postedAtIso: item.createdAt,
-      authorIsDemo: item.authorIsDemo === true,
       roleListingUrl: null,
       resumeListingUrl: null,
     };
@@ -205,7 +203,7 @@ export function mapIntentcastToRow(
   const parts = [item.authorCurrentRoleTitle?.trim(), item.authorCurrentOrganizationName?.trim()].filter(Boolean);
   const authorRoleLine = parts.length ? parts.join(", ") : null;
 
-  const authorFullName = demoDisplayFullName(item.authorFullName).trim() || item.authorFullName.trim();
+  const authorFullName = (item.authorFullName ?? "").trim() || item.authorFullName.trim();
 
   return {
     id: item.id,
@@ -224,7 +222,6 @@ export function mapIntentcastToRow(
     authorRoleLine,
     postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
     postedAtIso: item.createdAt,
-    authorIsDemo: item.authorIsDemo === true,
     roleListingUrl,
     resumeListingUrl,
   };

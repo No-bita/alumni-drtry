@@ -5,7 +5,6 @@ import {
   displayFirstNameFromEmail,
   firstTokenFromEmailLocalPart,
 } from "../../src/lib/emailDisplayName";
-import { demoDisplayFullName, isDemoProfileBio } from "../../src/lib/demoProfile";
 import {
   formatThreadCompactTime,
   formatThreadMessageTime,
@@ -49,21 +48,6 @@ describe("email display names", () => {
     expect(displayFirstNameFromEmail(undefined)).toBe("There");
     expect(avatarLabelFromEmail("rahul.s@x.in")).toBe("Rahul");
     expect(avatarLabelFromEmail("")).toBe("You");
-  });
-});
-
-describe("demo profile helpers", () => {
-  it("detects the demo marker in bios", () => {
-    expect(isDemoProfileBio("hi [DEMO] there")).toBe(true);
-    expect(isDemoProfileBio("real bio")).toBe(false);
-    expect(isDemoProfileBio(null)).toBe(false);
-  });
-  it("strips the demo prefix from names", () => {
-    expect(demoDisplayFullName("[DEMO] Asha Rao")).toBe("Asha Rao");
-    expect(demoDisplayFullName("  Asha  ")).toBe("Asha");
-    expect(demoDisplayFullName("[DEMO]")).toBe("[DEMO]");
-    expect(demoDisplayFullName(null)).toBe("");
-    expect(demoDisplayFullName("   ")).toBe("");
   });
 });
 

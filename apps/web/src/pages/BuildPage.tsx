@@ -1,7 +1,6 @@
 /** Build intent (`/intent/build`): mirrors `CareerPage` shell and hub grid; labels and feed wiring are placeholders. */
 import { Nav } from "../components/Nav";
 import { useAuth } from "../contexts/AuthContext";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 
 function BuildIntentHub({
@@ -52,7 +51,7 @@ function BuildIntentHub({
 }
 
 function navDisplayName(profile: { fullName?: string | null } | undefined, email: string | undefined): string {
-  const fn = demoDisplayFullName(profile?.fullName).trim() || profile?.fullName?.trim();
+  const fn = (profile?.fullName ?? "").trim() || profile?.fullName?.trim();
   if (fn) {
     const parts = fn.split(/\s+/);
     return parts[0] ?? fn;
@@ -68,7 +67,7 @@ export function BuildPage() {
   }
 
   const displayName =
-    demoDisplayFullName(auth.myProfile?.fullName).trim() ||
+    (auth.myProfile?.fullName ?? "").trim() ||
     auth.myProfile?.fullName?.trim() ||
     navDisplayName(auth.myProfile ?? undefined, auth.person.institutionalEmail);
 

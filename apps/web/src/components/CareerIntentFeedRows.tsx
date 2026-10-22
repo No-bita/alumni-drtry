@@ -8,7 +8,6 @@ import { Avatar } from "./Avatar";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { DeptBatchMeta } from "./DeptBatchMeta";
-import { DemoAuthorBadge } from "./DemoAuthorBadge";
 import { CareerStyleSearchToolbar } from "./CareerStyleSearchToolbar";
 import { DirectoryFilterDrawer } from "./DirectoryFilterDrawer";
 import { IconChatBubble } from "./HomeIcons";
@@ -49,7 +48,6 @@ export type CareerFeedRowModel = {
   authorRoleLine: string | null;
   postedRelative: string | null;
   postedAtIso: string | undefined;
-  authorIsDemo: boolean;
   /** Listing URL from structured referral composer (`Role link:` line). */
   roleListingUrl: string | null;
   /** Resume URL from structured referral composer (`Resume link:` line). */
@@ -223,7 +221,6 @@ export function IntentcastActivityRowsList({
                     <span className="career-feed-rows__author-block-text">
                       <span className="career-feed-rows__author-block-name-row">
                         <span className="career-feed-rows__author-block-name">{row.authorFullName}</span>
-                        {row.authorIsDemo ? <DemoAuthorBadge /> : null}
                       </span>
                       <DeptBatchMeta
                         className="career-feed-rows__author-block-meta dept-batch-meta"

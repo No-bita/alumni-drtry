@@ -20,7 +20,6 @@ type ProfileHeroProps = {
   occupations: OccupationView[];
   links: ProfileLinkView[];
   profileDisplayName: string;
-  isDemoProfile: boolean;
   isOwnProfile: boolean;
   isEditing?: boolean;
   onEdit?: () => void;
@@ -151,7 +150,6 @@ export function ProfileHero({
   occupations,
   links,
   profileDisplayName,
-  isDemoProfile,
   isOwnProfile,
   isEditing = false,
   onEdit,
@@ -219,9 +217,6 @@ export function ProfileHero({
                 profileDisplayName
               )}
             </h1>
-            {!loading && isDemoProfile ? (
-              <span className="badge badge--hiring profile-page__demo-badge">Demo</span>
-            ) : null}
           </div>
 
           {loading ? (

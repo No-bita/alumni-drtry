@@ -10,7 +10,6 @@ import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
 import { Avatar } from "./Avatar";
 import { avatarLabelFromEmail } from "../lib/emailDisplayName";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import {
   IconBell,
   IconBriefcase,
@@ -243,7 +242,7 @@ export function Nav({
   const resolvedAvatarName =
     auth.status === "authenticated"
       ? (
-          demoDisplayFullName(auth.myProfile?.fullName).trim() ||
+          (auth.myProfile?.fullName ?? "").trim() ||
           auth.myProfile?.fullName?.trim() ||
           avatarName?.trim() ||
           avatarLabelFromEmail(auth.person.institutionalEmail)
@@ -329,11 +328,6 @@ export function Nav({
             <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
               Beta
             </span>
-            {auth.person.isDemo ? (
-              <span className="badge badge--hiring" style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px" }}>
-                Demo Tour
-              </span>
-            ) : null}
           </div>
           <nav className="nav-sidebar__nav" aria-label="What are you looking for">
             <ul className="nav-sidebar__list">
@@ -412,11 +406,6 @@ export function Nav({
         >
           {appToolbarLead ? (
             <div className="nav-app-toolbar__lead">{appToolbarLead}</div>
-          ) : auth.status === "authenticated" && auth.person.isDemo ? (
-            <div className="nav-app-toolbar__lead" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--foreground-muted)" }}>
-              <span className="badge badge--hiring">Demo Tour</span>
-              <span>Read-only session &middot; Synthetic profiles</span>
-            </div>
           ) : null}
           {toolbarActionsAuthenticated ? (
             <div className="nav-app-toolbar__right">
@@ -514,11 +503,6 @@ export function Nav({
           <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
             Beta
           </span>
-          {auth.status === "authenticated" && auth.person.isDemo ? (
-            <span className="badge badge--hiring" style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px" }}>
-              Demo Tour
-            </span>
-          ) : null}
         </div>
       </div>
       <div className="nav__right">

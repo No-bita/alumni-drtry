@@ -1133,18 +1133,7 @@ input[type="reset"]:not(:disabled) {
   font-size: 12px;
 }
 
-.chip--demo-badge {
-  cursor: default;
-  pointer-events: none;
-  flex-shrink: 0;
-  opacity: 0.94;
-}
 
-.chip--demo-badge:hover {
-  border-color: var(--border-default);
-  color: var(--ink-muted);
-  background: var(--cream);
-}
 
 .bb-post-card__name-row {
   display: inline-flex;
@@ -10344,11 +10333,6 @@ button.career-referrals-v3__matching-pill--editable:active {
   white-space: nowrap;
 }
 
-.home-dashboard__demo-badge {
-  margin-left: 6px;
-  font-size: 9px;
-  vertical-align: middle;
-}
 
 .home-dashboard__batch-meta,
 .home-dashboard__batch-location {
@@ -13383,11 +13367,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: var(--ink);
 }
 
-.profile-page__demo-badge {
-  margin-left: 8px;
-  font-size: 9px;
-  vertical-align: middle;
-}
 
 .profile-page__contact-summary {
   margin-top: 0;
@@ -19612,18 +19591,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   color: #4c3f32;
 }
 
-.ds-chip.demo-author-badge {
-  pointer-events: none;
-  cursor: default;
-  flex-shrink: 0;
-  opacity: 0.95;
-}
 
-.ds-chip.demo-author-badge:hover {
-  border-color: rgba(26, 20, 15, 0.14);
-  color: #5e5247;
-  background: #fff;
-}
 
 /* Home Bulletin filters: override .ds-chip (later + higher specificity) — touch targets + hue identity */
 .home-dashboard--ideal .home-ideal__opportunities .home-ideal__chip.ds-chip {

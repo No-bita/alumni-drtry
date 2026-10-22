@@ -381,11 +381,6 @@
   text-overflow: ellipsis;
 }
 
-.search-result-row__demo-badge {
-  margin-left: 6px;
-  font-size: 10px;
-  vertical-align: middle;
-}
 
 .search-result-row__meta {
   font-size: 13px;
