@@ -16,6 +16,15 @@ describe("tryNormalizeListingUrl", () => {
     expect(tryNormalizeListingUrl("javascript:alert(1)//x")).toBeNull();
   });
 
+  it("rejects scheme-prefixed non-web links without //", () => {
+    expect(tryNormalizeListingUrl("mailto:user@example.com")).toBeNull();
+    expect(tryNormalizeListingUrl("tel:+919999999999")).toBeNull();
+  });
+
+  it("still accepts host:port input", () => {
+    expect(tryNormalizeListingUrl("example.com:8080/jobs/123")).toBe("https://example.com:8080/jobs/123");
+  });
+
   it("rejects blank and non-URL input", () => {
     expect(tryNormalizeListingUrl("")).toBeNull();
     expect(tryNormalizeListingUrl("   ")).toBeNull();
