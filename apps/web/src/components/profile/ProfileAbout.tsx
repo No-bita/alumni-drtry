@@ -7,6 +7,8 @@ type ProfileAboutProps = {
   profile: PublicProfileView | null | undefined;
   isOwnProfile: boolean;
   isEditing: boolean;
+  draftBio: string;
+  onDraftBio: (value: string) => void;
   draftPersonalEmail: string;
   draftMobilePhone: string;
   draftResidenceCountry: string;
@@ -22,6 +24,8 @@ export function ProfileAbout({
   profile,
   isOwnProfile,
   isEditing,
+  draftBio,
+  onDraftBio,
   draftPersonalEmail,
   draftMobilePhone,
   draftResidenceCountry,
@@ -43,12 +47,28 @@ export function ProfileAbout({
   return (
     <article className="home-dashboard__card profile-page__about-card">
       <h2 className="profile-page__section-title">About</h2>
+      {isOwnProfile && isEditing ? (
+        <div className="profile-page__intro-edit">
+          <label htmlFor="profile-introduction">Introduction (optional)</label>
+          <p id="profile-introduction-hint">Shown on your public profile, in your own words.</p>
+          <textarea
+            id="profile-introduction"
+            className="input input--textarea"
+            value={draftBio}
+            onChange={(event) => onDraftBio(event.target.value)}
+            maxLength={3000}
+            rows={5}
+            aria-describedby="profile-introduction-hint"
+          />
+          <span>{draftBio.length}/3000</span>
+        </div>
+      ) : null}
       {loading ? (
         <div className="profile-page__skeleton-block">
           <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
           <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
         </div>
-      ) : showBio ? (
+      ) : showBio && !isEditing ? (
         <p className="body-text profile-page__about-bio">{bioRaw}</p>
       ) : isOwnProfile && isEditing ? (
         <p className="body-text profile-page__muted-text profile-page__flush-text">
@@ -90,4 +110,4 @@ export function ProfileAbout({
       ) : null}
     </article>
   );
-            }
+}
