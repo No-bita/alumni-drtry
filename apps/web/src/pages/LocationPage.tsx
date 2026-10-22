@@ -659,6 +659,7 @@ export function LocationPage() {
     <div className="intent-page-shell">
       <Nav
         variant="home"
+        hideNotificationsBell
         avatarName={displayName}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
