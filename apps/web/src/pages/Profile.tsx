@@ -1,7 +1,8 @@
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
+import { PersonProfileView } from "../components/profile/PersonProfileView";
 import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileAbout } from "../components/profile/ProfileAbout";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
@@ -54,6 +55,8 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const auth = useAuth();
+  const navigate = useNavigate();
+  const [previewProfile, setPreviewProfile] = useState(false);
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -529,6 +532,15 @@ export function Profile() {
               : undefined
           }
         */}
+        {!loading && profile && !isEditing ? (
+          <PersonProfileView profile={profile} occupations={occupations} links={links}
+            isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
+            privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
+            openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
+            onEdit={() => void beginEdit()}
+            onSignOut={() => { void auth.logout().then(() => navigate("/login", { replace: true })); }} />
+        ) : null}
+        {loading || isEditing ? <>
         <ProfileHero
           loading={loading}
           profile={profile}
@@ -575,6 +587,7 @@ export function Profile() {
           </section>
         </div>
 
+        </> : null}
         <div
           className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
         >
@@ -585,6 +598,7 @@ export function Profile() {
               </p>
             ) : null}
 
+            {loading || isEditing ? <>
             <ProfileIitBhu
               loading={loading}
               profile={profile}
@@ -607,7 +621,8 @@ export function Profile() {
               onDraftResidenceCity={setDraftResidenceCity}
             />
 
-            {isOwnProfile && isAdminViewer ? (
+            </> : null}
+            {isOwnProfile && isAdminViewer && !previewProfile ? (
               <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
                 <div className="profile-page__analytics-header">
                   <h2 className="profile-page__section-title">Admin analytics dashboard</h2>
