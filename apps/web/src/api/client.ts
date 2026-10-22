@@ -1,4 +1,3 @@
-import { isDemoBlockedResponse, notifyDemoBlocked } from "../lib/demoMode";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
@@ -52,9 +51,6 @@ async function request<T>(
     if (res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
-    if (isDemoBlockedResponse(res.status, body.code)) {
-      notifyDemoBlocked();
-    }
     const retryAfter = res.headers.get("retry-after");
     return {
       error: {
@@ -100,9 +96,6 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
   if (!res.ok) {
     if (res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
-    }
-    if (isDemoBlockedResponse(res.status, b.code)) {
-      notifyDemoBlocked();
     }
     return {
       error: {
