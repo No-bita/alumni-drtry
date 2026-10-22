@@ -22,9 +22,9 @@ const authed = (role = "alumni", profile: Record<string, unknown> | null = { id:
 });
 
 
-function renderNav(props: { hideNotificationsBell?: boolean } = {}) {
+function renderNav(props: { hideNotificationsBell?: boolean } = {}, entry = "/intent/location/bengaluru") {
   return render(
-    <MemoryRouter initialEntries={["/intent/location/bengaluru"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Nav {...props} />
     </MemoryRouter>,
   );
@@ -88,5 +88,20 @@ describe("bottom dock You tab", () => {
     const menu = container.querySelector(".nav__user-menu") as HTMLElement;
     expect(menu).toBeTruthy();
     expect(within(menu).getByText("Sign out")).toBeTruthy();
+  });
+
+  it("marks You as the current page only when it is the selected tab, not on Analytics", () => {
+    authState.value = authed("admin");
+    const own = renderNav({}, "/profiles/me-1");
+    const dock = (c: HTMLElement) => c.querySelector(".nav-bottom-dock__list") as HTMLElement;
+    const you = (c: HTMLElement) => within(dock(c)).getByText("You").closest("a") as HTMLElement;
+    expect(you(own.container).getAttribute("aria-current")).toBe("page");
+    expect(you(own.container).className).toContain("nav-bottom-dock__link--active");
+    cleanup();
+    const analytics = renderNav({}, "/profiles/me-1#admin-analytics");
+    expect(you(analytics.container).getAttribute("aria-current")).toBeNull();
+    expect(you(analytics.container).className).not.toContain("nav-bottom-dock__link--active");
+    const analyticsLink = within(dock(analytics.container)).getByText("Analytics").closest("a") as HTMLElement;
+    expect(analyticsLink.className).toContain("nav-bottom-dock__link--active");
   });
 });
