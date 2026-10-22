@@ -29,7 +29,7 @@ describe("fold to flight", () => {
   it("reports an honest slow wait, clears timer on readiness, never claims a repair", () => {
     vi.useFakeTimers();
     const view = render(<FoldToFlight ready={false} onEnter={vi.fn()} />);
-    act(() => vi.advanceTimersByTime(12_000));
+    act(() => vi.advanceTimersByTime(5_000));
     expect(screen.getByText("This is taking longer than expected.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reload Alma" })).toBeTruthy();
     expect(screen.queryByText(/fixing|server|session expired|%/i)).toBeNull();
@@ -83,5 +83,18 @@ describe("fold to flight", () => {
     window.history.pushState({}, "", "/profiles/1");
     render(<FoldToFlightGate sessionReady locationKey="/profile"><p>Redirecting</p></FoldToFlightGate>);
     expect(screen.queryByText("Take me in")).toBeNull();
+  });
+  it("restarts the slow wait for each new loading interval", () => {
+    vi.useFakeTimers();
+    const view = render(<FoldToFlight ready={false} onEnter={vi.fn()} />);
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.getByText("This is taking longer than expected.")).toBeTruthy();
+    view.rerender(<FoldToFlight ready onEnter={vi.fn()} />);
+    view.rerender(<FoldToFlight ready={false} onEnter={vi.fn()} />);
+    expect(screen.queryByText("This is taking longer than expected.")).toBeNull();
+    act(() => vi.advanceTimersByTime(4_999));
+    expect(screen.queryByText("This is taking longer than expected.")).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("This is taking longer than expected.")).toBeTruthy();
   });
 });
