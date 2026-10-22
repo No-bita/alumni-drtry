@@ -65,6 +65,12 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   /** True once the first sign-in request got no answer and we are retrying quietly. */
   const [serverWaking, setServerWaking] = useState(false);
+  /** True while the demo-config preflight is still unanswered: no sign-in request has fired yet. */
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  /** Guards, not copy, decide when Continue may be tapped: while the preflight is unanswered or a rate-limit countdown is running, another tap cannot help. */
+  const [preflightUnsettled, setPreflightUnsettled] = useState(false);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
+  const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
   /** Synchronous double-submit guard: state updates batch, so rapid taps could both pass the phase check. */
   const submitInFlightRef = useRef(false);
@@ -113,8 +119,15 @@ export function Login() {
       .catch(() => null)
       .finally(() => setDemoConfigLoading(false));
     demoConfigPromiseRef.current = req;
-    return () => startAbortRef.current?.abort();
+    return () => {
+      startAbortRef.current?.abort();
+      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!demoConfigLoading) setPreflightUnsettled(false);
+  }, [demoConfigLoading]);
 
   const isDemoEmail = Boolean(
     demoConfig?.enabled &&
@@ -177,6 +190,7 @@ export function Login() {
 
     let activeDemoConfig = demoConfig;
     if (demoConfigLoading && demoConfigPromiseRef.current) {
+      setCheckingConnection(true);
       try {
         const loaded = await Promise.race([
           demoConfigPromiseRef.current,
@@ -187,13 +201,18 @@ export function Login() {
         if (loaded === DEMO_CONFIG_WAIT_TIMEOUT) {
           // Config unanswered: the typed email might be the demo address, so
           // stop with a retryable error rather than fall through to sign-in.
-          setError("Still checking the server. Give it a moment, then tap Continue again.");
+          // Keep Continue blocked until the preflight settles - only then can
+          // another tap actually proceed.
+          setPreflightUnsettled(true);
+          setError("Couldn't connect. Please try again.");
           setPhase("form");
           return;
         }
         if (loaded) activeDemoConfig = loaded;
       } catch {
         // Keep the current demo configuration if loading fails.
+      } finally {
+        setCheckingConnection(false);
       }
     }
 
@@ -279,6 +298,9 @@ export function Login() {
         if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
           const mins = Math.ceil(retryAfterSeconds / 60);
           msg += ` Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`;
+          setRateLimitedUntil(Date.now() + retryAfterSeconds * 1000);
+          if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+          rateLimitTimerRef.current = setTimeout(() => setRateLimitedUntil(null), retryAfterSeconds * 1000);
         }
         setError(msg);
         setPhase("form");
@@ -712,9 +734,11 @@ export function Login() {
               <p className="login-sending__line">
                 {BETA_INVITE_AUTH_ENABLED
                   ? "Signing you in…"
-                  : serverWaking
-                    ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
-                    : "Hang tight — we’re sending your sign-in link."}
+                  : checkingConnection
+                    ? "Checking the connection…"
+                    : serverWaking
+                      ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
+                      : "Sending your sign-in link…"}
               </p>
             </div>
           </div>
@@ -814,7 +838,7 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting}>
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={demoSubmitting || preflightUnsettled || rateLimitedUntil !== null}>
               {isDemoEmail
                 ? demoSubmitting
                   ? "Opening the demo…"
