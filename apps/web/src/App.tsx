@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 // import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
-import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
+// Messaging paused (product decision): the entire messaging feature is commented out app-wide for now.
+// Restore this import together with the <GlobalMessagingWidget /> mount at the bottom.
+// import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -22,9 +24,10 @@ const Search = lazy(() => import("./pages/Search").then((m) => ({ default: m.Sea
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
 const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
 const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })));
-const ConnectionThread = lazy(() =>
-  import("./pages/ConnectionThread").then((m) => ({ default: m.ConnectionThread }))
-);
+// Messaging paused: thread page route commented out; restore with the /connections/:threadId route below.
+// const ConnectionThread = lazy(() =>
+//   import("./pages/ConnectionThread").then((m) => ({ default: m.ConnectionThread }))
+// );
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
 const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
@@ -312,6 +315,7 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        {/* Messaging paused: thread page route removed while messaging is commented out.
         <Route
           path="/connections/:threadId"
           element={
@@ -322,6 +326,7 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        */}
         <Route
           path="/profile"
           element={
@@ -346,7 +351,7 @@ export default function App() {
         <AppRoutes />
         <RouteNotice />
         <GlobalNotificationsWidget />
-        <GlobalMessagingWidget />
+        {/* Messaging paused: <GlobalMessagingWidget /> */}
       </AuthProvider>
     </BrowserRouter>
   );
