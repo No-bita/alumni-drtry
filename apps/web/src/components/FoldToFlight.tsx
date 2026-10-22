@@ -39,8 +39,11 @@ export function FoldToFlight({ ready, onEnter }: { ready: boolean; onEnter: () =
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     if (ready) return;
-    const timer = window.setTimeout(() => setSlow(true), 12_000);
-    return () => window.clearTimeout(timer);
+    const timer = window.setTimeout(() => setSlow(true), 5_000);
+    return () => {
+      window.clearTimeout(timer);
+      setSlow(false); // each new loading interval starts its own wait
+    };
   }, [ready]);
   const [label, title, hint] = prompts[step];
   function play() {
@@ -101,4 +104,4 @@ export function FoldToFlightGate({ sessionReady, locationKey = "", children }: {
       <Suspense fallback={null}><RouteReady locationKey={locationKey} onReady={markReady}>{children}</RouteReady></Suspense>
     </div>}
   </>;
-            }
+}
