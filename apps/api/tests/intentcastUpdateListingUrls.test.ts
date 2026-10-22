@@ -11,8 +11,12 @@ const EXISTING = {
   id: "ic-1",
   author_person_id: "person-1",
   status: "open",
-  author_soft_deleted_at: null
+  author_soft_deleted_at: null,
+  role_listing_url: "https://example.com/jobs/1",
+  resume_listing_url: null
 };
+
+const FIT_500 = "x".repeat(500);
 
 function makeService(repoBehavior: { updateReturnsNull?: boolean } = {}) {
   const service = new IntentcastService({} as never, {} as never, 30);
@@ -63,6 +67,32 @@ describe("updateIntentcast structured listing URLs", () => {
       service.updateIntentcast("person-1", "ic-1", { roleListingUrl: "mailto:user@example.com" })
     ).rejects.toMatchObject({ code: "INTENTCAST_LISTING_URL_INVALID" });
     expect(calls.updateInput).toBeUndefined();
+  });
+
+  it("rejects a fit answer over 500 chars on edit for referral posts", async () => {
+    const { service, calls } = makeService();
+    const content = `Looking for referral for Backend Engineer at Example Co\n${"x".repeat(501)}`;
+    await expect(service.updateIntentcast("person-1", "ic-1", { content })).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INTENTCAST_REFERRAL_FIT_TOO_LONG"
+    });
+    expect(calls.updateInput).toBeUndefined();
+  });
+
+  it("accepts a fit answer of exactly 500 chars on edit", async () => {
+    const { service, calls } = makeService();
+    const content = `Looking for referral for Backend Engineer at Example Co\n${FIT_500}`;
+    await service.updateIntentcast("person-1", "ic-1", { content });
+    expect(calls.updateInput?.content).toBe(content);
+  });
+
+  it("does not apply the 500-char fit budget to non-referral posts", async () => {
+    const { service, calls } = makeService();
+    (service as unknown as { intentcastRepo: { findById: () => Promise<unknown> } }).intentcastRepo.findById =
+      async () => ({ ...EXISTING, role_listing_url: null });
+    const content = `A general post headline\n${"x".repeat(900)}`;
+    await service.updateIntentcast("person-1", "ic-1", { content });
+    expect(calls.updateInput?.content).toBe(content);
   });
 
   it("still enforces the edit window via the repo update", async () => {
