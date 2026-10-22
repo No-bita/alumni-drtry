@@ -48,20 +48,6 @@ function tryNormalizeExternalHttpUrl(raw: string): string | null {
   }
 }
 
-/** Structured tail lines below the fit text, parsed back out by extractStructuredCareerRoleLink for feed/preview display. */
-function referralSeekingLinkLines(jobRaw: string, resumeRaw: string): string[] {
-  const lines: string[] = [];
-  const jobNorm = jobRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(jobRaw) : null;
-  if (jobNorm) lines.push(`Role link: ${jobNorm}`);
-  const resumeNorm = resumeRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(resumeRaw) : null;
-  if (resumeNorm) lines.push(`Resume link: ${resumeNorm}`);
-  return lines;
-}
-
-function referralSeekingDetailsBlock(fit: string, jobRaw: string, resumeRaw: string): string {
-  return [fit.trim(), ...referralSeekingLinkLines(jobRaw, resumeRaw)].filter(Boolean).join("\n\n");
-}
-
 export type PostBulletinFlowProps = {
   onPublishSuccess?: (intentcast: IntentcastFeedItem) => void;
 };
@@ -159,7 +145,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (careersPreset === "referralSeeking") {
         const role = headline.trim();
         const company = referralCompanyName.trim();
-        const detailsBlock = referralSeekingDetailsBlock(body, referralJobLink, referralResumeLink);
+        const detailsBlock = body.trim();
         if (!role && !company && !detailsBlock) return "";
         if (role) {
           const headLine = buildReferralIntentBulletinHeadline(role, company);
@@ -176,7 +162,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (!b) return h;
       if (!h) return b;
       return `${h}\n${b}`;
-    }, [body, careersPreset, headline, referralCompanyName, referralJobLink, referralResumeLink]);
+    }, [body, careersPreset, headline, referralCompanyName]);
 
     const previewSplit = useMemo(
       () => splitBulletinPostBody(composedContent || headline || "Preview headline"),
@@ -195,7 +181,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
             companyLoc: null,
             description: body.trim(),
             chips: [],
-            listingUrl: null,
+            listingUrl: tryNormalizeExternalHttpUrl(referralJobLink),
             resumeUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
           };
         }
@@ -209,51 +195,15 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         };
       }
       if (careersPreset === "referralSeeking") {
-        const parsedReferral = parseHiringBulletin(raw);
-        if (parsedReferral) {
-          const coerced = promoteBareLeadingListingToResumeForReferral(
-            extractStructuredCareerRoleLink(parsedReferral.description)
-          );
-          const proseTail = stripStructuredHiringTailMeta(
-            stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
-          ).trim();
-          const descriptionText = proseTail || (split.summary ?? "").trim();
-          const chips = [
-            parsedReferral.employmentLabel,
-            hiringExperienceChipFromParsed(parsedReferral.experienceLabel),
-            hiringCompensationChipFromParsed(parsedReferral.salaryLabel),
-          ].filter((x): x is string => Boolean(x)).slice(0, 3);
-          return {
-            role: buildReferralIntentBulletinHeadline(
-              parsedReferral.title.trim() || headline.trim() || "Role",
-              parsedReferral.company.trim()
-            ),
-            companyLoc: null,
-            description: descriptionText,
-            chips,
-            listingUrl: coerced.listingUrl,
-            resumeUrl:
-              coerced.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
-          };
-        }
         const ht = headline.trim();
         const co = referralCompanyName.trim();
-        const summaryRaw = (split.summary ?? "").trim();
-        const coercedTail = promoteBareLeadingListingToResumeForReferral(
-          extractStructuredCareerRoleLink(summaryRaw)
-        );
-        const proseTail = stripStructuredHiringTailMeta(
-          stripHiringTailChipDuplicateProse(coercedTail.proseAfterLink)
-        ).trim();
-        const descriptionText = proseTail || body.trim();
         return {
-          role: split.title.trim() || buildReferralIntentBulletinHeadline(ht || "Role", co),
+          role: buildReferralIntentBulletinHeadline(ht || "Role", co),
           companyLoc: null,
-          description: descriptionText,
+          description: body.trim(),
           chips: [],
-          listingUrl: coercedTail.listingUrl,
-          resumeUrl:
-            coercedTail.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
+          listingUrl: tryNormalizeExternalHttpUrl(referralJobLink),
+          resumeUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
         };
       }
       const parsed = parseHiringBulletin(raw);
@@ -296,6 +246,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       headline,
       previewSplit,
       referralCompanyName,
+      referralJobLink,
       referralResumeLink,
     ]);
 
@@ -392,11 +343,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         }
         const content = composedContent.trim();
         if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
-        const generalErr = validateGeneralBulletinHeadlineDetails(content);
-        if (generalErr) {
-          return "Your fit answer, job link and resume link together are too long — shorten the fit answer.";
-        }
-        return null;
+        return validateGeneralBulletinHeadlineDetails(content);
       }
       if (!headlineOk) return "Add a headline (at least 3 characters).";
       const ht = headline.trim();
@@ -448,6 +395,12 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: bulletinUiCategoryToApiCategory(category),
         content,
+        ...(careersPreset === "referralSeeking"
+          ? {
+              roleListingUrl: tryNormalizeExternalHttpUrl(referralJobLink),
+              resumeListingUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
+            }
+          : {}),
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
@@ -458,7 +411,17 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
       closeFlow();
-    }, [category, closeFlow, composedContent, onPublishSuccess, queryClient, validateCompose]);
+    }, [
+      careersPreset,
+      category,
+      closeFlow,
+      composedContent,
+      onPublishSuccess,
+      queryClient,
+      referralJobLink,
+      referralResumeLink,
+      validateCompose,
+    ]);
 
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
@@ -602,17 +565,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       placeholder={detailsPlaceholder}
-                      maxLength={
-                        careersPreset === "referralSeeking"
-                          ? Math.max(
-                              0,
-                              BULLETIN_DESCRIPTION_MAX_CHARS -
-                                referralSeekingLinkLines(referralJobLink, referralResumeLink)
-                                  .join("\n\n").length -
-                                2
-                            )
-                          : BULLETIN_DESCRIPTION_MAX_CHARS
-                      }
+                      maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
                     />
                   </label>
                   {careersPreset === "referralSeeking" ? (
