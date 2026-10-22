@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import "../styles/career-entry.css";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -15,18 +17,22 @@ function CareerOpportunitiesHub({
   onPostRole,
   onFindReferrals,
   onCanHelp,
+  activityOpen,
+  onToggleActivity,
   hiringNotice,
   onDismissNotice,
 }: {
   onPostRole: () => void;
   onFindReferrals: () => void;
   onCanHelp: () => void;
+  activityOpen: boolean;
+  onToggleActivity: () => void;
   hiringNotice: string | null;
   onDismissNotice: () => void;
 }) {
   return (
-    <section className="career-hub" aria-labelledby="career-hub-title">
-      <div className="career-hub__shell">
+    <section className="career-entry" aria-labelledby="career-toolbar-title">
+      <div className="career-entry__shell">
         {hiringNotice ? (
           <div className="career-hub__notice" role="status">
             <span>{hiringNotice}</span>
@@ -35,31 +41,22 @@ function CareerOpportunitiesHub({
             </button>
           </div>
         ) : null}
-        <header className="career-hub__intro" />
-        <div className="career-hub__grid career-hub__grid--three">
-          <button
-            type="button"
-            className="career-hub__panel career-hub__panel--clickable ds-surface-card career-hub__panel--hire"
-            onClick={onPostRole}
-          >
-            <p className="career-hub__panel-eyebrow">For your team</p>
-            <h3 className="career-hub__panel-title">Hire Alumni</h3>
+        <div className="career-entry__actions">
+          <button type="button" className="career-entry__primary" onClick={onFindReferrals}>
+            Ask for a referral
           </button>
-          <button
-            type="button"
-            className="career-hub__panel career-hub__panel--clickable ds-surface-card career-hub__panel--seek"
-            onClick={onFindReferrals}
-          >
-            <p className="career-hub__panel-eyebrow">For your next move</p>
-            <h3 className="career-hub__panel-title">Find Referrals</h3>
+          <button type="button" className="career-entry__secondary" onClick={onPostRole}>
+            Hire alumni
           </button>
-          <button
-            type="button"
-            className="career-hub__panel career-hub__panel--clickable ds-surface-card career-hub__panel--help"
-            onClick={onCanHelp}
-          >
-            <p className="career-hub__panel-eyebrow">Offer support</p>
-            <h3 className="career-hub__panel-title">Can help</h3>
+        </div>
+        <div className="career-entry__utilities">
+          <Link to="/search">Browse alumni <span aria-hidden="true">→</span></Link>
+          <button type="button" onClick={onCanHelp}>Offer help <span aria-hidden="true">→</span></button>
+        </div>
+        <div className="career-entry__activity">
+          <h2 id="career-activity-title">Activity</h2>
+          <button type="button" aria-expanded={activityOpen} aria-controls="career-activity-feed" onClick={onToggleActivity}>
+            {activityOpen ? "Hide" : "View all"} <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>
@@ -81,6 +78,7 @@ export function CareerPage() {
   const queryClient = useQueryClient();
   const hiringFlowRef = useRef<PostRoleHiringFlowHandle>(null);
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [hiringNotice, setHiringNotice] = useState<string | null>(null);
   const careerFeedQuery = useQuery({
     queryKey: queryKeys.career.intentFeed(),
@@ -123,10 +121,12 @@ export function CareerPage() {
         onPostRole={() => hiringFlowRef.current?.open()}
         onFindReferrals={() => bulletinFlowRef.current?.open({ careersPreset: "referralSeeking" })}
         onCanHelp={() => bulletinFlowRef.current?.open({ careersPreset: "canHelp" })}
+        activityOpen={activityOpen}
+        onToggleActivity={() => setActivityOpen((open) => !open)}
         hiringNotice={hiringNotice}
         onDismissNotice={() => setHiringNotice(null)}
       />
-      <div className="career-page-intent-feed">
+      <div id="career-activity-feed" className="career-page-intent-feed" role="region" aria-labelledby="career-activity-title" hidden={!activityOpen}>
         <CareerIntentFeedRows
           intentcasts={careerFeedQuery.data?.intentcasts ?? []}
           loading={careerFeedLoading}
@@ -145,6 +145,7 @@ export function CareerPage() {
       <PostRoleHiringFlow
         ref={hiringFlowRef}
         onPublishSuccess={() => {
+          setActivityOpen(true);
           setHiringNotice("Role published — it appears under Hiring on Home and Careers activity.");
           void queryClient.invalidateQueries({ queryKey: queryKeys.career.intentFeed() });
           void queryClient.invalidateQueries({ queryKey: ["home", "opportunity-rail"] });
