@@ -1,13 +1,12 @@
 import { Nav } from "../components/Nav";
 import { useAuth } from "../contexts/AuthContext";
-import { demoDisplayFullName } from "../lib/demoProfile";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 
 function navAvatarName(
   profile: { fullName?: string | null } | undefined,
   email: string | undefined
 ): string {
-  const fullName = demoDisplayFullName(profile?.fullName).trim() || profile?.fullName?.trim();
+  const fullName = (profile?.fullName ?? "").trim() || profile?.fullName?.trim();
   if (fullName) {
     const parts = fullName.split(/\s+/);
     return parts[0] ?? fullName;
@@ -20,7 +19,7 @@ export function EventsPage() {
 
   const displayName =
     auth.status === "authenticated"
-      ? demoDisplayFullName(auth.myProfile?.fullName).trim() ||
+      ? (auth.myProfile?.fullName ?? "").trim() ||
           auth.myProfile?.fullName?.trim() ||
           navAvatarName(auth.myProfile ?? undefined, auth.person.institutionalEmail)
       : "";
