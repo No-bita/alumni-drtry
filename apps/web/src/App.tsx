@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
   canAccessOnboardingFlow,
   canResumeOnboarding,
-  superAdminSkipsAlumniJourney,
 } from "./lib/onboardingEligibility";
 import { RouteNotice } from "./components/RouteNotice";
 import { FINISH_PROFILE_NOTICE, noticeState } from "./lib/routeNotices";
@@ -83,10 +82,6 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
   }
 
   const person = auth.person;
-  if (superAdminSkipsAlumniJourney(person)) {
-    return <>{children}</>;
-  }
-
   if (auth.myProfileError) {
     return (
       <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
@@ -147,7 +142,6 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
   const { id: routeProfileId } = useParams();
 
   if (auth.status !== "authenticated") return null;
-  if (superAdminSkipsAlumniJourney(auth.person)) return <>{children}</>;
 
   const profile = auth.myProfile;
   if (!profile) {
@@ -191,7 +185,7 @@ function OwnProfileRedirect() {
     );
   }
 
-  if (superAdminSkipsAlumniJourney(auth.person) || profile.profileCompletedAt) {
+  if (profile.profileCompletedAt) {
     return <Navigate to={`/profiles/${profile.id}`} replace />;
   }
   if (canResumeOnboarding(profile, auth.person)) {
