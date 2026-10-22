@@ -116,7 +116,7 @@ export function ProfileEngagementCards({
         </span>
         <div className="profile-page__engage-card-head-copy">
           <h2 className="profile-page__engage-card-title">{isEditing ? "Open to" : "What they welcome"}</h2>
-          {!isEditing ? <p className="profile-page__engage-card-hint">Chosen by this alum.</p> : null}
+          {!isEditing && displayItems.length > 0 ? <p className="profile-page__engage-card-hint">Chosen by this alum.</p> : null}
           {isEditing ? (
             <p className="profile-page__engage-card-hint">
               Choose up to {OPEN_TO_MAX_SELECTED} ({selectedCount}/{OPEN_TO_MAX_SELECTED} selected)
