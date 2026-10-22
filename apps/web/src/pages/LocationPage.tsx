@@ -281,6 +281,42 @@ export function LocationPage() {
   const [activeNeed, setActiveNeed] = useState<CityNeedItem["type"] | "all">("all");
   const [activeExploreRegion, setActiveExploreRegion] = useState<ExploreRegion>("all");
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
+  const cityPickerSheetRef = useRef<HTMLDivElement | null>(null);
+  const cityPickerReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!cityPickerOpen) return undefined;
+    const sheet = cityPickerSheetRef.current;
+    cityPickerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    sheet?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCityPickerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !sheet) return;
+      const focusable = Array.from(
+        sheet.querySelectorAll<HTMLElement>("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || active === sheet)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      cityPickerReturnFocusRef.current?.focus();
+    };
+  }, [cityPickerOpen]);
   // Drafts stay in this browser (localStorage), kept per signed-in person so a shared device does not mix them.
   const draftOwner = auth.status === "authenticated" ? auth.person.personId : "guest";
   const [draftsOwner, setDraftsOwner] = useState(draftOwner);
@@ -872,11 +908,10 @@ export function LocationPage() {
           <div
             className="cities-switcher__backdrop"
             onClick={() => setCityPickerOpen(false)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setCityPickerOpen(false);
-            }}
           >
             <div
+              ref={cityPickerSheetRef}
+              tabIndex={-1}
               className="cities-switcher__sheet"
               role="dialog"
               aria-modal="true"
