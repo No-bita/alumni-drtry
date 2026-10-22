@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Avatar } from "./Avatar";
-import { isDemoProfileBio } from "../lib/demoProfile";
 
 export type CareerBestMatchRow = {
   id: string;
@@ -186,7 +185,7 @@ export function CareerBestMatches({ rows, committed, onRequestReferral, openMess
             const badgeVariant = matchSignals.allFieldsMatch ? "best" : "great";
             const { bullets } = matchSignals;
             const activity = ACTIVITY_STUBS[cardIndex % ACTIVITY_STUBS.length];
-            const showVerified = row.profileComplete || isDemoProfileBio(row.bio);
+            const showVerified = row.profileComplete;
 
             return (
               <article key={row.id} className="career-best-matches__card">
