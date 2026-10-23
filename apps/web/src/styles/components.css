@@ -10637,6 +10637,31 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: inherit;
 }
 
+.notifications-page__item-main--activatable {
+  position: relative;
+}
+
+.notifications-page__item-activate {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.notifications-page__item-activate:hover ~ .notifications-page__item-title,
+.notifications-page__item-activate:focus-visible ~ .notifications-page__item-title {
+  color: var(--ochre);
+}
+
+.notifications-page__item-main--activatable a.notifications-page__item-name,
+.notifications-page__item-main--activatable .notifications-page__item-actions {
+  position: relative;
+  z-index: 1;
+}
+
 .notifications-page__item-main--link:hover .notifications-page__item-title {
   color: var(--ochre);
 }
