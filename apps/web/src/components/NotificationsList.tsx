@@ -75,7 +75,14 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         </li>
       ) : null}
       {items.map((item) => (
-        <li key={item.id} className="notifications-page__item">
+        <li
+          key={item.id}
+          className={
+            item.kind === "connection_thread_reply"
+              ? "notifications-page__item"
+              : "notifications-page__item notifications-page__item--activatable"
+          }
+        >
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
@@ -144,17 +151,17 @@ function NotificationListItem({
       const busy = busyContactRequestId === item.contactRequestId;
       return (
         <>
-          <div className="notifications-page__item-main notifications-page__item-main--activatable">
-            <button
-              type="button"
-              className="notifications-page__item-activate"
-              onClick={onActivate}
-              aria-label={
-                inSheet
-                  ? `Open inbox for connection request from ${name}`
-                  : `Open profile of ${name}`
-              }
-            />
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox for connection request from ${name}`
+                : `Open profile of ${name}`
+            }
+          />
+          <div className="notifications-page__item-main">
             <p className="notifications-page__item-title">
               <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
               wants to connect
@@ -190,6 +197,16 @@ function NotificationListItem({
       const outcomeLabel = item.outcome === "accepted" ? "accepted" : "declined";
       return (
         <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox: ${name} ${outcomeLabel} your connection request`
+                : `Open profile of ${name}`
+            }
+          />
           <ClickableNotificationBody
             title={
               <>
@@ -197,7 +214,6 @@ function NotificationListItem({
                 {outcomeLabel} your connection request
               </>
             }
-            onActivate={onActivate}
           />
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}
@@ -209,6 +225,16 @@ function NotificationListItem({
       const name = displayName(item.responderFullName);
       return (
         <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox for bulletin reply from ${name}`
+                : `Open bulletin response from ${name}`
+            }
+          />
           <ClickableNotificationBody
             title={
               <>
@@ -218,7 +244,6 @@ function NotificationListItem({
             }
             meta={<span className="notifications-page__item-preview">“{item.postPreview}”</span>}
             preview={item.responseMessage}
-            onActivate={onActivate}
           />
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}
@@ -238,11 +263,7 @@ function ProfileName({ personId, name, inSheet }: { personId: string; name: stri
     return <span className="notifications-page__item-name">{name}</span>;
   }
   return (
-    <Link
-      to={`/profiles/${personId}`}
-      className="notifications-page__item-name"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <Link to={`/profiles/${personId}`} className="notifications-page__item-name">
       {name}
     </Link>
   );
@@ -252,22 +273,16 @@ function ClickableNotificationBody({
   title,
   meta,
   preview,
-  onActivate,
 }: {
   title: ReactNode;
   meta?: ReactNode;
   preview?: string;
-  onActivate: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="notifications-page__item-main notifications-page__item-main--link"
-      onClick={onActivate}
-    >
+    <div className="notifications-page__item-main">
       <p className="notifications-page__item-title">{title}</p>
       {meta ? <p className="notifications-page__item-meta">{meta}</p> : null}
       {preview ? <p className="notifications-page__item-detail">{preview}</p> : null}
-    </button>
+    </div>
   );
 }
