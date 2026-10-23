@@ -79,6 +79,7 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
+            inSheet={activationTarget === "inbox"}
             onActivate={() => handleItemActivate(item)}
             onRespondToContactRequest={respondToContactRequest}
           />
@@ -91,6 +92,8 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
 type NotificationListItemProps = {
   item: NotificationItem;
   busyContactRequestId: string | null;
+  /** Quick view (bottom sheet): every tap except decision controls opens the inbox, so names render as plain text. */
+  inSheet: boolean;
   onActivate: () => void;
   onRespondToContactRequest: (id: string, action: "accept" | "decline") => void;
 };
@@ -98,6 +101,7 @@ type NotificationListItemProps = {
 function NotificationListItem({
   item,
   busyContactRequestId,
+  inSheet,
   onActivate,
   onRespondToContactRequest,
 }: NotificationListItemProps) {
@@ -140,24 +144,22 @@ function NotificationListItem({
       const busy = busyContactRequestId === item.contactRequestId;
       return (
         <>
-          <div className="notifications-page__item-main">
+          <div className="notifications-page__item-main notifications-page__item-main--activatable">
             <button
               type="button"
-              className="notifications-page__item-main--link"
+              className="notifications-page__item-activate"
               onClick={onActivate}
-            >
-              <p className="notifications-page__item-title">
-                <Link
-                  to={`/profiles/${item.senderPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
-                wants to connect
-              </p>
-              <p className="notifications-page__item-detail">{item.message}</p>
-            </button>
+              aria-label={
+                inSheet
+                  ? `Open inbox for connection request from ${name}`
+                  : `Open profile of ${name}`
+              }
+            />
+            <p className="notifications-page__item-title">
+              <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
+              wants to connect
+            </p>
+            <p className="notifications-page__item-detail">{item.message}</p>
             <div className="notifications-page__item-actions">
               <Button
                 type="button"
@@ -191,13 +193,7 @@ function NotificationListItem({
           <ClickableNotificationBody
             title={
               <>
-                <Link
-                  to={`/profiles/${item.recipientPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
+                <ProfileName personId={item.recipientPersonId} name={name} inSheet={inSheet} />{" "}
                 {outcomeLabel} your connection request
               </>
             }
@@ -216,13 +212,7 @@ function NotificationListItem({
           <ClickableNotificationBody
             title={
               <>
-                <Link
-                  to={`/profiles/${item.responderPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
+                <ProfileName personId={item.responderPersonId} name={name} inSheet={inSheet} />{" "}
                 replied to your bulletin post
               </>
             }
@@ -241,6 +231,21 @@ function NotificationListItem({
       return _exhaustive;
     }
   }
+}
+
+function ProfileName({ personId, name, inSheet }: { personId: string; name: string; inSheet: boolean }) {
+  if (inSheet) {
+    return <span className="notifications-page__item-name">{name}</span>;
+  }
+  return (
+    <Link
+      to={`/profiles/${personId}`}
+      className="notifications-page__item-name"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {name}
+    </Link>
+  );
 }
 
 function ClickableNotificationBody({
