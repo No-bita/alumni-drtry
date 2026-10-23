@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "../components/NotificationsList";
@@ -7,6 +7,7 @@ import { NotificationsList } from "../components/NotificationsList";
 export function NotificationsPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const authenticated = auth.status === "authenticated";
   const listQuery = useNotificationsList(authenticated);
   // Messaging paused: message reply notifications stay hidden, same as the quick-view sheet.
@@ -18,7 +19,7 @@ export function NotificationsPage() {
         <button
           type="button"
           className="notifications-page__back"
-          onClick={() => navigate(-1)}
+          onClick={() => (location.key === "default" ? navigate("/home", { replace: true }) : navigate(-1))}
           aria-label="Go back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
