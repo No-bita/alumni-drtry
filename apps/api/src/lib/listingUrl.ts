@@ -16,6 +16,8 @@ export function tryNormalizeListingUrl(raw: string): string | null {
     return null;
   }
   if (!/^https?:$/.test(parsed.protocol)) return null;
+  // userinfo (https://trusted.com:x@evil.com) must not ride into a stored link.
+  if (parsed.username || parsed.password) return null;
   const hostname = parsed.hostname.toLowerCase();
   if (
     !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(hostname)
