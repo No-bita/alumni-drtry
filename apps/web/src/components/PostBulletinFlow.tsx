@@ -36,6 +36,13 @@ import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(t);
+  if (scheme && !/^https?$/i.test(scheme[1])) {
+    // host:port[/path] input (e.g. example.com:8080/jobs) is not a scheme — allow prefixing,
+    // but only when the part before ':' looks like a host; ftp:21/x style input is rejected.
+    const rest = t.slice(scheme[0].length);
+    if (!/^\d+(\/|$)/.test(rest) || !scheme[1].includes(".")) return null;
+  }
   const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
   try {
     const u = new URL(candidate);
@@ -46,15 +53,18 @@ function tryNormalizeExternalHttpUrl(raw: string): string | null {
   }
 }
 
-function referralSeekingDetailsBlock(aboutYou: string, resumeRaw: string): string {
-  const details = aboutYou.trim();
-  const resumeNorm =
-    resumeRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(resumeRaw) : null;
-  const resumeLine = resumeNorm ? `Resume link: ${resumeNorm}` : "";
-  if (!details && !resumeLine) return "";
-  if (!resumeLine) return details;
-  if (!details) return resumeLine;
-  return `${details}\n\n${resumeLine}`;
+/** Structured tail lines below the fit text, parsed back out by extractStructuredCareerRoleLink for feed/preview display. */
+function referralSeekingLinkLines(jobRaw: string, resumeRaw: string): string[] {
+  const lines: string[] = [];
+  const jobNorm = jobRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(jobRaw) : null;
+  if (jobNorm) lines.push(`Role link: ${jobNorm}`);
+  const resumeNorm = resumeRaw.trim().length > 0 ? tryNormalizeExternalHttpUrl(resumeRaw) : null;
+  if (resumeNorm) lines.push(`Resume link: ${resumeNorm}`);
+  return lines;
+}
+
+function referralSeekingDetailsBlock(fit: string, jobRaw: string, resumeRaw: string): string {
+  return [fit.trim(), ...referralSeekingLinkLines(jobRaw, resumeRaw)].filter(Boolean).join("\n\n");
 }
 
 export type PostBulletinFlowProps = {
@@ -143,6 +153,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [submitting, setSubmitting] = useState(false);
     /** Careers hub presets: referrals lock to Careers (`mentorship`); Can help locks to Guidance (`guidance`). */
     const [careersPreset, setCareersPreset] = useState<CareersBulletinPreset | null>(null);
+    const [referralJobLink, setReferralJobLink] = useState("");
     const [referralCompanyName, setReferralCompanyName] = useState("");
     const [referralResumeLink, setReferralResumeLink] = useState("");
 
@@ -153,7 +164,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (careersPreset === "referralSeeking") {
         const role = headline.trim();
         const company = referralCompanyName.trim();
-        const detailsBlock = referralSeekingDetailsBlock(body, referralResumeLink);
+        const detailsBlock = referralSeekingDetailsBlock(body, referralJobLink, referralResumeLink);
         if (!role && !company && !detailsBlock) return "";
         if (role) {
           const headLine = buildReferralIntentBulletinHeadline(role, company);
@@ -170,7 +181,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (!b) return h;
       if (!h) return b;
       return `${h}\n${b}`;
-    }, [body, careersPreset, headline, referralCompanyName, referralResumeLink]);
+    }, [body, careersPreset, headline, referralCompanyName, referralJobLink, referralResumeLink]);
 
     const previewSplit = useMemo(
       () => splitBulletinPostBody(composedContent || headline || "Preview headline"),
@@ -298,6 +309,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setCategory(INITIAL_CATEGORY);
       setHeadline("");
       setBody("");
+      setReferralJobLink("");
       setReferralCompanyName("");
       setReferralResumeLink("");
       setError(null);
@@ -323,6 +335,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       );
       setHeadline("");
       setBody("");
+      setReferralJobLink("");
       setReferralCompanyName("");
       setReferralResumeLink("");
       setError(null);
@@ -355,6 +368,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
 
     const validateCompose = useCallback((): string | null => {
       if (careersPreset === "referralSeeking") {
+        const jl = referralJobLink.trim();
+        if (!jl) return "Add the job link for this opening.";
+        if (!tryNormalizeExternalHttpUrl(jl)) return "Job link must be a valid http(s) URL.";
         if (!headlineOk) return "Add a role title (at least 3 characters).";
         const ht = headline.trim();
         const co = referralCompanyName.trim();
@@ -362,6 +378,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         if (ht.length > BULLETIN_TITLE_MAX_CHARS) {
           return `Role must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`;
         }
+        if (!co) return "Add the company for this opening.";
         if (co.length > BULLETIN_TITLE_MAX_CHARS) {
           return `Company must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`;
         }
@@ -369,8 +386,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         if (headLine.length > BULLETIN_TITLE_MAX_CHARS) {
           return `Referral headline is too long (max ${BULLETIN_TITLE_MAX_CHARS} characters). Shorten the role or company.`;
         }
+        if (!bt) return "Add why you're a fit for this role.";
         if (bt.length > BULLETIN_DESCRIPTION_MAX_CHARS) {
-          return `About You must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
+          return `Your fit answer must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
         }
         const rr = referralResumeLink.trim();
         if (rr) {
@@ -379,7 +397,11 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         }
         const content = composedContent.trim();
         if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
-        return validateGeneralBulletinHeadlineDetails(content);
+        const generalErr = validateGeneralBulletinHeadlineDetails(content);
+        if (generalErr) {
+          return "Your fit answer, job link and resume link together are too long — shorten the fit answer.";
+        }
+        return null;
       }
       if (!headlineOk) return "Add a headline (at least 3 characters).";
       const ht = headline.trim();
@@ -400,6 +422,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       headline,
       headlineOk,
       referralCompanyName,
+      referralJobLink,
       referralResumeLink,
     ]);
 
@@ -477,10 +500,11 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
           : "Looking for advice on switching from IC to EM";
 
     const referralCompanyPlaceholder = "Razorpay";
+    const referralJobLinkPlaceholder = "https://company.com/jobs/…";
 
     const detailsPlaceholder =
       careersPreset === "referralSeeking"
-        ? "Location, stage, timing, and how an alum can help."
+        ? "The experience that makes you a fit for this role."
         : careersPreset === "canHelp"
           ? "Teams or roles you can support, geography, seniority, and how someone should reach out."
           : "What you’ve tried, what you need, and how alumni can respond.";
@@ -535,6 +559,21 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       </select>
                     </label>
                   )}
+                  {careersPreset === "referralSeeking" ? (
+                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                      <span>Job link *</span>
+                      <input
+                        className="input"
+                        type="url"
+                        inputMode="url"
+                        autoComplete="off"
+                        value={referralJobLink}
+                        onChange={(e) => setReferralJobLink(e.target.value)}
+                        placeholder={referralJobLinkPlaceholder}
+                        maxLength={2048}
+                      />
+                    </label>
+                  ) : null}
                   <label className="career-hiring-flow__field career-hiring-flow__field--wide">
                     <span>{careersPreset === "referralSeeking" ? "Role *" : "Headline *"}</span>
                     <input
@@ -549,7 +588,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                   </label>
                   {careersPreset === "referralSeeking" ? (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Company</span>
+                      <span>Company *</span>
                       <input
                         className="input"
                         value={referralCompanyName}
@@ -561,19 +600,29 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     </label>
                   ) : null}
                   <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                    <span>{careersPreset === "referralSeeking" ? "About You *" : "Details *"}</span>
+                    <span>{careersPreset === "referralSeeking" ? "Why are you a fit for this role? *" : "Details *"}</span>
                     <textarea
                       className="input input--textarea"
                       rows={4}
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       placeholder={detailsPlaceholder}
-                      maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
+                      maxLength={
+                        careersPreset === "referralSeeking"
+                          ? Math.max(
+                              0,
+                              BULLETIN_DESCRIPTION_MAX_CHARS -
+                                referralSeekingLinkLines(referralJobLink, referralResumeLink)
+                                  .join("\n\n").length -
+                                2
+                            )
+                          : BULLETIN_DESCRIPTION_MAX_CHARS
+                      }
                     />
                   </label>
                   {careersPreset === "referralSeeking" ? (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Resume Link</span>
+                      <span>Resume link (optional)</span>
                       <input
                         className="input"
                         type="url"
