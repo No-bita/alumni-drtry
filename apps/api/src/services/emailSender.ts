@@ -120,7 +120,11 @@ export class ResendEmailSender implements EmailSender {
 
   async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     const { subject, text, html } = buildAuthEmailContent(payload, this.options.brandName);
-    await this.sendEmail(payload.to, subject, text, html);
+    // Bounded wait, auth-specific: auth-start holds a per-email DB lock across the send,
+    // so a hanging provider must not stall same-email starts indefinitely. Other email
+    // types keep their existing unbounded behavior. On timeout this throws and auth
+    // start rolls the challenge back as a retryable AUTH_DELIVERY_FAILED.
+    await this.sendEmail(payload.to, subject, text, html, 10_000);
   }
 
   async sendContactRequestReceivedEmail(
@@ -203,8 +207,9 @@ export class ResendEmailSender implements EmailSender {
     await this.sendEmail(payload.to, subject, text, html);
   }
 
-  private async sendEmail(to: string, subject: string, text: string, html: string): Promise<void> {
+  private async sendEmail(to: string, subject: string, text: string, html: string, timeoutMs?: number): Promise<void> {
     const response = await fetch("https://api.resend.com/emails", {
+      ...(timeoutMs !== undefined ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.options.apiKey}`,
