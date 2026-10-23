@@ -10457,18 +10457,30 @@ button.career-referrals-v3__matching-pill--editable:active {
 .global-notifications-widget__panel {
   position: fixed;
   z-index: 1470;
-  top: calc(var(--nav-height) + 14px);
-  right: max(14px, env(safe-area-inset-right));
-  width: min(560px, calc(100vw - 24px));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-width: 640px;
+  margin: 0 auto;
   max-height: calc(100dvh - var(--nav-height) - 28px);
   overflow: auto;
   border: 1px solid rgba(26, 20, 15, 0.14);
-  border-radius: 16px;
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
   background: var(--surface);
-  box-shadow: 0 18px 40px rgba(20, 14, 10, 0.2);
-  padding: 14px;
+  box-shadow: 0 -12px 32px rgba(20, 14, 10, 0.22);
+  padding: 8px 14px calc(14px + env(safe-area-inset-bottom, 0px));
   display: grid;
   gap: 10px;
+}
+
+.global-notifications-widget__grab {
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(26, 20, 15, 0.18);
+  margin: 0 auto 2px;
 }
 
 .global-notifications-widget__head {
@@ -10516,6 +10528,29 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+}
+
+.notifications-page__toprow {
+  margin-bottom: var(--space-md);
+}
+
+.notifications-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(26, 20, 15, 0.14);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notifications-page__back:hover {
+  color: var(--ochre);
 }
 
 .notifications-page__heading {
@@ -20622,14 +20657,8 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   }
 
   .global-notifications-widget__panel {
-    top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + 8px);
-    right: var(--page-x);
-    left: var(--page-x);
-    width: auto;
-    max-width: none;
     max-height: calc(
-      100dvh - var(--nav-height) - var(--nav-bottom-dock-height) -
-        env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px
+      100dvh - var(--nav-height) - env(safe-area-inset-top, 0px) - 24px
     );
   }
 
