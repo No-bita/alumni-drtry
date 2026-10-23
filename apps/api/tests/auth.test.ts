@@ -296,4 +296,17 @@ describe("auth", () => {
     expect((e2.json() as { challengeId: string }).challengeId).not.toBe(expiredId);
     expect(sendAuthEmailSpy).toHaveBeenCalledTimes(4);
   });
+
+  it("mints a fresh challenge when the latest one is OTP-exhausted (requires DB)", async () => {
+    const email = `dedupe-exhausted-${Date.now()}@iitbhu.ac.in`;
+    const first = await startAuth(email);
+    expect(first.statusCode, first.body).toBe(200);
+    const { challengeId } = first.json() as { challengeId: string };
+    await db.query("UPDATE auth_challenges SET attempts = max_attempts WHERE id = $1", [challengeId]);
+    const second = await startAuth(email);
+    expect(second.statusCode, second.body).toBe(200);
+    expect((second.json() as { challengeId: string }).challengeId).not.toBe(challengeId);
+    expect(await challengeCount(email)).toBe(2);
+    expect(sendAuthEmailSpy).toHaveBeenCalledTimes(2);
+  });
 });
