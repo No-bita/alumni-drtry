@@ -262,7 +262,10 @@ export class IntentcastService {
       assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
       // Referral asks: the fit answer keeps its compose-time 500-char budget on edit too.
       if (existing.role_listing_url != null) {
-        const { details } = splitBulletinHeadlineAndDetails(nextContent);
+        // Content arrives with the UI marker prefix ([[cat:...]]); strip it so the
+        // marker and headline never count against the fit-answer budget.
+        const contentWithoutUiCategory = nextContent.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
+        const { details } = splitBulletinHeadlineAndDetails(contentWithoutUiCategory);
         if (details.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
           throw new AppError(
             400,
