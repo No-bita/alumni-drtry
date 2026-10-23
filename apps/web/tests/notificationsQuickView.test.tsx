@@ -83,7 +83,7 @@ function wrap(ui: React.ReactNode, initialPath = "/search") {
 describe("notification quick view (bottom sheet) activation", () => {
   it("opens the full inbox when any notification row is tapped", () => {
     wrap(<NotificationsList items={items} activationTarget="inbox" />);
-    fireEvent.click(screen.getByRole("button", { name: /replied to your bulletin post/ }));
+    fireEvent.click(screen.getByRole("button", { name: /bulletin reply from Mandeep Singh/ }));
     expect(screen.getByTestId("loc").textContent).toBe("/notifications");
   });
 
@@ -91,6 +91,17 @@ describe("notification quick view (bottom sheet) activation", () => {
     wrap(<NotificationsList items={items} activationTarget="inbox" />);
     fireEvent.click(screen.getByRole("button", { name: /connection request from Rohit Verma/ }));
     expect(screen.getByTestId("loc").textContent).toBe("/notifications");
+  });
+
+  it("every row including its timestamp sits inside the activation hit area", () => {
+    const { container } = wrap(<NotificationsList items={items} activationTarget="inbox" />);
+    const overlays = container.querySelectorAll(
+      "li.notifications-page__item--activatable > button.notifications-page__item-activate",
+    );
+    expect(overlays.length).toBe(3);
+    for (const overlay of overlays) {
+      expect(overlay.parentElement?.querySelector("time.notifications-page__item-time")).not.toBeNull();
+    }
   });
 
   it("quick view renders names as plain text, never profile links", () => {
@@ -118,7 +129,7 @@ describe("notification quick view (bottom sheet) activation", () => {
 
   it("full inbox keeps the per-kind destinations", () => {
     wrap(<NotificationsList items={items} />);
-    fireEvent.click(screen.getByRole("button", { name: /accepted your connection request/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Open profile of Sneha Gupta" }));
     expect(screen.getByTestId("loc").textContent).toBe("/profiles/p2");
   });
 });
