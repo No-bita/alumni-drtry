@@ -76,6 +76,7 @@ const envSchema = z.object({
   AUTH_START_MAX_PER_EMAIL_WINDOW: z.coerce.number().int().min(1).max(20).default(3),
   AUTH_START_MAX_PER_IP_WINDOW: z.coerce.number().int().min(1).max(200).default(20),
   AUTH_START_WINDOW_MINUTES: z.coerce.number().int().min(1).max(120).default(10),
+  AUTH_START_DUPLICATE_WINDOW_SECONDS: z.coerce.number().int().min(0).max(600).default(120),
   AUTH_SECRET_PEPPER: z.string().min(16),
   EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
   EMAIL_FROM: optionalEmailSchema,
