@@ -11,7 +11,7 @@ const openToOptionIdSchema = z.enum(OPEN_TO_OPTION_IDS);
 const openToPreferencesSchema = z
   .object({
     selected: z.array(openToOptionIdSchema).max(OPEN_TO_MAX_SELECTED),
-    descriptions: z.record(openToOptionIdSchema, z.string().max(500)).default({}),
+    descriptions: z.partialRecord(openToOptionIdSchema, z.string().max(500)).default({}),
   })
   .superRefine((value, ctx) => {
     const unique = new Set(value.selected);

@@ -1,16 +1,16 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 // import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 // Messaging paused (product decision): the entire messaging feature is commented out app-wide for now.
 // Restore this import together with the <GlobalMessagingWidget /> mount at the bottom.
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
+import { FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
   canAccessOnboardingFlow,
   canResumeOnboarding,
-  superAdminSkipsAlumniJourney,
 } from "./lib/onboardingEligibility";
 import { RouteNotice } from "./components/RouteNotice";
 import { FINISH_PROFILE_NOTICE, noticeState } from "./lib/routeNotices";
@@ -55,15 +55,11 @@ function RouteFallback() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  if (auth.status === "loading") {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        Loading…
-      </div>
-    );
-  }
-  if (auth.status === "unauthenticated") {
-    return <Navigate to="/login" replace />;
+  const location = useLocation();
+  const [beganWhileLoading] = useState(auth.status === "loading");
+  if (auth.status === "unauthenticated") return <Navigate to="/login" replace />;
+  if (beganWhileLoading && !(auth.status === "authenticated" && auth.myProfileError)) {
+    return <FoldToFlightGate sessionReady={auth.status === "authenticated"} locationKey={`${location.pathname}${location.search}`}>{children}</FoldToFlightGate>;
   }
   return <>{children}</>;
 }
@@ -74,6 +70,16 @@ type ProfileGateMode = "directory" | "home";
  * directory: requires completed profile; onboarding-eligible incomplete → /onboarding; returning incomplete → /home
  * home: onboarding-eligible incomplete → /onboarding; complete or returning incomplete → allow
  */
+function ProfileLoadError() {
+  return (
+    <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
+      <p className="body-text" style={{ color: "var(--ink-muted)" }}>
+        Couldn’t load your profile. Try refreshing.
+      </p>
+    </div>
+  );
+}
+
 function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: React.ReactNode }) {
   const auth = useAuth();
   const { id: routeProfileId } = useParams();
@@ -82,19 +88,8 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
     return null;
   }
 
-  const person = auth.person;
-  if (superAdminSkipsAlumniJourney(person)) {
-    return <>{children}</>;
-  }
-
   if (auth.myProfileError) {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-          Couldn’t load your profile. Try refreshing.
-        </p>
-      </div>
-    );
+    return <ProfileLoadError />;
   }
 
   const profile = auth.myProfile;
@@ -115,7 +110,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
   const viewingSomeoneElseProfile = Boolean(routeProfileId && routeProfileId !== profile.id);
   const directoryAllowedIncomplete = viewingOwnProfile || viewingSomeoneElseProfile;
 
-  if (canAccessOnboardingFlow(profile, person)) {
+  if (canAccessOnboardingFlow(profile)) {
     if (mode === "directory" && directoryAllowedIncomplete) {
       return <>{children}</>;
     }
@@ -133,7 +128,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
       return <>{children}</>;
     }
     /** Returning incomplete members used to be bounced to /home with no explanation; send them to finish instead. */
-    if (canResumeOnboarding(profile, person)) {
+    if (canResumeOnboarding(profile)) {
       return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
     }
     return <Navigate to="/home" replace />;
@@ -147,7 +142,8 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
   const { id: routeProfileId } = useParams();
 
   if (auth.status !== "authenticated") return null;
-  if (superAdminSkipsAlumniJourney(auth.person)) return <>{children}</>;
+
+  if (auth.myProfileError) return <ProfileLoadError />;
 
   const profile = auth.myProfile;
   if (!profile) {
@@ -191,10 +187,10 @@ function OwnProfileRedirect() {
     );
   }
 
-  if (superAdminSkipsAlumniJourney(auth.person) || profile.profileCompletedAt) {
+  if (profile.profileCompletedAt) {
     return <Navigate to={`/profiles/${profile.id}`} replace />;
   }
-  if (canResumeOnboarding(profile, auth.person)) {
+  if (canResumeOnboarding(profile)) {
     return <Navigate to="/onboarding" replace state={noticeState(FINISH_PROFILE_NOTICE)} />;
   }
   return <Navigate to="/home" replace />;

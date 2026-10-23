@@ -85,7 +85,30 @@ describe("approved referral compose form", () => {
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "mailto:user@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com/jobs/123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("rejects scheme-like input with a numeric tail that is not a host", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp:21/download" } });
+    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
+    fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
+    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("still accepts host:port input while rejecting scheme-prefixed non-web links", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com:8080/jobs/123" } });
+    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
+    fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
+    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.queryByRole("alert")).toBeNull();
   });

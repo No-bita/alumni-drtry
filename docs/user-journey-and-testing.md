@@ -15,7 +15,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 | **Profile completion**      | `profile.profileCompletedAt` is set (server marks completion when criteria are met).                                                                                                                                                                                                  |
 | **“New” user (onboarding)** | Incomplete profile **and** `profile.appLoginCount` **≤ 2** (incremented on each successful OTP/magic-link verify; `shouldUseOnboardingFlow`).                                                                                                                                         |
 | **“Returning” incomplete**  | Incomplete profile **and** `appLoginCount` **> 2** → **no** `/onboarding` funnel; directed to **`/home`**.                                                                                                                                                                            |
-| **Super admin**             | `person.role === "super_admin"`. **Production:** profile gate and onboarding redirects are **skipped** (fast path to `/home` / directory). **Development (`vite` / `import.meta.env.DEV`):** same journey as alumni (including `/onboarding` when incomplete) so flows can be tested. |
+| **Super admin**             | `person.role === "super_admin"`. Follows the same profile gate and onboarding journey as alumni, in every build. |
 
 
 ---
@@ -40,7 +40,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
   - **Magic link** → `**/auth/verify?challengeId=…&magicLinkToken=…`** → `**GET /v1/auth/verify`**
 3. Client calls `**refetch()**` (session), then `**GET /v1/me**` and `**GET /v1/me/profile**` to decide where to go next.
 
-**Post-auth routing (alumni, not super admin):**
+**Post-auth routing (all roles, including super admin):**
 
 
 | Condition                                                                   | Destination   |
@@ -51,7 +51,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 | Incomplete **and** **not** onboarding-eligible (`appLoginCount` > 2)        | `/home`       |
 
 
-**Super admin (production build):** after login → `**/home`** (profile checks skipped). **Super admin (local dev):** same routing table as alumni above; incomplete dev super admins may also use `**/onboarding`** (including accounts past the onboarding login cap).
+**Super admin:** same routing table as alumni above.
 
 ---
 
@@ -70,7 +70,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 ### 2.4 Returning incomplete user
 
 1. After login or landing redirect: `**/home`** (not `/onboarding`).
-2. `**/search`** and `**/profiles/:id**`: `**ProfileGate` `mode="directory"**` sends them to `**/home**` if the profile is incomplete (and they are not super admin).
+2. `**/search`** and `**/profiles/:id**`: `**ProfileGate` `mode="directory"**` lets them view any profile (own or others) and sends them to **`/onboarding`** from other directory pages such as `/search` while their profile is incomplete.
 3. They still see **home** affordances (e.g. profile strength, prompts) per `Home.tsx`.
 
 **Intent:** Re-engagement on home, not the “first-time” wizard.
@@ -91,12 +91,12 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 
 | Path                       | Auth     | Profile / rules                                                                                                                                            |
 | -------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Optional | Signed-in users redirected to `/home` or `/onboarding` / `/home` per profile (super admin → `/home`).                                                      |
+| `/`                        | Optional | Redirects everyone to `/login`. |
 | `/login`                   | No       | Completes session then redirects like post-auth table above.                                                                                               |
 | `/auth/verify`             | No*      | *Session established during verify; then same redirect logic as login.                                                                                     |
-| `/home`                    | Required | **ProfileGate `home`:** complete **or** returning incomplete **or** super admin → render; **onboarding-eligible** incomplete → redirect `/onboarding`.     |
+| `/home`                    | Required | **ProfileGate `home`:** complete **or** returning incomplete → render; **onboarding-eligible** incomplete → redirect `/onboarding`.     |
 | `/onboarding`              | Required | Internal gate: only “onboarding-eligible” incomplete users stay; else → `/home`.                                                                           |
-| `/search`, `/profiles/:id` | Required | **ProfileGate `directory`:** complete **or** super admin → render; **onboarding-eligible** incomplete → `/onboarding`; **returning** incomplete → `/home`. |
+| `/search`, `/profiles/:id` | Required | **ProfileGate `directory`:** complete → render; incomplete → any profile page renders, other directory pages (`/search`) → `/onboarding`. Own profile while onboarding is unfinished → `/onboarding`. |
 | `*`                        | —        | **Navigate to `/home*`* (then auth/profile as above).                                                                                                      |
 
 
@@ -113,23 +113,18 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 - Rate limit on `/v1/auth/start` → user sees message and retry hint (`AUTH_RATE_LIMITED`).
 - Sign out from Nav → session cleared; access to `/home` redirects to `/login`.
 
-### 4.2 Landing (`/`)
+### 4.2 Root (`/`)
 
-- Anonymous → marketing + Sign in.
-- Authenticated super admin → redirect `/home`.
-- Authenticated + profile load error → error UI with refresh/sign-in options (see `Landing.tsx`).
-- Authenticated + complete profile → `/home`.
-- Authenticated + incomplete + `appLoginCount` ≤ 2 → `/onboarding`.
-- Authenticated + incomplete + returning → `/home`.
+- Everyone, signed in or not → `/login` (`Landing.tsx` exists but is not routed). Signed-in users are routed after login or verify per the post-auth table.
 
 ### 4.3 Profile gate
 
 - **Directory:** incomplete **new** user navigates to `/search` → redirected to `/onboarding`.
-- **Directory:** incomplete **returning** user → redirected to `/home`.
+- **Directory:** incomplete **returning** user on `/search` → redirected to `/onboarding` (they may resume); viewing a profile page is allowed.
 - **Directory:** complete user → `Search` renders.
 - **Home:** incomplete **new** user → redirected to `/onboarding`.
 - **Home:** incomplete **returning** user → `Home` renders.
-- **Super admin** with incomplete/missing profile → `Home` / `Search` / `Profile` render without redirect to onboarding.
+- **Super admin** follows the same gate as alumni: failed or missing profile → “Couldn’t load your profile”; incomplete → same redirects as alumni.
 - Profile fetch fails in gate → “Couldn’t load your profile” with recovery path.
 
 ### 4.4 Onboarding
@@ -162,7 +157,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 | **Missing `appLoginCount`**   | Stale API/client omits field                                          | Treated as **ineligible** for onboarding (`shouldUseOnboardingFlow` → false if incomplete).                               |
 | **Profile missing**           | `GET /v1/me/profile` returns no profile after auth                    | Login/AuthVerify send user to `**/home`**; ensure home degrades gracefully.                                               |
 | **Race**                      | Auth still `loading` while onboarding step 0 expects `welcomeProfile` | Fallback UI (campus panel) if authenticated state not ready; brief loading if auth slow.                                  |
-| **Super admin**               | Not intended for alumni UX                                            | Skips all completion gates; verify admin accounts only where appropriate.                                                 |
+| **Super admin**               | Not intended for alumni UX                                            | Follows the same profile gates and onboarding as alumni; no completion-gate shortcut.      |
 | **Deep link `*` → `/home`**   | Unauthenticated bookmark to unknown path                              | Ends on `/login`, not marketing `/`.                                                                                      |
 | **Concurrent sessions**       | Logout in one tab                                                     | Other tabs may show stale UI until refresh.                                                                               |
 | **API errors mid-onboarding** | PATCH fails                                                           | Step-level error messages; user may retry; partial saves possible per step design.                                        |

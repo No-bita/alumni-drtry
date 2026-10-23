@@ -9,7 +9,7 @@ import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import { warmUpApi } from "../lib/apiWarmup";
-import { canAccessOnboardingFlow, superAdminSkipsAlumniJourney } from "../lib/onboardingEligibility";
+import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
 
 type LoginPhase = "form" | "sending" | "timeout" | "sent";
@@ -231,10 +231,6 @@ export function Login() {
         navigate("/search", { replace: true });
         return;
       }
-      if (superAdminSkipsAlumniJourney(person)) {
-        navigate("/home", { replace: true });
-        return;
-      }
       if (!p) {
         navigate("/home", { replace: true });
         return;
@@ -243,7 +239,7 @@ export function Login() {
         navigate("/home", { replace: true });
         return;
       }
-      navigate(canAccessOnboardingFlow(p, person) ? "/onboarding" : "/home", { replace: true });
+      navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });
     },
     [navigate, refetch]
   );

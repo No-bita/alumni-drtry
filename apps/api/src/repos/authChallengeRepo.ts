@@ -54,6 +54,27 @@ export class AuthChallengeRepo {
     return result.rows[0]!;
   }
 
+  /**
+   * Latest still-usable challenge for an email: unconsumed and unexpired (the OTP
+   * lifetime is the tighter bound). Used to recognise a rapid repeat start as the
+   * same sign-in attempt instead of minting - and emailing - a new challenge.
+   */
+  async findLatestActiveByEmail(institutionalEmail: string): Promise<AuthChallengeRow | null> {
+    const result = await this.db.query<AuthChallengeRow>(
+      `
+      SELECT * FROM auth_challenges
+      WHERE institutional_email = $1
+        AND consumed_at IS NULL
+        AND otp_expires_at > now()
+        AND attempts < max_attempts
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [institutionalEmail]
+    );
+    return result.rows[0] ?? null;
+  }
+
   async findByIdForUpdate(challengeId: string): Promise<AuthChallengeRow | null> {
     const result = await this.db.query<AuthChallengeRow>(
       `SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE`,

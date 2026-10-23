@@ -82,6 +82,20 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   }
 }
 
+function IconYou({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5 19.5c1-3.3 3.8-5 7-5s6 1.7 7 5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function IconAnalytics({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -123,6 +137,8 @@ type NavProps = {
   hideIntentNav?: boolean;
   /** Sidebar shell: omit toolbar bottom rule (e.g. Careers page). */
   appToolbarNoBorder?: boolean;
+  /** Hide the toolbar notifications bell on this page (e.g. Cities). The bell stays on other pages. */
+  hideNotificationsBell?: boolean;
 };
 
 type NavUserMenuProps = {
@@ -170,7 +186,10 @@ function NavUserMenu({
   }, []);
 
   return (
-    <details ref={menuRef} className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}`}>
+    <details
+      ref={menuRef}
+      className={`nav__user-menu${isHome ? " nav__user-menu--home" : ""}${profileId ? " nav__user-menu--dock-replaced" : ""}`}
+    >
       <summary className="nav__user-menu-summary">
         <span className="nav__user-menu-summary-inner">
           <Avatar name={name} size="sm" tone={isHome ? "pastel" : "default"} />
@@ -222,6 +241,7 @@ export function Nav({
   avatarName,
   hideIntentNav = false,
   appToolbarNoBorder = false,
+  hideNotificationsBell = false,
 }: NavProps) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -264,6 +284,9 @@ export function Nav({
   const analyticsActive = myProfileId != null &&
     location.pathname === `/profiles/${myProfileId}` &&
     location.hash === "#admin-analytics";
+  const youActive = myProfileId != null &&
+    location.pathname === `/profiles/${myProfileId}` &&
+    location.hash !== "#admin-analytics";
 
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 
@@ -292,21 +315,23 @@ export function Nav({
   const toolbarActionsAuthenticated =
     auth.status === "authenticated" && !hideSignOut ? (
       <>
-        <button
-          type="button"
-          className={`nav__notif-link${notificationCount > 0 ? " nav__notif-link--active" : ""}`}
-          aria-label={
-            notificationCount > 0
-              ? `Notifications, ${formatNotificationBadgeCount(notificationCount)} unread`
-              : "Notifications"
-          }
-          onClick={() => openNotificationsPanel()}
-        >
-          <IconBell className="nav__notif-icon" />
-          {notificationCount > 0 ? (
-            <span className="nav__count-badge nav__count-badge--nav">{formatNotificationBadgeCount(notificationCount)}</span>
-          ) : null}
-        </button>
+        {hideNotificationsBell ? null : (
+          <button
+            type="button"
+            className={`nav__notif-link${notificationCount > 0 ? " nav__notif-link--active" : ""}`}
+            aria-label={
+              notificationCount > 0
+                ? `Notifications, ${formatNotificationBadgeCount(notificationCount)} unread`
+                : "Notifications"
+            }
+            onClick={() => openNotificationsPanel()}
+          >
+            <IconBell className="nav__notif-icon" />
+            {notificationCount > 0 ? (
+              <span className="nav__count-badge nav__count-badge--nav">{formatNotificationBadgeCount(notificationCount)}</span>
+            ) : null}
+          </button>
+        )}
         <NavUserMenu
           name={resolvedAvatarName}
           variant={navUserMenuVariant}
@@ -314,7 +339,7 @@ export function Nav({
           onboardingCompleted={onboardingCompleted}
           canResumeOnboarding={
             auth.status === "authenticated" && auth.myProfile
-              ? canResumeOnboarding(auth.myProfile, auth.person)
+              ? canResumeOnboarding(auth.myProfile)
               : false
           }
           onSignOut={handleSignOut}
@@ -493,6 +518,18 @@ export function Nav({
                 </Link>
               </li>
             ) : null}
+            <li className="nav-bottom-dock__item">
+              {myProfileId ? (
+                <Link
+                  to={`/profiles/${myProfileId}`}
+                  className={`nav-bottom-dock__link${youActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
+                  aria-current={youActive ? "page" : undefined}
+                >
+                  <IconYou className="nav-bottom-dock__icon" />
+                  <span className="nav-bottom-dock__label">You</span>
+                </Link>
+              ) : null}
+            </li>
           </ul>
         </nav>
       </>

@@ -1,5 +1,4 @@
 import {
-  type CSSProperties,
   type FormEvent,
   useEffect,
   useLayoutEffect,
@@ -19,7 +18,6 @@ import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constant
 import {
   type ResidenceCitiesResponse,
   type ResidenceCityAggregate,
-  type SearchResult,
 } from "../api/client";
 import { RESIDENCE_CITIES_AGGREGATE_LIMIT } from "../constants/directorySearch";
 import { assertApiGet } from "../lib/assertApiGet";
@@ -52,10 +50,6 @@ const HIGHLIGHT_NAV_SEARCH_QUERY = "highlightNavSearch";
 /** Empty feed on the location hub — same message for every city so the page feels consistent while content is sparse. */
 const LOCATION_PAGE_EMPTY_POSTS_COPY =
   "No posts to show yet—this hub is quiet across cities for now. Switch city above or add a request or event below.";
-
-/** City-only slug hubs (opened via @)—directory search skips country; explain instead of implying zero alumni forever. */
-const LOCATION_UNKNOWN_REGION_PEOPLE_COPY =
-  "We're not querying directory residency without a mapped region yet—browse Search to find alumni, or add a request for this hub.";
 
 /**
  * Prefer merge list from `/v1/directory/residence-cities` so any surfaced city slug (e.g. Pune) resolves.
@@ -131,21 +125,6 @@ function dedupeMergedResidenceCities(rows: ResidenceCityAggregate[]): ResidenceC
   }
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
-
-/** Fewer pills = wider tiles; strip width still matches quick-action row below. */
-const POPULAR_STRIP_TARGET_COUNT = 6;
-
-/** First N cities from the static catalog — same pills for every viewing city; selection only affects highlight + page content via URL. */
-function buildPopularCityStripRows(target: number): ResidenceCityAggregate[] {
-  const out: ResidenceCityAggregate[] = [];
-  for (const pick of LOCATION_LENS_TOP_CITIES_FALLBACK) {
-    out.push(canonicalResidenceCityRow({ city: pick.city, country: pick.country, count: 0 }));
-    if (out.length >= target) break;
-  }
-  return out;
-}
-
-const POPULAR_STRIP_ROWS = buildPopularCityStripRows(POPULAR_STRIP_TARGET_COUNT);
 
 /** Explore grid order: canonical fallback list first, then any API-only cities alphabetically — counts come from API when present. */
 function exploreCitiesStableCatalog(apiRowsRaw: ResidenceCityAggregate[]): ResidenceCityAggregate[] {
@@ -298,14 +277,46 @@ export function LocationPage() {
   if (selected.city !== resolvedPick.city || selected.country !== resolvedPick.country) {
     setSelected(resolvedPick);
   }
-  const cityStripCols = Math.max(1, POPULAR_STRIP_ROWS.length);
-
-  const cityStripGridStyle = {
-    "--city-strip-cols": cityStripCols,
-  } as CSSProperties;
 
   const [activeNeed, setActiveNeed] = useState<CityNeedItem["type"] | "all">("all");
   const [activeExploreRegion, setActiveExploreRegion] = useState<ExploreRegion>("all");
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
+  const cityPickerSheetRef = useRef<HTMLDivElement | null>(null);
+  const cityPickerReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!cityPickerOpen) return undefined;
+    const sheet = cityPickerSheetRef.current;
+    cityPickerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    sheet?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCityPickerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !sheet) return;
+      const focusable = Array.from(
+        sheet.querySelectorAll<HTMLElement>("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || active === sheet)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      cityPickerReturnFocusRef.current?.focus();
+    };
+  }, [cityPickerOpen]);
   // Drafts stay in this browser (localStorage), kept per signed-in person so a shared device does not mix them.
   const draftOwner = auth.status === "authenticated" ? auth.person.personId : "guest";
   const [draftsOwner, setDraftsOwner] = useState(draftOwner);
@@ -367,34 +378,6 @@ export function LocationPage() {
     () => [...createdEvents, ...CITY_EVENTS].filter((item) => matchCityItem(item, selected.city, selected.country)).slice(0, 2),
     [selected, createdEvents]
   );
-  const residenceHubHasCountry = selected.country.trim().length > 0;
-
-  const peopleQuery = useQuery({
-    queryKey: ["cities", "people", selected.city, selected.country],
-    queryFn: ({ signal }) => {
-      const params = new URLSearchParams({
-        residenceCity: selected.city,
-        residenceCountry: selected.country,
-        requireResidence: "true",
-        limit: "24",
-      });
-      return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
-    },
-    enabled: auth.status === "authenticated" && residenceHubHasCountry,
-  });
-  const people = peopleQuery.data?.results ?? [];
-  const peopleLoading = peopleQuery.isLoading;
-  const peopleUpdating = peopleQuery.isFetching && !peopleQuery.isLoading;
-  const peopleError =
-    peopleQuery.error instanceof Error
-      ? peopleQuery.error.message
-      : peopleQuery.error
-        ? String(peopleQuery.error)
-        : null;
-
-  const visiblePeople = people.slice(0, 5);
-  const extraPeople = Math.max(0, people.length - visiblePeople.length);
-
   /** Match Active requests panel height to the right column stack on desktop so the hub row stays fixed and the list scrolls. */
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -432,7 +415,7 @@ export function LocationPage() {
       mq.removeEventListener("change", applyRequestsCapFromSideStack);
       panel.style.removeProperty("--location-requests-cap");
     };
-  }, [people.length, peopleLoading, cityEvents.length]);
+  }, [cityEvents.length]);
 
   const displayName =
     auth.status === "authenticated"
@@ -676,48 +659,32 @@ export function LocationPage() {
     <div className="intent-page-shell">
       <Nav
         variant="home"
+        hideNotificationsBell
         avatarName={displayName}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
             <h1 id="location-toolbar-title" className="nav-app-toolbar__welcome-title nav-app-toolbar__welcome-title--location-page">
-              {cityLabel(selected.city, selected.country)}
+              <button
+                type="button"
+                className="cities-switcher__trigger"
+                aria-haspopup="dialog"
+                aria-expanded={cityPickerOpen}
+                aria-label={`${cityLabel(selected.city, selected.country)}. Change city`}
+                onClick={() => {
+                  clearAutoOpenRequestTimer();
+                  setCityPickerOpen(true);
+                }}
+              >
+                <span className="cities-switcher__trigger-label">{selected.city}</span>
+                <span className="cities-switcher__trigger-chevron" aria-hidden>
+                  &#9662;
+                </span>
+              </button>
             </h1>
           </div>
         }
       />
       <main className="cities-v2 cities-redesign">
-        <section className="cities-v2__popular ds-surface-card" aria-label="Popular cities">
-          <>
-            <ul className="cities-v2__popular-strip cities-v2__popular-strip--fill" style={cityStripGridStyle}>
-              {POPULAR_STRIP_ROWS.map((row) => {
-                const picked = selected.city === row.city && selected.country === row.country;
-                return (
-                  <li key={`${row.city}-${row.country}-popular`} className="cities-v2__popular-strip-cell">
-                    <button
-                      type="button"
-                      aria-pressed={picked}
-                      aria-label={cityLabel(row.city, row.country)}
-                      className={`cities-v2__city-pick${picked ? " cities-v2__city-pick--selected" : ""}`}
-                      onClick={() => {
-                        selectCity({ city: row.city, country: row.country });
-                        setActiveNeed("all");
-                      }}
-                    >
-                      <span className="cities-v2__city-pick-icon" aria-hidden>
-                        <IconMapPin />
-                      </span>
-                      <span className="cities-v2__city-pick-city">{row.city}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {topCitiesLoading ? <p className="cities-redesign__state">Loading city stats…</p> : null}
-            {topCitiesError ? <p className="cities-redesign__state cities-redesign__state--error">{topCitiesError}</p> : null}
-            {topCitiesUpdating ? <p className="cities-redesign__updating">Updating city stats…</p> : null}
-          </>
-        </section>
-
         <section className="cities-redesign__quick">
           <h2 className="cities-redesign__section-title">What do you want to do?</h2>
           <div className="cities-redesign__quick-grid">
@@ -910,63 +877,6 @@ export function LocationPage() {
               </article>
             ) : null}
 
-            <article className="cities-redesign__panel">
-              <header className="cities-redesign__panel-head">
-                <h3>People in {selected.city}</h3>
-              </header>
-              <div className="cities-redesign__people-feed">
-                {!selected.country.trim() ? (
-                  <p className="cities-redesign__state cities-redesign__state--feed-empty" role="status">
-                    {LOCATION_UNKNOWN_REGION_PEOPLE_COPY}
-                  </p>
-                ) : peopleLoading ? (
-                  <p className="cities-redesign__state" role="status">
-                    Loading people…
-                  </p>
-                ) : peopleError ? (
-                  <p className="cities-redesign__state cities-redesign__state--error" role="alert">
-                    {peopleError}
-                  </p>
-                ) : visiblePeople.length === 0 ? (
-                  <p className="cities-redesign__state" role="status">
-                    No alumni found for this city yet.
-                  </p>
-                ) : (
-                  <div className="cities-redesign__people-feed-inner">
-                    <div className="cities-redesign__people-feed-scroll">
-                      <div className="cities-redesign__people-card-grid">
-                        {visiblePeople.map((person) => {
-                          const rawPersonName = (person.fullName ?? "").trim();
-                          const personDisplay = (person.fullName ?? "").trim() || rawPersonName;
-                          const firstToken = personDisplay.split(/\s+/)[0] ?? personDisplay;
-                          return (
-                            <Link
-                              key={person.id}
-                              to={`/profiles/${person.id}`}
-                              className="cities-redesign__person-card"
-                            >
-                              <Avatar name={personDisplay} size="md" tone="pastel" />
-                              <span className="cities-redesign__person-card-name">{firstToken}</span>
-                            </Link>
-                          );
-                        })}
-                        {extraPeople > 0 ? (
-                          <span className="cities-redesign__person-card cities-redesign__person-card--extra" aria-label={`${extraPeople} more alumni in this city`}>
-                            +{extraPeople}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    {peopleUpdating ? (
-                      <p className="cities-redesign__updating cities-redesign__people-feed-footer" role="status">
-                        Updating people…
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            </article>
-
             <article ref={composerPanelRef} className="cities-redesign__panel cities-redesign__composer-card">
               <header className="cities-redesign__panel-head">
                 <h3>Create in {selected.city}</h3>
@@ -998,45 +908,70 @@ export function LocationPage() {
         </section>
         {composerNotice ? <p className="cities-redesign__composer-notice">{composerNotice}</p> : null}
 
-        <section className="cities-v2__explore ds-surface-card">
-          <header className="cities-v2__row-head">
-            <h3>Explore all cities</h3>
-          </header>
-          <div className="cities-v2__explore-tabs" role="tablist" aria-label="Explore cities by region">
-            {EXPLORE_REGION_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={`cities-v2__explore-tab${activeExploreRegion === tab.id ? " is-active" : ""}`}
-                onClick={() => setActiveExploreRegion(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {cityPickerOpen ? (
+          <div
+            className="cities-switcher__backdrop"
+            onClick={() => setCityPickerOpen(false)}
+          >
+            <div
+              ref={cityPickerSheetRef}
+              tabIndex={-1}
+              className="cities-switcher__sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Pick a city"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="cities-switcher__head">
+                <h3>Pick a city</h3>
+                <button type="button" className="cities-switcher__close" onClick={() => setCityPickerOpen(false)}>
+                  Close
+                </button>
+              </header>
+              <div className="cities-v2__explore-tabs" role="tablist" aria-label="Explore cities by region">
+                {EXPLORE_REGION_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`cities-v2__explore-tab${activeExploreRegion === tab.id ? " is-active" : ""}`}
+                    onClick={() => setActiveExploreRegion(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {topCitiesLoading ? <p className="cities-redesign__state">Loading city stats…</p> : null}
+              {topCitiesError ? <p className="cities-redesign__state cities-redesign__state--error">{topCitiesError}</p> : null}
+              {topCitiesUpdating ? <p className="cities-redesign__updating">Updating city stats…</p> : null}
+              <div className="cities-switcher__list">
+                {exploreStableCatalogRows
+                  .filter((row) => activeExploreRegion === "all" || regionForCountry(row.country) === activeExploreRegion)
+                  .map((row) => {
+                    const picked = selected.city === row.city && selected.country === row.country;
+                    return (
+                      <button
+                        key={`${row.city}-${row.country}-explore`}
+                        type="button"
+                        aria-pressed={picked}
+                        className={`cities-switcher__item${picked ? " is-selected" : ""}`}
+                        onClick={() => {
+                          selectCity({ city: row.city, country: row.country });
+                          setActiveNeed("all");
+                          setCityPickerOpen(false);
+                        }}
+                      >
+                        <span className="cities-v2__explore-item-label">
+                          <span aria-hidden>{flagForCountry(row.country)}</span>
+                          <span>{cityLabel(row.city, row.country)}</span>
+                        </span>
+                        <span className="cities-v2__explore-item-count">{picked ? "Current" : `${row.count} active`}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
-          <div className="cities-v2__explore-grid">
-            {exploreStableCatalogRows
-              .filter((row) => activeExploreRegion === "all" || regionForCountry(row.country) === activeExploreRegion)
-              .slice(0, 12)
-              .map((row) => (
-              <button
-                key={`${row.city}-${row.country}-explore`}
-                type="button"
-                className="cities-v2__explore-item"
-                onClick={() => {
-                  selectCity({ city: row.city, country: row.country });
-                  setActiveNeed("all");
-                }}
-              >
-                <span className="cities-v2__explore-item-label">
-                  <span aria-hidden>{flagForCountry(row.country)}</span>
-                  <span>{cityLabel(row.city, row.country)}</span>
-                </span>
-                <span className="cities-v2__explore-item-count">{row.count} active</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        ) : null}
 
         {composerMode ? (
           <div className="cities-redesign__composer-overlay" role="presentation" onClick={closeComposer}>
