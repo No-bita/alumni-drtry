@@ -170,7 +170,9 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       }
       if (
         parsed.data.content === undefined &&
-        parsed.data.category === undefined
+        parsed.data.category === undefined &&
+        parsed.data.roleListingUrl === undefined &&
+        parsed.data.resumeListingUrl === undefined
       ) {
         throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Nothing to update.");
       }
