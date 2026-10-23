@@ -27,7 +27,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
-    "@fastify/multipart": "^9.4.0",
+    "@fastify/multipart": "^10.1.6",
     "@sentry/node": "^11.9.0",
     "dotenv": "^16.4.5",
     "fastify": "^5.12.5",
