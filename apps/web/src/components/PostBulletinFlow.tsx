@@ -31,21 +31,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
+import { tryNormalizeListingUrl } from "../lib/listingUrl";
 
-/** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines. */
+/** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines.
+ *  Delegates to the shared normalizer so the composer can never drift from the API check. */
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
-  const t = raw.trim();
-  if (!t) return null;
-  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(t);
-  if (scheme && !/^https?$/i.test(scheme[1])) return null;
-  const candidate = /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  try {
-    const u = new URL(candidate);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.href;
-  } catch {
-    return null;
-  }
+  return tryNormalizeListingUrl(raw);
 }
 
 export type PostBulletinFlowProps = {
