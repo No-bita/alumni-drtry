@@ -10637,7 +10637,7 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: inherit;
 }
 
-.notifications-page__item-main--activatable {
+.notifications-page__item--activatable {
   position: relative;
 }
 
@@ -10651,13 +10651,13 @@ button.career-referrals-v3__matching-pill--editable:active {
   cursor: pointer;
 }
 
-.notifications-page__item-activate:hover ~ .notifications-page__item-title,
-.notifications-page__item-activate:focus-visible ~ .notifications-page__item-title {
+.notifications-page__item--activatable:has(> .notifications-page__item-activate:hover) .notifications-page__item-title,
+.notifications-page__item--activatable:has(> .notifications-page__item-activate:focus-visible) .notifications-page__item-title {
   color: var(--ochre);
 }
 
-.notifications-page__item-main--activatable a.notifications-page__item-name,
-.notifications-page__item-main--activatable .notifications-page__item-actions {
+.notifications-page__item--activatable a.notifications-page__item-name,
+.notifications-page__item--activatable .notifications-page__item-actions {
   position: relative;
   z-index: 1;
 }
