@@ -25,6 +25,10 @@ function makeService(repoBehavior: { updateReturnsNull?: boolean } = {}) {
     expireOpenIntentcasts: async () => 0,
     purgeAuthorSoftDeletedIntentcasts: async () => 0,
     findById: async () => EXISTING,
+    create: async (input: Record<string, unknown>) => {
+      calls.createInput = input;
+      return { id: "ic-1" };
+    },
     updateWithinEditWindow: async (input: Record<string, unknown>) => {
       calls.updateInput = input;
       return repoBehavior.updateReturnsNull ? null : { id: "ic-1" };
@@ -32,10 +36,64 @@ function makeService(repoBehavior: { updateReturnsNull?: boolean } = {}) {
     findFeedItemById: async () => ({ id: "ic-1" })
   };
   (service as unknown as { intentcastRepo: unknown }).intentcastRepo = fakeRepo;
-  return { service, calls };
+  return { service, calls: calls as { updateInput?: Record<string, unknown>; createInput?: Record<string, unknown> } };
 }
 
+describe("createIntentcast referral fit answer limit", () => {
+  it("rejects a fit answer over 500 chars on create for referral posts with role link", async () => {
+    const { service } = makeService();
+    const content = `Seeking referral: Software Engineer at Acme\n${"x".repeat(501)}`;
+    await expect(
+      service.createIntentcast("person-1", {
+        category: "mentorship",
+        content,
+        roleListingUrl: "https://example.com/jobs/1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INTENTCAST_REFERRAL_FIT_TOO_LONG"
+    });
+  });
+
+  it("rejects a fit answer over 500 chars on create for resume-only referral posts", async () => {
+    const { service } = makeService();
+    const content = `Seeking referral: Software Engineer at Acme\n${"x".repeat(501)}`;
+    await expect(
+      service.createIntentcast("person-1", {
+        category: "mentorship",
+        content,
+        resumeListingUrl: "https://example.com/resume.pdf"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INTENTCAST_REFERRAL_FIT_TOO_LONG"
+    });
+  });
+
+  it("accepts a fit answer within 500 chars on create for referral posts", async () => {
+    const { service, calls } = makeService();
+    const content = `Seeking referral: Software Engineer at Acme\n${FIT_500}`;
+    await service.createIntentcast("person-1", {
+      category: "mentorship",
+      content,
+      roleListingUrl: "https://example.com/jobs/1"
+    });
+    expect(calls.createInput?.content).toBe(content);
+  });
+});
+
 describe("updateIntentcast structured listing URLs", () => {
+  it("rejects a fit answer over 500 chars on edit for resume-only referral posts", async () => {
+    const { service, calls } = makeService();
+    (service as unknown as { intentcastRepo: { findById: () => Promise<unknown> } }).intentcastRepo.findById =
+      async () => ({ ...EXISTING, role_listing_url: null, resume_listing_url: "https://example.com/resume.pdf" });
+    const content = `Seeking referral: Software Engineer at Acme\n${"x".repeat(501)}`;
+    await expect(service.updateIntentcast("person-1", "ic-1", { content })).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INTENTCAST_REFERRAL_FIT_TOO_LONG"
+    });
+    expect(calls.updateInput).toBeUndefined();
+  });
   it("passes a normalized role link value through to the repo", async () => {
     const { service, calls } = makeService();
     await service.updateIntentcast("person-1", "ic-1", {

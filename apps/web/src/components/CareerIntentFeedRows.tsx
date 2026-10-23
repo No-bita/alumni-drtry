@@ -49,9 +49,9 @@ export type CareerFeedRowModel = {
   authorRoleLine: string | null;
   postedRelative: string | null;
   postedAtIso: string | undefined;
-  /** Listing URL from structured referral composer (`Role link:` line). */
+  /** Listing URL from structured referral composer (dedicated column). */
   roleListingUrl: string | null;
-  /** Resume URL from structured referral composer (`Resume link:` line). */
+  /** Resume URL from structured referral composer (dedicated column). */
   resumeListingUrl: string | null;
 };
 

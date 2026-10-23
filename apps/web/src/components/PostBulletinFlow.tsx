@@ -4,6 +4,7 @@ import { api, type IntentcastFeedItem } from "../api/client";
 import {
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_TITLE_MAX_CHARS,
+  REFERRAL_FIT_ANSWER_MAX_CHARS,
 } from "../constants/bulletin";
 import type {
   BulletinGeneralCategory,
@@ -33,7 +34,7 @@ import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 import { tryNormalizeListingUrl } from "../lib/listingUrl";
 
-/** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines.
+/** Accepts absolute http(s) URLs or host/path — normalized for structured listing URL columns.
  *  Delegates to the shared normalizer so the composer can never drift from the API check. */
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
   return tryNormalizeListingUrl(raw);
@@ -324,8 +325,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
           return `Referral headline is too long (max ${BULLETIN_TITLE_MAX_CHARS} characters). Shorten the role or company.`;
         }
         if (!bt) return "Add why you're a fit for this role.";
-        if (bt.length > BULLETIN_DESCRIPTION_MAX_CHARS) {
-          return `Your fit answer must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
+        if (bt.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+          return `Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`;
         }
         const rr = referralResumeLink.trim();
         if (rr) {
@@ -556,7 +557,11 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       placeholder={detailsPlaceholder}
-                      maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
+                      maxLength={
+                        careersPreset === "referralSeeking"
+                          ? REFERRAL_FIT_ANSWER_MAX_CHARS
+                          : BULLETIN_DESCRIPTION_MAX_CHARS
+                      }
                     />
                   </label>
                   {careersPreset === "referralSeeking" ? (

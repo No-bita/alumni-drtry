@@ -28,6 +28,7 @@ import {
   BULLETIN_AUTHOR_DELETE_UNDO_MINUTES,
   BULLETIN_POST_MAX_LENGTH,
   BULLETIN_REPLY_MAX_LENGTH,
+  REFERRAL_FIT_ANSWER_MAX_CHARS,
 } from "../constants/bulletin";
 import {
   parseHiringBulletin,
@@ -1026,18 +1027,35 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
           return;
         }
       }
+      const isReferral = existing.roleListingUrl != null || existing.resumeListingUrl != null;
+      if (isReferral) {
+        const { summary } = splitBulletinPostBody(content);
+        if (summary != null && summary.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+          setEditError(`Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`);
+          return;
+        }
+      }
       // Referral asks store the job/resume links in structured columns; keep them editable too.
-      let linkFields: { roleListingUrl?: string; resumeListingUrl?: string | null } = {};
-      if (existing.roleListingUrl != null) {
-        const roleLink = tryNormalizeListingUrl(editRoleLink);
-        if (!roleLink) {
+      let linkFields: { roleListingUrl?: string | null; resumeListingUrl?: string | null } = {};
+      if (isReferral) {
+        let roleLink: string | null = null;
+        if (editRoleLink.trim()) {
+          roleLink = tryNormalizeListingUrl(editRoleLink);
+          if (!roleLink) {
+            setEditError("Add a valid job link (e.g. https://boards.greenhouse.io/acme/jobs/12345).");
+            return;
+          }
+        } else if (existing.roleListingUrl != null) {
           setEditError("Add a valid job link (e.g. https://boards.greenhouse.io/acme/jobs/12345).");
           return;
         }
-        const resumeLink = tryNormalizeListingUrl(editResumeLink);
-        if (editResumeLink.trim() && !resumeLink) {
-          setEditError("That resume link does not look like a URL.");
-          return;
+        let resumeLink: string | null = null;
+        if (editResumeLink.trim()) {
+          resumeLink = tryNormalizeListingUrl(editResumeLink);
+          if (!resumeLink) {
+            setEditError("That resume link does not look like a URL.");
+            return;
+          }
         }
         linkFields = { roleListingUrl: roleLink, resumeListingUrl: resumeLink };
       }
@@ -1486,6 +1504,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         !viewerHasReplied;
 
       const usesHiringCareerShell = layout === "career" && ic.category === "hiring";
+      const isReferralPost = ic.roleListingUrl != null || ic.resumeListingUrl != null;
+      const editCharLimit = isReferralPost ? REFERRAL_FIT_ANSWER_MAX_CHARS : BULLETIN_POST_MAX_LENGTH;
       const listItemClass =
         isEditing || usesHiringCareerShell
           ? `home-dashboard__bulletin-card${authorRemoved && isOwnPost ? " home-dashboard__bulletin-card--author-removed" : ""}`
@@ -1555,18 +1575,18 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                 className="input home-dashboard__respond-textarea home-dashboard__bulletin-edit-textarea"
                 rows={5}
                 aria-label="Edit bulletin post"
-                maxLength={BULLETIN_POST_MAX_LENGTH}
+                maxLength={editCharLimit}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 disabled={editSubmitting}
               />
               <p className="home-dashboard__bulletin-char-count" aria-live="polite">
-                {editContent.length} / {BULLETIN_POST_MAX_LENGTH}
+                {editContent.length} / {editCharLimit}
               </p>
-              {ic.roleListingUrl != null ? (
+              {isReferralPost ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, marginBottom: 8 }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-                    Job link
+                    {ic.roleListingUrl != null ? "Job link" : "Job link (optional)"}
                     <input
                       className="input"
                       aria-label="Edit job link"

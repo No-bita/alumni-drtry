@@ -164,6 +164,18 @@ export class IntentcastService {
     const roleListingUrl = normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
     const resumeListingUrl = normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
 
+    if (roleListingUrl != null || resumeListingUrl != null) {
+      const contentWithoutUiCategory = content.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
+      const { details } = splitBulletinHeadlineAndDetails(contentWithoutUiCategory);
+      if (details.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+        throw new AppError(
+          400,
+          "INTENTCAST_REFERRAL_FIT_TOO_LONG",
+          `Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`
+        );
+      }
+    }
+
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -246,6 +258,21 @@ export class IntentcastService {
       throw new AppError(409, "INTENTCAST_NOT_EDITABLE", "This post was removed from the bulletin.");
     }
 
+    const nextRoleListingUrl =
+      input.roleListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
+    const nextResumeListingUrl =
+      input.resumeListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
+
+    const effectiveRoleListingUrl =
+      nextRoleListingUrl !== undefined ? nextRoleListingUrl : existing.role_listing_url;
+    const effectiveResumeListingUrl =
+      nextResumeListingUrl !== undefined ? nextResumeListingUrl : existing.resume_listing_url;
+    const isReferral = effectiveRoleListingUrl != null || effectiveResumeListingUrl != null;
+
     const nextContent = input.content?.trim();
     if (nextContent !== undefined && nextContent.length < 10) {
       throw new AppError(400, "INTENTCAST_CONTENT_TOO_SHORT", "Intentcast content must be at least 10 characters.");
@@ -260,8 +287,9 @@ export class IntentcastService {
     const effectiveCategory = input.category ?? existing.category;
     if (nextContent !== undefined) {
       assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
-      // Referral asks: the fit answer keeps its compose-time 500-char budget on edit too.
-      if (existing.role_listing_url != null) {
+      // Referral asks: the fit answer keeps its compose-time 500-char budget on edit too,
+      // regardless of whether the post has a role link, resume link, or both.
+      if (isReferral) {
         // Content arrives with the UI marker prefix ([[cat:...]]); strip it so the
         // marker and headline never count against the fit-answer budget.
         const contentWithoutUiCategory = nextContent.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
@@ -275,15 +303,6 @@ export class IntentcastService {
         }
       }
     }
-
-    const nextRoleListingUrl =
-      input.roleListingUrl === undefined
-        ? undefined
-        : normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
-    const nextResumeListingUrl =
-      input.resumeListingUrl === undefined
-        ? undefined
-        : normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
 
     const updated = await this.intentcastRepo.updateWithinEditWindow({
       intentcastId,
