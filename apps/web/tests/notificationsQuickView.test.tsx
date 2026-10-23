@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NotificationsList } from "../src/components/NotificationsList";
+import { NotificationsPage } from "../src/pages/NotificationsPage";
 import type { NotificationItem } from "../src/api/client";
 
 vi.mock("../src/api/client", async (importOriginal) => {
@@ -10,6 +11,10 @@ vi.mock("../src/api/client", async (importOriginal) => {
   return { ...actual, api: { ...actual.api, patch: vi.fn() } };
 });
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
+vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ status: "authenticated" }) }));
+vi.mock("../src/lib/notificationsQueries", () => ({
+  useNotificationsList: () => ({ data: { items: [] }, isPending: false, isError: false }),
+}));
 vi.mock("../src/lib/invalidateAppQueries", () => ({
   invalidateNotificationRelatedQueries: vi.fn(),
 }));
@@ -102,5 +107,41 @@ describe("notification quick view (bottom sheet) activation", () => {
     wrap(<NotificationsList items={items} />);
     fireEvent.click(screen.getByRole("button", { name: /accepted your connection request/ }));
     expect(screen.getByTestId("loc").textContent).toBe("/profiles/p2");
+  });
+});
+
+describe("full inbox back control", () => {
+  function wrapPage(initialEntries: string[], initialIndex = 0) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={initialEntries} initialIndex={initialIndex}>
+          <Routes>
+            <Route
+              path="/notifications"
+              element={
+                <>
+                  <NotificationsPage />
+                  <LocationProbe />
+                </>
+              }
+            />
+            <Route path="*" element={<LocationProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("falls back to /home on a direct visit", () => {
+    wrapPage(["/notifications"]);
+    fireEvent.click(screen.getByRole("button", { name: /go back/i }));
+    expect(screen.getByTestId("loc").textContent).toBe("/home");
+  });
+
+  it("returns to the previous page when one exists", () => {
+    wrapPage(["/search", "/notifications"], 1);
+    fireEvent.click(screen.getByRole("button", { name: /go back/i }));
+    expect(screen.getByTestId("loc").textContent).toBe("/search");
   });
 });
