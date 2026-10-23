@@ -89,8 +89,21 @@ describe("notification quick view (bottom sheet) activation", () => {
 
   it("opens the full inbox for connection-request rows too", () => {
     wrap(<NotificationsList items={items} activationTarget="inbox" />);
-    fireEvent.click(screen.getByRole("button", { name: /Rohit Verma wants to connect/ }));
+    fireEvent.click(screen.getByRole("button", { name: /connection request from Rohit Verma/ }));
     expect(screen.getByTestId("loc").textContent).toBe("/notifications");
+  });
+
+  it("quick view renders names as plain text, never profile links", () => {
+    wrap(<NotificationsList items={items} activationTarget="inbox" />);
+    expect(screen.queryByRole("link", { name: /Rohit Verma/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Sneha Gupta/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Mandeep Singh/ })).toBeNull();
+  });
+
+  it("full view keeps profile names as profile links", () => {
+    wrap(<NotificationsList items={items} />);
+    fireEvent.click(screen.getByRole("link", { name: /Rohit Verma/ }));
+    expect(screen.getByTestId("loc").textContent).toBe("/profiles/p1");
   });
 
   it("keeps Accept/Decline as in-place actions that never navigate", async () => {
