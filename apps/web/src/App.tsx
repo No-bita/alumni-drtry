@@ -33,6 +33,9 @@ const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ de
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+const NotificationsPage = lazy(() =>
+  import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
+);
 
 function LocationHubRedirect() {
   const { search } = useLocation();
@@ -328,6 +331,16 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <OwnProfileRedirect />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <NotificationsPage />
+              </ProfileGate>
             </RequireAuth>
           }
         />
