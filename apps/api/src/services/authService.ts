@@ -174,6 +174,10 @@ export class AuthService {
     let magicLinkUrl: string;
     try {
       await client.query("BEGIN");
+      // Bound the advisory-lock wait: every waiter holds a pooled client, and a slow
+      // send (up to the auth timeout) would otherwise let ~20 same-email starts hold
+      // the whole pool. A timeout maps to a retryable 503 below.
+      await client.query("SET LOCAL lock_timeout = '3s'");
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [institutionalEmail]);
       const txChallengeRepo = new AuthChallengeRepo(client);
       const active = await txChallengeRepo.findLatestActiveByEmail(institutionalEmail);
@@ -214,6 +218,10 @@ export class AuthService {
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK").catch(() => undefined);
+      if ((err as { code?: string }).code === "55P03") {
+        // lock_not_available: the lock_timeout fired waiting for a same-email start.
+        throw new AppError(503, "AUTH_START_BUSY", "Sign-in is briefly busy. Try again.");
+      }
       throw err;
     } finally {
       client.release();
