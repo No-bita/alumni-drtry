@@ -5,7 +5,7 @@ import { generateOpaqueToken, generateOtp, hashSecret, verifySecret } from "../l
 import { isInstitutionalEmailAllowed, normalizeEmail, parseAllowedDomains } from "../lib/domainAllowlist.js";
 import { parseInstitutionalIdentity } from "../lib/emailParser.js";
 import { AppError } from "../lib/errors.js";
-import { AuthChallengeRepo } from "../repos/authChallengeRepo.js";
+import { AuthChallengeRepo, type AuthChallengeRow } from "../repos/authChallengeRepo.js";
 import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
@@ -163,32 +163,68 @@ export class AuthService {
     const otpHash = hashSecret(otp, env.AUTH_SECRET_PEPPER);
     const magicLinkHash = hashSecret(magicLinkToken, env.AUTH_SECRET_PEPPER);
 
-    const challenge = await this.authChallengeRepo.create({
-      institutionalEmail,
-      otpHash,
-      otpExpiresAt,
-      magicLinkHash,
-      magicLinkExpiresAt,
-      maxAttempts: env.AUTH_CHALLENGE_MAX_ATTEMPTS,
-      ipAddress: input.ipAddress,
-      userAgent: input.userAgent
-    });
-
-    const magicLinkBase = env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL;
-    const magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`;
+    // A rapid repeat start for the same email - the client retrying after the proxy
+    // dropped a response the server had already processed, or a double submit - must
+    // not send another email for the same sign-in attempt: return the still-active
+    // challenge created moments ago instead of minting (and emailing) a new one.
+    // The advisory lock serializes concurrent starts for the same email so two
+    // simultaneous requests cannot both miss the lookup and each send an email.
+    const client = await this.pool.connect();
+    let challenge: AuthChallengeRow;
+    let magicLinkUrl: string;
     try {
-      await this.emailSender.sendAuthEmail({
-        to: institutionalEmail,
-        otp,
-        magicLinkUrl,
+      await client.query("BEGIN");
+      // Bound the advisory-lock wait: every waiter holds a pooled client, and a slow
+      // send (up to the auth timeout) would otherwise let ~20 same-email starts hold
+      // the whole pool. A timeout maps to a retryable 503 below.
+      await client.query("SET LOCAL lock_timeout = '3s'");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [institutionalEmail]);
+      const txChallengeRepo = new AuthChallengeRepo(client);
+      const active = await txChallengeRepo.findLatestActiveByEmail(institutionalEmail);
+      const duplicateWindowMs = env.AUTH_START_DUPLICATE_WINDOW_SECONDS * 1000;
+      if (active && duplicateWindowMs > 0 && now - active.created_at.getTime() <= duplicateWindowMs) {
+        await client.query("COMMIT");
+        // Same attempt: the email already sent for this challenge is still valid.
+        // Debug secrets only exist when a challenge is minted - only hashes are stored.
+        return { challengeId: active.id, sentTo: institutionalEmail };
+      }
+      challenge = await txChallengeRepo.create({
+        institutionalEmail,
+        otpHash,
         otpExpiresAt,
-        magicLinkExpiresAt
+        magicLinkHash,
+        magicLinkExpiresAt,
+        maxAttempts: env.AUTH_CHALLENGE_MAX_ATTEMPTS,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent
       });
+      const magicLinkBase = env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL;
+      magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`;
+      // Send inside the transaction: a failed send rolls the new challenge back, so a
+      // repeat start can never be pointed at a challenge whose email never went out.
+      try {
+        await this.emailSender.sendAuthEmail({
+          to: institutionalEmail,
+          otp,
+          magicLinkUrl,
+          otpExpiresAt,
+          magicLinkExpiresAt
+        });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        console.error("[auth] sendAuthEmail failed:", detail);
+        throw new AppError(503, "AUTH_DELIVERY_FAILED", "Unable to deliver authentication email. Try again.");
+      }
+      await client.query("COMMIT");
     } catch (err) {
-      await this.authChallengeRepo.deleteById(challenge.id);
-      const detail = err instanceof Error ? err.message : String(err);
-      console.error("[auth] sendAuthEmail failed:", detail);
-      throw new AppError(503, "AUTH_DELIVERY_FAILED", "Unable to deliver authentication email. Try again.");
+      await client.query("ROLLBACK").catch(() => undefined);
+      if ((err as { code?: string }).code === "55P03") {
+        // lock_not_available: the lock_timeout fired waiting for a same-email start.
+        throw new AppError(503, "AUTH_START_BUSY", "Sign-in is briefly busy. Try again.");
+      }
+      throw err;
+    } finally {
+      client.release();
     }
 
     return {
