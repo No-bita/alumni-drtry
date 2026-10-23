@@ -232,7 +232,7 @@ function NotificationListItem({
             aria-label={
               inSheet
                 ? `Open inbox for bulletin reply from ${name}`
-                : `Open bulletin response from ${name}`
+                : `Open Home for bulletin response from ${name}`
             }
           />
           <ClickableNotificationBody
