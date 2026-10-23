@@ -66,6 +66,7 @@ export class AuthChallengeRepo {
       WHERE institutional_email = $1
         AND consumed_at IS NULL
         AND otp_expires_at > now()
+        AND attempts < max_attempts
       ORDER BY created_at DESC
       LIMIT 1
       `,
