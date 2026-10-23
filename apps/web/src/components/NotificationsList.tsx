@@ -11,13 +11,15 @@ import { Button } from "./Button";
 type NotificationsListProps = {
   items: NotificationItem[];
   onNavigate?: () => void;
+  /** "inbox": every row tap opens the full-screen inbox instead of the per-kind destination. */
+  activationTarget?: "inbox";
 };
 
 function displayName(name: string | null | undefined): string {
   return name?.trim() || "Alumni";
 }
 
-export function NotificationsList({ items, onNavigate }: NotificationsListProps) {
+export function NotificationsList({ items, onNavigate, activationTarget }: NotificationsListProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busyContactRequestId, setBusyContactRequestId] = useState<string | null>(null);
@@ -39,6 +41,11 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
   const handleItemActivate = (item: NotificationItem) => {
     trackBetaUsageEvent("notification_item_clicked", { kind: item.kind, id: item.id });
     onNavigate?.();
+
+    if (activationTarget === "inbox") {
+      navigate("/notifications");
+      return;
+    }
 
     switch (item.kind) {
       case "connection_thread_reply":
@@ -134,16 +141,23 @@ function NotificationListItem({
       return (
         <>
           <div className="notifications-page__item-main">
-            <p className="notifications-page__item-title">
-              <Link
-                to={`/profiles/${item.senderPersonId}`}
-                className="notifications-page__item-name"
-              >
-                {name}
-              </Link>{" "}
-              wants to connect
-            </p>
-            <p className="notifications-page__item-detail">{item.message}</p>
+            <button
+              type="button"
+              className="notifications-page__item-main--link"
+              onClick={onActivate}
+            >
+              <p className="notifications-page__item-title">
+                <Link
+                  to={`/profiles/${item.senderPersonId}`}
+                  className="notifications-page__item-name"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {name}
+                </Link>{" "}
+                wants to connect
+              </p>
+              <p className="notifications-page__item-detail">{item.message}</p>
+            </button>
             <div className="notifications-page__item-actions">
               <Button
                 type="button"
