@@ -389,7 +389,6 @@ export function Search() {
               onOpenFilters={() => setFiltersOpen(true)}
               filtersDrawerOpen={filtersOpen}
               keywordFieldLabel="Alumni directory keyword — prefix with @ and a city to open its hub, or enter any search terms"
-              keywordPlaceholder="@City for city hub — or name, role, company…"
               keywordMaxLength={DIRECTORY_KEYWORD_MAX_LENGTH}
               afterFilters={
                 <button
