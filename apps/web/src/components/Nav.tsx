@@ -357,7 +357,7 @@ export function Nav({
         <aside className="nav-sidebar" aria-label="Primary navigation">
           <div className="nav-sidebar__brand">
             <Link to="/home" className="nav-sidebar__logo">
-              IIT BHU <span>Alumni</span>
+              Alma <span>Mater</span>
             </Link>
             <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
               Beta
@@ -544,7 +544,7 @@ export function Nav({
       <div className="nav__left">
         <div className="nav__brand-with-beta">
           <Link to={auth.status === "authenticated" ? "/home" : "/"} className="nav__logo">
-            IIT BHU <span>Alumni</span>
+            Alma <span>Mater</span>
           </Link>
           <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
             Beta
