@@ -10,11 +10,9 @@ import { formatRelativeTime } from "./formatRelativeTime";
 import { normalizeOpportunityCard } from "./intentcastOpportunityCard";
 import {
   extractCareerAttributeHints,
-  extractStructuredCareerRoleLink,
   hiringCompensationChipFromParsed,
   hiringExperienceChipFromParsed,
   parseHiringBulletin,
-  promoteBareLeadingListingToResumeForReferral,
   stripHiringTailChipDuplicateProse,
   stripStructuredHiringTailMeta,
 } from "./parseHiringBulletin";
@@ -154,12 +152,10 @@ export function mapIntentcastToRow(
       ).trim();
       summaryText = proseTail || bulletinSummaryFull;
     } else {
-      const coerced = promoteBareLeadingListingToResumeForReferral(
-        extractStructuredCareerRoleLink(parsed.description)
-      );
-      roleListingUrl = coerced.listingUrl;
-      resumeListingUrl = coerced.resumeUrl;
-      const proseTail = stripStructuredHiringTailMeta(coerced.proseAfterLink).trim();
+      // Referral asks store links in dedicated columns (no packed "Role link:" lines).
+      roleListingUrl = item.roleListingUrl ?? null;
+      resumeListingUrl = item.resumeListingUrl ?? null;
+      const proseTail = stripStructuredHiringTailMeta(parsed.description).trim();
       summaryText = proseTail || bulletinSummaryFull;
     }
   } else {
@@ -174,14 +170,9 @@ export function mapIntentcastToRow(
     }
     summaryText = bulletinSummaryFull;
     if (!isHiringLane) {
-      const coerced = promoteBareLeadingListingToResumeForReferral(
-        extractStructuredCareerRoleLink(bulletinSummaryFull)
-      );
-      roleListingUrl = coerced.listingUrl;
-      resumeListingUrl = coerced.resumeUrl;
-      summaryText = stripStructuredHiringTailMeta(
-        stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
-      ).trim();
+      // Referral asks store links in dedicated columns (no packed "Role link:" lines).
+      roleListingUrl = item.roleListingUrl ?? null;
+      resumeListingUrl = item.resumeListingUrl ?? null;
     }
     if (!companySubtitle && isHiringLane && chipsFallback.length > 0) {
       companySubtitle = chipsFallback.slice(0, 2).join(" · ");

@@ -56,6 +56,15 @@ describe("approved referral compose form", () => {
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
 
+  it("keeps the fit answer budget independent of link length", () => {
+    mount();
+    const longUrl = `https://example.com/jobs/${"x".repeat(1500)}`;
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: longUrl } });
+    fireEvent.change(screen.getByLabelText(/Resume link/), { target: { value: longUrl } });
+    const fit = screen.getByLabelText(/Why are you a fit for this role\? \*/);
+    expect(fit.getAttribute("maxlength")).toBe("500");
+  });
+
   it("requires the job link and validates it as a URL", () => {
     mount();
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
@@ -136,20 +145,28 @@ describe("approved referral compose form", () => {
       fireEvent.click(screen.getByRole("button", { name: "Publish" }));
     });
     expect(postMock).toHaveBeenCalledOnce();
-    const [path, payload] = postMock.mock.calls[0] as unknown as [string, { category: string; content: string }];
+    const [path, payload] = postMock.mock.calls[0] as unknown as [
+      string,
+      { category: string; content: string; roleListingUrl: string | null; resumeListingUrl: string | null }
+    ];
     expect(path).toBe("/v1/intentcasts");
     expect(payload.category).toBe("mentorship");
+    // Links travel as structured fields, not packed "Role link:" lines in the content.
+    expect(payload.roleListingUrl).toBe("https://example.com/jobs/123");
+    expect(payload.resumeListingUrl).toBe("https://example.com/cv.pdf");
     expect(payload.content).toContain("Looking for referral for Backend Engineer at Example Co");
-    expect(payload.content).toContain("Role link: https://example.com/jobs/123");
-    expect(payload.content).toContain("Resume link: https://example.com/cv.pdf");
     expect(payload.content).toContain("Three years building APIs on the same stack this team uses.");
+    expect(payload.content).not.toContain("Role link:");
+    expect(payload.content).not.toContain("Resume link:");
 
-    // Feed render contract: the same stored content yields a row with both links and clean prose.
+    // Feed render contract: the stored fields yield a row with both links and clean prose.
     const stored = payload.content.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
     const row = mapIntentcastToRow({
       id: "ic1",
       category: "mentorship",
       content: payload.content,
+      roleListingUrl: payload.roleListingUrl,
+      resumeListingUrl: payload.resumeListingUrl,
       authorPersonId: "p2",
       authorFullName: "Other Alum",
       authorDepartmentCode: "CSE",

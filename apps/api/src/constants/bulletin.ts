@@ -7,6 +7,11 @@ export const BULLETIN_CONTENT_MAX_LENGTH = 2000;
  */
 export const BULLETIN_TITLE_MAX_CHARS = 120;
 export const BULLETIN_DESCRIPTION_MAX_CHARS = 1800;
+/** Referral asks: fit answer budget, enforced on create (web composer) and edit (server). */
+export const REFERRAL_FIT_ANSWER_MAX_CHARS = 500;
+
+/** Structured job / resume listing URL on a referral intentcast (create only; stored in dedicated columns). */
+export const BULLETIN_LISTING_URL_MAX_CHARS = 2048;
 
 /** Reply message to an intentcast. */
 export const BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH = 2000;
