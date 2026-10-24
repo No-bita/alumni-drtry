@@ -1,3 +1,4 @@
+import { isInstitutionalEmail } from "../lib/institutionalEmail";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
@@ -51,6 +52,7 @@ export function Login() {
   }, []);
 
   const [email, setEmail] = useState("");
+  const emailDomainInvalid = email.trim().length > 0 && !isInstitutionalEmail(email);
   const [phase, setPhase] = useState<LoginPhase>("form");
   const [error, setError] = useState<string | null>(null);
   /** True once the first sign-in request got no answer and we are retrying quietly. */
@@ -109,6 +111,10 @@ export function Login() {
     setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
+    if (!isInstitutionalEmail(normalizedEmail)) {
+      setError("Use your IIT BHU email.");
+      return;
+    }
 
     // Acknowledge the click immediately: the sign-in request can wait on a
     // sleeping or unreachable API, and a button that shows nothing reads as
@@ -685,9 +691,12 @@ export function Login() {
                 }
               }}
               required
+              aria-invalid={emailDomainInvalid}
+              aria-describedby={emailDomainInvalid ? "institution-email-error" : undefined}
               autoComplete="email"
               style={{ marginBottom: 16 }}
             />
+            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your IIT BHU email.</p> : null}
             {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
               <Input
                 type="password"
@@ -699,7 +708,7 @@ export function Login() {
                 style={{ marginBottom: 16 }}
               />
             ) : null}
-            {error && <p className="auth-merged__error">{error}</p>}
+            {error && !(emailDomainInvalid && error === "Use your IIT BHU email.") && <p className="auth-merged__error">{error}</p>}
             {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
               <p className="auth-merged__waitlist">
                 Join beta waitlist:{" "}
@@ -709,7 +718,7 @@ export function Login() {
                 .
               </p>
             ) : null}
-            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null}>
+            <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null || emailDomainInvalid}>
               {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
             </Button>
           </form>
