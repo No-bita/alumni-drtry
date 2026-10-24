@@ -703,6 +703,17 @@ input[type="reset"]:not(:disabled) {
   background: transparent;
 }
 
+/* Home top bar (approved follow-up): unread indicator is a plain dot, no count. */
+.nav-app-toolbar--search-lead .nav__count-badge--nav {
+  top: 8px;
+  right: 10px;
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+}
+
 .nav-app-toolbar__search-form {
   position: relative;
   width: 100%;
