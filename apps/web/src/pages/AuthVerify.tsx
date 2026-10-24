@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
+import { FoldToFlight } from "../components/FoldToFlight";
 import { api } from "../api/client";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { queryKeys } from "../lib/queryKeys";
@@ -72,9 +73,7 @@ export function AuthVerify() {
       <Nav />
       <div className="page-shell--centered">
         {canVerify && !verifyQuery.isError && !sessionRefetchFailed && (verifyQuery.isPending || verifyQuery.isSuccess) ? (
-          <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-            Signing you in…
-          </p>
+          <FoldToFlight ready={false} />
         ) : null}
         {(!canVerify || verifyQuery.isError || sessionRefetchFailed) && (
           <>
