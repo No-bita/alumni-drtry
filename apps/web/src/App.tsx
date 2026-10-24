@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "
 // Messaging paused (product decision): the entire messaging feature is commented out app-wide for now.
 // Restore this import together with the <GlobalMessagingWidget /> mount at the bottom.
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
-import { FoldToFlightGate } from "./components/FoldToFlight";
+import { FoldToFlight, FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -43,17 +43,7 @@ function LocationHubRedirect() {
 }
 
 function RouteFallback() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{ padding: "4rem var(--page-x)", textAlign: "center" }}
-    >
-      <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-        Loading…
-      </p>
-    </div>
-  );
+  return <FoldToFlight ready={false} />;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -97,11 +87,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
 
   const profile = auth.myProfile;
   if (!profile) {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        Loading…
-      </div>
-    );
+    return <FoldToFlight ready={false} />;
   }
 
   if (profile.profileCompletedAt) {
@@ -150,11 +136,7 @@ function OwnProfileRequiresOnboardingComplete({ children }: { children: React.Re
 
   const profile = auth.myProfile;
   if (!profile) {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        Loading…
-      </div>
-    );
+    return <FoldToFlight ready={false} />;
   }
 
   const viewingOwnProfile = Boolean(routeProfileId && routeProfileId === profile.id);
@@ -183,11 +165,7 @@ function OwnProfileRedirect() {
 
   const profile = auth.myProfile;
   if (!profile) {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        Loading…
-      </div>
-    );
+    return <FoldToFlight ready={false} />;
   }
 
   if (profile.profileCompletedAt) {

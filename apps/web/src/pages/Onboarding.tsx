@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { FoldToFlight } from "../components/FoldToFlight";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
@@ -984,13 +985,7 @@ export function Onboarding() {
   });
 
   if (gate === "loading") {
-    return (
-      <div style={{ padding: "4rem var(--page-x)", textAlign: "center" }}>
-        <p className="body-text" style={{ color: "var(--ink-muted)" }}>
-          Loading…
-        </p>
-      </div>
-    );
+    return <FoldToFlight ready={false} />;
   }
 
   if (gate === "redirect") {
@@ -1129,4 +1124,4 @@ export function Onboarding() {
       </div>
     </>
   );
-}
+                  }

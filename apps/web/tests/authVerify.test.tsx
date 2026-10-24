@@ -45,10 +45,11 @@ describe("AuthVerify", () => {
     expect(apiGet).not.toHaveBeenCalled();
   });
 
-  it("verifies with encoded params and shows the signing-in state", async () => {
+  it("verifies with encoded params and shows the paper-plane loading screen", async () => {
     refetch.mockReturnValue(new Promise(() => {}));
     mount("?challengeId=c%201&magicLinkToken=t%2Fk");
-    expect(screen.getByText("Signing you in…")).toBeTruthy();
+    expect(screen.getByRole("main", { name: "Opening Alma" })).toBeTruthy();
+    expect(screen.getByText("Start with a fold.")).toBeTruthy();
     await waitFor(() => expect(apiGet).toHaveBeenCalled());
     expect(apiGet.mock.calls[0]![0]).toBe("/v1/auth/verify?challengeId=c%201&magicLinkToken=t%2Fk");
   });
