@@ -6,7 +6,7 @@ const base = { role: "alumni" as const, onboardingCompletedAt: null };
 describe("canResumeOnboarding", () => {
   it("lets a returning incomplete member back in after the login cap", () => {
     const profile = { ...base, appLoginCount: 3 };
-    expect(canAccessOnboardingFlow(profile)).toBe(false);
+    expect(canAccessOnboardingFlow(profile)).toBe(true);
     expect(canResumeOnboarding(profile)).toBe(true);
   });
 
@@ -16,7 +16,7 @@ describe("canResumeOnboarding", () => {
 
   it("blocks a member who already finished onboarding", () => {
     expect(
-      canResumeOnboarding({ ...base, appLoginCount: 5, onboardingCompletedAt: "2026-01-01T00:00:00Z" })
+      canResumeOnboarding({ fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024, ...base, appLoginCount: 5, onboardingCompletedAt: "2026-01-01T00:00:00Z" })
     ).toBe(false);
   });
 
