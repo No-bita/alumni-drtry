@@ -15,6 +15,9 @@ export type CareerIntentFlowChromeProps = {
   stepsAriaLabel?: string;
   /** Accessible label for the dialog close control. */
   closeAriaLabel?: string;
+  hideSteps?: boolean;
+  dialogClassName?: string;
+  title?: string;
   children: ReactNode;
 };
 
@@ -30,12 +33,15 @@ export function CareerIntentFlowChrome({
   previewStepLabel = "Preview",
   stepsAriaLabel = "Flow steps",
   closeAriaLabel = "Close",
+  hideSteps = false,
+  dialogClassName,
+  title,
   children,
 }: CareerIntentFlowChromeProps) {
   return (
     <div className="career-hiring-flow__overlay" role="presentation" onClick={onRequestClose}>
       <section
-        className="career-hiring-flow__dialog"
+        className={["career-hiring-flow__dialog", dialogClassName].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
@@ -44,14 +50,14 @@ export function CareerIntentFlowChrome({
         <header className="career-hiring-flow__head">
           <div className="career-hiring-flow__head-title">
             <div>
-              <h2 className="visually-hidden">{ariaLabel}</h2>
+              {title ? <h2 className="career-hiring-flow__title">{title}</h2> : <h2 className="visually-hidden">{ariaLabel}</h2>}
             </div>
           </div>
           <button type="button" className="career-hiring-flow__close" onClick={onRequestClose} aria-label={closeAriaLabel}>
             ×
           </button>
         </header>
-        <div className="career-hiring-flow__steps career-hiring-flow__steps--two" aria-label={stepsAriaLabel}>
+        {!hideSteps ? <div className="career-hiring-flow__steps career-hiring-flow__steps--two" aria-label={stepsAriaLabel}>
           <span className={step === "compose" ? "is-active" : "is-done"}>
             <b>{step === "preview" ? "✓" : "1"}</b>
             <small>{composeStepLabel}</small>
@@ -60,7 +66,7 @@ export function CareerIntentFlowChrome({
             <b>2</b>
             <small>{previewStepLabel}</small>
           </span>
-        </div>
+        </div> : null}
         {children}
       </section>
     </div>
