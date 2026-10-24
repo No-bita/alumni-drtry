@@ -11001,16 +11001,6 @@ button.career-referrals-v3__matching-pill--editable:active {
   margin: 0 0 var(--space-lg);
 }
 
-.connection-thread-page__retention-banner {
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-panel);
-  background: rgba(184, 148, 95, 0.12);
-  border: 1px solid rgba(184, 148, 95, 0.24);
-  color: var(--ink);
-  font-size: 13px;
-  margin: 0 0 var(--space-lg);
-}
-
 .connection-thread-page__disclosures {
   margin: 0 0 var(--space-lg);
   padding: var(--space-md-lg);
