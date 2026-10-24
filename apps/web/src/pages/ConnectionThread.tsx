@@ -213,7 +213,6 @@ function ConnectionThreadBody({
     disclosures,
     showShareNudge,
     showOfflineContactPrompt,
-    messagesDeletionWarning,
     referralReplyCount,
     availableDisclosures,
     kind,
@@ -254,12 +253,6 @@ function ConnectionThreadBody({
         {!isOpen ? (
           <p className="connection-thread-page__closed-banner">
             This conversation is {thread.status === "declined" ? "declined" : "closed"}.
-          </p>
-        ) : null}
-
-        {messagesDeletionWarning ? (
-          <p className="connection-thread-page__retention-banner" role="status">
-            {messagesDeletionWarning}
           </p>
         ) : null}
 
