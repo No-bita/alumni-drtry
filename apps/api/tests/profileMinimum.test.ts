@@ -25,6 +25,23 @@ describe("fresh-member minimum", () => {
     await expect(value.updateMyProfile("person", { markMinimumProfileComplete: true })).rejects.toMatchObject({ code: "PROFILE_MINIMUM_INCOMPLETE" });
     expect(update).not.toHaveBeenCalled();
   });
+  it("sets both completion markers when the full flow finishes with the four fields", async () => {
+    const { value, update } = service();
+    await value.updateMyProfile("person", { markOnboardingComplete: true });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      profileCompletedAt: expect.any(Date),
+      onboardingCompletedAt: expect.any(Date)
+    }));
+  });
+  it("preserves the saved minimum marker when the full flow finishes", async () => {
+    const savedMinimum = new Date("2026-01-01T00:00:00.000Z");
+    const { value, update } = service({ profileCompletedAt: savedMinimum });
+    await value.updateMyProfile("person", { markOnboardingComplete: true });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      profileCompletedAt: savedMinimum,
+      onboardingCompletedAt: expect.any(Date)
+    }));
+  });
   it("does not trust an old minimum timestamp instead of actual fields", async () => {
     const { value, update } = service({ profileCompletedAt: new Date(), batchYear: null });
     await expect(value.updateMyProfile("person", { markOnboardingComplete: true })).rejects.toMatchObject({ code: "PROFILE_ONBOARDING_ORDER" });
