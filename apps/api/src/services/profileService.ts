@@ -239,6 +239,7 @@ export class ProfileService {
           "Complete earlier onboarding steps before marking the full funnel done."
         );
       }
+      nextProfileCompletedAt = nextProfileCompletedAt ?? new Date();
       nextOnboardingCompletedAt = nextOnboardingCompletedAt ?? new Date();
     }
 
