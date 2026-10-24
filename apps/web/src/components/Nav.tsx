@@ -137,6 +137,8 @@ type NavProps = {
   hideIntentNav?: boolean;
   /** Sidebar shell: omit toolbar bottom rule (e.g. Careers page). */
   appToolbarNoBorder?: boolean;
+  /** Home-only: search bar leads from the left edge, bell without circle chrome. */
+  toolbarSearchLead?: boolean;
   /** Hide the toolbar notifications bell on this page (e.g. Cities). The bell stays on other pages. */
   hideNotificationsBell?: boolean;
 };
@@ -242,6 +244,7 @@ export function Nav({
   hideIntentNav = false,
   appToolbarNoBorder = false,
   hideNotificationsBell = false,
+  toolbarSearchLead = false,
 }: NavProps) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -433,7 +436,7 @@ export function Nav({
           </nav>
         </aside>
         <header
-          className={`nav-app-toolbar${appToolbarLead ? " nav-app-toolbar--with-lead" : ""}${appToolbarNoBorder ? " nav-app-toolbar--flat" : ""}`.trim()}
+          className={`nav-app-toolbar${appToolbarLead ? " nav-app-toolbar--with-lead" : ""}${appToolbarNoBorder ? " nav-app-toolbar--flat" : ""}${toolbarSearchLead ? " nav-app-toolbar--search-lead" : ""}`.trim()}
         >
           {appToolbarLead ? (
             <div className="nav-app-toolbar__lead">{appToolbarLead}</div>

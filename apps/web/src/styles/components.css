@@ -687,6 +687,33 @@ input[type="reset"]:not(:disabled) {
   max-width: min(720px, 68vw);
 }
 
+/* Home top bar (approved): search leads from the left edge across available width; bell keeps its touch target without the circle chrome. */
+.nav-app-toolbar--search-lead .nav-app-toolbar__right {
+  justify-content: flex-start;
+}
+
+.nav-app-toolbar--search-lead .nav-app-toolbar__search-wrap {
+  flex: 1 1 auto;
+  max-width: none;
+}
+
+.nav-app-toolbar--search-lead .nav__notif-link,
+.nav-app-toolbar--search-lead .nav__notif-link--active {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Home top bar (approved follow-up): unread indicator is a plain dot, no count. */
+.nav-app-toolbar--search-lead .nav__count-badge--nav {
+  top: 8px;
+  right: 10px;
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+}
+
 .nav-app-toolbar__search-form {
   position: relative;
   width: 100%;
@@ -938,6 +965,16 @@ input[type="reset"]:not(:disabled) {
   html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__notif-link,
   html[data-app-shell="sidebar"] .nav-app-toolbar__right .nav__user-menu {
     flex-shrink: 0;
+  }
+
+  /* Home top bar (approved): search leads from the left edge, full available width. */
+  html[data-app-shell="sidebar"] .nav-app-toolbar--search-lead .nav-app-toolbar__right {
+    justify-content: flex-start;
+  }
+
+  html[data-app-shell="sidebar"] .nav-app-toolbar--search-lead .nav-app-toolbar__search-wrap {
+    flex: 1 1 auto;
+    max-width: none;
   }
 
   html[data-app-shell="sidebar"] .nav-app-toolbar__search-input {
