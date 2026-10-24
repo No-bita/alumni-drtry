@@ -24,6 +24,7 @@ import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
+import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCountries";
 import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
@@ -57,7 +58,6 @@ type Step2Question =
   | { id: "followup"; label: string; field: keyof OccupationFollowUp }
   | { id: "residenceCountry"; label: string }
   | { id: "residenceCity"; label: string }
-  | { id: "mobileCountryCode"; label: string }
   | { id: "mobilePhone"; label: string };
 
 const OCCUPATION_FOLLOW_UP_LABELS: Partial<Record<string, { title: string; fields: Array<keyof OccupationFollowUp> }>> =
@@ -294,6 +294,8 @@ export function Onboarding() {
   const [residenceCountry, setResidenceCountry] = useState("");
   const [residenceCity, setResidenceCity] = useState("");
   const [mobileCountryCode, setMobileCountryCode] = useState("");
+  const [mobileCountrySelection, setMobileCountrySelection] = useState("");
+  const mobileCountryChosenRef = useRef(false);
   const [mobilePhone, setMobilePhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -335,7 +337,6 @@ export function Onboarding() {
     questions.push(
       { id: "residenceCountry", label: "Current country of residence" },
       { id: "residenceCity", label: "Current city of residence" },
-      { id: "mobileCountryCode", label: "Country code" },
       { id: "mobilePhone", label: "Mobile number" }
     );
     return questions;
@@ -443,9 +444,13 @@ export function Onboarding() {
       const mobileMatch = rawMobile.match(/^(\+\d{1,4})\s*(\d+)$/);
       if (mobileMatch) {
         setMobileCountryCode(mobileMatch[1] ?? "");
+        setMobileCountrySelection(`saved:${mobileMatch[1]}`);
+        mobileCountryChosenRef.current = true;
         setMobilePhone(mobileMatch[2] ?? "");
       } else {
         setMobileCountryCode("");
+        setMobileCountrySelection("");
+        mobileCountryChosenRef.current = false;
         setMobilePhone(rawMobile);
       }
       setParsedDeptLabel(
@@ -717,9 +722,7 @@ export function Onboarding() {
     if (question.id === "residenceCity") {
       return residenceCity.trim() ? null : "Please enter your current city of residence.";
     }
-    if (question.id === "mobileCountryCode") {
-      return mobileCountryCode.trim() ? null : "Please enter your country code.";
-    }
+    if (!mobileCountryCode.trim()) return "Please enter your country code.";
     const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
     if (!compactPhone) return "Please enter your mobile number.";
     if (compactPhone.length !== 10) return "Please enter a valid 10-digit mobile number.";
@@ -918,6 +921,11 @@ export function Onboarding() {
     }
     setSaveError(null);
     if (step2QuestionIndex < step2Questions.length - 1) {
+      if (step2Questions[step2QuestionIndex + 1]?.id === "mobilePhone" && !mobileCountryChosenRef.current) {
+        const country = phoneCountryForResidence(residenceCountry);
+        setMobileCountryCode(country?.callingCode ?? "");
+        setMobileCountrySelection(country?.region ?? "");
+      }
       setStep2QuestionIndex((i) => i + 1);
       return;
     }
@@ -931,7 +939,7 @@ export function Onboarding() {
     advanceStep1Question();
   };
 
-  const handleStep2FieldEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleStep2FieldEnter = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     if (saving) return;
@@ -1066,7 +1074,6 @@ export function Onboarding() {
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
                     {step2CurrentQuestion?.id === "residenceCountry" ? "What is your current country of residence?" : null}
                     {step2CurrentQuestion?.id === "residenceCity" ? "What is your current city of residence?" : null}
-                    {step2CurrentQuestion?.id === "mobileCountryCode" ? "What is your country code?" : null}
                     {step2CurrentQuestion?.id === "mobilePhone" ? "What is your mobile number?" : null}
                     </p>
                   </div>
@@ -1078,8 +1085,21 @@ export function Onboarding() {
                   {step2CurrentQuestion?.id === "followup" ? <input className="onboarding-welcome__inline-input" autoComplete={step2CurrentQuestion.field === "company" || step2CurrentQuestion.field === "university" ? "organization" : "off"} value={activeOccupationCode ? (occupationFollowUps[activeOccupationCode] ?? emptyFollowUp())[step2CurrentQuestion.field] : ""} onChange={(e) => { if (!activeOccupationCode) return; updateOccupationFollowUp(activeOccupationCode, step2CurrentQuestion.field, e.target.value); }} onKeyDown={handleStep2FieldEnter} /> : null}
                   {step2CurrentQuestion?.id === "residenceCountry" ? <input className="onboarding-welcome__inline-input" autoComplete="country-name" value={residenceCountry} onChange={(e) => setResidenceCountry(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
                   {step2CurrentQuestion?.id === "residenceCity" ? <input className="onboarding-welcome__inline-input" autoComplete="address-level2" value={residenceCity} onChange={(e) => setResidenceCity(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
-                  {step2CurrentQuestion?.id === "mobileCountryCode" ? <input className="onboarding-welcome__inline-input onboarding-welcome__inline-input--narrow" autoComplete="tel-country-code" inputMode="tel" value={mobileCountryCode} onChange={(e) => setMobileCountryCode(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
-                  {step2CurrentQuestion?.id === "mobilePhone" ? <input className="onboarding-welcome__inline-input" autoComplete="tel-national" inputMode="tel" value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "mobilePhone" ? (
+                    <div className="onboarding-occupation__mobile-row" style={{ gridTemplateColumns: "140px minmax(0, 1fr)" }} role="group" aria-label="Mobile number">
+                      <select aria-label="Country code" style={{ fontSize: 16, minWidth: 0 }} className="onboarding-welcome__inline-input" autoComplete="tel-country-code" value={mobileCountrySelection} onChange={(e) => {
+                        const country = PHONE_COUNTRIES.find(c => c.region === e.target.value);
+                        mobileCountryChosenRef.current = true;
+                        setMobileCountrySelection(e.target.value);
+                        setMobileCountryCode(country?.callingCode ?? "");
+                      }} onKeyDown={handleStep2FieldEnter}>
+                        <option value="">Country code</option>
+                        {mobileCountrySelection.startsWith("saved:") ? <option value={mobileCountrySelection}>{mobileCountryCode} (saved)</option> : null}
+                        {PHONE_COUNTRIES.map(country => <option key={country.region} value={country.region}>{country.callingCode} · {country.name}</option>)}
+                      </select>
+                      <input aria-label="Mobile number" className="onboarding-welcome__inline-input" autoComplete="tel-national" inputMode="tel" value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} onKeyDown={handleStep2FieldEnter} />
+                    </div>
+                  ) : null}
                   {step2CurrentQuestion?.id === "mobilePhone" ? <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>Your number stays private unless you choose to share it.</p> : null}
                   {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
                   <div className="onboarding-welcome__inline-actions">
@@ -1124,4 +1144,4 @@ export function Onboarding() {
       </div>
     </>
   );
-                  }
+    }
