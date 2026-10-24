@@ -777,23 +777,6 @@ export function Home() {
     viewModel.activeCategory !== "replies" &&
     activeOpportunityCount === 0;
 
-  const toolbarSubtitle = useMemo(() => {
-    const activeRequestCount = opportunityIntentcasts.filter((ic) => {
-      const c = normalizeOpportunityCard(ic.content, ic.category).category;
-      return c === "careers" || c === "hiring" || c === "guidance" || c === "startups" || c === "relocation";
-    }).length;
-    if (useDevMocks && activeRequestCount > 0) {
-      return `${Math.min(activeRequestCount, 99)} active requests in your network right now.`;
-    }
-    if (activeRequestCount > 0) {
-      return `${Math.min(activeRequestCount, 99)} active requests surfaced for you recently.`;
-    }
-    if (batchMeta && !batchMeta.empty) {
-      return `${batchMeta.countLabel} alumni from your batch are on the network.`;
-    }
-    return "Explore careers, cities, and the directory.";
-  }, [batchMeta, opportunityIntentcasts, useDevMocks]);
-
   const homeHeroActions = useMemo((): HomeQuickAction[] => {
     const links = isBuildIntentPageEnabled
       ? QUICK_ACTIONS
@@ -863,14 +846,7 @@ export function Home() {
       <Nav
         variant="home"
         avatarName={displayName}
-        appToolbarLead={
-          <div className="nav-app-toolbar__welcome nav-app-toolbar__welcome--home-greeting">
-            <p id="home-toolbar-welcome" className="nav-app-toolbar__welcome-title">
-              Welcome back, {firstName}
-            </p>
-            <p className="nav-app-toolbar__welcome-sub">{toolbarSubtitle}</p>
-          </div>
-        }
+        toolbarSearchLead
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
