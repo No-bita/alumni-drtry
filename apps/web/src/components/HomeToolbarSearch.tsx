@@ -1,8 +1,5 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef } from "react";
 import { IconSearch } from "./HomeIcons";
-
-const TOOLBAR_SEARCH_PLACEHOLDERS = ["Search alumni, cities, roles…"] as const;
-const PLACEHOLDER_ROTATE_MS = 3500;
 
 type HomeToolbarSearchProps = {
   searchText: string;
@@ -20,8 +17,6 @@ export function HomeToolbarSearch({
   focusSignal = 0,
 }: HomeToolbarSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -39,14 +34,6 @@ export function HomeToolbarSearch({
     inputRef.current?.focus();
     inputRef.current?.select();
   }, [nudgeActive, focusSignal]);
-
-  useEffect(() => {
-    if (searchText.length > 0 || inputFocused) return undefined;
-    const id = window.setInterval(() => {
-      setPlaceholderIndex((i) => (i + 1) % TOOLBAR_SEARCH_PLACEHOLDERS.length);
-    }, PLACEHOLDER_ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, [searchText, inputFocused]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -66,12 +53,9 @@ export function HomeToolbarSearch({
         id="home-toolbar-search-input"
         type="search"
         className={`nav-app-toolbar__search-input${nudgeActive ? " nav-app-toolbar__search-input--nudged" : ""}`}
-        placeholder={TOOLBAR_SEARCH_PLACEHOLDERS[placeholderIndex]}
         autoComplete="off"
         value={searchText}
         onChange={(event) => onSearchTextChange(event.target.value)}
-        onFocus={() => setInputFocused(true)}
-        onBlur={() => setInputFocused(false)}
       />
       <span className="nav-app-toolbar__search-kbd" aria-hidden title="Keyboard shortcut">
         ⌘K

@@ -11,8 +11,6 @@ export type CareerStyleSearchToolbarProps = {
   filtersDrawerOpen: boolean;
   /** Visually hidden label for the keyword field (screen readers). */
   keywordFieldLabel?: string;
-  /** Visible placeholder for the keyword input. */
-  keywordPlaceholder?: string;
   /** Max length for keyword (directory uses `DIRECTORY_KEYWORD_MAX_LENGTH`). */
   keywordMaxLength?: number;
   /** Renders after the Filters control on the same row (e.g. directory “Clear all filters”). */
@@ -30,7 +28,6 @@ export function CareerStyleSearchToolbar({
   onOpenFilters,
   filtersDrawerOpen,
   keywordFieldLabel = "Search alumni directory",
-  keywordPlaceholder = "Search by company, role, skills, or keyword…",
   keywordMaxLength,
   afterFilters,
 }: CareerStyleSearchToolbarProps) {
@@ -46,7 +43,6 @@ export function CareerStyleSearchToolbar({
           id={keywordId}
           type="search"
           className="career-feed-rows__search-input career-feed-rows__search-input--prominent"
-          placeholder={keywordPlaceholder}
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
           onKeyDown={(e) => {
