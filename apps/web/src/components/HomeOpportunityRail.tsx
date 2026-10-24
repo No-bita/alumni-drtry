@@ -177,7 +177,7 @@ export function HomeOpportunityRail({
       <header className="home-ideal__opportunities-header ds-section-head">
         <div className="home-ideal__opportunities-headcopy">
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
-            Active Requests
+            The Wall
           </h2>
         </div>
       </header>

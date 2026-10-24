@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { IconSearch } from "./HomeIcons";
 
-const TOOLBAR_SEARCH_PLACEHOLDERS = ["Search alumni", "Search @Bengaluru"] as const;
+const TOOLBAR_SEARCH_PLACEHOLDERS = ["Search alumni, cities, roles…"] as const;
 const PLACEHOLDER_ROTATE_MS = 3500;
 
 type HomeToolbarSearchProps = {
