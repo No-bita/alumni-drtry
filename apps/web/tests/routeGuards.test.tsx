@@ -64,14 +64,14 @@ describe("Landing redirects", () => {
     mountAt("/", <Landing />, "/");
     expect(screen.getByTestId("where").textContent).toBe("/onboarding");
     cleanup();
-    authState.value = authed({ myProfile: { onboardingCompletedAt: "2026-01-01", appLoginCount: 1, role: "alumni" } });
+    authState.value = authed({ myProfile: { fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024, onboardingCompletedAt: "2026-01-01", appLoginCount: 1, role: "alumni" } });
     mountAt("/", <Landing />, "/");
     expect(screen.getByTestId("where").textContent).toBe("/home");
   });
-  it("sends returning incomplete users (past the login cap) to home", () => {
+  it("sends returning incomplete users to onboarding regardless of login count", () => {
     authState.value = authed({ myProfile: { onboardingCompletedAt: null, appLoginCount: 9, role: "alumni" } });
     mountAt("/", <Landing />, "/");
-    expect(screen.getByTestId("where").textContent).toBe("/home");
+    expect(screen.getByTestId("where").textContent).toBe("/onboarding");
   });
 });
 

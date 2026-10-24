@@ -235,10 +235,6 @@ export function Login() {
         navigate("/home", { replace: true });
         return;
       }
-      if (p.onboardingCompletedAt) {
-        navigate("/home", { replace: true });
-        return;
-      }
       navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });
     },
     [navigate, refetch]

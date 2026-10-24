@@ -9,6 +9,7 @@ import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidge
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
+  hasMinimumProfile,
   canAccessOnboardingFlow,
   canResumeOnboarding,
 } from "./lib/onboardingEligibility";
@@ -70,8 +71,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 type ProfileGateMode = "directory" | "home";
 
 /**
- * directory: requires completed profile; onboarding-eligible incomplete → /onboarding; returning incomplete → /home
- * home: onboarding-eligible incomplete → /onboarding; complete or returning incomplete → allow
+ * Home and directory require the four minimum values.
+ * Existing direct profile-view exceptions remain below.
  */
 function ProfileLoadError() {
   return (
@@ -104,7 +105,7 @@ function ProfileGate({ mode, children }: { mode: ProfileGateMode; children: Reac
     );
   }
 
-  if (profile.profileCompletedAt) {
+  if (hasMinimumProfile(profile)) {
     return <>{children}</>;
   }
 
@@ -190,7 +191,7 @@ function OwnProfileRedirect() {
     );
   }
 
-  if (profile.profileCompletedAt) {
+  if (hasMinimumProfile(profile)) {
     return <Navigate to={`/profiles/${profile.id}`} replace />;
   }
   if (canResumeOnboarding(profile)) {

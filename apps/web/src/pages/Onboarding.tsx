@@ -669,6 +669,7 @@ export function Onboarding() {
       batchYear: batchYear ?? undefined,
       departmentCode: departmentCode ?? undefined,
       degreeCode: degreeCode ?? undefined,
+      markMinimumProfileComplete: true,
     });
     if (err) return;
     goTo(2);
@@ -702,7 +703,7 @@ export function Onboarding() {
 
   const step2QuestionError = (question: Step2Question): string | null => {
     if (question.id === "occupation") {
-      return selectedOccupationCodes.size > 0 ? null : "Please select your occupation type.";
+      return null;
     }
     if (question.id === "followup") {
       const detail = occupationFollowUps[activeOccupationCode ?? ""] ?? emptyFollowUp();
@@ -711,16 +712,16 @@ export function Onboarding() {
       return null;
     }
     if (question.id === "residenceCountry") {
-      return residenceCountry.trim() ? null : "Please enter your current country of residence.";
+      return null;
     }
     if (question.id === "residenceCity") {
-      return residenceCity.trim() ? null : "Please enter your current city of residence.";
+      return null;
     }
     if (question.id === "mobileCountryCode") {
-      return mobileCountryCode.trim() ? null : "Please enter your country code.";
+      return null;
     }
     const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
-    if (!compactPhone) return "Please enter your mobile number.";
+    if (!compactPhone) return null;
     if (compactPhone.length !== 10) return "Please enter a valid 10-digit mobile number.";
     return null;
   };
@@ -731,41 +732,21 @@ export function Onboarding() {
     const nextMobileCountryCode = mobileCountryCode.trim();
     const nextMobilePhone = mobilePhone.trim();
     const compactPhone = nextMobilePhone.replace(/[^\d]/g, "");
-    if (!nextResidenceCountry) {
-      setSaveError("Please enter your current country of residence.");
-      return;
+    if (nextMobilePhone) {
+      if (!nextMobileCountryCode) {
+        setSaveError("Please enter your country code.");
+        return;
+      }
+      if (compactPhone.length !== 10) {
+        setSaveError("Please enter a valid 10-digit mobile number.");
+        return;
+      }
     }
-    if (!nextResidenceCity) {
-      setSaveError("Please enter your current city of residence.");
-      return;
-    }
-    if (!nextMobilePhone) {
-      setSaveError("Please enter your mobile number.");
-      return;
-    }
-    if (!nextMobileCountryCode) {
-      setSaveError("Please enter your country code.");
-      return;
-    }
-    if (compactPhone.length !== 10) {
-      setSaveError("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    if (selectedOccupationCodes.size === 0) {
-      setSaveError("Please select your occupation type.");
-      return;
-    }
-    if (!activeOccupationCode) {
-      setSaveError("Please select your occupation type.");
-      return;
-    }
-    const followUpError = occupationFollowUpValidationError(
-      activeOccupationCode,
-      occupationFollowUps[activeOccupationCode]
-    );
-    if (followUpError) {
-      setSaveError(followUpError);
-      return;
+    if (activeOccupationCode) {
+      const followUpError = occupationFollowUpValidationError(
+        activeOccupationCode, occupationFollowUps[activeOccupationCode]
+      );
+      if (followUpError) { setSaveError(followUpError); return; }
     }
 
     const toCreate = [...selectedOccupationCodes].filter((code) => !existingOccupationCodes.has(code));
@@ -839,9 +820,9 @@ export function Onboarding() {
     }
     setSaveError(null);
     const errMin = await saveProfile({
-      residenceCountry: nextResidenceCountry,
-      residenceCity: nextResidenceCity,
-      mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim(),
+      ...(nextResidenceCountry ? { residenceCountry: nextResidenceCountry } : {}),
+      ...(nextResidenceCity ? { residenceCity: nextResidenceCity } : {}),
+      ...(nextMobilePhone ? { mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim() } : {}),
       markMinimumProfileComplete: true,
     });
     if (errMin) return;

@@ -73,10 +73,10 @@ describe("AuthVerify", () => {
     await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/onboarding"));
   });
 
-  it("sends finished users, returning incomplete users and profile-less users home", async () => {
+  it("sends minimum-ready and profile-less users home", async () => {
     for (const profile of [
-      { onboardingCompletedAt: "2026-01-01", appLoginCount: 1, role: "alumni" },
-      { onboardingCompletedAt: null, appLoginCount: 9, role: "alumni" },
+      { fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024, onboardingCompletedAt: "2026-01-01", appLoginCount: 1, role: "alumni" },
+      { fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024, onboardingCompletedAt: null, appLoginCount: 9, role: "alumni" },
       null,
     ]) {
       refetch.mockResolvedValue({ person, profile });
@@ -85,4 +85,10 @@ describe("AuthVerify", () => {
       cleanup();
     }
   });
+});
+
+it("requires missing minimum fields after repeated logins", async () => {
+  refetch.mockResolvedValue({ person, profile: { onboardingCompletedAt: null, appLoginCount: 9 } });
+  mount("?challengeId=c1&magicLinkToken=t1");
+  await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/onboarding"));
 });

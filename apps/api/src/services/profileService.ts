@@ -23,7 +23,7 @@ export interface UpdateMyProfileInput {
   residenceCountry?: string | null;
   residenceCity?: string | null;
   openToPreferences?: OpenToPreferences | null;
-  /** Server sets `profile_completed_at` when name exists (minimum = end of onboarding step 2). */
+  /** Server sets `profile_completed_at` only when all four minimum fields are saved. */
   markMinimumProfileComplete?: true;
   /** Server sets `onboarding_completed_at` when minimum profile already exists (ideal = all steps). */
   markOnboardingComplete?: true;
@@ -214,11 +214,13 @@ export class ProfileService {
 
     let nextProfileCompletedAt = current.profileCompletedAt;
     if (input.markMinimumProfileComplete === true) {
-      if (!nextFullName?.trim()) {
+      if (!nextFullName?.trim() || !nextDepartmentId || !nextDegreeId ||
+          !Number.isInteger(nextBatchYear) || nextBatchYear! < 1960 ||
+          nextBatchYear! > new Date().getUTCFullYear() + 5) {
         throw new AppError(
           400,
           "PROFILE_MINIMUM_INCOMPLETE",
-          "Save your name and details (step 1) before completing this step."
+          "Save your name, department, degree and graduation year before continuing."
         );
       }
       nextProfileCompletedAt = nextProfileCompletedAt ?? new Date();
@@ -227,7 +229,9 @@ export class ProfileService {
     let nextOnboardingCompletedAt = current.onboardingCompletedAt;
     if (input.markOnboardingComplete === true) {
       const hasMinimum =
-        nextProfileCompletedAt != null || current.profileCompletedAt != null;
+        Boolean(nextFullName?.trim() && nextDepartmentId && nextDegreeId &&
+          Number.isInteger(nextBatchYear) && nextBatchYear! >= 1960 &&
+          nextBatchYear! <= new Date().getUTCFullYear() + 5);
       if (!hasMinimum) {
         throw new AppError(
           400,
@@ -235,6 +239,7 @@ export class ProfileService {
           "Complete earlier onboarding steps before marking the full funnel done."
         );
       }
+      nextProfileCompletedAt = nextProfileCompletedAt ?? new Date();
       nextOnboardingCompletedAt = nextOnboardingCompletedAt ?? new Date();
     }
 

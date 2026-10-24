@@ -1,48 +1,26 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  canAccessOnboardingFlow,
-  shouldUseOnboardingFlow,
-} from "../../src/lib/onboardingEligibility";
+import { describe, expect, it } from "vitest";
+import { hasMinimumProfile, canAccessOnboardingFlow, shouldUseOnboardingFlow } from "../../src/lib/onboardingEligibility";
 import { cohortLabelFromProfile, firstNameForGreeting } from "../../src/lib/onboardingDisplay";
-
-const prof = (o: Record<string, unknown>) => ({ onboardingCompletedAt: null, appLoginCount: 1, role: "alumni", ...o }) as never;
-
-afterEach(() => vi.unstubAllEnvs());
-
-describe("shouldUseOnboardingFlow", () => {
-  it("is false once onboarding is complete", () => {
-    expect(shouldUseOnboardingFlow(prof({ onboardingCompletedAt: "2026-01-01" }))).toBe(false);
+const ready = { fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024 };
+describe("minimum profile routing", () => {
+  it("accepts all four required values without completion stamps", () => {
+    expect(hasMinimumProfile(ready)).toBe(true);
+    expect(shouldUseOnboardingFlow(ready)).toBe(false);
   });
-  it("allows up to two logins", () => {
-    expect(shouldUseOnboardingFlow(prof({ appLoginCount: 1 }))).toBe(true);
-    expect(shouldUseOnboardingFlow(prof({ appLoginCount: 2 }))).toBe(true);
-    expect(shouldUseOnboardingFlow(prof({ appLoginCount: 3 }))).toBe(false);
+  it.each(["fullName", "departmentCode", "degreeCode", "batchYear"])("requires %s", (key) => {
+    expect(hasMinimumProfile({ ...ready, [key]: null })).toBe(false);
   });
-  it("is false when the login count is unknown", () => {
-    expect(shouldUseOnboardingFlow(prof({ appLoginCount: null }))).toBe(false);
-    expect(shouldUseOnboardingFlow(prof({ appLoginCount: Number.NaN }))).toBe(false);
+  it.each([null, 0, 1, 2, 3, 9, Number.NaN])("never uses login count %s as completion", (appLoginCount) => {
+    const incomplete = { fullName: "Asha", appLoginCount };
+    expect(canAccessOnboardingFlow(incomplete)).toBe(true);
   });
-});
-
-describe("canAccessOnboardingFlow", () => {
-  it("never reopens a completed onboarding", () => {
-    expect(canAccessOnboardingFlow(prof({ onboardingCompletedAt: "x", appLoginCount: 1 }))).toBe(false);
+  it.each([1959, 2024.5, Number.NaN, new Date().getFullYear() + 6])("rejects invalid graduation year %s", (batchYear) => {
+    expect(hasMinimumProfile({ ...ready, batchYear })).toBe(false);
   });
-  it("lets eligible alumni in", () => {
-    expect(canAccessOnboardingFlow(prof({}))).toBe(true);
-  });
-  it("blocks returning incomplete alumni", () => {
-    expect(canAccessOnboardingFlow(prof({ appLoginCount: 9 }))).toBe(false);
-  });
-  it("treats super admins like alumni in every build", () => {
-    for (const prod of [true, false]) {
-      vi.stubEnv("PROD", prod);
-      expect(canAccessOnboardingFlow(prof({ appLoginCount: 9, role: "super_admin" }))).toBe(false);
-      expect(canAccessOnboardingFlow(prof({ appLoginCount: 1, role: "super_admin" }))).toBe(true);
-    }
+  it("rejects blank required strings", () => {
+    expect(hasMinimumProfile({ ...ready, fullName: "  " })).toBe(false);
   });
 });
-
 describe("onboarding display", () => {
   it("builds cohort labels with department and batch", () => {
     expect(cohortLabelFromProfile({ departmentCode: "bme", batchYear: 2019 } as never)).toBe("Biomedical Engineering 2019");
