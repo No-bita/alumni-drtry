@@ -16,7 +16,6 @@ export const CONNECTION_NUDGE_MESSAGE_THRESHOLD = 4;
 export const CONNECTION_MESSAGE_MAX_LENGTH = 300;
 export const CONNECTION_MESSAGE_MIN_LENGTH = 1;
 export const CONNECTION_THREADS_LIST_LIMIT = 50;
-export const CONNECTION_THREAD_DELETION_WARNING_DAYS = 5;
 export const CONNECTION_REFERRAL_REPLY_PROMPT_THRESHOLD = 3;
 export const CONNECTION_REFERRAL_REPLY_CAP = 5;
 export const CONNECTION_MESSAGE_EDIT_WINDOW_MINUTES = 10;
@@ -78,7 +77,6 @@ export interface ConnectionThreadDetailView {
   messageCount: number;
   showShareNudge: boolean;
   showOfflineContactPrompt: boolean;
-  messagesDeletionWarning: string | null;
   referralReplyCount: number;
   availableDisclosures: AvailableDisclosureOption[];
   kind: "general" | "referral";
@@ -121,15 +119,6 @@ export class ConnectionThreadService {
     if (messageCount < CONNECTION_NUDGE_MESSAGE_THRESHOLD || viewerHasDisclosure) return false;
     if (dismissedAfter === null) return true;
     return messageCount > dismissedAfter;
-  }
-
-  private computeDeletionWarning(messages: ConnectionMessageView[]): string | null {
-    if (messages.length === 0) return null;
-    const now = Date.now();
-    const thresholdMs = CONNECTION_THREAD_DELETION_WARNING_DAYS * 24 * 60 * 60 * 1000;
-    const hasFiveDayOldMessage = messages.some((m) => now - m.createdAt.getTime() >= thresholdMs);
-    if (!hasFiveDayOldMessage) return null;
-    return "Messages will be deleted in 2 days.";
   }
 
   private async buildAvailableDisclosures(
@@ -248,7 +237,6 @@ export class ConnectionThreadService {
       personId === thread.recipient_person_id &&
       referralReplyCount >= CONNECTION_REFERRAL_REPLY_PROMPT_THRESHOLD &&
       thread.status === "open";
-    const messagesDeletionWarning = this.computeDeletionWarning(messages);
     const availableDisclosures = await this.buildAvailableDisclosures(threadId, personId, person);
 
     return {
@@ -285,7 +273,6 @@ export class ConnectionThreadService {
       messageCount,
       showShareNudge,
       showOfflineContactPrompt,
-      messagesDeletionWarning,
       referralReplyCount,
       availableDisclosures,
       kind: thread.kind
