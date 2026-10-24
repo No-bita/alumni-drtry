@@ -36,9 +36,6 @@ export function Landing() {
 
   if (auth.status === "authenticated" && auth.myProfile) {
     const profile = auth.myProfile;
-    if (profile.onboardingCompletedAt) {
-      return <Navigate to="/home" replace />;
-    }
     return (
       <Navigate to={canAccessOnboardingFlow(profile) ? "/onboarding" : "/home"} replace />
     );
