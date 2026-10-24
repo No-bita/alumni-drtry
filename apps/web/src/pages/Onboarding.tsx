@@ -1085,6 +1085,7 @@ export function Onboarding() {
                   {step2CurrentQuestion?.id === "residenceCity" ? <input className="onboarding-welcome__inline-input" autoComplete="address-level2" value={residenceCity} onChange={(e) => setResidenceCity(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
                   {step2CurrentQuestion?.id === "mobileCountryCode" ? <input className="onboarding-welcome__inline-input onboarding-welcome__inline-input--narrow" autoComplete="tel-country-code" inputMode="tel" value={mobileCountryCode} onChange={(e) => setMobileCountryCode(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
                   {step2CurrentQuestion?.id === "mobilePhone" ? <input className="onboarding-welcome__inline-input" autoComplete="tel-national" inputMode="tel" value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "mobilePhone" ? <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>Your number stays private unless you choose to share it.</p> : null}
                   {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
                   <div className="onboarding-welcome__inline-actions">
                     <Button variant="back" onClick={() => { setSaveError(null); if (step2QuestionIndex > 0) { setStep2QuestionIndex((i) => i - 1); return; } goTo(1); }} disabled={saving}>Back</Button>
