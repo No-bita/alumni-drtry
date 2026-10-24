@@ -13,7 +13,14 @@ export function GlobalNotificationsWidget() {
 
   const hiddenOnRoutes = useMemo(() => {
     const p = location.pathname;
-    return p === "/" || p.startsWith("/login") || p.startsWith("/auth/verify") || p.startsWith("/onboarding");
+    return (
+      p === "/" ||
+      p.startsWith("/login") ||
+      p.startsWith("/auth/verify") ||
+      p.startsWith("/onboarding") ||
+      // The sheet is the quick view of the inbox; on the inbox page itself it has nothing to preview.
+      p.startsWith("/notifications")
+    );
   }, [location.pathname]);
 
   const authenticated = auth.status === "authenticated";
@@ -44,6 +51,7 @@ export function GlobalNotificationsWidget() {
         onClick={close}
       />
       <section className="global-notifications-widget__panel" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div className="global-notifications-widget__grab" aria-hidden="true" />
         <header className="global-notifications-widget__head">
           <div>
             <h2>Notifications</h2>
@@ -71,7 +79,7 @@ export function GlobalNotificationsWidget() {
         ) : items.length === 0 ? (
           <p className="notifications-page__empty">You&apos;re all caught up — no new activity.</p>
         ) : (
-          <NotificationsList items={items} onNavigate={close} />
+          <NotificationsList items={items} onNavigate={close} activationTarget="inbox" />
         )}
       </section>
     </>

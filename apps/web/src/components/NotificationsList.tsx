@@ -11,13 +11,15 @@ import { Button } from "./Button";
 type NotificationsListProps = {
   items: NotificationItem[];
   onNavigate?: () => void;
+  /** "inbox": every row tap opens the full-screen inbox instead of the per-kind destination. */
+  activationTarget?: "inbox";
 };
 
 function displayName(name: string | null | undefined): string {
   return name?.trim() || "Alumni";
 }
 
-export function NotificationsList({ items, onNavigate }: NotificationsListProps) {
+export function NotificationsList({ items, onNavigate, activationTarget }: NotificationsListProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busyContactRequestId, setBusyContactRequestId] = useState<string | null>(null);
@@ -39,6 +41,11 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
   const handleItemActivate = (item: NotificationItem) => {
     trackBetaUsageEvent("notification_item_clicked", { kind: item.kind, id: item.id });
     onNavigate?.();
+
+    if (activationTarget === "inbox") {
+      navigate("/notifications");
+      return;
+    }
 
     switch (item.kind) {
       case "connection_thread_reply":
@@ -68,10 +75,18 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
         </li>
       ) : null}
       {items.map((item) => (
-        <li key={item.id} className="notifications-page__item">
+        <li
+          key={item.id}
+          className={
+            item.kind === "connection_thread_reply"
+              ? "notifications-page__item"
+              : "notifications-page__item notifications-page__item--activatable"
+          }
+        >
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
+            inSheet={activationTarget === "inbox"}
             onActivate={() => handleItemActivate(item)}
             onRespondToContactRequest={respondToContactRequest}
           />
@@ -84,6 +99,8 @@ export function NotificationsList({ items, onNavigate }: NotificationsListProps)
 type NotificationListItemProps = {
   item: NotificationItem;
   busyContactRequestId: string | null;
+  /** Quick view (bottom sheet): every tap except decision controls opens the inbox, so names render as plain text. */
+  inSheet: boolean;
   onActivate: () => void;
   onRespondToContactRequest: (id: string, action: "accept" | "decline") => void;
 };
@@ -91,6 +108,7 @@ type NotificationListItemProps = {
 function NotificationListItem({
   item,
   busyContactRequestId,
+  inSheet,
   onActivate,
   onRespondToContactRequest,
 }: NotificationListItemProps) {
@@ -133,14 +151,19 @@ function NotificationListItem({
       const busy = busyContactRequestId === item.contactRequestId;
       return (
         <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox for connection request from ${name}`
+                : `Open profile of ${name}`
+            }
+          />
           <div className="notifications-page__item-main">
             <p className="notifications-page__item-title">
-              <Link
-                to={`/profiles/${item.senderPersonId}`}
-                className="notifications-page__item-name"
-              >
-                {name}
-              </Link>{" "}
+              <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
               wants to connect
             </p>
             <p className="notifications-page__item-detail">{item.message}</p>
@@ -174,20 +197,23 @@ function NotificationListItem({
       const outcomeLabel = item.outcome === "accepted" ? "accepted" : "declined";
       return (
         <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox: ${name} ${outcomeLabel} your connection request`
+                : `Open profile of ${name}`
+            }
+          />
           <ClickableNotificationBody
             title={
               <>
-                <Link
-                  to={`/profiles/${item.recipientPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
+                <ProfileName personId={item.recipientPersonId} name={name} inSheet={inSheet} />{" "}
                 {outcomeLabel} your connection request
               </>
             }
-            onActivate={onActivate}
           />
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}
@@ -199,22 +225,25 @@ function NotificationListItem({
       const name = displayName(item.responderFullName);
       return (
         <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={
+              inSheet
+                ? `Open inbox for bulletin reply from ${name}`
+                : `Open Home for bulletin response from ${name}`
+            }
+          />
           <ClickableNotificationBody
             title={
               <>
-                <Link
-                  to={`/profiles/${item.responderPersonId}`}
-                  className="notifications-page__item-name"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {name}
-                </Link>{" "}
+                <ProfileName personId={item.responderPersonId} name={name} inSheet={inSheet} />{" "}
                 replied to your bulletin post
               </>
             }
             meta={<span className="notifications-page__item-preview">“{item.postPreview}”</span>}
             preview={item.responseMessage}
-            onActivate={onActivate}
           />
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}
@@ -229,26 +258,31 @@ function NotificationListItem({
   }
 }
 
+function ProfileName({ personId, name, inSheet }: { personId: string; name: string; inSheet: boolean }) {
+  if (inSheet) {
+    return <span className="notifications-page__item-name">{name}</span>;
+  }
+  return (
+    <Link to={`/profiles/${personId}`} className="notifications-page__item-name">
+      {name}
+    </Link>
+  );
+}
+
 function ClickableNotificationBody({
   title,
   meta,
   preview,
-  onActivate,
 }: {
   title: ReactNode;
   meta?: ReactNode;
   preview?: string;
-  onActivate: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="notifications-page__item-main notifications-page__item-main--link"
-      onClick={onActivate}
-    >
+    <div className="notifications-page__item-main">
       <p className="notifications-page__item-title">{title}</p>
       {meta ? <p className="notifications-page__item-meta">{meta}</p> : null}
       {preview ? <p className="notifications-page__item-detail">{preview}</p> : null}
-    </button>
+    </div>
   );
 }
