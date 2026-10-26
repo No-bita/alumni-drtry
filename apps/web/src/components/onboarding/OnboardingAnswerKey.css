@@ -1,0 +1,89 @@
+/* Onboarding answer-key + past-roles steps (dark onboarding surface). */
+.onboarding-answer-key,
+.onboarding-past-roles {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.onboarding-answer-key__hint,
+.onboarding-answer-key__count {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(252, 248, 240, 0.72);
+}
+
+.onboarding-answer-key__option {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+}
+
+.onboarding-answer-key__option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.onboarding-answer-key__title {
+  font-weight: 600;
+}
+
+.onboarding-answer-key__example {
+  font-size: 0.88rem;
+  color: rgba(252, 248, 240, 0.7);
+}
+
+.onboarding-past-roles__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.onboarding-past-roles__legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.6);
+}
+
+.onboarding-past-roles__field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.onboarding-past-roles__label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(252, 248, 240, 0.72);
+}
+
+@media (max-width: 639px) {
+  .onboarding-past-roles__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* "Skip" on the dark onboarding surface (the shared .btn--skip is tuned for light pages). */
+.onboarding-welcome__inline-actions .btn--skip {
+  padding: 0 14px;
+  color: rgba(252, 248, 240, 0.78);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.onboarding-welcome__inline-actions .btn--skip:hover {
+  color: rgba(252, 248, 240, 0.98);
+}
