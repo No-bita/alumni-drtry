@@ -1,3 +1,4 @@
+import { HomeAskBox } from "./HomeAskBox";
 import type { HomeQuickAction } from "./HomeQuickActions";
 import { HomeQuickActionCards } from "./HomeQuickActions";
 import { OnboardingChecklistCard } from "./OnboardingChecklistCard";
@@ -17,6 +18,7 @@ export function HomeIntentHero({ actions, nudgeActionId }: HomeIntentHeroProps) 
           <strong className="home-ideal__intent-hero-accent">right now?</strong>
         </h1>
       </div>
+      <HomeAskBox />
       <HomeQuickActionCards actions={actions} variant="intentHero" nudgeActionId={nudgeActionId} />
     </section>
   );
