@@ -8,6 +8,7 @@ import type { CampusMonthlyService } from "../services/campusMonthlyService.js";
 import type { ConnectionThreadService } from "../services/connectionThreadService.js";
 import type { ContactRequestService } from "../services/contactRequestService.js";
 import type { DiscoveryService } from "../services/discoveryService.js";
+import type { MatchService } from "../services/matchService.js";
 import type { IntentcastService } from "../services/intentcastService.js";
 import type { NotificationService } from "../services/notificationService.js";
 import type { LinkService } from "../services/linkService.js";
@@ -27,6 +28,7 @@ declare module "fastify" {
     linkService: LinkService;
     organizationService: OrganizationService;
     discoveryService: DiscoveryService;
+    matchService: MatchService;
     intentcastService: IntentcastService;
     contactRequestService: ContactRequestService;
     connectionThreadService: ConnectionThreadService;
