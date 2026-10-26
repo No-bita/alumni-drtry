@@ -41,12 +41,12 @@ describe("parseOpenToPreferences", () => {
 describe("normalizeOpenToPreferences", () => {
   it("caps selection and description length", () => {
     const r = normalizeOpenToPreferences({
-      selected: ["referrals", "coffee", "mentorship", "hiring"],
+      selected: ["referrals", "coffee", "mentorship", "hiring", "advising", "speaking", "intros"],
       descriptions: { referrals: "x".repeat(900) },
     });
     expect(r.selected).toHaveLength(OPEN_TO_MAX_SELECTED);
     expect(r.descriptions.referrals).toHaveLength(500);
-    expect(r.descriptions.hiring).toBeUndefined();
+    expect(r.descriptions.speaking).toBeUndefined();
   });
 });
 
@@ -59,9 +59,10 @@ describe("selection helpers", () => {
     expect(off.selected).toEqual([]);
     expect(off.descriptions.coffee).toBeUndefined();
   });
-  it("refuses a fourth selection", () => {
+  it("refuses a sixth selection", () => {
     let p = createEmptyOpenToPreferences();
-    for (const id of ["referrals", "coffee", "mentorship"] as const) p = toggleOpenToSelection(p, id);
+    for (const id of ["referrals", "coffee", "mentorship", "city_help", "study_advice"] as const) p = toggleOpenToSelection(p, id);
+    expect(p.selected).toHaveLength(OPEN_TO_MAX_SELECTED);
     expect(canSelectMoreOpenTo(p)).toBe(false);
     expect(toggleOpenToSelection(p, "hiring")).toBe(p);
   });
