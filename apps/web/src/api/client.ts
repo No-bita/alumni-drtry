@@ -151,12 +151,21 @@ export type MyProfileView = {
   updatedAt: string;
   /** Present on GET /v1/me/profile; used when gating onboarding if session `person` is stale. */
   role?: MePerson["role"];
+  /** Open-to tags ("answer key"); raw JSON — parse with `parseOpenToPreferences`. */
+  openToPreferences?: unknown;
 };
 
 export type MeProfileResponse = { profile: MyProfileView };
 
 /** GET /v1/me/occupations returns { occupations } */
-export type MyOccupationView = { id: string; occupationTypeCode: string; roleTitle: string; isCurrent: boolean };
+export type MyOccupationView = {
+  id: string;
+  occupationTypeCode: string;
+  roleTitle: string;
+  isCurrent: boolean;
+  /** Returned by the API; optional here so older fixtures stay valid. */
+  organizationName?: string | null;
+};
 export type MeOccupationsResponse = { occupations: MyOccupationView[] };
 
 /** GET /v1/search returns { results, pageInfo } */
