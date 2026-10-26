@@ -21,6 +21,6 @@ it('keeps contact edit pending until profile loads, then hydrates drafts before 
  expect((screen.getByLabelText('City of residence (optional)') as HTMLInputElement).value).toBe('Bengaluru');
  expect((screen.getByLabelText('Country of residence (optional)') as HTMLInputElement).value).toBe('India');
  expect((screen.getByLabelText('Personal email (optional)') as HTMLInputElement).value).toBe('saved@example.com');
- expect(screen.getByText('Choose up to 3 (1/3 selected)')).toBeTruthy();
+ expect(screen.getByText('Choose up to 5 (1/5 selected)')).toBeTruthy();
  client.clear();
 });
