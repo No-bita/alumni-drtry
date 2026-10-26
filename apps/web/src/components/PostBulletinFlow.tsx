@@ -333,8 +333,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
             ? "careers"
             : options?.category ?? INITIAL_CATEGORY
       );
-      setHeadline("");
-      setBody("");
+      setHeadline((options?.headline ?? "").trim().slice(0, BULLETIN_TITLE_MAX_CHARS));
+      setBody((options?.body ?? "").trim().slice(0, BULLETIN_DESCRIPTION_MAX_CHARS));
       setReferralJobLink("");
       setReferralCompanyName("");
       setReferralResumeLink("");

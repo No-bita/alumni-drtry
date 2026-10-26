@@ -62,6 +62,10 @@ const envSchema = z.object({
   DISCOVERY_NORMALIZE_QUERY: z.coerce.boolean().default(false),
   /** Persist directory search sessions + optional click events (set false to skip DB writes in tests if needed). */
   DISCOVERY_ANALYTICS_ENABLED: z.coerce.boolean().default(true),
+  /** Ask → Match: try an LLM question parser before the rules parser (needs a provider; off by default). */
+  MATCH_LLM_ENABLED: environmentBoolean.default(false),
+  /** Ask → Match: write privacy-safe query stats (category, field names, result count) to match_queries. */
+  MATCH_ANALYTICS_ENABLED: environmentBoolean.default(true),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
   /** Sliding window: on throttled activity, extend session expiry up to this many hours from "now". */

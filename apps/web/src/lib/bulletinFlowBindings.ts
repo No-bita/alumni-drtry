@@ -17,6 +17,10 @@ export type PostBulletinOpenOptions = {
   careersPreset?: CareersBulletinPreset;
   /** @deprecated Prefer {@link PostBulletinOpenOptions.careersPreset} `"referralSeeking"`. */
   referralSeeking?: boolean;
+  /** Prefill the headline (truncated to the bulletin title limit), e.g. from an Ask → Match question. */
+  headline?: string;
+  /** Prefill the details body (truncated to the bulletin description limit). */
+  body?: string;
 };
 
 export type PostBulletinFlowHandleShape = {

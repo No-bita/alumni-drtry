@@ -49,6 +49,10 @@ The browser treats `/v1/me` plus `/v1/me/profile` as the session snapshot.
 
 Search responses exclude the current viewer and include stable `matchReasons` keys that the web maps to display labels.
 
+## Ask → Match
+
+- `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
+
 ## Intentcasts And Bulletin
 
 - `POST /v1/intentcasts`: creates a bulletin post.

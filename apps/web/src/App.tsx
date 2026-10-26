@@ -21,6 +21,7 @@ import { isDevHubPagesEnabled } from "./lib/devHubPages";
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const AuthVerify = lazy(() => import("./pages/AuthVerify").then((m) => ({ default: m.AuthVerify })));
 const Search = lazy(() => import("./pages/Search").then((m) => ({ default: m.Search })));
+const MatchPage = lazy(() => import("./pages/MatchPage").then((m) => ({ default: m.MatchPage })));
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
 const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
 const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })));
@@ -190,6 +191,16 @@ function AppRoutes() {
             <RequireAuth>
               <ProfileGate mode="directory">
                 <Search />
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/match"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="directory">
+                <MatchPage />
               </ProfileGate>
             </RequireAuth>
           }
