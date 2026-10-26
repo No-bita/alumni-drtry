@@ -30,7 +30,17 @@ When the question gives nothing to search on (for example "moving to a new city"
 
 ## Reach out
 
-Messaging is paused. **Reach out** sends one note through the existing contact-request flow (`POST /v1/contact-requests`): the recipient gets the note by email, and the sender gets the recipient's contact address only if they accept.
+Messaging is paused. **Reach out** sends one note through the existing contact-request flow (`POST /v1/contact-requests`, with `source: "match"` and the question category): the recipient gets the note by email, and the sender gets the recipient's contact address only if they accept.
+
+- **One pending note per alum:** a second pending note from the same sender returns `409 CONTACT_REQUEST_DUPLICATE_PENDING`.
+- **Sent notes:** `GET /v1/contact-requests/sent` (shown under "Notes you sent" on Notifications). The shared contact is included only once accepted.
+- **Match cards** carry `yourNote` (latest status of the viewer's note) and `replyStats`: over the last 12 months, notes pending for less than 3 days excluded, shown only from 3 notes — "Replied to X of Y notes · usually within N days" (median, rounded up; a decline counts as a reply).
+- **Reminder:** one email to the recipient for notes pending 3–14 days. Runs hourly in production on the in-process scheduler (`CONTACT_REQUEST_REMINDER_SCHEDULER_MS` overrides; `0` turns it off). A claim on `reminder_sent_at` makes it safe across replicas; a failed send is released and retried on the next run (until the note is 14 days old).
+
+## Metrics
+
+- Admin card: `GET /v1/admin/metrics/ask-match` (admins only) — 30-day funnel (questions → needed detail → matched → notes → accepted/declined/pending, median days to reply, reminders sent), the same by category, and current profile completeness.
+- Read-only SQL for production: [`queries/ask-match-funnel.sql`](./queries/ask-match-funnel.sql) and [`queries/profile-completeness.sql`](./queries/profile-completeness.sql).
 
 ## Privacy
 

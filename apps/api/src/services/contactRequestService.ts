@@ -4,7 +4,9 @@ import { AppError } from "../lib/errors.js";
 import {
   ContactRequestRepo,
   type ContactRequestInboxItemView,
-  type ContactRequestView
+  type ContactRequestView,
+  type ContactRequestSentView,
+  type ContactRequestSource
 } from "../repos/contactRequestRepo.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
 import { personRowIsDemoProfile } from "../lib/demoPersonProfile.js";
@@ -14,6 +16,28 @@ import type { EmailSender } from "./emailSender.js";
 export interface CreateContactRequestInput {
   recipientPersonId: string;
   message: string;
+  /** Surface the note was sent from (only "match" today) and the question category. */
+  source?: ContactRequestSource;
+  sourceCategory?: string | null;
+}
+
+/** Reminder rules (approved): one email, for notes pending 3–14 days. */
+export const CONTACT_REMINDER_MIN_DAYS = 3;
+export const CONTACT_REMINDER_MAX_DAYS = 14;
+const CONTACT_REMINDER_BATCH = 200;
+
+/** Reply-stats rules (approved): last 12 months, pending < 3 days excluded, shown from 3 notes. */
+export const REPLY_STATS_WINDOW_MONTHS = 12;
+export const REPLY_STATS_GRACE_DAYS = 3;
+export const REPLY_STATS_MIN_NOTES = 3;
+
+export interface ReplyStatsView {
+  /** Notes counted (last 12 months, excluding pending < 3 days). */
+  total: number;
+  /** Accepted or declined. */
+  replied: number;
+  /** Median days to reply, rounded up (min 1); null when nothing was replied to. */
+  medianDays: number | null;
 }
 
 export interface RespondContactRequestInput {
@@ -64,6 +88,15 @@ export class ContactRequestService {
       );
     }
 
+    if (await this.contactRequestRepo.hasPendingBetween(sender.id, recipient.id)) {
+      const name = recipient.full_name?.trim() || "this alum";
+      throw new AppError(
+        409,
+        "CONTACT_REQUEST_DUPLICATE_PENDING",
+        `You already have a note waiting for ${name}.`
+      );
+    }
+
     const maxOut = env.CONTACT_REQUEST_MAX_PER_SENDER_WINDOW;
     const recipientIsDemo = personRowIsDemoProfile(recipient);
     if (maxOut > 0 && !recipientIsDemo) {
@@ -86,7 +119,9 @@ export class ContactRequestService {
       senderPersonId: sender.id,
       recipientPersonId: recipient.id,
       message,
-      forwardedToInstitutionalEmail: recipient.institutional_email
+      forwardedToInstitutionalEmail: recipient.institutional_email,
+      source: input.source ?? null,
+      sourceCategory: input.source ? (input.sourceCategory ?? null) : null
     });
 
     let notificationDelivered = true;
@@ -106,6 +141,64 @@ export class ContactRequestService {
       contactRequest: created,
       notificationDelivered
     };
+  }
+
+  async listSentForSender(senderPersonId: string): Promise<ContactRequestSentView[]> {
+    return this.contactRequestRepo.listSentForSender(senderPersonId, 100);
+  }
+
+  /** Latest status of the viewer's note to each recipient (for match cards). */
+  async latestStatusFromSender(senderPersonId: string, recipientPersonIds: readonly string[]) {
+    return this.contactRequestRepo.latestStatusFromSender(senderPersonId, recipientPersonIds);
+  }
+
+  /** Reply stats per recipient; only recipients with enough notes are included. */
+  async replyStatsForRecipients(recipientPersonIds: readonly string[]): Promise<Map<string, ReplyStatsView>> {
+    const rows = await this.contactRequestRepo.replyStatsForRecipients(
+      recipientPersonIds,
+      REPLY_STATS_WINDOW_MONTHS,
+      REPLY_STATS_GRACE_DAYS
+    );
+    const out = new Map<string, ReplyStatsView>();
+    for (const r of rows) {
+      if (r.considered < REPLY_STATS_MIN_NOTES) continue;
+      out.set(r.recipientPersonId, {
+        total: r.considered,
+        replied: r.replied,
+        medianDays:
+          r.replied > 0 && r.medianReplySeconds !== null ? Math.max(1, Math.ceil(r.medianReplySeconds / 86_400)) : null
+      });
+    }
+    return out;
+  }
+
+  /** One reminder per pending note aged 3–14 days. Safe to run concurrently (claims are atomic). */
+  async sendDueReminders(): Promise<{ sent: number; failed: number }> {
+    const due = await this.contactRequestRepo.listRemindersDue(
+      CONTACT_REMINDER_MIN_DAYS,
+      CONTACT_REMINDER_MAX_DAYS,
+      CONTACT_REMINDER_BATCH
+    );
+    let sent = 0;
+    let failed = 0;
+    for (const note of due) {
+      if (!(await this.contactRequestRepo.claimReminder(note.id))) continue;
+      try {
+        await this.emailSender.sendContactRequestReminderEmail({
+          to: note.recipientInstitutionalEmail,
+          recipientName: note.recipientFullName?.trim() || "there",
+          senderName: note.senderFullName?.trim() || note.senderInstitutionalEmail,
+          message: note.message,
+          daysWaiting: Math.max(1, Math.floor((Date.now() - note.createdAt.getTime()) / 86_400_000))
+        });
+        sent += 1;
+      } catch (err) {
+        failed += 1;
+        await this.contactRequestRepo.releaseReminder(note.id);
+        console.error("[contact-request] reminder email failed (will retry next run):", err);
+      }
+    }
+    return { sent, failed };
   }
 
   async listInboxForRecipient(recipientPersonId: string): Promise<ContactRequestInboxItemView[]> {

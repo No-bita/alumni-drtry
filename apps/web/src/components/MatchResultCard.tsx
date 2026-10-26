@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { MatchResult } from "../lib/matchApi";
 import { OPEN_TO_CATALOG } from "../lib/openToPreferences";
+import { replyStatsLine } from "../lib/sentNotes";
 import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 
@@ -29,6 +30,7 @@ export function MatchResultCard({ result, onReachOut }: MatchResultCardProps) {
           </Link>
           <DeptBatchMeta departmentCode={result.departmentCode} batchYear={result.batchYear} className="match-card__meta" />
           {line ? <p className="match-card__headline">{line}</p> : null}
+          {result.replyStats ? <p className="match-card__reply-stats">{replyStatsLine(result.replyStats)}</p> : null}
         </div>
       </div>
 
@@ -55,9 +57,19 @@ export function MatchResultCard({ result, onReachOut }: MatchResultCardProps) {
       ) : null}
 
       <div className="match-card__actions">
-        <button type="button" className="btn btn--primary" onClick={() => onReachOut(result)}>
-          Reach out
-        </button>
+        {result.yourNote === "pending" ? (
+          <p className="match-card__note-status" role="status">
+            Note sent · waiting for reply · <Link to="/notifications">See your notes</Link>
+          </p>
+        ) : result.yourNote === "accepted" ? (
+          <p className="match-card__note-status match-card__note-status--accepted" role="status">
+            Accepted your note · <Link to="/notifications">See their contact</Link>
+          </p>
+        ) : (
+          <button type="button" className="btn btn--primary" onClick={() => onReachOut(result)}>
+            Reach out
+          </button>
+        )}
         <Link to={profileHref} className="match-card__profile-link">
           View profile
         </Link>

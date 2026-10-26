@@ -67,6 +67,10 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 
 ## Contact And Messaging
 
+- `GET /v1/contact-requests/sent`: the viewer's sent notes (newest first, max 100) with status; `recipientContactShared` only when accepted.
+- `POST /v1/contact-requests` also accepts optional `source: "match"` and `sourceCategory`; returns `409 CONTACT_REQUEST_DUPLICATE_PENDING` when a note to the same person is still pending.
+- `GET /v1/admin/metrics/ask-match` (admin): Ask → Match funnel and profile completeness.
+
 - `POST /v1/contact-requests`: creates a contact request.
 - `GET /v1/contact-requests/inbox`: returns pending incoming requests.
 - `PATCH /v1/contact-requests/:id`: accepts or declines a request.

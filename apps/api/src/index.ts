@@ -14,6 +14,12 @@ function intentcastExpiryIntervalMs(): number {
   return env.NODE_ENV === "production" ? 60 * 60 * 1000 : 0;
 }
 
+function contactReminderIntervalMs(): number {
+  const raw = env.CONTACT_REQUEST_REMINDER_SCHEDULER_MS;
+  if (raw !== undefined) return raw;
+  return env.NODE_ENV === "production" ? 60 * 60 * 1000 : 0;
+}
+
 async function main() {
   const app = await createApp();
   await app.listen({
@@ -49,8 +55,29 @@ async function main() {
     expiryInterval = setInterval(tick, intervalMs);
   }
 
+  // Reminder emails for notes pending 3–14 days (one per note; claims are atomic across replicas).
+  const reminderMs = contactReminderIntervalMs();
+  let reminderInterval: ReturnType<typeof setInterval> | undefined;
+  let reminderStartupTimer: ReturnType<typeof setTimeout> | undefined;
+  if (reminderMs > 0) {
+    const remind = () => {
+      void app.contactRequestService
+        .sendDueReminders()
+        .then(({ sent, failed }) => {
+          app.log.info({ sent, failed }, "contact request reminder tick");
+        })
+        .catch((err: unknown) => {
+          app.log.error({ err }, "contact request reminder tick failed");
+        });
+    };
+    reminderStartupTimer = setTimeout(remind, 60_000);
+    reminderInterval = setInterval(remind, reminderMs);
+  }
+
   const shutdown = async () => {
     stopExpiryScheduler();
+    if (reminderInterval !== undefined) clearInterval(reminderInterval);
+    if (reminderStartupTimer !== undefined) clearTimeout(reminderStartupTimer);
     await app.close();
     await closeSentry();
     process.exit(0);

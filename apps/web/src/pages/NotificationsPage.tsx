@@ -2,6 +2,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "../components/NotificationsList";
+import { SentNotesSection } from "../components/SentNotesSection";
+import "../styles/sent-notes.css";
 
 /** Full-screen notifications inbox: the destination rows in the quick-view sheet open. */
 export function NotificationsPage() {
@@ -45,6 +47,8 @@ export function NotificationsPage() {
       ) : (
         <NotificationsList items={items} />
       )}
+
+      <SentNotesSection enabled={authenticated} />
     </main>
   );
 }

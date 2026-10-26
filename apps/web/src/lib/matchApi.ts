@@ -57,6 +57,10 @@ export type MatchResult = {
   reasons: MatchReason[];
   openTo: OpenToOptionId[];
   relevantOpenTo: OpenToOptionId[];
+  /** Latest status of the viewer's own note to this alum. */
+  yourNote: "pending" | "accepted" | "declined" | null;
+  /** Shown only when the alum has received enough notes (API decides). */
+  replyStats: { total: number; replied: number; medianDays: number | null } | null;
 };
 
 export type MatchResponse = {

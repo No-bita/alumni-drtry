@@ -19,6 +19,7 @@ import {
   type ProfileLinkView,
   type ProfileResponse,
 } from "../api/client";
+import { AskMatchMetricsSection } from "../components/AskMatchMetricsSection";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
@@ -289,7 +290,8 @@ export function Profile() {
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
       residenceCity: draftResidenceCity.trim() || null,
-      openToPreferences: normalizeOpenToPreferences(draftOpenTo),
+      // No tags selected = clear them (the API rejects an empty selection object).
+      openToPreferences: draftOpenTo.selected.length > 0 ? normalizeOpenToPreferences(draftOpenTo) : null,
     });
     if (profileError) {
       setSaving(false);
@@ -650,6 +652,8 @@ export function Profile() {
                       Usage, funnel, and KPI rows below count only <strong>beta alumni</strong> (real profiles), excluding demo
                       bios, e2e test users, and admin accounts. Directory totals show the full split.
                     </p>
+                    <AskMatchMetricsSection />
+
                     <section className="profile-page__analytics-section">
                       <h3 className="profile-page__analytics-title">Directory totals</h3>
                       <ul className="profile-page__analytics-list">

@@ -356,11 +356,12 @@ export class MatchRepo {
     parserSource: "rules" | "llm";
     resultCount: number;
     hadOverrides: boolean;
+    needsDetail: boolean;
   }): Promise<void> {
     await this.db.query(
-      `INSERT INTO match_queries (category, detected_fields, parser_source, result_count, had_overrides)
-       VALUES ($1, $2::text[], $3, $4, $5)`,
-      [input.category, input.detectedFields, input.parserSource, input.resultCount, input.hadOverrides]
+      `INSERT INTO match_queries (category, detected_fields, parser_source, result_count, had_overrides, needs_detail)
+       VALUES ($1, $2::text[], $3, $4, $5, $6)`,
+      [input.category, input.detectedFields, input.parserSource, input.resultCount, input.hadOverrides, input.needsDetail]
     );
   }
 
