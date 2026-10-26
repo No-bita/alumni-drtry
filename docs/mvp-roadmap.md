@@ -109,7 +109,7 @@ Foundation auth (domain allowlist, email parsing, OTP/magic link, person bootstr
 | 1 | Public intentcast status layer | Revisit after MVP |
 | 2 | Privacy controls | Field-level visibility after MVP |
 | 3 | Warm intro through mutuals | Needs graph edge data, phase 2 of long roadmap |
-| 4 | Intent-based matching | Deterministic scoring on structured data, phase 3 of long roadmap |
+| 4 | Intent-based matching | **V1 built** as Ask → Match (`POST /v1/match`, rules parser + deterministic scoring); see [ask-match.md](./ask-match.md) |
 | 5 | Graph relationship engine | `person_edge` table + traversal, phase 2 of long roadmap |
 | 6 | Mobile app | Web only for MVP |
 | 7 | LinkedIn sync | Business and API risk, deferred indefinitely |
