@@ -54,6 +54,7 @@ export function HomeToolbarSearch({
         type="search"
         className={`nav-app-toolbar__search-input${nudgeActive ? " nav-app-toolbar__search-input--nudged" : ""}`}
         autoComplete="off"
+        placeholder="Search people, companies or cities"
         value={searchText}
         onChange={(event) => onSearchTextChange(event.target.value)}
       />

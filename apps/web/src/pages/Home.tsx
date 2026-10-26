@@ -26,11 +26,12 @@ import { HomeIntentHero } from "../components/HomeIntentHero";
 import { HomeAnswerKeyCard } from "../components/HomeAnswerKeyCard";
 import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
-import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQuickActions";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
-import { HomeCampusUpdatesPanel } from "../components/HomeCampusUpdatesPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
-import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
+import { HomeBrowseRow } from "../components/HomeBrowseRow";
+import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
+import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
+import "../styles/home-layout.css";
 
 const EMPTY_POSTS: IntentcastFeedItem[] = [];
 
@@ -42,33 +43,6 @@ function displayFirstName(profile: MyProfileView, email: string | undefined): st
   }
   return displayFirstNameFromEmail(email);
 }
-
-const QUICK_ACTIONS: HomeQuickActionLink[] = [
-  {
-    id: "directory",
-    title: "Find alumni",
-    description: "Search and connect with alumni",
-    href: "/search",
-  },
-  {
-    id: "referrals",
-    title: "Careers",
-    description: "Referrals, Resumes or Mocks",
-    href: "/intent/career",
-  },
-  {
-    id: "cities",
-    title: "Relocation",
-    description: "Housing, Flatmates, or Sports",
-    href: "/intent/location",
-  },
-  {
-    id: "collaborators",
-    title: "Startups",
-    description: "Cofounders, Fundraising or First users",
-    href: "/intent/build",
-  },
-];
 
 const HOME_MOCK_OPPORTUNITIES: HomeOpportunityItem[] = [
   {
@@ -763,36 +737,6 @@ export function Home() {
       },
     };
   }, [activeCategory, opportunityIntentcasts, bulletinRepliesQuery.data?.totalCount]);
-  const activeOpportunityCount =
-    viewModel.activeCategory === "all"
-      ? viewModel.categoryCounts.careers +
-        viewModel.categoryCounts.hiring +
-        viewModel.categoryCounts.relocation +
-        viewModel.categoryCounts.startups +
-        viewModel.categoryCounts.guidance
-      : viewModel.activeCategory === "replies"
-        ? viewModel.categoryCounts.replies
-        : viewModel.categoryCounts[viewModel.activeCategory];
-  const shouldNudgeShareOnBulletin =
-    !opportunitiesFeedLoading &&
-    viewModel.activeCategory !== "replies" &&
-    activeOpportunityCount === 0;
-
-  const homeHeroActions = useMemo((): HomeQuickAction[] => {
-    const links = isBuildIntentPageEnabled
-      ? QUICK_ACTIONS
-      : QUICK_ACTIONS.filter((a) => a.id !== "collaborators");
-    return [
-      ...links,
-      {
-        id: "bulletin",
-        title: "Share with alumni",
-        description: "Guidance, mentorship, or collaboration",
-        onActivate: () => bulletinFlowRef.current?.open(),
-      },
-    ];
-  }, []);
-
   if (!profile) {
     return (
       <>
@@ -851,15 +795,20 @@ export function Home() {
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
-          {authPersonId && !useDevMocks ? (
-            <HomeFootprintStrip
-              myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
-              replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
-              viewerPersonId={authPersonId}
-              onOpenReplies={openRepliesTab}
-            />
-          ) : null}
-          <HomeIntentHero actions={homeHeroActions} nudgeActionId={shouldNudgeShareOnBulletin ? "bulletin" : undefined} />
+          <HomeIntentHero />
+          <div className="home-activity">
+            <HomeSentNotesLine />
+            {authPersonId && !useDevMocks ? (
+              <HomeFootprintStrip
+                myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
+                replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
+                viewerPersonId={authPersonId}
+                onOpenReplies={openRepliesTab}
+              />
+            ) : null}
+          </div>
+          <HomeBrowseRow />
+          <OnboardingChecklistCard />
           <HomeAnswerKeyCard />
           <HomeOpportunityRail
             intentcasts={opportunityIntentcasts}
@@ -871,15 +820,13 @@ export function Home() {
             viewerPersonId={authPersonId}
             bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
             bulletinRepliesLoading={bulletinRepliesFeedLoading}
-            onAskFirst={() => bulletinFlowRef.current?.open()}
+            onPost={() => bulletinFlowRef.current?.open()}
           />
-          <div className="home-ideal__bottom-panels">
-            <HomeNetworkPanel
-              members={batchList}
-              directoryHref={batchDirectorySearchHref}
-            />
-            <HomeCampusUpdatesPanel />
-          </div>
+          <HomeNetworkPanel
+            members={batchList}
+            directoryHref={batchDirectorySearchHref}
+            countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
+          />
           <HomeFeedbackSection />
         </div>
       </div>

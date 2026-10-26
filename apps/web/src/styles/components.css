@@ -759,6 +759,11 @@ input[type="reset"]:not(:disabled) {
   box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.75);
 }
 
+/* Narrow phones: the hint ends in "…" instead of cutting off mid-word. */
+.nav-app-toolbar__search-input::placeholder {
+  text-overflow: ellipsis;
+}
+
 .nav-app-toolbar__search-input:focus {
   outline: 2px solid rgba(138, 58, 30, 0.28);
   outline-offset: 1px;

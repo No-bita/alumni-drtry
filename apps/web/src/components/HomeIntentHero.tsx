@@ -1,25 +1,17 @@
 import { HomeAskBox } from "./HomeAskBox";
-import type { HomeQuickAction } from "./HomeQuickActions";
-import { HomeQuickActionCards } from "./HomeQuickActions";
-import { OnboardingChecklistCard } from "./OnboardingChecklistCard";
+import { HomeReassurance } from "./HomeReassurance";
 
-type HomeIntentHeroProps = {
-  actions: HomeQuickAction[];
-  nudgeActionId?: string;
-};
-
-export function HomeIntentHero({ actions, nudgeActionId }: HomeIntentHeroProps) {
+/** Home hero: one question, one box, and an honest line about who can help. */
+export function HomeIntentHero() {
   return (
     <section className="home-ideal__intent-hero" aria-labelledby="home-intent-hero-heading">
-      <OnboardingChecklistCard />
       <div className="home-ideal__intent-hero-head">
         <h1 id="home-intent-hero-heading" className="home-ideal__intent-hero-title">
-          What do you want to do{" "}
-          <strong className="home-ideal__intent-hero-accent">right now?</strong>
+          What do you need <strong className="home-ideal__intent-hero-accent">help with?</strong>
         </h1>
       </div>
       <HomeAskBox />
-      <HomeQuickActionCards actions={actions} variant="intentHero" nudgeActionId={nudgeActionId} />
+      <HomeReassurance />
     </section>
   );
 }

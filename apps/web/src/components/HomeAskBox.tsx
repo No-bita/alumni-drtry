@@ -34,8 +34,9 @@ export function HomeAskBox() {
 
   return (
     <form className="home-ask" onSubmit={onSubmit} role="search" aria-label="Ask alumni">
-      <label htmlFor={inputId} className="home-ask__label">
-        What are you trying to get done?
+      {/* The page heading asks the question out loud; this label names the box for screen readers. */}
+      <label htmlFor={inputId} className="visually-hidden">
+        What do you need help with?
       </label>
       <div className="home-ask__row">
         <input

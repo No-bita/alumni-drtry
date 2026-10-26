@@ -8,11 +8,19 @@ import "../styles/home-network-invite.css";
 type HomeNetworkPanelProps = {
   members: SearchProfileView[];
   directoryHref: string;
+  /** Batchmates here, as shown ("12", "40+", "100+"). Defaults to the member count. */
+  countLabel?: string;
 };
 
+function batchTitle(countLabel: string): string {
+  return countLabel === "1" ? "1 of your batchmates is here" : `${countLabel} of your batchmates are here`;
+}
+
+/** Your batch on Home. With nobody here yet: one quiet invite line, no zero count. */
 export function HomeNetworkPanel({
   members,
   directoryHref,
+  countLabel,
 }: HomeNetworkPanelProps) {
   const avatars = members.slice(0, 6);
   const overflow = Math.max(0, members.length - avatars.length);
@@ -38,35 +46,57 @@ export function HomeNetworkPanel({
     }, 2500);
   };
 
+  const invitePanel = inviteOpen ? (
+    <div className="home-network-invite" role="group" aria-label="Invite link">
+      <p className="home-network-invite__hint">Your link is ready. Drop it in a group chat and watch the batch roll in.</p>
+      <input className="home-network-invite__link" readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} />
+      <div className="home-network-invite__actions">
+        <button type="button" className="btn btn--secondary" onClick={() => void onCopy()}>
+          {copied === "yes" ? "Copied. Go forth." : copied === "no" ? "Couldn't copy. Long-press the link instead" : "Copy link"}
+        </button>
+        <a className="btn btn--primary" href={buildWhatsAppShareUrl(link)} target="_blank" rel="noopener noreferrer">
+          Share on WhatsApp
+        </a>
+      </div>
+    </div>
+  ) : null;
+
+  if (isEmpty) {
+    return (
+      <section className="home-network-line" aria-label="Your network">
+        <p className="home-network-line__text">
+          Know batchmates who should be here?{" "}
+          <button
+            type="button"
+            className="home-network-line__invite"
+            aria-expanded={inviteOpen}
+            onClick={() => setInviteOpen((v) => !v)}
+          >
+            Invite them
+          </button>
+        </p>
+        {invitePanel}
+      </section>
+    );
+  }
+
   return (
     <section className="home-ideal__panel" aria-labelledby="home-network-heading">
       <h2 id="home-network-heading" className="home-ideal__panel-title">
-        Your Network
+        {batchTitle(countLabel ?? String(members.length))}
       </h2>
-      {isEmpty ? (
-        <div className="home-network-empty">
-          <p className="home-network-empty__count">0 of your batchmates are here yet</p>
-          <p className="home-ideal__panel-copy">
-            It's a little quiet in here. Be the person who brings the party: send one link and the
-            first hello is yours.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="home-ideal__avatars" aria-label="Batch avatars">
-            {avatars.map((member) => {
-              const displayName = (member.fullName ?? "").trim() || member.fullName.trim();
-              return (
-                <Link key={member.id} to={`/profiles/${member.id}`}>
-                  <Avatar name={displayName} size="sm" tone="pastel" />
-                </Link>
-              );
-            })}
-            {overflow > 0 ? <span className="home-ideal__avatar-overflow">+{overflow}</span> : null}
-          </div>
-          <p className="home-ideal__panel-copy">Strengthen your batch network and stay connected.</p>
-        </>
-      )}
+      <div className="home-ideal__avatars" aria-label="Batch avatars">
+        {avatars.map((member) => {
+          const displayName = (member.fullName ?? "").trim() || member.fullName.trim();
+          return (
+            <Link key={member.id} to={`/profiles/${member.id}`}>
+              <Avatar name={displayName} size="sm" tone="pastel" />
+            </Link>
+          );
+        })}
+        {overflow > 0 ? <span className="home-ideal__avatar-overflow">+{overflow}</span> : null}
+      </div>
+      <p className="home-ideal__panel-copy">Strengthen your batch network and stay connected.</p>
       <div className="home-ideal__panel-actions">
         <button
           type="button"
@@ -80,20 +110,7 @@ export function HomeNetworkPanel({
           View all alumni
         </Link>
       </div>
-      {inviteOpen ? (
-        <div className="home-network-invite" role="group" aria-label="Invite link">
-          <p className="home-network-invite__hint">Your link is ready. Drop it in a group chat and watch the batch roll in.</p>
-          <input className="home-network-invite__link" readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} />
-          <div className="home-network-invite__actions">
-            <button type="button" className="btn btn--secondary" onClick={() => void onCopy()}>
-              {copied === "yes" ? "Copied. Go forth." : copied === "no" ? "Couldn't copy. Long-press the link instead" : "Copy link"}
-            </button>
-            <a className="btn btn--primary" href={buildWhatsAppShareUrl(link)} target="_blank" rel="noopener noreferrer">
-              Share on WhatsApp
-            </a>
-          </div>
-        </div>
-      ) : null}
+      {invitePanel}
     </section>
   );
 }

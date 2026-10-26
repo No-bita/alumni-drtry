@@ -98,3 +98,38 @@
   font-size: 0.8rem;
   opacity: 0.75;
 }
+
+/* One-line variant on Home: the next undone step only. */
+.onboarding-checklist--line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 10px 12px 10px 18px;
+  border: 1px solid var(--color-prefill-border);
+  border-radius: 12px;
+  background: var(--color-prefill-bg);
+}
+
+.onboarding-checklist__line {
+  flex: 1 1 280px;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.onboarding-checklist__line strong {
+  font-weight: 600;
+}
+
+.onboarding-checklist__cta {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--brick);
+}
+
+.onboarding-checklist--line .onboarding-checklist__dismiss {
+  width: 44px;
+  height: 44px;
+}

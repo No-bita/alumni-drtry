@@ -42,36 +42,35 @@ describe("checklist logic", () => {
 });
 
 describe("OnboardingChecklistCard", () => {
-  it("opens the first time with two deep links, then comes back slim", async () => {
+  it("shows only the next undone step as one line", async () => {
     setAuth();
     mount();
-    await waitFor(() => expect(screen.getByText("Complete your profile")).toBeTruthy());
-    expect(screen.getByText("Join your city board")).toBeTruthy();
-    // Messaging paused: the "Send your first message" step is commented out.
+    await waitFor(() => expect(screen.getByText(/Next step:/)).toBeTruthy());
+    expect(screen.getByText("add your batch and city")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Add them" }).getAttribute("href")).toBe("/profiles/p1");
+    // Only one step at a time, never the whole list.
+    expect(screen.queryByText("join your city board")).toBeNull();
     expect(screen.queryByText("Send your first message")).toBeNull();
-    expect(screen.getByText("Complete your profile").closest("a")?.getAttribute("href")).toBe("/profiles/p1");
-    cleanup();
-    mount();
-    await waitFor(() => expect(screen.getByText("Getting started: 0 of 2 done")).toBeTruthy());
-    expect(screen.queryByText("Complete your profile")).toBeNull();
   });
   it("is dismissible and stays dismissed", async () => {
     setAuth();
     mount();
     await waitFor(() => screen.getByLabelText("Dismiss the getting started card"));
     fireEvent.click(screen.getByLabelText("Dismiss the getting started card"));
-    expect(screen.queryByText(/regular/)).toBeNull();
+    expect(screen.queryByText(/Next step/)).toBeNull();
     cleanup();
     mount();
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText(/Getting started/)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Getting started" })).toBeNull();
   });
   it("checks off the city step when the board is opened, and the profile step from data", async () => {
     setAuth({ batchYear: 2022, residenceCity: "Pune" });
     mount();
-    await waitFor(() => screen.getByText("Join your city board"));
-    expect(screen.getByText("Join your city board").closest("a")?.getAttribute("href")).toBe("/intent/location/pune");
-    fireEvent.click(screen.getByText("Join your city board"));
+    await waitFor(() => screen.getByText(/One step left:/));
+    expect(screen.getByText("join your city board")).toBeTruthy();
+    const cta = screen.getByRole("link", { name: "Open city board" });
+    expect(cta.getAttribute("href")).toBe("/intent/location/pune");
+    fireEvent.click(cta);
     cleanup();
     // Messaging paused: with two steps, both done means the card hides itself.
     mount();
