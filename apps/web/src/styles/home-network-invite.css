@@ -1,8 +1,28 @@
-.home-network-empty__count {
-  margin: 0 0 6px;
-  font-family: var(--font-display, inherit);
-  font-size: 1.05rem;
+/* Nobody from the batch here yet: one quiet line instead of a zero count. */
+.home-network-line {
+  min-width: 0;
+}
+
+.home-network-line__text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+}
+
+.home-network-line__invite {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-weight: 600;
+  color: var(--brick);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.home-network-line__invite:hover {
+  color: var(--brick-light);
 }
 
 .home-network-invite {

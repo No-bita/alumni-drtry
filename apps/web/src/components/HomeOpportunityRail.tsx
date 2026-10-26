@@ -1,4 +1,3 @@
-import "../styles/home-empty-first.css";
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
@@ -51,7 +50,8 @@ type HomeOpportunityRailProps = {
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
   bulletinRepliesLoading?: boolean;
   /** Opens the post composer; powers the "be the first to ask" button on an empty feed. */
-  onAskFirst?: () => void;
+  /** Opens the post flow ("Post to The Wall"). */
+  onPost?: () => void;
 };
 
 const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: string }> = [
@@ -115,7 +115,7 @@ export function HomeOpportunityRail({
   viewerPersonId = null,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
-  onAskFirst,
+  onPost,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
   const showingReplies = activeCategory === "replies";
@@ -179,7 +179,13 @@ export function HomeOpportunityRail({
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
             The Wall
           </h2>
+          <p className="home-ideal__opportunities-sub">Ask for help, or share an opportunity, with every alum here.</p>
         </div>
+        {onPost ? (
+          <button type="button" className="btn btn--secondary home-ideal__opportunities-post" onClick={onPost}>
+            Post to The Wall
+          </button>
+        ) : null}
       </header>
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
@@ -237,16 +243,8 @@ export function HomeOpportunityRail({
           <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
       ) : activityRows.length === 0 ? (
-        feedIsEmpty ? (
-          <div className="home-ideal__empty home-ideal__empty--first">
-            <p>It's quiet out here. Nobody has asked for anything yet, which makes you the trendsetter.</p>
-            {onAskFirst ? (
-              <button type="button" className="btn btn--primary" onClick={onAskFirst}>
-                Be the first to ask
-              </button>
-            ) : null}
-          </div>
-        ) : (
+        // Nothing posted yet: the header line and "Post to The Wall" carry it (no "it's quiet" message).
+        feedIsEmpty ? null : (
           <div className="home-ideal__empty">
             <p>No posts in this category yet.</p>
           </div>

@@ -18,6 +18,7 @@ import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
 import { matchRoutes } from "./routes/matchRoutes.js";
+import { homeRoutes } from "./routes/homeRoutes.js";
 import { meRoutes } from "./routes/meRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { orgRoutes } from "./routes/orgRoutes.js";
@@ -35,6 +36,7 @@ import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
+import { HomeSummaryService } from "./services/homeSummaryService.js";
 import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
@@ -98,6 +100,7 @@ export async function createApp() {
   const adminPeopleService = new AdminPeopleService(pool);
   const adminMetricsService = new AdminMetricsService(pool);
   const campusMonthlyService = new CampusMonthlyService(pool);
+  const homeSummaryService = new HomeSummaryService(pool);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);
   app.decorate("occupationService", occupationService);
@@ -114,6 +117,7 @@ export async function createApp() {
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
+  app.decorate("homeSummaryService", homeSummaryService);
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
@@ -170,6 +174,7 @@ export async function createApp() {
   await app.register(meRoutes);
   await app.register(discoveryRoutes);
   await app.register(matchRoutes);
+  await app.register(homeRoutes);
   await app.register(intentcastRoutes);
   await app.register(contactRequestRoutes);
   await app.register(connectionThreadRoutes);

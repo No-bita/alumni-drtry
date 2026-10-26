@@ -24,7 +24,7 @@ function mount() {
 describe("HomeAskBox", () => {
   it("submits the question to /match", () => {
     mount();
-    fireEvent.change(screen.getByLabelText("What are you trying to get done?"), {
+    fireEvent.change(screen.getByLabelText("What do you need help with?"), {
       target: { value: "  Referral at Meesho  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));

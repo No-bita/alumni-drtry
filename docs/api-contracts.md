@@ -65,6 +65,10 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `POST /v1/intentcasts/:id/respond`: creates a private response to the author.
 - `GET /v1/intentcasts/:id/responses`: returns `{ responses }` for the post author.
 
+## Home
+
+- `GET /v1/home/summary`: aggregate counts for the Home reassurance line (`alumni`, `companies`, `openToReferrals`). Counts the people Match can return to the viewer (live, profile complete, discoverable, not the viewer); `companies` is distinct current employers among them, excluding study programmes. No names or ids. Cached per viewer for 10 minutes in memory.
+
 ## Contact And Messaging
 
 - `GET /v1/contact-requests/sent`: the viewer's sent notes (newest first, max 100) with status; `recipientContactShared` only when accepted.

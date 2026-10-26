@@ -19,23 +19,43 @@ describe("invite links", () => {
   });
 });
 
+const member = (id: string) =>
+  ({ id, fullName: `Batchmate ${id}`, batchYear: 2020, departmentCode: "cse" }) as never;
+
 describe("HomeNetworkPanel", () => {
-  it("shows an honest empty state, no ghost avatars", () => {
+  it("with nobody here: one invite line, no zero count, no ghost avatars", () => {
     const { container } = wrap();
-    expect(screen.getByText("0 of your batchmates are here yet")).toBeTruthy();
-    expect(container.querySelector(".home-ideal__avatar-placeholder")).toBeNull();
+    expect(screen.getByText(/Know batchmates who should be here\?/)).toBeTruthy();
+    expect(screen.queryByText(/0 of your batchmates/)).toBeNull();
+    expect(container.querySelector(".home-ideal__avatars")).toBeNull();
   });
-  it("invite button reveals link, copy and WhatsApp share", () => {
+  it("invite line reveals link, copy and WhatsApp share", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     wrap();
     expect(screen.queryByLabelText("Invite link", { selector: "input" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Invite batchmates" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite them" }));
     const input = screen.getByLabelText("Invite link", { selector: "input" }) as HTMLInputElement;
     expect(input.value).toMatch(/\/login$/);
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     expect(writeText).toHaveBeenCalledWith(input.value);
     const wa = screen.getByRole("link", { name: "Share on WhatsApp" }) as HTMLAnchorElement;
     expect(wa.href.startsWith("https://wa.me/?text=")).toBe(true);
+  });
+  it("titles the section with the batch count once someone is here", () => {
+    render(
+      <MemoryRouter>
+        <HomeNetworkPanel members={[member("a")]} directoryHref="/search" countLabel="1" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: "1 of your batchmates is here" })).toBeTruthy();
+    cleanup();
+    render(
+      <MemoryRouter>
+        <HomeNetworkPanel members={[member("a"), member("b")]} directoryHref="/search" countLabel="40+" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: "40+ of your batchmates are here" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Invite batchmates" })).toBeTruthy();
   });
 });

@@ -1,0 +1,131 @@
+/* Home (junior-asker redesign): one ask, quiet secondary paths, no zero states. 390px first. */
+
+/* The hero now holds only the question, the box and one reassurance line. */
+.home-dashboard--ideal .home-ideal__intent-hero,
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
+  min-height: 0;
+}
+
+.home-reassurance {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+/* Your notes + your Wall posts. Collapses when both are empty. */
+.home-activity {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-activity:empty {
+  display: none;
+}
+
+.home-notes-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.home-notes-line__text {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.home-notes-line__text strong {
+  font-weight: 600;
+}
+
+.home-notes-line__link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--brick);
+}
+
+.home-browse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+}
+
+.home-browse__label {
+  margin-right: 2px;
+  color: var(--ink-muted);
+}
+
+.home-browse__link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-browse__link:hover,
+.home-browse__link:focus-visible {
+  border-color: var(--brick);
+  color: var(--brick);
+}
+
+/* The Wall: a line on what it is for, and a way to post that is always there. */
+.home-ideal__opportunities-sub {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+}
+
+/* Outlined, so it never competes with "Find alumni" (the one filled action above the fold). */
+.home-dashboard--ideal .home-ideal__opportunities-post.btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.home-dashboard--ideal .home-ideal__opportunities-post.btn:hover,
+.home-dashboard--ideal .home-ideal__opportunities-post.btn:focus-visible {
+  border-color: var(--brick);
+  background: var(--brick);
+  color: var(--cream);
+}
+
+@media (max-width: 560px) {
+  .home-dashboard--ideal .home-ideal__opportunities-header {
+    flex-wrap: wrap;
+  }
+
+  .home-dashboard--ideal .home-ideal__opportunities-post.btn {
+    width: 100%;
+  }
+}
+
+.home-feedback-line {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.home-feedback-line a {
+  font-weight: 600;
+  color: var(--brick);
+}
