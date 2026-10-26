@@ -76,6 +76,16 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
+  /** Ask → Match funnel (last 30 days) + current profile completeness. */
+  app.get(
+    "/v1/admin/metrics/ask-match",
+    { preHandler: adminPreHandlers },
+    async (_request, reply) => {
+      const metrics = await app.adminMetricsService.getAskMatchMetrics(30);
+      return reply.code(200).send({ metrics });
+    }
+  );
+
   app.get(
     "/v1/admin/metrics/beta/usage",
     { preHandler: adminPreHandlers },

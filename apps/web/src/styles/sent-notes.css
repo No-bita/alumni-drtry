@@ -1,0 +1,36 @@
+/* Notifications: "Notes you sent". */
+.sent-notes {
+  margin-top: var(--space-xl-2);
+}
+
+.sent-notes__heading {
+  font-size: 1.2rem;
+  margin-bottom: var(--space-md);
+}
+
+.sent-notes__status {
+  display: inline-block;
+  margin-left: var(--space-sm);
+  padding: 2px 8px;
+  border-radius: var(--radius-chip);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: 1px;
+  background: var(--cream-dark);
+  color: var(--ink-muted);
+}
+
+.sent-notes__status--accepted {
+  background: var(--badge-open-bg);
+  color: var(--badge-open-text);
+}
+
+.sent-notes__status--declined {
+  background: rgba(58, 42, 30, 0.08);
+  color: var(--ink-faint);
+}
+
+.sent-notes__contact {
+  color: var(--brick);
+  font-weight: 600;
+}

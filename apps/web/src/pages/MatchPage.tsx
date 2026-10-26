@@ -195,6 +195,7 @@ export function MatchPage() {
         <MatchReachOutDialog
           recipient={{ id: reachOutTo.id, fullName: reachOutTo.fullName }}
           question={state.question}
+          category={data?.intent.category ?? null}
           onClose={() => setReachOutTo(null)}
         />
       ) : null}

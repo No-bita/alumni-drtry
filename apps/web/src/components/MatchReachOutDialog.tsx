@@ -1,14 +1,19 @@
 import { useId, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { queryKeys } from "../lib/queryKeys";
+import { SENT_NOTES_QUERY_KEY } from "../lib/sentNotes";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
-import { CONTACT_NOTE_MAX, CONTACT_NOTE_MIN, defaultReachOutNote, firstName } from "../lib/matchApi";
+import { CONTACT_NOTE_MAX, CONTACT_NOTE_MIN, defaultReachOutNote, firstName, type MatchCategory } from "../lib/matchApi";
 import { Button } from "./Button";
 
 
 type MatchReachOutDialogProps = {
   recipient: { id: string; fullName: string };
   question: string;
+  /** Question category, recorded with the note for the funnel (no question text is stored separately). */
+  category: MatchCategory | null;
   onClose: () => void;
 };
 
@@ -19,6 +24,8 @@ function sendErrorMessage(code: string | undefined, message: string | undefined)
       return "Demo accounts can’t send notes.";
     case "CONTACT_REQUEST_RATE_LIMITED":
       return "You’ve sent a lot of notes recently. Try again later.";
+    case "CONTACT_REQUEST_DUPLICATE_PENDING":
+      return message ?? "You already have a note waiting for this alum.";
     case "CONTACT_REQUEST_MESSAGE_TOO_SHORT":
       return `Write at least ${CONTACT_NOTE_MIN} characters.`;
     case "NETWORK_ERROR":
@@ -29,7 +36,8 @@ function sendErrorMessage(code: string | undefined, message: string | undefined)
 }
 
 /** Reach out from a match: one note via the existing contact-request flow (messaging stays paused). */
-export function MatchReachOutDialog({ recipient, question, onClose }: MatchReachOutDialogProps) {
+export function MatchReachOutDialog({ recipient, question, category, onClose }: MatchReachOutDialogProps) {
+  const queryClient = useQueryClient();
   const titleId = useId();
   const noteId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -50,6 +58,8 @@ export function MatchReachOutDialog({ recipient, question, onClose }: MatchReach
     const res = await api.post<unknown>("/v1/contact-requests", {
       recipientPersonId: recipient.id,
       message: note.trim(),
+      source: "match",
+      sourceCategory: category,
     });
     if (res.error) {
       setStatus("idle");
@@ -57,6 +67,9 @@ export function MatchReachOutDialog({ recipient, question, onClose }: MatchReach
       return;
     }
     setStatus("sent");
+    // Cards show "Note sent", and Notifications lists it.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.match.all });
+    void queryClient.invalidateQueries({ queryKey: SENT_NOTES_QUERY_KEY });
   };
 
   return (

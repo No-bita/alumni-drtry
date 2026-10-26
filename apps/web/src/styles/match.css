@@ -361,6 +361,31 @@
   gap: var(--space-md-lg);
 }
 
+.match-card__reply-stats {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.match-card__note-status {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-surface-sm);
+  background: var(--cream-dark);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.match-card__note-status a {
+  color: var(--brick);
+  font-weight: 600;
+}
+
+.match-card__note-status--accepted {
+  background: var(--badge-open-bg);
+  color: var(--badge-open-text);
+}
+
 .match-card__profile-link {
   font-size: 14px;
   color: var(--brick);

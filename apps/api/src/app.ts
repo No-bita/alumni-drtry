@@ -88,11 +88,11 @@ export async function createApp() {
   const linkService = new LinkService(pool);
   const organizationService = new OrganizationService(pool);
   const discoveryService = new DiscoveryService(pool);
-  const matchService = new MatchService(pool);
   const adminPlacesService = new AdminPlacesService(pool, clearResidenceCitiesCache);
   const locationCleanupService = new LocationCleanupService(pool, adminPlacesService);
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
+  const matchService = new MatchService(pool, null, contactRequestService);
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
   const notificationService = new NotificationService(pool);
   const adminPeopleService = new AdminPeopleService(pool);

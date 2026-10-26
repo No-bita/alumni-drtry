@@ -201,7 +201,14 @@ export class ProfileService {
     }
 
     if (input.openToPreferences !== undefined) {
-      if (input.openToPreferences === null) {
+      const raw = input.openToPreferences as unknown;
+      const explicitlyEmpty =
+        typeof raw === "object" &&
+        raw !== null &&
+        Array.isArray((raw as { selected?: unknown }).selected) &&
+        (raw as { selected: unknown[] }).selected.length === 0;
+      if (input.openToPreferences === null || explicitlyEmpty) {
+        // Null or an empty selection both mean "no tags".
         nextOpenToPreferences = null;
       } else {
         const parsed = parseOpenToPreferences(input.openToPreferences);

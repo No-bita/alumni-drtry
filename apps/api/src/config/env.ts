@@ -110,6 +110,8 @@ const envSchema = z.object({
    * Set to `0` to disable the scheduler in production (use an external cron instead).
    */
   INTENTCAST_EXPIRY_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
+  /** Contact-request reminder emails: interval in ms (default hourly in production, off elsewhere; 0 = off). */
+  CONTACT_REQUEST_REMINDER_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
 
   /** Max contact requests a sender may create within CONTACT_REQUEST_WINDOW_MINUTES. 0 = no limit. */
   CONTACT_REQUEST_MAX_PER_SENDER_WINDOW: z.coerce.number().int().min(0).max(500).default(25),

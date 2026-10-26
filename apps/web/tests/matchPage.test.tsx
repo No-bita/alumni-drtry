@@ -139,6 +139,8 @@ describe("MatchPage", () => {
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       message: note.value.trim(),
+      source: "match",
+      sourceCategory: "referral",
     });
   });
 
@@ -168,5 +170,36 @@ describe("MatchPage — filling a missing field", () => {
     });
     expect(await screen.findByRole("button", { name: "City: Pune. Edit" })).toBeTruthy();
     expect(screen.queryByLabelText("City")).toBeNull();
+  });
+});
+
+describe("MatchPage — reach-out loop", () => {
+  it("shows 'Note sent' instead of Reach out when a note is pending, and the reply line when present", async () => {
+    post.mockResolvedValue({
+      data: {
+        intent,
+        needsDetail: false,
+        results: [{ ...result, yourNote: "pending", replyStats: { total: 5, replied: 4, medianDays: 2 } }],
+        fallback: null,
+      },
+    });
+    mount("/match?q=referral+at+Razorpay");
+    expect(await screen.findByText(/Note sent · waiting for reply/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reach out" })).toBeNull();
+    expect(screen.getByText("Replied to 4 of 5 notes · usually within 2 days")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See your notes" }).getAttribute("href")).toBe("/notifications");
+  });
+
+  it("shows no reply line without enough data, and the server's duplicate message on 409", async () => {
+    post.mockImplementation(async (path: string) =>
+      path === "/v1/match"
+        ? { data: { intent, needsDetail: false, results: [{ ...result, yourNote: null, replyStats: null }], fallback: null } }
+        : { error: { code: "CONTACT_REQUEST_DUPLICATE_PENDING", message: "You already have a note waiting for Ananya Rao." } },
+    );
+    mount("/match?q=referral+at+Razorpay");
+    fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
+    expect(screen.queryByText(/Replied to/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    expect(await screen.findByText("You already have a note waiting for Ananya Rao.")).toBeTruthy();
   });
 });

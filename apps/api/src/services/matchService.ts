@@ -16,6 +16,14 @@ import { parseQuestionWithLlm, type MatchIntentLlmProvider } from "../lib/matchI
 import { intentNeedsDetail, primarySignalsForIntent, rankMatches, type MatchReason, type SignalName } from "../lib/matchScore.js";
 import type { OpenToOptionId } from "../lib/openToPreferences.js";
 import { MatchRepo, type MatchCandidateQuery, type MatchGateSignal } from "../repos/matchRepo.js";
+import type { ContactRequestStatus } from "../repos/contactRequestRepo.js";
+import type { ReplyStatsView } from "./contactRequestService.js";
+
+/** Reach-out context for match cards (provided by ContactRequestService). */
+export interface MatchReachOutInfo {
+  latestStatusFromSender(senderPersonId: string, recipientPersonIds: readonly string[]): Promise<Map<string, ContactRequestStatus>>;
+  replyStatsForRecipients(recipientPersonIds: readonly string[]): Promise<Map<string, ReplyStatsView>>;
+}
 
 export const MATCH_CANDIDATE_LIMIT = 300;
 
@@ -42,6 +50,10 @@ export interface MatchResultView {
   openTo: OpenToOptionId[];
   /** Open-to tags relevant to the asked category. */
   relevantOpenTo: OpenToOptionId[];
+  /** Latest status of the viewer's own note to this alum, if any. */
+  yourNote: ContactRequestStatus | null;
+  /** How this alum has replied to notes (only when there are enough notes to say). */
+  replyStats: ReplyStatsView | null;
 }
 
 export interface MatchResponse {
@@ -58,7 +70,8 @@ export class MatchService {
 
   constructor(
     db: PoolExecutor,
-    private readonly llmProvider: MatchIntentLlmProvider | null = null
+    private readonly llmProvider: MatchIntentLlmProvider | null = null,
+    private readonly reachOut: MatchReachOutInfo | null = null
   ) {
     this.repo = new MatchRepo(db);
   }
@@ -77,13 +90,21 @@ export class MatchService {
     const intent = applyIntentOverrides(parsed, input.overrides);
 
     if (intentNeedsDetail(intent)) {
-      await this.log(intent, 0, input);
+      await this.log(intent, 0, input, true);
       return { intent, needsDetail: true, results: [], fallback: null };
     }
 
     const candidates = await this.repo.findCandidates(buildCandidateQuery(intent, lexicon, input));
     const ranked = rankMatches(intent, candidates);
-    await this.log(intent, ranked.length, input);
+    await this.log(intent, ranked.length, input, false);
+
+    const ids = ranked.map((m) => m.candidate.personId);
+    const [yourNotes, replyStats] = this.reachOut
+      ? await Promise.all([
+          this.reachOut.latestStatusFromSender(input.viewerPersonId, ids),
+          this.reachOut.replyStatsForRecipients(ids)
+        ])
+      : [new Map<string, ContactRequestStatus>(), new Map<string, ReplyStatsView>()];
 
     return {
       intent,
@@ -101,13 +122,15 @@ export class MatchService {
         whyThem: m.whyThem,
         reasons: m.reasons,
         openTo: m.candidate.openTo,
-        relevantOpenTo: m.relevantOpenTo
+        relevantOpenTo: m.relevantOpenTo,
+        yourNote: yourNotes.get(m.candidate.personId) ?? null,
+        replyStats: replyStats.get(m.candidate.personId) ?? null
       })),
       fallback: ranked.length === 0 ? "post_bulletin" : null
     };
   }
 
-  private async log(intent: MatchIntent, resultCount: number, input: MatchInput): Promise<void> {
+  private async log(intent: MatchIntent, resultCount: number, input: MatchInput, needsDetail: boolean): Promise<void> {
     if (!env.MATCH_ANALYTICS_ENABLED || input.viewerIsDemo) return;
     try {
       await this.repo.logQuery({
@@ -115,7 +138,8 @@ export class MatchService {
         detectedFields: detectedIntentFields(intent),
         parserSource: intent.source,
         resultCount,
-        hadOverrides: Boolean(input.overrides && Object.keys(input.overrides).length > 0)
+        hadOverrides: Boolean(input.overrides && Object.keys(input.overrides).length > 0),
+        needsDetail
       });
     } catch {
       /* analytics must never break matching */

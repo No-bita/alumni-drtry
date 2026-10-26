@@ -6,6 +6,47 @@ export interface AuthEmailPayload {
   magicLinkExpiresAt: Date;
 }
 
+export interface ContactRequestReminderEmailPayload {
+  to: string;
+  recipientName: string;
+  senderName: string;
+  message: string;
+  /** Whole days since the note was sent. */
+  daysWaiting: number;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function buildContactRequestReminderEmail(
+  payload: ContactRequestReminderEmailPayload,
+  brandName: string
+): { subject: string; text: string; html: string } {
+  const days = payload.daysWaiting === 1 ? "1 day" : `${payload.daysWaiting} days`;
+  const subject = `Reminder: ${payload.senderName} is waiting on your reply on ${brandName}`;
+  const text = [
+    `Hi ${payload.recipientName},`,
+    "",
+    `${payload.senderName} sent you a note ${days} ago and hasn't heard back yet:`,
+    `"${payload.message}"`,
+    "",
+    "You can accept or decline from your notifications. This is the only reminder we'll send for this note."
+  ].join("\n");
+  const html = [
+    `<p>Hi ${escapeHtml(payload.recipientName)},</p>`,
+    `<p><strong>${escapeHtml(payload.senderName)}</strong> sent you a note ${days} ago and hasn't heard back yet:</p>`,
+    `<blockquote>${escapeHtml(payload.message)}</blockquote>`,
+    "<p>You can accept or decline from your notifications. This is the only reminder we'll send for this note.</p>"
+  ].join("");
+  return { subject, text, html };
+}
+
 export interface ContactRequestReceivedEmailPayload {
   to: string;
   recipientName: string;
@@ -39,6 +80,7 @@ export interface EmailSender {
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
   sendContactRequestAcceptedEmail(payload: ContactRequestAcceptedEmailPayload): Promise<void>;
   sendContactRequestDeclinedEmail(payload: ContactRequestDeclinedEmailPayload): Promise<void>;
+  sendContactRequestReminderEmail(payload: ContactRequestReminderEmailPayload): Promise<void>;
   sendIntentcastResponseReceivedEmail(
     payload: IntentcastResponseReceivedEmailPayload
   ): Promise<void>;
@@ -67,6 +109,12 @@ export class ConsoleEmailSender implements EmailSender {
   async sendContactRequestDeclinedEmail(payload: ContactRequestDeclinedEmailPayload): Promise<void> {
     process.stdout.write(
       `[mail] to=${payload.to} type=contact_request_declined sender="${payload.senderName}" recipient="${payload.recipientName}"\n`
+    );
+  }
+
+  async sendContactRequestReminderEmail(payload: ContactRequestReminderEmailPayload): Promise<void> {
+    process.stdout.write(
+      `[mail] to=${payload.to} type=contact_request_reminder sender="${payload.senderName}" recipient="${payload.recipientName}" days_waiting=${payload.daysWaiting}\n`
     );
   }
 
@@ -163,6 +211,11 @@ export class ResendEmailSender implements EmailSender {
       `<p><strong>${payload.recipientName}</strong> accepted your connection request.</p>`,
       `<p>Contact shared: <strong>${payload.sharedContact}</strong></p>`
     ].join("");
+    await this.sendEmail(payload.to, subject, text, html);
+  }
+
+  async sendContactRequestReminderEmail(payload: ContactRequestReminderEmailPayload): Promise<void> {
+    const { subject, text, html } = buildContactRequestReminderEmail(payload, this.options.brandName);
     await this.sendEmail(payload.to, subject, text, html);
   }
 

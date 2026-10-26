@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
+import { loginForTest } from "./helpers/login.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
-const cookieName = "alumni_session";
 const run = Date.now();
 /** Unique names per run so leftover rows from earlier runs never interfere. */
 const ORG_X = `Zentrix${run}`;
@@ -18,19 +18,7 @@ interface MatchBody {
   fallback: string | null;
 }
 
-async function login(app: App, email: string): Promise<{ cookie: string; personId: string }> {
-  const start = await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: email } });
-  const link = new URL((start.json() as { debug: { magicLinkUrl: string } }).debug.magicLinkUrl);
-  const verify = await app.inject({
-    method: "GET",
-    url: `/v1/auth/verify?challengeId=${encodeURIComponent(link.searchParams.get("challengeId")!)}&magicLinkToken=${encodeURIComponent(link.searchParams.get("magicLinkToken")!)}`
-  });
-  const raw = verify.headers["set-cookie"];
-  const header = Array.isArray(raw) ? raw[0]! : String(raw);
-  const value = header.slice(header.indexOf(`${cookieName}=`) + cookieName.length + 1).split(";")[0]!;
-  const me = await app.inject({ method: "GET", url: "/v1/me", headers: { cookie: `${cookieName}=${value}` } });
-  return { cookie: `${cookieName}=${value}`, personId: (me.json() as { person: { personId: string } }).person.personId };
-}
+const login = loginForTest;
 
 describe("POST /v1/match (integration)", () => {
   let app: App;
@@ -186,7 +174,7 @@ describe("POST /v1/match (integration)", () => {
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'match_queries' ORDER BY ordinal_position`
       )
     ).rows.map((r) => r.column_name);
-    expect(cols).toEqual(["id", "category", "detected_fields", "parser_source", "result_count", "had_overrides", "created_at"]);
+    expect(cols).toEqual(["id", "category", "detected_fields", "parser_source", "result_count", "had_overrides", "created_at", "needs_detail"]);
 
     await post({ question: `Need a referral for PM at ${ORG_X}` });
     const last = (
