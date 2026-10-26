@@ -22,6 +22,10 @@ export const queryKeys = {
     occupations: () => ["me", "occupations"] as const,
     links: () => ["me", "links"] as const,
   },
+  match: {
+    all: ["match"] as const,
+    results: (search: string) => ["match", "results", search] as const,
+  },
   profiles: {
     all: ["profiles"] as const,
     detail: (id: string) => ["profiles", "detail", id] as const,
