@@ -1,4 +1,5 @@
-export const OPEN_TO_MAX_SELECTED = 3;
+/** Must match apps/api `OPEN_TO_MAX_SELECTED`. */
+export const OPEN_TO_MAX_SELECTED = 5;
 
 export const OPEN_TO_OPTION_IDS = [
   "referrals",
@@ -9,12 +10,14 @@ export const OPEN_TO_OPTION_IDS = [
   "speaking",
   "intros",
   "collaboration",
+  "city_help",
+  "study_advice",
 ] as const;
 
 export type OpenToOptionId = (typeof OPEN_TO_OPTION_IDS)[number];
 
 export type OpenToPreferences = {
-  /** Up to 3 option ids, in display order. */
+  /** Up to OPEN_TO_MAX_SELECTED option ids, in display order. */
   selected: OpenToOptionId[];
   descriptions: Partial<Record<OpenToOptionId, string>>;
 };
@@ -65,6 +68,16 @@ export const OPEN_TO_CATALOG: Record<OpenToOptionId, OpenToCatalogEntry> = {
     title: "Collaboration",
     defaultDescription: "Interested in research or project collaborations",
     icon: "collaboration",
+  },
+  city_help: {
+    title: "Settling into my city",
+    defaultDescription: "Happy to help newcomers settle into my city",
+    icon: "city_help",
+  },
+  study_advice: {
+    title: "Higher-studies advice",
+    defaultDescription: "Happy to advise on MS, MBA or PhD plans",
+    icon: "study_advice",
   },
 };
 

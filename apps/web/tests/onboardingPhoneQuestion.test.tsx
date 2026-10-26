@@ -40,7 +40,8 @@ describe("combined onboarding phone question", () => {
     expect((screen.getByLabelText("Country code") as HTMLSelectElement).value).toBe("IN");
     expect(screen.getByLabelText("Mobile number", { selector: "input" })).toBeTruthy();
     expect(screen.queryByText("What is your country code?")).toBeNull();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    // Answer-key and past-roles steps follow, so the phone step advances with "OK".
+    expect(screen.getByRole("button", { name: "OK" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByText("What is your current city of residence?")).toBeTruthy();
   });
@@ -76,19 +77,21 @@ describe("combined onboarding phone question", () => {
     fireEvent.click(screen.getByRole("button", { name: "OK" }));
     expect((screen.getByLabelText("Country code") as HTMLSelectElement).value).toBe("GB");
     fireEvent.change(screen.getByLabelText("Mobile number", { selector: "input" }), { target: { value: "1234567890" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
     await waitFor(() => expect(mocks.patch).toHaveBeenCalledWith("/v1/me/profile", expect.objectContaining({ mobilePhone: "+44 1234567890" })));
   });
   it("keeps code and number required and retains ten-digit validation", async () => {
     await reachPhone();
     fireEvent.change(screen.getByLabelText("Country code"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
     expect(screen.getByText("Please enter your country code.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Country code"), { target: { value: "IN" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
     expect(screen.getByText("Please enter your mobile number.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Mobile number", { selector: "input" }), { target: { value: "123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
     expect(screen.getByText("Please enter a valid 10-digit mobile number.")).toBeTruthy();
     expect(mocks.patch.mock.calls.filter(c => JSON.stringify(c).includes("mobilePhone"))).toHaveLength(0);
   });

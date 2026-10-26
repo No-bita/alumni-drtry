@@ -5,7 +5,7 @@
  * Nothing here invents text: no signal → no reason → (for primary signals) no match.
  */
 import type { MatchCategory, MatchIntent } from "./matchIntent.js";
-import { OPEN_TO_OPTION_IDS, type OpenToOptionId } from "./openToPreferences.js";
+import type { OpenToOptionId } from "./openToPreferences.js";
 
 export interface OccupationSignal {
   roleTitle: string;
@@ -84,8 +84,8 @@ export const CATEGORY_OPEN_TO: Record<MatchCategory, OpenToOptionId[]> = {
   referral: ["referrals", "hiring"],
   interview_prep: ["mentorship", "coffee"],
   career_switch: ["mentorship", "coffee"],
-  higher_studies: ["mentorship", "advising"],
-  relocation: ["coffee", "intros"],
+  higher_studies: ["study_advice", "mentorship", "advising"],
+  relocation: ["city_help", "coffee", "intros"],
   founder_advice: ["collaboration", "advising"]
 };
 
@@ -97,7 +97,9 @@ const OPEN_TO_TITLES: Record<OpenToOptionId, string> = {
   advising: "advising",
   speaking: "speaking",
   intros: "introductions",
-  collaboration: "collaboration"
+  collaboration: "collaboration",
+  city_help: "helping newcomers settle in",
+  study_advice: "higher-studies advice"
 };
 
 /**
@@ -266,7 +268,8 @@ export function buildMatchReasons(intent: MatchIntent, c: MatchCandidateSignals)
 export function relevantOpenTo(intent: MatchIntent, c: MatchCandidateSignals): OpenToOptionId[] {
   if (!intent.category) return [];
   const wanted = CATEGORY_OPEN_TO[intent.category];
-  return OPEN_TO_OPTION_IDS.filter((id) => wanted.includes(id) && c.openTo.includes(id));
+  // Category order: the most specific tag (e.g. city_help for relocation) reads first.
+  return wanted.filter((id) => c.openTo.includes(id));
 }
 
 export function scoreCandidate(intent: MatchIntent, c: MatchCandidateSignals): number {

@@ -73,6 +73,22 @@ function IconOpenToItem({ kind, className }: { kind: OpenToDisplayItem["icon"]; 
       </svg>
     );
   }
+  if (kind === "city_help") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+        <path d="M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21z" strokeLinejoin="round" />
+        <circle cx="12" cy="9.5" r="2.5" />
+      </svg>
+    );
+  }
+  if (kind === "study_advice") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+        <path d="M2 9l10-5 10 5-10 5L2 9z" strokeLinejoin="round" />
+        <path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5M22 9v6" strokeLinecap="round" />
+      </svg>
+    );
+  }
   if (kind === "collaboration") {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>

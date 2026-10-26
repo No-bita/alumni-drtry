@@ -23,6 +23,7 @@ import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "..
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
 import { HomeIntentHero } from "../components/HomeIntentHero";
+import { HomeAnswerKeyCard } from "../components/HomeAnswerKeyCard";
 import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import type { HomeQuickAction, HomeQuickActionLink } from "../components/HomeQuickActions";
@@ -859,6 +860,7 @@ export function Home() {
             />
           ) : null}
           <HomeIntentHero actions={homeHeroActions} nudgeActionId={shouldNudgeShareOnBulletin ? "bulletin" : undefined} />
+          <HomeAnswerKeyCard />
           <HomeOpportunityRail
             intentcasts={opportunityIntentcasts}
             activeCategory={viewModel.activeCategory}

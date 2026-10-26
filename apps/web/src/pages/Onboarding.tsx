@@ -27,6 +27,21 @@ import { DEGREES } from "../constants/degrees";
 import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCountries";
 import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import { OnboardingAnswerKey } from "../components/onboarding/OnboardingAnswerKey";
+import { OnboardingPastRoles } from "../components/onboarding/OnboardingPastRoles";
+import {
+  completePastRoles,
+  emptyPastRoles,
+  pastRoleKey,
+  pastRolesError,
+  type PastRoleDraft,
+} from "../lib/answerKey";
+import {
+  normalizeOpenToPreferences,
+  openToPreferencesForEdit,
+  parseOpenToPreferences,
+  type OpenToPreferences,
+} from "../lib/openToPreferences";
 
 const JOIN_YEAR_MIN = 1960;
 const joinYearMax = () => new Date().getUTCFullYear() + 5;
@@ -58,7 +73,9 @@ type Step2Question =
   | { id: "followup"; label: string; field: keyof OccupationFollowUp }
   | { id: "residenceCountry"; label: string }
   | { id: "residenceCity"; label: string }
-  | { id: "mobilePhone"; label: string };
+  | { id: "mobilePhone"; label: string }
+  | { id: "answerKey"; label: string }
+  | { id: "pastRoles"; label: string };
 
 const OCCUPATION_FOLLOW_UP_LABELS: Partial<Record<string, { title: string; fields: Array<keyof OccupationFollowUp> }>> =
   {
@@ -297,6 +314,12 @@ export function Onboarding() {
   const [mobileCountrySelection, setMobileCountrySelection] = useState("");
   const mobileCountryChosenRef = useRef(false);
   const [mobilePhone, setMobilePhone] = useState("");
+  /** Answer key (Open-to tags). Saved only when it differs from what the member had saved before. */
+  const [savedAnswerKey, setSavedAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
+  const [answerKey, setAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
+  const [pastRoles, setPastRoles] = useState<PastRoleDraft[]>(() => emptyPastRoles());
+  /** Past roles already created in this session (retry after an error must not duplicate them). */
+  const createdPastRoleKeysRef = useRef<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -337,7 +360,9 @@ export function Onboarding() {
     questions.push(
       { id: "residenceCountry", label: "Current country of residence" },
       { id: "residenceCity", label: "Current city of residence" },
-      { id: "mobilePhone", label: "Mobile number" }
+      { id: "mobilePhone", label: "Mobile number" },
+      { id: "answerKey", label: "What can you help with?" },
+      { id: "pastRoles", label: "Where did you work before?" }
     );
     return questions;
   }, [activeOccupationFollowUpConfig]);
@@ -409,6 +434,9 @@ export function Onboarding() {
       }
       setGate("allow");
       setWelcomeProfile(p);
+      const saved = openToPreferencesForEdit(parseOpenToPreferences(p.openToPreferences) ?? null);
+      setSavedAnswerKey(saved);
+      setAnswerKey(saved);
       const email = (p.institutionalEmail ?? "").trim();
       const parsed = email
         ? parseInstitutionalEmailForOnboarding(email)
@@ -603,6 +631,7 @@ export function Onboarding() {
     mobilePhone?: string | null;
     residenceCountry?: string | null;
     residenceCity?: string | null;
+    openToPreferences?: OpenToPreferences;
     markMinimumProfileComplete?: true;
     markOnboardingComplete?: true;
   }) => {
@@ -722,6 +751,8 @@ export function Onboarding() {
     if (question.id === "residenceCity") {
       return residenceCity.trim() ? null : "Please enter your current city of residence.";
     }
+    if (question.id === "answerKey") return null;
+    if (question.id === "pastRoles") return pastRolesError(pastRoles);
     if (!mobileCountryCode.trim()) return "Please enter your country code.";
     const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
     if (!compactPhone) return "Please enter your mobile number.";
@@ -729,7 +760,8 @@ export function Onboarding() {
     return null;
   };
 
-  const handleStep2Next = async () => {
+  const handleStep2Next = async (options?: { skipPastRoles?: boolean }) => {
+    const pastRoleRows = options?.skipPastRoles ? [] : pastRoles;
     const nextResidenceCountry = residenceCountry.trim();
     const nextResidenceCity = residenceCity.trim();
     const nextMobileCountryCode = mobileCountryCode.trim();
@@ -769,6 +801,11 @@ export function Onboarding() {
     );
     if (followUpError) {
       setSaveError(followUpError);
+      return;
+    }
+    const pastRolesProblem = pastRolesError(pastRoleRows);
+    if (pastRolesProblem) {
+      setSaveError(pastRolesProblem);
       return;
     }
 
@@ -841,11 +878,57 @@ export function Onboarding() {
       }
       setSaving(false);
     }
+
+    // Past roles: saved as past jobs (company + role only; type defaults to full-time employment).
+    // Skip roles created earlier in this session or already on the profile (e.g. after a reload).
+    const existingPastKeys = new Set(
+      (occQuery.data?.occupations ?? [])
+        .filter((o) => !o.isCurrent)
+        .map((o) => pastRoleKey({ company: o.organizationName ?? "", role: o.roleTitle }))
+    );
+    const pastToCreate = completePastRoles(pastRoleRows).filter(
+      (r) => !createdPastRoleKeysRef.current.has(pastRoleKey(r)) && !existingPastKeys.has(pastRoleKey(r))
+    );
+    if (pastToCreate.length > 0) {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        for (const r of pastToCreate) {
+          const organizationId = await resolveOrganizationId(r.company);
+          const { error } = await api.post("/v1/me/occupations", {
+            occupationTypeCode: "full_time_employment",
+            organizationId,
+            roleTitle: r.role,
+            isCurrent: false,
+          });
+          if (error) {
+            setSaveError(error.message ?? error.code);
+            setSaving(false);
+            return;
+          }
+          createdPastRoleKeysRef.current.add(pastRoleKey(r));
+        }
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Could not save your previous roles.");
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me.occupations() });
+    }
+
     setSaveError(null);
     const errMin = await saveProfile({
       residenceCountry: nextResidenceCountry,
       residenceCity: nextResidenceCity,
       mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim(),
+      // Only send the answer key when it has picks and differs from what was saved before.
+      openToPreferences:
+        answerKey.selected.length > 0 &&
+        normalizeOpenToPreferences(answerKey).selected.join(",") !==
+          normalizeOpenToPreferences(savedAnswerKey).selected.join(",")
+          ? normalizeOpenToPreferences(answerKey)
+          : undefined,
       markMinimumProfileComplete: true,
     });
     if (errMin) return;
@@ -932,6 +1015,23 @@ export function Onboarding() {
     void handleStep2Next();
   };
 
+  /** Optional steps: Skip discards this step's edits and moves on (saved data from before stays). */
+  const skipOptionalStep2Question = () => {
+    if (step2CurrentQuestion?.id === "answerKey") {
+      // Skip = keep whatever was saved before; drop picks made on this step.
+      setAnswerKey(savedAnswerKey);
+    }
+    const skippingPastRoles = step2CurrentQuestion?.id === "pastRoles";
+    if (skippingPastRoles) setPastRoles(emptyPastRoles());
+    setSaveError(null);
+    if (step2QuestionIndex < step2Questions.length - 1) {
+      setStep2QuestionIndex((i) => i + 1);
+      return;
+    }
+    // State updates above land on the next render, so tell the finish handler directly.
+    void handleStep2Next({ skipPastRoles: skippingPastRoles });
+  };
+
   const handleStep1FieldEnter = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
@@ -976,6 +1076,10 @@ export function Onboarding() {
       if (target instanceof HTMLTextAreaElement) return;
       const activeElement = document.activeElement;
       if (activeElement instanceof HTMLButtonElement && activeElement.classList.contains("btn")) {
+        return;
+      }
+      // Answer-key options are multi-select toggles: Enter selects the focused option, it doesn't advance.
+      if (activeElement instanceof HTMLButtonElement && activeElement.closest(".onboarding-answer-key")) {
         return;
       }
       event.preventDefault();
@@ -1075,6 +1179,8 @@ export function Onboarding() {
                     {step2CurrentQuestion?.id === "residenceCountry" ? "What is your current country of residence?" : null}
                     {step2CurrentQuestion?.id === "residenceCity" ? "What is your current city of residence?" : null}
                     {step2CurrentQuestion?.id === "mobilePhone" ? "What is your mobile number?" : null}
+                    {step2CurrentQuestion?.id === "answerKey" ? "What can you help juniors with?" : null}
+                    {step2CurrentQuestion?.id === "pastRoles" ? "Where did you work before?" : null}
                     </p>
                   </div>
                   {step2CurrentQuestion?.id === "occupation" ? (
@@ -1101,9 +1207,18 @@ export function Onboarding() {
                     </div>
                   ) : null}
                   {step2CurrentQuestion?.id === "mobilePhone" ? <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>Your number stays private unless you choose to share it.</p> : null}
+                  {step2CurrentQuestion?.id === "answerKey" ? (
+                    <OnboardingAnswerKey value={answerKey} onChange={setAnswerKey} />
+                  ) : null}
+                  {step2CurrentQuestion?.id === "pastRoles" ? (
+                    <OnboardingPastRoles rows={pastRoles} onChange={setPastRoles} onFieldEnter={handleStep2FieldEnter} />
+                  ) : null}
                   {saveError ? <p className="onboarding-welcome__inline-error">{saveError}</p> : null}
                   <div className="onboarding-welcome__inline-actions">
                     <Button variant="back" onClick={() => { setSaveError(null); if (step2QuestionIndex > 0) { setStep2QuestionIndex((i) => i - 1); return; } goTo(1); }} disabled={saving}>Back</Button>
+                    {step2CurrentQuestion?.id === "answerKey" || step2CurrentQuestion?.id === "pastRoles" ? (
+                      <Button variant="skip" onClick={skipOptionalStep2Question} disabled={saving}>Skip</Button>
+                    ) : null}
                     <Button variant="primary" onClick={advanceStep2Question} disabled={saving}>{saving ? "Saving…" : step2QuestionIndex < step2Questions.length - 1 ? "OK" : "Continue"}</Button>
                   </div>
                 </>

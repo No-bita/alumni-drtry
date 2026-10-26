@@ -163,3 +163,23 @@ describe("vague questions qualify on the most specific entity", () => {
     expect(qualifies(i, googler)).toBe(true);
   });
 });
+
+describe("answer-key tags", () => {
+  it("relocation prefers city_help and lists it first", () => {
+    const i = parseMatchQuestion("Relocating to Berlin", { organizations: [], places: [] });
+    const c = candidate({ personId: "h", cityMatch: true, residenceCity: "Berlin", residenceCountry: "Germany", openTo: ["coffee", "city_help"] });
+    const [m] = rankMatches(i, [c]);
+    expect(m!.relevantOpenTo).toEqual(["city_help", "coffee"]);
+    expect(m!.whyThem).toBe("Lives in Berlin, Germany · Open to helping newcomers settle in & coffee chats");
+  });
+
+  it("higher studies counts study_advice as will-help", () => {
+    const i = parseMatchQuestion("Planning an MS in Germany", { organizations: [], places: [] });
+    const c = candidate({
+      personId: "s",
+      studyTypeMatch: { roleTitle: "MSc Informatics", organizationName: "TU Munich", isCurrent: false },
+      openTo: ["study_advice"]
+    });
+    expect(rankMatches(i, [c])[0]!.relevantOpenTo).toEqual(["study_advice"]);
+  });
+});

@@ -34,14 +34,25 @@ describe("api parseOpenToPreferences", () => {
 describe("normalizeOpenToPreferencesForStorage", () => {
   it("caps the selection and description length", () => {
     const r = normalizeOpenToPreferencesForStorage({
-      selected: ["referrals", "coffee", "mentorship", "hiring"],
-      descriptions: { referrals: "x".repeat(800), hiring: "dropped" },
+      selected: ["referrals", "coffee", "mentorship", "hiring", "advising", "speaking", "intros"],
+      descriptions: { referrals: "x".repeat(800), speaking: "dropped" },
     });
     expect(r.selected).toHaveLength(OPEN_TO_MAX_SELECTED);
     expect(r.descriptions.referrals).toHaveLength(500);
-    expect(r.descriptions.hiring).toBeUndefined();
+    expect(r.descriptions.speaking).toBeUndefined();
   });
   it("stores an empty description for selected options without one", () => {
     expect(normalizeOpenToPreferencesForStorage({ selected: ["coffee"], descriptions: {} }).descriptions.coffee).toBe("");
+  });
+});
+
+describe("answer-key tags", () => {
+  it("accepts the new tags and up to five selections", () => {
+    const r = normalizeOpenToPreferencesForStorage({
+      selected: ["city_help", "study_advice", "referrals", "coffee", "mentorship"],
+      descriptions: {}
+    });
+    expect(r.selected).toEqual(["city_help", "study_advice", "referrals", "coffee", "mentorship"]);
+    expect(OPEN_TO_MAX_SELECTED).toBe(5);
   });
 });
