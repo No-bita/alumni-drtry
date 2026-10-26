@@ -1,4 +1,5 @@
-export const OPEN_TO_MAX_SELECTED = 3;
+/** Raised from 3 to 5 with the answer-key onboarding (city help + higher-studies advice tags). */
+export const OPEN_TO_MAX_SELECTED = 5;
 
 export const OPEN_TO_OPTION_IDS = [
   "referrals",
@@ -9,6 +10,8 @@ export const OPEN_TO_OPTION_IDS = [
   "speaking",
   "intros",
   "collaboration",
+  "city_help",
+  "study_advice",
 ] as const;
 
 export type OpenToOptionId = (typeof OPEN_TO_OPTION_IDS)[number];
