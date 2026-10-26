@@ -1,36 +1,8 @@
 import { DIRECTORY_DEPARTMENT_CODES } from "../constants/departmentCatalog.js";
+import { KNOWN_ORG_ALIASES as SHARED_KNOWN_ORG_ALIASES } from "./matchIntent.js";
 
 /** Lowercase token → preferred company string for refine (hard filter: org name substring). */
-const KNOWN_ORG_ALIASES: Record<string, string> = {
-  google: "Google",
-  alphabet: "Google",
-  meta: "Meta",
-  facebook: "Meta",
-  microsoft: "Microsoft",
-  msft: "Microsoft",
-  amazon: "Amazon",
-  aws: "Amazon",
-  apple: "Apple",
-  netflix: "Netflix",
-  nvidia: "NVIDIA",
-  adobe: "Adobe",
-  oracle: "Oracle",
-  salesforce: "Salesforce",
-  ibm: "IBM",
-  intel: "Intel",
-  qualcomm: "Qualcomm",
-  samsung: "Samsung",
-  tcs: "TCS",
-  infosys: "Infosys",
-  wipro: "Wipro",
-  accenture: "Accenture",
-  mckinsey: "McKinsey",
-  goldman: "Goldman Sachs",
-  jpmorgan: "JPMorgan",
-  stripe: "Stripe",
-  uber: "Uber",
-  linkedin: "LinkedIn"
-};
+const KNOWN_ORG_ALIASES: Readonly<Record<string, string>> = SHARED_KNOWN_ORG_ALIASES;
 
 export interface DiscoveryQueryNormalizeInput {
   q?: string;
