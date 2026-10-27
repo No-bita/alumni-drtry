@@ -121,6 +121,30 @@ export interface AnalyticsReport {
     byBatch: Array<{ batchYear: number; members: number }>;
     byDepartment: Array<{ code: string; name: string; members: number }>;
   };
+  whatsapp: {
+    linkedMembers: number;
+    notesOptedIn: number;
+    notesPaused: number;
+    stopped: number;
+    /** Distinct numbers that texted the bot in the window, and how many were linked in it. */
+    numbersTexting: number;
+    linkedInWindow: number;
+    notesFromBot: number;
+    notesFromBotAccepted: number;
+    month: {
+      inbound: number;
+      serviceReplies: number;
+      freeServicePerMonth: number;
+      templates: number;
+      templateCap: number;
+      /** Estimate (₹, incl. GST): templates plus service replies past the free tier. Meta's invoice is final. */
+      estimatedSpendRupees: number;
+    };
+    /** Test 1: notes by how the alum was told. */
+    byChannel: Array<{ channel: "email" | "whatsapp"; notes: number; accepted: number; declined: number; medianReplyHours: number | null }>;
+    /** Test 2: members who joined in the window, by where they arrived from. */
+    onboardingByArrival: Array<{ arrival: "whatsapp" | "website"; started: number; finished: number }>;
+  };
   operations: {
     orgsPending: number;
     suspended: number;
@@ -162,4 +186,44 @@ export function duration(hours: number | null): string {
   if (hours == null) return "—";
   if (hours < 48) return `${Math.round(hours * 10) / 10} h`;
   return `${Math.round((hours / 24) * 10) / 10} days`;
+}
+
+/* ---------------- WhatsApp pilot: the two go / no-go tests ---------------- */
+
+export const WA_MIN_NOTES = 30;
+
+export type Verdict = { status: "not_enough_data" | "passes" | "not_yet"; detail: string };
+
+/**
+ * Test 1: after 30+ WhatsApp notes, go if the WhatsApp accept rate (accepted ÷ notes sent) beats email
+ * by 15+ points, OR its median reply time is half of email's or less.
+ */
+export function alumRepliesVerdict(byChannel: AnalyticsReport["whatsapp"]["byChannel"]): Verdict {
+  const wa = byChannel.find((c) => c.channel === "whatsapp");
+  const em = byChannel.find((c) => c.channel === "email");
+  if (!wa || wa.notes < WA_MIN_NOTES) {
+    return { status: "not_enough_data", detail: `${wa?.notes ?? 0} of ${WA_MIN_NOTES} WhatsApp notes so far` };
+  }
+  const rate = (c: { notes: number; accepted: number } | undefined) => (c && c.notes ? (100 * c.accepted) / c.notes : 0);
+  const lift = rate(wa) - rate(em);
+  const faster = wa.medianReplyHours != null && em?.medianReplyHours != null && wa.medianReplyHours <= em.medianReplyHours / 2;
+  const pass = lift >= 15 || faster;
+  return {
+    status: pass ? "passes" : "not_yet",
+    detail: `Accept rate ${lift >= 0 ? "+" : ""}${Math.round(lift)} points vs email${faster ? " · replies in half the time or less" : ""}`,
+  };
+}
+
+/** Test 2: among members who started, WhatsApp arrivals finish onboarding 20+ points more often. */
+export function onboardingVerdict(rows: AnalyticsReport["whatsapp"]["onboardingByArrival"]): Verdict {
+  const wa = rows.find((r) => r.arrival === "whatsapp");
+  const web = rows.find((r) => r.arrival === "website");
+  if (!wa || wa.started < WA_MIN_NOTES || !web?.started) {
+    return { status: "not_enough_data", detail: `${wa?.started ?? 0} of ${WA_MIN_NOTES} WhatsApp arrivals so far` };
+  }
+  const lift = (100 * wa.finished) / wa.started - (100 * web.finished) / web.started;
+  return {
+    status: lift >= 20 ? "passes" : "not_yet",
+    detail: `Finish rate ${lift >= 0 ? "+" : ""}${Math.round(lift)} points vs website`,
+  };
 }
