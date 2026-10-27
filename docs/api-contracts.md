@@ -15,9 +15,13 @@ Error responses use:
 
 ## Auth And Session
 
-- `POST /v1/auth/start`: starts OTP or magic-link authentication.
-- `POST /v1/auth/verify`: verifies an OTP challenge.
-- `GET /v1/auth/verify`: verifies a magic-link click.
+- `POST /v1/auth/start`: starts OTP or magic-link authentication. Returns `challengeId`, `sentTo`, `delivery` and `resendAfterSeconds`:
+  - `delivery: "sent"`: a new code was emailed; older open codes for that email are retired (`superseded_at`, migration 049).
+  - `delivery: "already_sent"`: a start for the same email within `AUTH_START_DUPLICATE_WINDOW_SECONDS` (default 120) reuses that attempt and sends no email.
+  - `delivery: "unconfirmed"`: Resend never answered (timeout or dropped connection after connecting). The attempt is kept, because the email may still arrive and its code works; repeats within the window reuse it.
+  - `503 AUTH_DELIVERY_FAILED`: Resend clearly rejected the send, or was never reached. Nothing is kept and the previous code stays valid. Clients must show this, not retry it silently; only `AUTH_START_BUSY`, network failures and proxy 502/503/504 pages are safe to retry.
+- `POST /v1/auth/verify`: verifies an OTP challenge. `401 AUTH_CODE_SUPERSEDED` when the code is from an earlier email for the same address.
+- `GET /v1/auth/verify`: verifies a magic-link click. `401 AUTH_CODE_SUPERSEDED` for a link from an earlier email.
 - `POST /v1/auth/password-login`: password login for supported admin/dev flows.
 - `POST /v1/auth/logout`: clears the session.
 - `GET /v1/auth/google/config`: returns whether Google auth is enabled.
