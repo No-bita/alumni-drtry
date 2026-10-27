@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
 import { api, type IntentcastFeedItem } from "../api/client";
-import { BULLETIN_POST_MAX_LENGTH } from "../constants/bulletin";
+import { BULLETIN_POST_MAX_LENGTH, BULLETIN_TITLE_MAX_CHARS } from "../constants/bulletin";
 import {
   buildHiringBulletinContent,
   hiringCompensationChipFromParsed,
@@ -204,6 +204,11 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
         window.requestAnimationFrame(() => setShakeEssentialFields(empty));
         return;
       }
+      const fieldError = validateHiringBulletinFields(hiringFormToComposeFields(hiringForm));
+      if (fieldError) {
+        setHiringError(fieldError);
+        return;
+      }
       const summary = hiringForm.summary.trim();
       if (summary.length < 10) {
         setHiringError("Add a role summary (at least 10 characters) before preview.");
@@ -212,7 +217,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       setHiringError(null);
       setShakeEssentialFields([]);
       setHiringStep("preview");
-    }, [essentialsValid, hiringForm.company, hiringForm.location, hiringForm.roleTitle, hiringForm.employmentType, hiringForm.summary]);
+    }, [essentialsValid, hiringForm]);
 
     const goBackToCompose = useCallback(() => {
       setHiringError(null);
@@ -288,6 +293,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                         ref={composeFirstFieldRef}
                         className="input"
                         value={hiringForm.roleTitle}
+                        maxLength={BULLETIN_TITLE_MAX_CHARS}
                         onChange={(e) => setHiringForm((prev) => ({ ...prev, roleTitle: e.target.value }))}
                         placeholder="Backend Engineer"
                       />
