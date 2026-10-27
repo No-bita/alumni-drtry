@@ -7,6 +7,7 @@ import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileAbout } from "../components/profile/ProfileAbout";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
 import { ProfileEngagementCards } from "../components/profile/ProfileEngagementCards";
+import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
 import { ProfileIitBhu } from "../components/profile/ProfileIitBhu";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -573,6 +574,7 @@ export function Profile() {
               onRemoveExperience={isEditing ? removeDraftExperience : undefined}
             />
           </section>
+          {isOwnProfile && !previewProfile ? <WhatsAppNotesSettings /> : null}
         </div>
 
         </> : null}

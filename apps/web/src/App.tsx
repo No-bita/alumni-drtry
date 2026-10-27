@@ -34,6 +34,9 @@ const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ de
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+const WhatsAppEntryPage = lazy(() =>
+  import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
+);
 const AdminAnalyticsPage = lazy(() =>
   import("./pages/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage }))
 );
@@ -336,6 +339,8 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        {/* Links from the WhatsApp bot. Public: it sends signed-out people through sign-in. */}
+        <Route path="/wa" element={<WhatsAppEntryPage />} />
         <Route
           path="/admin/analytics"
           element={

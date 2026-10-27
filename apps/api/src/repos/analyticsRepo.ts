@@ -3,6 +3,11 @@ import { personIsDemoAlumniSql, personIsProductionAlumniSql } from "../lib/demoP
 import { escapeRegexLiteral, roleDefinitionForLabel, countryMatchNames, MATCH_CATEGORIES } from "../lib/matchIntent.js";
 import { CATEGORY_OPEN_TO } from "../lib/matchScore.js";
 import { wordBoundedPattern } from "./matchRepo.js";
+import { env } from "../config/env.js";
+
+/** Meta's free service replies per number per month, and approximate India rates incl. 18% GST (Oct 2026). */
+export const WA_FREE_SERVICE_PER_MONTH = 1000;
+export const WA_RUPEES_PER_PAID_MESSAGE = 0.136;
 
 /**
  * Everything on the admin analytics screen (/admin/analytics), for one window of 7, 30 or 90 days,
@@ -125,6 +130,30 @@ export interface AnalyticsReport {
     byBatch: Array<{ batchYear: number; members: number }>;
     byDepartment: Array<{ code: string; name: string; members: number }>;
   };
+  whatsapp: {
+    linkedMembers: number;
+    notesOptedIn: number;
+    notesPaused: number;
+    stopped: number;
+    /** Distinct numbers that texted the bot in the window, and how many were linked in it. */
+    numbersTexting: number;
+    linkedInWindow: number;
+    notesFromBot: number;
+    notesFromBotAccepted: number;
+    month: {
+      inbound: number;
+      serviceReplies: number;
+      freeServicePerMonth: number;
+      templates: number;
+      templateCap: number;
+      /** Estimate (₹, incl. GST): templates plus service replies past the free tier. Meta's invoice is final. */
+      estimatedSpendRupees: number;
+    };
+    /** Test 1: notes by how the alum was told. */
+    byChannel: Array<{ channel: "email" | "whatsapp"; notes: number; accepted: number; declined: number; medianReplyHours: number | null }>;
+    /** Test 2: members who joined in the window, by where they arrived from. */
+    onboardingByArrival: Array<{ arrival: "whatsapp" | "website"; started: number; finished: number }>;
+  };
   operations: {
     orgsPending: number;
     suspended: number;
@@ -181,7 +210,7 @@ export class AnalyticsRepo {
   }
 
   async report(days: number): Promise<AnalyticsReport> {
-    const [northStar, signIn, onboarding, asking, demandSupply, matching, outcomes, wall, engagement, growth, operations] =
+    const [northStar, signIn, onboarding, asking, demandSupply, matching, outcomes, wall, engagement, growth, operations, whatsapp] =
       await Promise.all([
         this.northStar(days),
         this.signIn(days),
@@ -193,7 +222,8 @@ export class AnalyticsRepo {
         this.wall(days),
         this.engagement(days),
         this.growth(days),
-        this.operations(days)
+        this.operations(days),
+        this.whatsapp(days)
       ]);
     return {
       windowDays: days,
@@ -208,7 +238,8 @@ export class AnalyticsRepo {
       wall,
       engagement,
       growth,
-      operations
+      operations,
+      whatsapp
     };
   }
 
@@ -502,7 +533,7 @@ export class AnalyticsRepo {
         `SELECT cr.source_rank AS rank, COUNT(*)::text AS c,
                 COUNT(*) FILTER (WHERE cr.status = 'accepted')::text AS a,
                 COUNT(*) FILTER (WHERE cr.status = 'declined')::text AS d
-         FROM ${this.notesFrom} AND cr.source = 'match' AND ${inWindow("cr.created_at")}
+         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp') AND ${inWindow("cr.created_at")}
          GROUP BY cr.source_rank ORDER BY cr.source_rank NULLS LAST`,
         [days]
       ),
@@ -511,7 +542,7 @@ export class AnalyticsRepo {
                 COUNT(*) FILTER (WHERE cr.status = 'accepted')::text AS a,
                 COUNT(*) FILTER (WHERE cr.status = 'declined')::text AS d,
                 COUNT(*) FILTER (WHERE cr.status = 'pending')::text AS p
-         FROM ${this.notesFrom} AND cr.source = 'match' AND ${inWindow("cr.created_at")}
+         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp') AND ${inWindow("cr.created_at")}
          GROUP BY cr.source_category ORDER BY COUNT(*) DESC`,
         [days]
       )
@@ -726,6 +757,95 @@ export class AnalyticsRepo {
       deletedInWindow: n(c.deleted),
       admins: n(c.admins),
       directory: { total: n(c.dir_total), real: n(c.dir_real), demo: n(c.dir_demo), test: n(c.dir_test) }
+    };
+  }
+
+  private async whatsapp(days: number): Promise<AnalyticsReport["whatsapp"]> {
+    const [contacts, month, channels, arrivals] = await Promise.all([
+      this.one<Record<string, string>>(
+        `
+        SELECT COUNT(*) FILTER (WHERE c.person_id IS NOT NULL AND ${live("p")})::text AS linked,
+               COUNT(*) FILTER (WHERE c.person_id IS NOT NULL AND ${live("p")} AND c.notes_opted_in_at IS NOT NULL
+                                  AND c.notes_paused_at IS NULL AND c.stopped_at IS NULL)::text AS opted_in,
+               COUNT(*) FILTER (WHERE c.notes_paused_at IS NOT NULL)::text AS paused,
+               COUNT(*) FILTER (WHERE c.stopped_at IS NOT NULL)::text AS stopped,
+               COUNT(*) FILTER (WHERE ${inWindow("c.last_inbound_at")})::text AS texting,
+               COUNT(*) FILTER (WHERE ${inWindow("c.linked_at")} AND c.person_id IS NOT NULL)::text AS linked_window,
+               (SELECT COUNT(*) FROM ${this.notesFrom} AND cr.source = 'whatsapp' AND ${inWindow("cr.created_at")})::text AS bot_notes,
+               (SELECT COUNT(*) FROM ${this.notesFrom} AND cr.source = 'whatsapp' AND cr.status = 'accepted'
+                  AND ${inWindow("cr.created_at")})::text AS bot_accepted
+        FROM wa_contacts c LEFT JOIN people p ON p.id = c.person_id
+        `,
+        [days]
+      ),
+      this.one<Record<string, string>>(
+        `
+        SELECT COUNT(*) FILTER (WHERE direction = 'in')::text AS inbound,
+               COUNT(*) FILTER (WHERE direction = 'out' AND kind <> 'template' AND status <> 'failed')::text AS service,
+               COUNT(*) FILTER (WHERE direction = 'out' AND kind = 'template' AND status <> 'failed')::text AS templates
+        FROM wa_messages WHERE created_at >= date_trunc('month', now())
+        `
+      ),
+      this.rows<{ ch: "email" | "whatsapp"; c: string; a: string; d: string; h: string | null }>(
+        `
+        SELECT cr.delivery_channel AS ch, COUNT(*)::text AS c,
+               COUNT(*) FILTER (WHERE cr.status = 'accepted')::text AS a,
+               COUNT(*) FILTER (WHERE cr.status = 'declined')::text AS d,
+               (percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (cr.responded_at - cr.created_at)) / 3600.0)
+                  FILTER (WHERE cr.responded_at IS NOT NULL))::text AS h
+        FROM ${this.notesFrom} AND cr.delivery_channel IS NOT NULL AND ${inWindow("cr.created_at")}
+        GROUP BY cr.delivery_channel
+        `,
+        [days]
+      ),
+      this.rows<{ arrival: string; started: string; finished: string }>(
+        `
+        SELECT CASE WHEN p.signup_channel = 'whatsapp' THEN 'whatsapp' ELSE 'website' END AS arrival,
+               COUNT(*)::text AS started,
+               COUNT(*) FILTER (WHERE p.onboarding_completed_at IS NOT NULL)::text AS finished
+        FROM people p WHERE ${live("p")} AND ${inWindow("p.created_at")}
+        GROUP BY 1
+        `,
+        [days]
+      )
+    ]);
+    const templates = n(month.templates);
+    const service = n(month.service);
+    const paid = templates + Math.max(0, service - WA_FREE_SERVICE_PER_MONTH);
+    const ch = new Map(channels.map((c) => [c.ch, c]));
+    const ar = new Map(arrivals.map((a) => [a.arrival, a]));
+    return {
+      linkedMembers: n(contacts.linked),
+      notesOptedIn: n(contacts.opted_in),
+      notesPaused: n(contacts.paused),
+      stopped: n(contacts.stopped),
+      numbersTexting: n(contacts.texting),
+      linkedInWindow: n(contacts.linked_window),
+      notesFromBot: n(contacts.bot_notes),
+      notesFromBotAccepted: n(contacts.bot_accepted),
+      month: {
+        inbound: n(month.inbound),
+        serviceReplies: service,
+        freeServicePerMonth: WA_FREE_SERVICE_PER_MONTH,
+        templates,
+        templateCap: env.WA_MONTHLY_TEMPLATE_CAP,
+        estimatedSpendRupees: Math.round(paid * WA_RUPEES_PER_PAID_MESSAGE * 100) / 100
+      },
+      byChannel: (["email", "whatsapp"] as const).map((channel) => {
+        const r = ch.get(channel);
+        return {
+          channel,
+          notes: n(r?.c),
+          accepted: n(r?.a),
+          declined: n(r?.d),
+          medianReplyHours: r?.h == null ? null : Math.round(Number(r.h) * 10) / 10
+        };
+      }),
+      onboardingByArrival: (["whatsapp", "website"] as const).map((arrival) => ({
+        arrival,
+        started: n(ar.get(arrival)?.started),
+        finished: n(ar.get(arrival)?.finished)
+      }))
     };
   }
 }

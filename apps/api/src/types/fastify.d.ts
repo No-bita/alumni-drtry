@@ -11,6 +11,7 @@ import type { DiscoveryService } from "../services/discoveryService.js";
 import type { MatchService } from "../services/matchService.js";
 import type { HomeSummaryService } from "../services/homeSummaryService.js";
 import type { AnalyticsService } from "../services/analyticsService.js";
+import type { WhatsAppService } from "../whatsapp/service.js";
 import type { IntentcastService } from "../services/intentcastService.js";
 import type { NotificationService } from "../services/notificationService.js";
 import type { LinkService } from "../services/linkService.js";
@@ -33,6 +34,7 @@ declare module "fastify" {
     matchService: MatchService;
     homeSummaryService: HomeSummaryService;
     analyticsService: AnalyticsService;
+    whatsappService: WhatsAppService;
     intentcastService: IntentcastService;
     contactRequestService: ContactRequestService;
     connectionThreadService: ConnectionThreadService;

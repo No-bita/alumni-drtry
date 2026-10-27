@@ -302,3 +302,17 @@
     font-size: 1.35rem;
   }
 }
+
+/* Go / no-go lines: worded, never colour alone. */
+.aa-verdict {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--rule);
+  background: var(--palette-bg-cream);
+  font-size: 0.9rem;
+}
+
+.aa-verdict--passes {
+  border-color: var(--badge-open-text);
+}

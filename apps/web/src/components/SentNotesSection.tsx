@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { SENT_NOTES_QUERY_KEY, fetchSentNotes, sentNoteStatusLabel } from "../lib/sentNotes";
+import { sharedContactHref } from "../lib/whatsapp";
 
 /** Notifications page: notes you sent from "Reach out", with their status. */
 export function SentNotesSection({ enabled }: { enabled: boolean }) {
@@ -47,12 +48,7 @@ export function SentNotesSection({ enabled }: { enabled: boolean }) {
                   </p>
                   <p className="notifications-page__item-preview">“{n.message}”</p>
                   {n.status === "accepted" && n.recipientContactShared ? (
-                    <p className="notifications-page__item-detail">
-                      Contact shared:{" "}
-                      <a href={`mailto:${n.recipientContactShared}`} className="sent-notes__contact">
-                        {n.recipientContactShared}
-                      </a>
-                    </p>
+                    <SharedContact contact={n.recipientContactShared} />
                   ) : null}
                 </div>
               </li>
@@ -61,5 +57,22 @@ export function SentNotesSection({ enabled }: { enabled: boolean }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** The contact the alum chose: a WhatsApp number opens a chat; an email opens mail. */
+function SharedContact({ contact }: { contact: string }) {
+  const { href, isWhatsApp } = sharedContactHref(contact);
+  return (
+    <p className="notifications-page__item-detail">
+      {isWhatsApp ? "WhatsApp shared: " : "Contact shared: "}
+      <a
+        href={href}
+        className="sent-notes__contact"
+        {...(isWhatsApp ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {contact}
+      </a>
+    </p>
   );
 }

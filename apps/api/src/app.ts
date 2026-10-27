@@ -38,6 +38,9 @@ import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
 import { AnalyticsService } from "./services/analyticsService.js";
+import { CloudApiSender, RecordingSender, type WhatsAppSender } from "./whatsapp/client.js";
+import { WhatsAppService } from "./whatsapp/service.js";
+import { whatsappRoutes } from "./whatsapp/routes.js";
 import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
@@ -55,7 +58,12 @@ function buildEmailSender(): EmailSender {
   return new ConsoleEmailSender();
 }
 
-export async function createApp() {
+export type CreateAppOptions = {
+  /** Tests: override WhatsApp wiring (sender, on/off, secrets) without touching the environment. */
+  whatsapp?: { sender?: WhatsAppSender; enabled?: boolean; appSecret?: string; verifyToken?: string };
+};
+
+export async function createApp(options: CreateAppOptions = {}) {
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === "production" ? "info" : "debug"
@@ -96,6 +104,12 @@ export async function createApp() {
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
   const matchService = new MatchService(pool, null, contactRequestService);
+  const whatsappEnabled = options.whatsapp?.enabled ?? env.WHATSAPP_ENABLED;
+  const whatsappSender: WhatsAppSender =
+    options.whatsapp?.sender ?? (env.WHATSAPP_ENABLED ? new CloudApiSender() : new RecordingSender());
+  const whatsappService = new WhatsAppService(pool, whatsappSender, matchService, contactRequestService, whatsappEnabled);
+  contactRequestService.setNoteChannel(whatsappService);
+  profileService.setOnboardedListener((personId) => whatsappService.notifyOnboarded(personId));
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
   const notificationService = new NotificationService(pool);
   const adminPeopleService = new AdminPeopleService(pool);
@@ -121,6 +135,7 @@ export async function createApp() {
   app.decorate("campusMonthlyService", campusMonthlyService);
   app.decorate("homeSummaryService", homeSummaryService);
   app.decorate("analyticsService", analyticsService);
+  app.decorate("whatsappService", whatsappService);
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
@@ -178,6 +193,12 @@ export async function createApp() {
   await app.register(discoveryRoutes);
   await app.register(matchRoutes);
   await app.register(homeRoutes);
+  await app.register(whatsappRoutes, {
+    service: whatsappService,
+    enabled: whatsappEnabled,
+    appSecret: options.whatsapp?.appSecret ?? env.WA_APP_SECRET,
+    verifyToken: options.whatsapp?.verifyToken ?? env.WA_VERIFY_TOKEN
+  });
   await app.register(intentcastRoutes);
   await app.register(contactRequestRoutes);
   await app.register(connectionThreadRoutes);

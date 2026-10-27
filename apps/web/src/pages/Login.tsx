@@ -20,6 +20,7 @@ import {
 } from "../lib/authStartDelivery";
 import { ResendCodeButton } from "../components/ResendCodeButton";
 import { claimRememberedInvite, rememberInviteFromUrl } from "../lib/inviteAttribution";
+import { pendingWhatsAppEntry, whatsappEntryForSignIn } from "../lib/whatsapp";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
@@ -240,7 +241,15 @@ export function Login() {
     const controller = new AbortController();
     startAbortRef.current = controller;
     return startAuthWithWakeRetry(
-      (signal) => api.post<AuthStartResponse>("/v1/auth/start", { institutionalEmail: normalizedEmail }, { signal }),
+      (signal) => {
+        // From a WhatsApp bot link: the email's sign-in link carries it, so clicking it anywhere continues the WhatsApp step.
+        const whatsappEntry = whatsappEntryForSignIn();
+        return api.post<AuthStartResponse>(
+          "/v1/auth/start",
+          { institutionalEmail: normalizedEmail, ...(whatsappEntry ? { whatsappEntry } : {}) },
+          { signal }
+        );
+      },
       { signal: controller.signal, onWaking }
     );
   };
@@ -307,6 +316,11 @@ export function Login() {
       const { person, profile: p } = snap;
       // Credit an invite link, if one brought them here (server ignores it for existing members).
       void claimRememberedInvite();
+      // Came from the WhatsApp bot: finish linking the number there (it then routes to onboarding or the link).
+      if (!person.isDemo && pendingWhatsAppEntry()) {
+        navigate("/wa", { replace: true });
+        return;
+      }
       if (person.isDemo) {
         navigate("/search", { replace: true });
         return;

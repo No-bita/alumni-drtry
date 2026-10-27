@@ -8,8 +8,11 @@ import {
   analyticsQueryKey,
   compact,
   duration,
+  alumRepliesVerdict,
   fetchAnalytics,
+  onboardingVerdict,
   pct,
+  type Verdict,
   type AnalyticsReport,
   type AnalyticsWindow,
   type DemandRow,
@@ -28,6 +31,7 @@ const SECTIONS = [
   ["wall", "The Wall"],
   ["engagement", "Engagement"],
   ["growth", "Growth"],
+  ["whatsapp", "WhatsApp pilot"],
   ["operations", "Operations"],
 ] as const;
 
@@ -127,6 +131,20 @@ function Table({ caption, head, rows, empty }: { caption: string; head: string[]
         </tbody>
       </table>
     </div>
+  );
+}
+
+const VERDICT_LABEL: Record<Verdict["status"], string> = {
+  not_enough_data: "Not enough data yet",
+  passes: "Passes",
+  not_yet: "Doesn't pass yet",
+};
+
+function VerdictLine({ title, v }: { title: string; v: Verdict }) {
+  return (
+    <p className={`aa-verdict aa-verdict--${v.status}`}>
+      <strong>{title}:</strong> {VERDICT_LABEL[v.status]} · {v.detail}
+    </p>
   );
 }
 
@@ -362,6 +380,65 @@ function Report({ r }: { r: AnalyticsReport }) {
           rows={[...r.growth.byBatch].reverse().map((b) => [String(b.batchYear), compact(b.members)])}
           empty="No batches recorded."
         />
+      </Section>
+
+      <Section
+        id="whatsapp"
+        title="WhatsApp pilot"
+        note="Go / no-go after 30+ WhatsApp notes. Spend is an estimate; Meta's invoice is final."
+      >
+        <VerdictLine title="Test 1 · Alum replies" v={alumRepliesVerdict(r.whatsapp.byChannel)} />
+        <VerdictLine title="Test 2 · Onboarding" v={onboardingVerdict(r.whatsapp.onboardingByArrival)} />
+        <div className="aa-tiles">
+          <Tile label="Linked members" value={compact(r.whatsapp.linkedMembers)} hint={`${r.whatsapp.linkedInWindow} linked in the last ${r.windowDays} days`} />
+          <Tile
+            label="Get notes on WhatsApp"
+            value={compact(r.whatsapp.notesOptedIn)}
+            hint={`${r.whatsapp.notesPaused} paused · ${r.whatsapp.stopped} stopped`}
+          />
+          <Tile label="Numbers texting the bot" value={compact(r.whatsapp.numbersTexting)} />
+          <Tile
+            label="Notes from the bot's links"
+            value={compact(r.whatsapp.notesFromBot)}
+            hint={`${r.whatsapp.notesFromBotAccepted} accepted`}
+          />
+          <Tile
+            label="Free replies this month"
+            value={`${compact(r.whatsapp.month.serviceReplies)} / ${compact(r.whatsapp.month.freeServicePerMonth)}`}
+            hint={`${compact(r.whatsapp.month.inbound)} messages received`}
+          />
+          <Tile
+            label="Paid messages this month"
+            value={`${compact(r.whatsapp.month.templates)} / ${compact(r.whatsapp.month.templateCap)}`}
+            hint={`≈ ₹${r.whatsapp.month.estimatedSpendRupees.toFixed(2)} so far`}
+          />
+        </div>
+        <div className="aa-split">
+          <Table
+            caption="Test 1 · How the alum was told"
+            head={["Channel", "Notes", "Accepted", "Accept rate", "Median reply"]}
+            rows={r.whatsapp.byChannel.map((c) => [
+              c.channel === "whatsapp" ? "WhatsApp" : "Email",
+              compact(c.notes),
+              compact(c.accepted),
+              pct(c.accepted, c.notes),
+              duration(c.medianReplyHours),
+            ])}
+            empty="No notes in this window."
+          />
+          <Table
+            caption="Test 2 · Members who joined, by where they arrived"
+            head={["Arrived from", "Started", "Finished", "Finish rate"]}
+            rows={r.whatsapp.onboardingByArrival.map((a) => [
+              a.arrival === "whatsapp" ? "WhatsApp bot" : "Website",
+              compact(a.started),
+              compact(a.finished),
+              pct(a.finished, a.started),
+            ])}
+            empty="No new members in this window."
+          />
+        </div>
+        <p className="aa-footnote">Accept rate here is accepted ÷ notes sent (notes still waiting count as not accepted).</p>
       </Section>
 
       <Section id="operations" title="Operations" note="Every other number on this page counts real members only.">

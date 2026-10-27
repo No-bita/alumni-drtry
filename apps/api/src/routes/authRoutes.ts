@@ -29,7 +29,11 @@ function isGoogleOAuthConfigured(): boolean {
 }
 
 const startAuthBodySchema = z.object({
-  institutionalEmail: z.string().email()
+  institutionalEmail: z.string().email(),
+  /** Sign-in started from a WhatsApp bot link (see StartAuthInput.whatsappEntry). */
+  whatsappEntry: z
+    .object({ token: z.string().min(10).max(2000), next: z.string().max(1000).nullable().optional() })
+    .optional()
 });
 
 const verifyAuthBodySchema = z
@@ -254,7 +258,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       const result = await app.authService.startAuth({
         institutionalEmail: parsed.data.institutionalEmail,
         ipAddress: request.ip ?? null,
-        userAgent: request.headers["user-agent"] ?? null
+        userAgent: request.headers["user-agent"] ?? null,
+        ...(parsed.data.whatsappEntry
+          ? { whatsappEntry: { token: parsed.data.whatsappEntry.token, next: parsed.data.whatsappEntry.next ?? null } }
+          : {})
       });
       return reply.code(200).send(result);
     } catch (err) {

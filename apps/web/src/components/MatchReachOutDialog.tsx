@@ -16,6 +16,8 @@ type MatchReachOutDialogProps = {
   category: MatchCategory | null;
   /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
   rank?: number | null;
+  /** Where the asker came from: the app's search, or the WhatsApp bot's "Send a note" link. */
+  source?: "match" | "whatsapp";
   onClose: () => void;
 };
 
@@ -38,7 +40,7 @@ function sendErrorMessage(code: string | undefined, message: string | undefined)
 }
 
 /** Reach out from a match: one note via the existing contact-request flow (messaging stays paused). */
-export function MatchReachOutDialog({ recipient, question, category, rank = null, onClose }: MatchReachOutDialogProps) {
+export function MatchReachOutDialog({ recipient, question, category, rank = null, source = "match", onClose }: MatchReachOutDialogProps) {
   const queryClient = useQueryClient();
   const titleId = useId();
   const noteId = useId();
@@ -60,7 +62,7 @@ export function MatchReachOutDialog({ recipient, question, category, rank = null
     const res = await api.post<unknown>("/v1/contact-requests", {
       recipientPersonId: recipient.id,
       message: note.trim(),
-      source: "match",
+      source,
       sourceCategory: category,
       ...(rank ? { sourceRank: rank } : {}),
     });

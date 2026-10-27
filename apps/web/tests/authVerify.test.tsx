@@ -37,6 +37,15 @@ afterEach(() => {
 });
 
 describe("AuthVerify", () => {
+  it("a sign-in link carrying a WhatsApp step continues to linking the number (any browser)", async () => {
+    window.localStorage.clear();
+    refetch.mockResolvedValue({ person: { ...person, isDemo: false }, profile: { onboardingCompletedAt: null, appLoginCount: 1, role: "alumni" } });
+    mount("?challengeId=c1&magicLinkToken=t1&wa=tok123456789&waNext=%2Fmatch%3Fq%3Dx");
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/wa"));
+    expect(JSON.parse(window.localStorage.getItem("alma.waEntry")!)).toMatchObject({ t: "tok123456789", next: "/match?q=x" });
+    window.localStorage.clear();
+  });
+
   it("shows the invalid-link state without calling the API when params are missing", () => {
     mount("");
     expect(screen.getByText("Link invalid or expired")).toBeTruthy();

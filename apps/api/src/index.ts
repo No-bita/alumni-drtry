@@ -78,6 +78,10 @@ async function main() {
         .catch((err: unknown) => {
           app.log.error({ err }, "usage event purge failed");
         });
+      // And forget used WhatsApp link tokens once they've expired anyway.
+      void app.whatsappService.purgeUsedLinks().catch((err: unknown) => {
+        app.log.error({ err }, "whatsapp used-link purge failed");
+      });
     };
     reminderStartupTimer = setTimeout(remind, 60_000);
     reminderInterval = setInterval(remind, reminderMs);
