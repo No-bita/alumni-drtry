@@ -34,13 +34,16 @@ describe("SentNotesSection", () => {
         { id: "1", recipientPersonId: "a", recipientFullName: "Ananya Rao", message: "Referral please", status: "pending", recipientContactShared: null, createdAt: now, respondedAt: null },
         { id: "2", recipientPersonId: "b", recipientFullName: "Karan Mehta", message: "Interview prep?", status: "accepted", recipientContactShared: "karan@example.com", createdAt: now, respondedAt: now },
         { id: "3", recipientPersonId: "c", recipientFullName: "Neha Iyer", message: "Berlin tips?", status: "declined", recipientContactShared: null, createdAt: now, respondedAt: now },
+        { id: "4", recipientPersonId: "d", recipientFullName: "Arun Alum", message: "PM referral?", status: "accepted", recipientContactShared: "+919876543210", createdAt: now, respondedAt: now },
       ],
     });
     mount();
     expect(await screen.findByText("Waiting for reply")).toBeTruthy();
-    expect(screen.getByText("Accepted")).toBeTruthy();
+    expect(screen.getAllByText("Accepted")).toHaveLength(2);
     expect(screen.getByText("Declined")).toBeTruthy();
     expect(screen.getByRole("link", { name: "karan@example.com" }).getAttribute("href")).toBe("mailto:karan@example.com");
+    // An alum who shared their WhatsApp number: opens a chat, not mail.
+    expect(screen.getByRole("link", { name: "+919876543210" }).getAttribute("href")).toBe("https://wa.me/919876543210");
     expect(screen.getAllByText(/Contact shared/)).toHaveLength(1);
     expect(get).toHaveBeenCalledWith("/v1/contact-requests/sent", expect.anything());
   });
