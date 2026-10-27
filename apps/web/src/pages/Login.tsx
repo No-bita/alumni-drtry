@@ -134,7 +134,7 @@ export function Login() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
     if (!isInstitutionalEmail(normalizedEmail)) {
-      setError("Use your IIT BHU email.");
+      setError("Use your institute email.");
       return;
     }
 
@@ -172,7 +172,7 @@ export function Login() {
             setError("You are not approved for this beta yet. Request access using the form below.");
             setShowBetaWaitlistCta(true);
           } else if (inviteErr.code === "AUTH_DOMAIN_NOT_ALLOWED") {
-            setError(inviteErr.message ?? "Use an IIT BHU institutional email address.");
+            setError(inviteErr.message ?? "Use your institute email.");
             setShowBetaWaitlistCta(true);
           } else {
             setError(inviteErr.message ?? inviteErr.code);
@@ -332,7 +332,7 @@ export function Login() {
       google_invalid: "Could not complete Google sign-in. Try again.",
       google_state: "Sign-in session expired. Try again.",
       google_domain:
-        "Sign in with a Google account that uses your IIT BHU email (@iitbhu.ac.in or @itbhu.ac.in).",
+        "Sign in with a Google account that uses your institute email.",
       google_unverified: "Verify your email in Google, then try again.",
       google_failed: "Google sign-in failed. Try again from the home page or use email below.",
     };
@@ -379,7 +379,7 @@ export function Login() {
         {(showDesktopMap || isPhone) && <LandingWorldMap className="auth-merged__map" showTestimonials={!isPhone} />}
         <div className="auth-merged__hero-copy">
           <h1 className="auth-merged__title">
-            Where IIT BHU alumni
+            Where alumni
             <br />
             <span className="auth-merged__title-nowrap">
               <span className="auth-merged__title-accent">open doors for each other.</span>
@@ -753,7 +753,7 @@ export function Login() {
               </svg>
             </span>
             <h2 className="section-headline auth-merged__card-title">
-              {BETA_INVITE_AUTH_ENABLED ? "Join the network" : "Continue with your IIT BHU email"}
+              {BETA_INVITE_AUTH_ENABLED ? "Join the network" : "Continue with your insti email"}
             </h2>
           </div>
           <form onSubmit={handleSubmit}>
@@ -775,7 +775,7 @@ export function Login() {
               autoComplete="email"
               style={{ marginBottom: 16 }}
             />
-            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your IIT BHU email.</p> : null}
+            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your institute email.</p> : null}
             {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
               <Input
                 type="password"
@@ -787,7 +787,7 @@ export function Login() {
                 style={{ marginBottom: 16 }}
               />
             ) : null}
-            {error && !(emailDomainInvalid && error === "Use your IIT BHU email.") && <p className="auth-merged__error">{error}</p>}
+            {error && !(emailDomainInvalid && error === "Use your institute email.") && <p className="auth-merged__error">{error}</p>}
             {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
               <p className="auth-merged__waitlist">
                 Join beta waitlist:{" "}
@@ -801,9 +801,6 @@ export function Login() {
               {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
             </Button>
           </form>
-          <p className="auth-merged__footnote">
-            Exclusive for IIT BHU alumni.
-          </p>
         </div>
       )}
     </div>
