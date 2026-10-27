@@ -17,7 +17,7 @@ export const LANDING_MAP_TESTIMONIALS: readonly LandingMapTestimonial[] = [
     lat: 12.9,
     lon: 77.6,
     quote:
-      "Was looking for a technical cofounder for six months. Found a BHU alum through the network. We've been building together for eight months now.",
+      "Was looking for a technical cofounder for six months. Found an alum through the network. We've been building together for eight months now.",
     attribution: "Mihir '18, Founder",
   },
   {
