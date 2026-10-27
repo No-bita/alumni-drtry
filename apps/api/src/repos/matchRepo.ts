@@ -349,7 +349,10 @@ export class MatchRepo {
     });
   }
 
-  /** Privacy-safe stats: no person id, no question text, no entity values. */
+  /**
+   * Query stats: no person id and no question text. Since migration 050 it also keeps what the
+   * matcher read (company, role, city, country) so demand can be compared with supply.
+   */
   async logQuery(input: {
     category: string | null;
     detectedFields: string[];
@@ -357,11 +360,27 @@ export class MatchRepo {
     resultCount: number;
     hadOverrides: boolean;
     needsDetail: boolean;
+    company?: string | null;
+    role?: string | null;
+    city?: string | null;
+    country?: string | null;
   }): Promise<void> {
     await this.db.query(
-      `INSERT INTO match_queries (category, detected_fields, parser_source, result_count, had_overrides, needs_detail)
-       VALUES ($1, $2::text[], $3, $4, $5, $6)`,
-      [input.category, input.detectedFields, input.parserSource, input.resultCount, input.hadOverrides, input.needsDetail]
+      `INSERT INTO match_queries (category, detected_fields, parser_source, result_count, had_overrides, needs_detail,
+                                  company, role, city, country)
+       VALUES ($1, $2::text[], $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        input.category,
+        input.detectedFields,
+        input.parserSource,
+        input.resultCount,
+        input.hadOverrides,
+        input.needsDetail,
+        input.company ?? null,
+        input.role ?? null,
+        input.city ?? null,
+        input.country ?? null
+      ]
     );
   }
 
