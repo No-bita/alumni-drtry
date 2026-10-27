@@ -103,3 +103,4 @@ main().catch((error) => {
   process.stderr.write(`Failed to start API: ${String(error)}\n`);
   process.exit(1);
 });
+
