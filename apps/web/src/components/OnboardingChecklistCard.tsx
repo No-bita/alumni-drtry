@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
 import { checklistSteps, doneCount, isNewEnough, readFlag, writeFlag } from "../lib/onboardingChecklist";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/onboarding-checklist.css";
 
 /** Steps shown while messaging is paused (the "send your first message" step stays off). */
@@ -56,7 +57,14 @@ export function OnboardingChecklistCard() {
         {lead} <strong>{next.text}</strong>
         {next.why}
       </p>
-      <Link to={next.to} className="onboarding-checklist__cta" onClick={next.onClick}>
+      <Link
+        to={next.to}
+        className="onboarding-checklist__cta"
+        onClick={() => {
+          trackBetaUsageEvent("home_checklist_clicked", { key: steps.profile ? "city" : "profile" });
+          next.onClick?.();
+        }}
+      >
         {next.cta}
       </Link>
       <button
@@ -64,6 +72,7 @@ export function OnboardingChecklistCard() {
         className="onboarding-checklist__dismiss"
         aria-label="Dismiss the getting started card"
         onClick={() => {
+          trackBetaUsageEvent("home_checklist_dismissed");
           writeFlag(personId, "dismissed");
           setDismissed(true);
         }}
