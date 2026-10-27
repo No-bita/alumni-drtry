@@ -32,7 +32,7 @@ const startAuthBodySchema = z.object({
   institutionalEmail: z.string().email(),
   /** Sign-in started from a WhatsApp bot link (see StartAuthInput.whatsappEntry). */
   whatsappEntry: z
-    .object({ token: z.string().min(10).max(2000), next: z.string().max(1000).nullable().optional() })
+    .object({ token: z.string().min(8).max(2000), next: z.string().max(1000).nullable().optional() })
     .optional()
 });
 
