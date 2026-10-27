@@ -44,6 +44,12 @@ describe("isServerWaking", () => {
     expect(isServerWaking({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED" }, status: 403 })).toBe(false);
     expect(isServerWaking({ error: { code: "UNKNOWN" }, status: 500 })).toBe(false);
   });
+  it("never retries the app's own 503 that may follow an email (no silent pile of emails)", () => {
+    expect(isServerWaking({ error: { code: "AUTH_DELIVERY_FAILED", message: "x" }, status: 503 })).toBe(false);
+  });
+  it("retries the app's 'briefly busy' answer, which sends nothing", () => {
+    expect(isServerWaking({ error: { code: "AUTH_START_BUSY", message: "x" }, status: 503 })).toBe(true);
+  });
 });
 
 describe("startAuthWithWakeRetry", () => {
