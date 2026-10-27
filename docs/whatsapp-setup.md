@@ -9,11 +9,14 @@ The bot is an **entry point**. It sends new people to the website to sign up, an
 | New number | anything | "Join Alma Mater" button → website sign-in, then "Link WhatsApp ending 3210 to your account?", then onboarding |
 | Linked, onboarding not finished | anything | "Finish profile" button → website |
 | Member | hi | Menu: **Ask for a referral** (+ **Pause/Resume WhatsApp notes** if they get notes here) |
-| Member, after "Ask for a referral" | "Razorpay, product manager" | Top 3 matches, each with a "Send a note" link (the note is written on the website), and a **Back to menu** button |
+| Member, after "Ask for a referral" | "Razorpay, product manager" | Top 3 matches, each with a short "Send a note" link (`/w/<code>`; the note is written on the website), and a **Back to menu** button |
 | Member, still in search | another "company, role" | Searches again (no "hi" needed). Directory and known names are recognised first; otherwise the reply is read as "company, role": everything before the comma ("acme labs, pm" → Acme Labs), or the whole message when it names no role ("meesho"). "hi" or "menu" (or the button) returns to the menu |
+| Member | taps "Send a note" | The website opens with the bot's reading (company, referral) and that alum's note box, even if they're no longer in the list |
 | Alum who opted in | taps a button on a note | Accept, share WhatsApp · Accept, share email · Decline → short confirmation |
 | Number linked to a closed account | anything | A short note that the number can't be used (no link) |
 | Anyone | STOP / START | No WhatsApp messages from us / turn them back on |
+
+Links from the bot are short (`https://<web>/w/k3x9Qa7Z`). The code stands for a signed link (which number it was sent to) and where to go next, both kept in the database (`wa_short_links`, migration 052) for 24 hours. The chat never shows the phone number.
 
 ## Costs (India, Meta pricing since 1 Oct 2026; check Meta's rate card before budgeting)
 

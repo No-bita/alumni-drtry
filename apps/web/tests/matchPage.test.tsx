@@ -5,9 +5,11 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const post = vi.hoisted(() => vi.fn());
+const getJson = vi.hoisted(() => vi.fn());
 const bulletinOpen = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/api/client", () => ({ api: { post } }));
+vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: getJson }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/contexts/AuthContext", () => ({
   useAuth: () => ({ status: "authenticated", myProfile: { fullName: "Viewer Person" } }),
@@ -79,6 +81,7 @@ function mount(url: string) {
 
 beforeEach(() => {
   post.mockReset();
+  getJson.mockReset();
   bulletinOpen.mockReset();
 });
 afterEach(cleanup);
@@ -224,5 +227,45 @@ describe("MatchPage — from the WhatsApp bot", () => {
       sourceCategory: "referral",
       sourceRank: 1,
     });
+  });
+
+  it("uses the bot's reading of the question (company, referral) so the website shows the same list", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount(`/match?q=Referral+at+razorpay%2C+pm&cat=referral&company=Razorpay&reach=${result.id}&via=whatsapp`);
+    await screen.findByLabelText("What are you hoping to talk about?");
+    expect(post).toHaveBeenCalledWith(
+      "/v1/match",
+      { question: "Referral at razorpay, pm", overrides: { category: "referral", company: "Razorpay" } },
+      expect.anything(),
+    );
+  });
+
+  it("they tapped Send a note for someone who's no longer in the list: their note box still opens", async () => {
+    const priya = "22222222-2222-2222-2222-222222222222";
+    getJson.mockResolvedValue({ profile: { id: priya, fullName: "Priya Sharma" }, occupations: [], links: [] });
+    post.mockImplementation(async (path: string) =>
+      path === "/v1/match"
+        ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
+        : { data: { contactRequest: { id: "x" } } },
+    );
+    mount(`/match?q=Referral+at+Razorpay&cat=referral&company=Razorpay&reach=${priya}&via=whatsapp`);
+    const note = (await screen.findByLabelText("What are you hoping to talk about?")) as HTMLTextAreaElement;
+    expect(getJson).toHaveBeenCalledWith(`/v1/profiles/${priya}`, expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    expect(await screen.findByText("Note sent to Priya")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
+      recipientPersonId: priya,
+      message: note.value.trim(),
+      source: "whatsapp",
+      sourceCategory: "referral",
+    });
+  });
+
+  it("doesn't reopen the note box for someone they've already sent a note to", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [{ ...result, yourNote: "pending" }], fallback: null } });
+    mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    expect(screen.queryByLabelText("What are you hoping to talk about?")).toBeNull();
+    expect(getJson).not.toHaveBeenCalled();
   });
 });

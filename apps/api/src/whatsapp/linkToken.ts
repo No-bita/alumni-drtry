@@ -7,7 +7,7 @@ import { env } from "../config/env.js";
  * after they sign in, without asking them to type it or sending a paid sign-in code.
  * Each token carries a random nonce: it can link a number once (the nonce is recorded on use).
  */
-const TTL_MS = 24 * 60 * 60 * 1000;
+export const LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
 function key(): Buffer {
   // Derived from the existing server secret with a purpose label, so no new secret is needed.
@@ -19,7 +19,7 @@ const b64 = (buf: Buffer) => buf.toString("base64url");
 export type LinkToken = { waId: string; nonce: string };
 
 export function signLinkToken(waId: string, now = Date.now()): string {
-  const payload = b64(Buffer.from(JSON.stringify({ w: waId, e: now + TTL_MS, n: b64(randomBytes(12)) })));
+  const payload = b64(Buffer.from(JSON.stringify({ w: waId, e: now + LINK_TTL_MS, n: b64(randomBytes(12)) })));
   const sig = b64(createHmac("sha256", key()).update(payload).digest());
   return `${payload}.${sig}`;
 }

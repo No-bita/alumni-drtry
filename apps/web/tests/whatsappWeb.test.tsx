@@ -30,6 +30,7 @@ function mountAt(url: string) {
       <QueryClientProvider client={qc}>
         <Routes>
           <Route path="/wa" element={<WhatsAppEntryPage />} />
+          <Route path="/w/:code" element={<WhatsAppEntryPage />} />
           <Route path="*" element={<Where />} />
         </Routes>
       </QueryClientProvider>
@@ -44,9 +45,9 @@ const member = (onboarded = true) => ({
 });
 
 /** POST /check answers with this status; POST /whatsapp-link links. */
-function answerCheck(status: string) {
+function answerCheck(status: string, next: string | null = null) {
   apiPost.mockImplementation(async (url: string) =>
-    url === "/v1/me/whatsapp-link/check" ? { data: { link: { status, numberHint: "3210" } } } : { data: { whatsapp: settings } },
+    url === "/v1/me/whatsapp-link/check" ? { data: { link: { status, numberHint: "3210", next } } } : { data: { whatsapp: settings } },
   );
 }
 const claimed = () => apiPost.mock.calls.some((c) => c[0] === "/v1/me/whatsapp-link");
@@ -82,6 +83,30 @@ describe("WhatsApp entry links (/wa)", () => {
     await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/match?q=x&reach=a1&via=whatsapp"));
     expect(apiPost).toHaveBeenCalledWith("/v1/me/whatsapp-link", { token: "tok123456789" });
     expect(pendingWhatsAppEntry()).toBeNull();
+  });
+
+  it("short link /w/<code>: same steps with the code; the destination comes from the server", async () => {
+    answerCheck("ready", "/match?q=x&reach=a1&via=whatsapp");
+    authState.value = member();
+    mountAt("/w/k3x9Qa7Z");
+    await confirmLink();
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/match?q=x&reach=a1&via=whatsapp"));
+    expect(apiPost).toHaveBeenCalledWith("/v1/me/whatsapp-link/check", { token: "k3x9Qa7Z" });
+    expect(apiPost).toHaveBeenCalledWith("/v1/me/whatsapp-link", { token: "k3x9Qa7Z" });
+  });
+
+  it("short link, signed out: remembers the code for after sign-in", async () => {
+    authState.value = { status: "unauthenticated" };
+    mountAt("/w/k3x9Qa7Z");
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/login?src=whatsapp"));
+    expect(pendingWhatsAppEntry()).toMatchObject({ t: "k3x9Qa7Z", next: null });
+  });
+
+  it("a destination from the server is only followed when it's on our site", async () => {
+    answerCheck("already_yours", "https://evil.example");
+    authState.value = member();
+    mountAt("/w/k3x9Qa7Z");
+    expect(await screen.findByRole("heading", { name: "WhatsApp linked" })).toBeTruthy();
   });
 
   it("their own number already: no question, straight to the destination", async () => {

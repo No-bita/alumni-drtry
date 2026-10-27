@@ -45,7 +45,12 @@ describe("WhatsApp bot (integration)", () => {
     return sender.sent.slice(before);
   };
   const body = (m: OutboundMessage) => ("body" in m ? m.body : "");
-  const tokenIn = (url: string) => new URL(url).searchParams.get("t")!;
+  /** Short link → the code, and what it stands for (the signed link's number and the destination). */
+  const codeIn = (url: string) => new URL(url).pathname.replace(/^\/w\//, "");
+  const shortLink = async (url: string) => {
+    const row = (await db.query<{ token: string; next: string | null }>(`SELECT token, next FROM wa_short_links WHERE code = $1`, [codeIn(url)])).rows[0]!;
+    return { waId: verifyLinkToken(row.token)?.waId, next: row.next };
+  };
   const req = (method: "GET" | "POST" | "PATCH", url: string, cookie: string, p?: object) =>
     app.inject({ method, url, headers: { cookie }, ...(p ? { payload: p } : {}) });
   const onboard = (p: Who, name: string) =>
@@ -110,15 +115,29 @@ describe("WhatsApp bot (integration)", () => {
     expect((await req("GET", "/v1/me/whatsapp", asker.cookie)).statusCode).toBe(200);
   });
 
-  it("a new number gets one reply: the Join link, carrying a signed token for that number", async () => {
+  it("a new number gets one reply: the Join link, a short link standing for that number", async () => {
     const out = await hear(textMsg(ASKER, "hi"));
     expect(out).toHaveLength(1);
     const m = out[0]!.message;
     expect(m.kind).toBe("link");
     if (m.kind !== "link") return;
     expect(m.label).toBe("Join Alma Mater");
-    expect(m.url).toContain("/wa?t=");
-    expect(verifyLinkToken(tokenIn(m.url))?.waId).toBe(ASKER);
+    expect(m.url).toMatch(/\/w\/[A-Za-z0-9]{8}$/);
+    expect((await shortLink(m.url)).waId).toBe(ASKER);
+  });
+
+  it("short links: the website checks and links with just the code; the destination comes back from the server", async () => {
+    const d = await loginForTest(app, `wa-short-${run}@iitbhu.ac.in`);
+    const url = await app.whatsappService.linkUrl(wa(14), "/match?q=x&reach=a1&via=whatsapp");
+    const code = codeIn(url);
+    const check = await req("POST", "/v1/me/whatsapp-link/check", d.cookie, { token: code });
+    expect(check.json()).toEqual({ link: { status: "ready", numberHint: wa(14).slice(-4), next: "/match?q=x&reach=a1&via=whatsapp" } });
+    expect((await req("POST", "/v1/me/whatsapp-link", d.cookie, { token: code })).statusCode).toBe(200);
+    expect((await req("GET", "/v1/me/whatsapp", d.cookie)).json()).toMatchObject({ whatsapp: { linked: true, numberHint: wa(14).slice(-4) } });
+    // Unknown or expired codes are refused like an expired link.
+    expect((await req("POST", "/v1/me/whatsapp-link/check", d.cookie, { token: "Zz9Zz9Zz" })).statusCode).toBe(400);
+    await db.query(`UPDATE wa_short_links SET expires_at = now() - interval '1 minute' WHERE code = $1`, [code]);
+    expect((await req("POST", "/v1/me/whatsapp-link/check", d.cookie, { token: code })).statusCode).toBe(400);
   });
 
   it("ignores Meta re-delivering the same message", async () => {
@@ -147,7 +166,7 @@ describe("WhatsApp bot (integration)", () => {
     const check = async (p: Who, t: string) =>
       ((await req("POST", "/v1/me/whatsapp-link/check", p.cookie, { token: t })).json() as { link: { status: string; numberHint: string } }).link;
 
-    expect(await check(a, token)).toEqual({ status: "ready", numberHint: NUM.slice(-4) });
+    expect(await check(a, token)).toEqual({ status: "ready", numberHint: NUM.slice(-4), next: null });
     expect((await req("POST", "/v1/me/whatsapp-link/check", a.cookie, { token: "bad.token.value" })).statusCode).toBe(400);
     // Checking links nothing.
     expect(((await req("GET", "/v1/me/whatsapp", a.cookie)).json() as { whatsapp: { linked: boolean } }).whatsapp.linked).toBe(false);
@@ -199,6 +218,8 @@ describe("WhatsApp bot (integration)", () => {
     const link = await start({ token: t, next: "/match?q=x" });
     expect(link.searchParams.get("wa")).toBe(t);
     expect(link.searchParams.get("waNext")).toBe("/match?q=x");
+    // A short link code is carried the same way.
+    expect((await start({ token: "k3x9Qa7Z" })).searchParams.get("wa")).toBe("k3x9Qa7Z");
     // Forged tokens and off-site paths never go into the email.
     expect((await start({ token: "forged.token.value" })).searchParams.get("wa")).toBeNull();
     expect((await start({ token: t, next: "//evil.example" })).searchParams.get("waNext")).toBeNull();
@@ -223,21 +244,28 @@ describe("WhatsApp bot (integration)", () => {
     });
   });
 
-  it("referral ask: asks for the company, then replies once with the top matches and Send-note links", async () => {
+  it("referral ask: asks for the company, then replies once with the top matches, short Send-note links and a Back button", async () => {
     await hear(buttonMsg(ASKER, MENU.referral));
     let out = await hear(textMsg(ASKER, "product manager please"));
     expect(body(out[0]!.message)).toContain("Which company?");
     out = await hear(textMsg(ASKER, `${ORG}, product manager`));
     expect(out).toHaveLength(1);
-    const text = body(out[0]!.message);
+    const m = out[0]!.message;
+    expect(m).toMatchObject({ kind: "buttons", buttons: [{ id: MENU.back, title: "Back to menu" }] });
+    const text = body(m);
+    expect(text.length).toBeLessThanOrEqual(1024);
     expect(text).toContain(`Arun Alum ${run}`);
     const link = text.match(/Send a note: (\S+)/)![1]!;
-    const next = new URL(link).searchParams.get("next")!;
-    expect(next.startsWith("/match?")).toBe(true);
-    const q = new URLSearchParams(next.slice("/match?".length));
+    expect(link).toMatch(/\/w\/[A-Za-z0-9]{8}$/);
+    const { waId, next } = await shortLink(link);
+    expect(waId).toBe(ASKER);
+    expect(next!.startsWith("/match?")).toBe(true);
+    const q = new URLSearchParams(next!.slice("/match?".length));
     expect(q.get("reach")).toBe(alum.personId);
     expect(q.get("via")).toBe("whatsapp");
-    expect(verifyLinkToken(new URL(link).searchParams.get("t")!)?.waId).toBe(ASKER);
+    // The bot's reading travels with the link, so the website shows the same list.
+    expect(q.get("company")).toBe(ORG);
+    expect(q.get("cat")).toBe("referral");
   });
 
   it("stays in search after a result: the next text is another company, read as 'company, role'", async () => {

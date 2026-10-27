@@ -341,6 +341,7 @@ function AppRoutes() {
         />
         {/* Links from the WhatsApp bot. Public: it sends signed-out people through sign-in. */}
         <Route path="/wa" element={<WhatsAppEntryPage />} />
+        <Route path="/w/:code" element={<WhatsAppEntryPage />} />
         <Route
           path="/admin/analytics"
           element={
