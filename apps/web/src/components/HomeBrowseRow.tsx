@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 
 const LINKS = [
   { id: "careers", label: "Careers", to: "/intent/career" },
@@ -15,7 +16,12 @@ export function HomeBrowseRow() {
     <nav className="home-browse" aria-label="Browse">
       <span className="home-browse__label">Or browse:</span>
       {links.map((l) => (
-        <Link key={l.id} to={l.to} className="home-browse__link">
+        <Link
+          key={l.id}
+          to={l.to}
+          className="home-browse__link"
+          onClick={() => trackBetaUsageEvent("home_browse_clicked", { link: l.id })}
+        >
           {l.label}
         </Link>
       ))}

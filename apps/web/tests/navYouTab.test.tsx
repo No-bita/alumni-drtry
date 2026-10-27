@@ -98,10 +98,11 @@ describe("bottom dock You tab", () => {
     expect(you(own.container).getAttribute("aria-current")).toBe("page");
     expect(you(own.container).className).toContain("nav-bottom-dock__link--active");
     cleanup();
-    const analytics = renderNav({}, "/profiles/me-1#admin-analytics");
+    const analytics = renderNav({}, "/admin/analytics");
     expect(you(analytics.container).getAttribute("aria-current")).toBeNull();
     expect(you(analytics.container).className).not.toContain("nav-bottom-dock__link--active");
     const analyticsLink = within(dock(analytics.container)).getByText("Analytics").closest("a") as HTMLElement;
     expect(analyticsLink.className).toContain("nav-bottom-dock__link--active");
+    expect(analyticsLink.getAttribute("href")).toBe("/admin/analytics");
   });
 });

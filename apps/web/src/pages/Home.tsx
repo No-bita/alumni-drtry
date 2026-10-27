@@ -29,6 +29,7 @@ import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/Pos
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
 import { HomeBrowseRow } from "../components/HomeBrowseRow";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
@@ -820,12 +821,16 @@ export function Home() {
             viewerPersonId={authPersonId}
             bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
             bulletinRepliesLoading={bulletinRepliesFeedLoading}
-            onPost={() => bulletinFlowRef.current?.open()}
+            onPost={() => {
+              trackBetaUsageEvent("home_wall_post_clicked");
+              bulletinFlowRef.current?.open();
+            }}
           />
           <HomeNetworkPanel
             members={batchList}
             directoryHref={batchDirectorySearchHref}
             countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
+            inviterPersonId={authPersonId ?? null}
           />
           <HomeFeedbackSection />
         </div>

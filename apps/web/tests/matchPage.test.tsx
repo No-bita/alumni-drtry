@@ -141,6 +141,8 @@ describe("MatchPage", () => {
       message: note.value.trim(),
       source: "match",
       sourceCategory: "referral",
+      // Top result: position 1, for ranking-quality analytics.
+      sourceRank: 1,
     });
   });
 

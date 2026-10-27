@@ -36,7 +36,7 @@ export function MatchPage() {
   const [draft, setDraft] = useState({ forQuestion: state.question, text: state.question });
   const draftQuestion = draft.forQuestion === state.question ? draft.text : state.question;
   const setDraftQuestion = (text: string) => setDraft({ forQuestion: state.question, text });
-  const [reachOutTo, setReachOutTo] = useState<MatchResult | null>(null);
+  const [reachOutTo, setReachOutTo] = useState<{ result: MatchResult; rank: number } | null>(null);
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
 
   const matchQuery = useQuery({
@@ -171,8 +171,8 @@ export function MatchPage() {
                   {data.results.length === 1 ? "1 alum who can help" : `${data.results.length} alumni who can help`}
                 </h2>
                 <ul className="match-page__results">
-                  {data.results.map((r) => (
-                    <MatchResultCard key={r.id} result={r} onReachOut={setReachOutTo} />
+                  {data.results.map((r, i) => (
+                    <MatchResultCard key={r.id} result={r} onReachOut={(result) => setReachOutTo({ result, rank: i + 1 })} />
                   ))}
                 </ul>
                 <p className="match-page__footnote">
@@ -193,7 +193,8 @@ export function MatchPage() {
 
       {reachOutTo ? (
         <MatchReachOutDialog
-          recipient={{ id: reachOutTo.id, fullName: reachOutTo.fullName }}
+          recipient={{ id: reachOutTo.result.id, fullName: reachOutTo.result.fullName }}
+          rank={reachOutTo.rank}
           question={state.question}
           category={data?.intent.category ?? null}
           onClose={() => setReachOutTo(null)}

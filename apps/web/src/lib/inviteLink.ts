@@ -1,6 +1,13 @@
-/** Invite links point at the sign-up page. No new backend, just a link worth sending. */
-export function buildInviteLink(origin: string): string {
-  return `${origin.replace(/\/+$/, "")}/login`;
+export type InviteChannel = "copy" | "whatsapp";
+
+/**
+ * Invite links point at the sign-up page. With an inviter, they carry `ref` and `ch` so a new
+ * member's sign-up can be credited to the invite (see lib/inviteAttribution.ts).
+ */
+export function buildInviteLink(origin: string, inviterPersonId?: string | null, channel: InviteChannel = "copy"): string {
+  const base = `${origin.replace(/\/+$/, "")}/login`;
+  if (!inviterPersonId) return base;
+  return `${base}?ref=${encodeURIComponent(inviterPersonId)}&ch=${channel}`;
 }
 
 export function buildInviteMessage(link: string): string {

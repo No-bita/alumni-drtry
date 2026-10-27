@@ -14,6 +14,8 @@ type MatchReachOutDialogProps = {
   question: string;
   /** Question category, recorded with the note for the funnel (no question text is stored separately). */
   category: MatchCategory | null;
+  /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
+  rank?: number | null;
   onClose: () => void;
 };
 
@@ -36,7 +38,7 @@ function sendErrorMessage(code: string | undefined, message: string | undefined)
 }
 
 /** Reach out from a match: one note via the existing contact-request flow (messaging stays paused). */
-export function MatchReachOutDialog({ recipient, question, category, onClose }: MatchReachOutDialogProps) {
+export function MatchReachOutDialog({ recipient, question, category, rank = null, onClose }: MatchReachOutDialogProps) {
   const queryClient = useQueryClient();
   const titleId = useId();
   const noteId = useId();
@@ -60,6 +62,7 @@ export function MatchReachOutDialog({ recipient, question, category, onClose }: 
       message: note.trim(),
       source: "match",
       sourceCategory: category,
+      ...(rank ? { sourceRank: rank } : {}),
     });
     if (res.error) {
       setStatus("idle");

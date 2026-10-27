@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN, matchHref } from "../lib/matchApi";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/match.css";
 
 const EXAMPLE_QUESTIONS = [
@@ -17,19 +18,20 @@ export function HomeAskBox() {
   const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const submit = (text: string) => {
+  const submit = (text: string, how: "typed" | "example") => {
     const q = text.trim();
     if (q.length < MATCH_QUESTION_MIN) {
       setError("Write a few words about what you need.");
       return;
     }
     setError(null);
+    trackBetaUsageEvent(how === "example" ? "home_example_clicked" : "home_ask_submitted");
     navigate(matchHref(q));
   };
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    submit(question);
+    submit(question, "typed");
   };
 
   return (
@@ -65,7 +67,7 @@ export function HomeAskBox() {
       <div id={hintId} className="home-ask__examples">
         <span className="home-ask__examples-label">Try:</span>
         {EXAMPLE_QUESTIONS.map((example) => (
-          <button key={example} type="button" className="home-ask__example" onClick={() => submit(example)}>
+          <button key={example} type="button" className="home-ask__example" onClick={() => submit(example, "example")}>
             {example}
           </button>
         ))}

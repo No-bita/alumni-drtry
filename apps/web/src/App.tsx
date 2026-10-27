@@ -34,6 +34,9 @@ const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ de
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+const AdminAnalyticsPage = lazy(() =>
+  import("./pages/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage }))
+);
 const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
@@ -330,6 +333,14 @@ function AppRoutes() {
               <ProfileGate mode="home">
                 <NotificationsPage />
               </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <RequireAuth>
+              <AdminAnalyticsPage />
             </RequireAuth>
           }
         />

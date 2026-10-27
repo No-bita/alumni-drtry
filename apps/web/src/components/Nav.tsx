@@ -283,13 +283,9 @@ export function Nav({
   const onboardingCompleted =
     auth.status === "authenticated" ? Boolean(auth.myProfile?.onboardingCompletedAt) : false;
   const isAdminUser = auth.status === "authenticated" && auth.person.role !== "alumni";
-  const analyticsHref = myProfileId ? `/profiles/${myProfileId}#admin-analytics` : "/home";
-  const analyticsActive = myProfileId != null &&
-    location.pathname === `/profiles/${myProfileId}` &&
-    location.hash === "#admin-analytics";
-  const youActive = myProfileId != null &&
-    location.pathname === `/profiles/${myProfileId}` &&
-    location.hash !== "#admin-analytics";
+  const analyticsHref = "/admin/analytics";
+  const analyticsActive = location.pathname === analyticsHref;
+  const youActive = myProfileId != null && location.pathname === `/profiles/${myProfileId}`;
 
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 

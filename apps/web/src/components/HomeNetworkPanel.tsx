@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Avatar } from "./Avatar";
 import type { SearchProfileView } from "../api/client";
 import { buildInviteLink, buildWhatsAppShareUrl, copyText } from "../lib/inviteLink";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/home-network-invite.css";
 
 type HomeNetworkPanelProps = {
@@ -10,6 +11,8 @@ type HomeNetworkPanelProps = {
   directoryHref: string;
   /** Batchmates here, as shown ("12", "40+", "100+"). Defaults to the member count. */
   countLabel?: string;
+  /** Viewer's person id: invite links carry it so sign-ups can be credited to the invite. */
+  inviterPersonId?: string | null;
 };
 
 function batchTitle(countLabel: string): string {
@@ -21,6 +24,7 @@ export function HomeNetworkPanel({
   members,
   directoryHref,
   countLabel,
+  inviterPersonId = null,
 }: HomeNetworkPanelProps) {
   const avatars = members.slice(0, 6);
   const overflow = Math.max(0, members.length - avatars.length);
@@ -34,9 +38,17 @@ export function HomeNetworkPanel({
     },
     []
   );
-  const link = buildInviteLink(typeof window === "undefined" ? "" : window.location.origin);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const link = buildInviteLink(origin, inviterPersonId, "copy");
+  const whatsappLink = buildInviteLink(origin, inviterPersonId, "whatsapp");
+
+  const toggleInvite = () => {
+    if (!inviteOpen) trackBetaUsageEvent("invite_opened", { surface: "home" });
+    setInviteOpen((v) => !v);
+  };
 
   const onCopy = async () => {
+    trackBetaUsageEvent("invite_copied", { surface: "home" });
     const ok = await copyText(link);
     setCopied(ok ? "yes" : "no");
     if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
@@ -54,7 +66,13 @@ export function HomeNetworkPanel({
         <button type="button" className="btn btn--secondary" onClick={() => void onCopy()}>
           {copied === "yes" ? "Copied. Go forth." : copied === "no" ? "Couldn't copy. Long-press the link instead" : "Copy link"}
         </button>
-        <a className="btn btn--primary" href={buildWhatsAppShareUrl(link)} target="_blank" rel="noopener noreferrer">
+        <a
+          className="btn btn--primary"
+          href={buildWhatsAppShareUrl(whatsappLink)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackBetaUsageEvent("invite_whatsapp_shared", { surface: "home" })}
+        >
           Share on WhatsApp
         </a>
       </div>
@@ -70,7 +88,7 @@ export function HomeNetworkPanel({
             type="button"
             className="home-network-line__invite"
             aria-expanded={inviteOpen}
-            onClick={() => setInviteOpen((v) => !v)}
+            onClick={toggleInvite}
           >
             Invite them
           </button>
@@ -102,7 +120,7 @@ export function HomeNetworkPanel({
           type="button"
           className="btn btn--primary"
           aria-expanded={inviteOpen}
-          onClick={() => setInviteOpen((v) => !v)}
+          onClick={toggleInvite}
         >
           Invite batchmates
         </button>

@@ -13,13 +13,11 @@ import { Input } from "../components/Input";
 import { PageStateBlock } from "../components/PageStateBlock";
 import {
   type AdminAllowedEmailsResponse,
-  type AdminMetricsResponse,
   api,
   type MeLinksResponse,
   type ProfileLinkView,
   type ProfileResponse,
 } from "../api/client";
-import { AskMatchMetricsSection } from "../components/AskMatchMetricsSection";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
@@ -99,19 +97,6 @@ export function Profile() {
     queryKey: queryKeys.me.links(),
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
     enabled: Boolean(isOwnProfile),
-  });
-
-  const adminMetricsQuery = useQuery({
-    queryKey: ["admin-metrics", "profile-dashboard"],
-    queryFn: async () => {
-      const { data, error } = await api.get<AdminMetricsResponse>("/v1/admin/metrics");
-      if (error || !data) {
-        throw new Error(error?.message ?? error?.code ?? "Could not load admin metrics.");
-      }
-      return data.metrics;
-    },
-    enabled: Boolean(isOwnProfile && isAdminViewer),
-    staleTime: 60_000,
   });
 
   const adminAllowedEmailsQuery = useQuery({
@@ -506,7 +491,6 @@ export function Profile() {
     (profile?.fullName ?? "").trim() || "Profile";
   const onboardingIncomplete =
     isOwnProfile && auth.status === "authenticated" && !auth.myProfile?.onboardingCompletedAt;
-  const adminMetrics = adminMetricsQuery.data;
   const sidebarOtherLinks =
     !loading && isOwnProfile && isEditing ? otherProfileLinks(editLinks) : [];
   const showProfileSidebar = sidebarOtherLinks.length > 0;
@@ -627,104 +611,14 @@ export function Profile() {
 
             </> : null}
             {isOwnProfile && isAdminViewer && !previewProfile ? (
-              <article id="admin-analytics" className="home-dashboard__card profile-page__analytics-card">
+              <article id="admin-tools" className="home-dashboard__card profile-page__analytics-card">
                 <div className="profile-page__analytics-header">
-                  <h2 className="profile-page__section-title">Admin analytics dashboard</h2>
-                  <button
-                    type="button"
-                    className="nav__profile-edit nav__profile-edit--ghost"
-                    onClick={() => void adminMetricsQuery.refetch()}
-                    disabled={adminMetricsQuery.isFetching}
-                  >
-                    {adminMetricsQuery.isFetching ? "Refreshing…" : "Refresh"}
-                  </button>
+                  <h2 className="profile-page__section-title">Admin tools</h2>
+                  <Link to="/admin/analytics" className="nav__profile-edit nav__profile-edit--ghost">
+                    Open analytics
+                  </Link>
                 </div>
-
-                {adminMetricsQuery.isPending ? (
-                  <p className="body-text profile-page__muted-text">Loading analytics…</p>
-                ) : adminMetricsQuery.isError || !adminMetrics ? (
-                  <p className="body-text profile-page__error-text">
-                    Could not load admin analytics right now.
-                  </p>
-                ) : (
                   <div className="profile-page__analytics-grid">
-                    <p className="body-text profile-page__muted-text profile-page__analytics-scope-note">
-                      Usage, funnel, and KPI rows below count only <strong>beta alumni</strong> (real profiles), excluding demo
-                      bios, e2e test users, and admin accounts. Directory totals show the full split.
-                    </p>
-                    <AskMatchMetricsSection />
-
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Directory totals</h3>
-                      <ul className="profile-page__analytics-list">
-                        <li><span>Total people</span><strong>{adminMetrics.totalPeople}</strong></li>
-                        <li><span>Beta alumni profiles</span><strong>{adminMetrics.directoryMix.betaProfiles}</strong></li>
-                        <li><span>Demo profiles</span><strong>{adminMetrics.directoryMix.demoProfiles}</strong></li>
-                        <li><span>Admin profiles</span><strong>{adminMetrics.directoryMix.adminProfiles}</strong></li>
-                        <li><span>Test (e2e) alumni</span><strong>{adminMetrics.directoryMix.testProfiles}</strong></li>
-                        <li><span>Beta — profiles completed</span><strong>{adminMetrics.directoryMix.betaProfilesCompleted}</strong></li>
-                        <li><span>Beta — searchable</span><strong>{adminMetrics.directoryMix.betaProfilesSearchable}</strong></li>
-                        <li><span>All profiles completed</span><strong>{adminMetrics.profileCompletedCount}</strong></li>
-                        <li><span>All searchable profiles</span><strong>{adminMetrics.searchableCount}</strong></li>
-                        <li><span>All-time searches (all users)</span><strong>{adminMetrics.searchVolume}</strong></li>
-                      </ul>
-                    </section>
-
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Beta auth funnel</h3>
-                      <ul className="profile-page__analytics-list">
-                        <li><span>Invite attempts (total)</span><strong>{adminMetrics.betaAuthFunnel.attempts}</strong></li>
-                        <li><span>Invite success (total)</span><strong>{adminMetrics.betaAuthFunnel.successes}</strong></li>
-                        <li><span>Invite failures (total)</span><strong>{adminMetrics.betaAuthFunnel.failures}</strong></li>
-                        <li><span>Rate limited (total)</span><strong>{adminMetrics.betaAuthFunnel.rateLimited}</strong></li>
-                        <li><span>Attempts (24h)</span><strong>{adminMetrics.betaAuthFunnel.attempts24h}</strong></li>
-                        <li><span>Success (24h)</span><strong>{adminMetrics.betaAuthFunnel.successes24h}</strong></li>
-                        <li><span>Failures (24h)</span><strong>{adminMetrics.betaAuthFunnel.failures24h}</strong></li>
-                        <li><span>Rate limited (24h)</span><strong>{adminMetrics.betaAuthFunnel.rateLimited24h}</strong></li>
-                      </ul>
-                    </section>
-
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Tracked usage — beta only (last 24h)</h3>
-                      <ul className="profile-page__analytics-list">
-                        <li><span>Onboarding started</span><strong>{adminMetrics.betaUsage.onboardingStarted24h}</strong></li>
-                        <li><span>Onboarding completed</span><strong>{adminMetrics.betaUsage.onboardingCompleted24h}</strong></li>
-                        <li><span>Searches executed</span><strong>{adminMetrics.betaUsage.searchExecuted24h}</strong></li>
-                        <li><span>Zero-result searches</span><strong>{adminMetrics.betaUsage.searchZeroResults24h}</strong></li>
-                        <li><span>Profiles viewed</span><strong>{adminMetrics.betaUsage.profileViewed24h}</strong></li>
-                        <li><span>Profiles clicked</span><strong>{adminMetrics.betaUsage.profileClicked24h}</strong></li>
-                        <li><span>Threads created</span><strong>{adminMetrics.betaUsage.threadCreated24h}</strong></li>
-                        <li><span>Thread messages sent</span><strong>{adminMetrics.betaUsage.threadMessageSent24h}</strong></li>
-                        <li><span>Intentcasts posted</span><strong>{adminMetrics.betaUsage.intentcastPosted24h}</strong></li>
-                        <li><span>Intentcasts responded</span><strong>{adminMetrics.betaUsage.intentcastResponded24h}</strong></li>
-                      </ul>
-                    </section>
-
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Beta funnel (last 24h)</h3>
-                      <ul className="profile-page__analytics-list">
-                        <li><span>Auth success</span><strong>{adminMetrics.betaFunnel24h.authSuccesses}</strong></li>
-                        <li><span>Onboarding started</span><strong>{adminMetrics.betaFunnel24h.onboardingStarted}</strong></li>
-                        <li><span>Onboarding completed</span><strong>{adminMetrics.betaFunnel24h.onboardingCompleted}</strong></li>
-                        <li><span>Searches executed</span><strong>{adminMetrics.betaFunnel24h.searchesExecuted}</strong></li>
-                        <li><span>Profiles clicked</span><strong>{adminMetrics.betaFunnel24h.profilesClicked}</strong></li>
-                        <li><span>High-intent actions</span><strong>{adminMetrics.betaFunnel24h.highIntentActions}</strong></li>
-                      </ul>
-                    </section>
-
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Core beta KPIs</h3>
-                      <ul className="profile-page__analytics-list">
-                        <li><span>Onboarding completion rate (24h)</span><strong>{adminMetrics.betaKpis.onboardingCompletionRate24h}%</strong></li>
-                        <li><span>Discovery CTR (24h)</span><strong>{adminMetrics.betaKpis.discoveryCtr24h}%</strong></li>
-                        <li><span>Connection conversion (24h)</span><strong>{adminMetrics.betaKpis.connectionConversionRate24h}%</strong></li>
-                        <li><span>Intentcast response rate (24h)</span><strong>{adminMetrics.betaKpis.intentcastResponseRate24h}%</strong></li>
-                        <li><span>Active users (24h)</span><strong>{adminMetrics.betaKpis.activeUsers24h}</strong></li>
-                        <li><span>Active users (7d)</span><strong>{adminMetrics.betaKpis.activeUsers7d}</strong></li>
-                        <li><span>Repeat users (7d)</span><strong>{adminMetrics.betaKpis.repeatUsers7d}</strong></li>
-                      </ul>
-                    </section>
-
                     <section className="profile-page__analytics-section">
                       <h3 className="profile-page__analytics-title">Admin email allowlist</h3>
                       <form
@@ -784,7 +678,6 @@ export function Profile() {
 
                     {/* Beta user allowlist UI removed while invite login skips DB allowlist (see authService.loginWithInviteCode). */}
                   </div>
-                )}
               </article>
             ) : null}
 

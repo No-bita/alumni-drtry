@@ -13,20 +13,19 @@ vi.mock('../src/components/profile/PersonProfileView',()=>({PersonProfileView:({
 vi.mock('../src/api/client',()=>({api:{get:vi.fn(async()=>({data:{},error:null}))}}));
 afterEach(cleanup);
 describe('Profile preview/edit state',()=>{
- it('restores admin dashboard and email controls after editing exits preview then cancels',async()=>{
+ it('restores admin tools and email controls after editing exits preview then cancels',async()=>{
   const client=new QueryClient({defaultOptions:{queries:{retry:false,staleTime:Infinity}}});
   client.setQueryData(queryKeys.profiles.detail('p1'),{profile,occupations:[],links:[]});
   client.setQueryData(queryKeys.me.links(),{links:[]});
-  client.setQueryData(['admin-metrics','profile-dashboard'],{totalPeople:1,directoryMix:{},betaAuthFunnel:{},betaUsage:{},betaFunnel24h:{},betaKpis:{}});
   client.setQueryData(['admin-allowed-emails','profile-dashboard'],[]);
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/profiles/p1']}><Routes><Route path="/profiles/:id" element={<Profile/>}/></Routes></MemoryRouter></QueryClientProvider>);
-  expect(screen.getByRole('heading',{name:'Admin analytics dashboard'})).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Admin tools'})).toBeTruthy();
   expect(screen.getByRole('heading',{name:'Admin email allowlist'})).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'Preview seam'}));
-  expect(screen.queryByRole('heading',{name:'Admin analytics dashboard'})).toBeNull();
+  expect(screen.queryByRole('heading',{name:'Admin tools'})).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Begin contact edit seam'}));
   fireEvent.click(await screen.findByRole('button',{name:'Cancel',exact:true}));
-  await waitFor(()=>expect(screen.getByRole('heading',{name:'Admin analytics dashboard'})).toBeTruthy());
+  await waitFor(()=>expect(screen.getByRole('heading',{name:'Admin tools'})).toBeTruthy());
   expect(screen.getByRole('heading',{name:'Admin email allowlist'})).toBeTruthy();
   client.clear();
  });
