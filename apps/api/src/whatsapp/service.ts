@@ -21,8 +21,14 @@ const WINDOW_MS = 24 * 60 * 60 * 1000;
 export const MENU = {
   referral: "menu_referral",
   pause: "menu_pause",
-  resume: "menu_resume"
+  resume: "menu_resume",
+  back: "menu_back"
 } as const;
+
+/** WhatsApp's limit for the text of a message with buttons. */
+const BUTTON_BODY_MAX = 1024;
+/** Words that leave search mode and show the menu. */
+const MENU_WORDS = ["hi", "hello", "hey", "menu", "start"];
 
 /** Template quick-reply payloads: "cr:<contactRequestId>:<action>". */
 export type NoteAction = "accept_wa" | "accept_email" | "decline";
@@ -49,6 +55,26 @@ export type WebhookPayload = {
   object?: string;
   entry?: Array<{ changes?: Array<{ value?: { messages?: Inbound[]; statuses?: Status[] } }> }>;
 };
+
+/**
+ * The bot asked "Which company and role?", so its reply is read as "company, role":
+ * - "acme labs, pm" → "Acme Labs" (the words before the first comma, any number of them)
+ * - "meesho" → "Meesho" (no comma: the whole message, unless it named a role)
+ * Only when it looks like a name (up to 5 words, 50 characters, no odd characters). Lowercase
+ * words get a capital first letter; words typed with capitals stay as typed. Used only when the
+ * matcher found no company (directory names, known names like "aws", and capitalised names come first).
+ */
+export function companyFromReply(text: string, mentionsRole: boolean): string | null {
+  const comma = text.indexOf(",");
+  if (comma < 0 && mentionsRole) return null;
+  const part = (comma < 0 ? text : text.slice(0, comma)).trim().replace(/\s+/g, " ");
+  if (part.length < 2 || part.length > 50) return null;
+  if (!/^[\p{L}\p{N}][\p{L}\p{N}&.' -]*$/u.test(part) || part.split(" ").length > 5) return null;
+  return part
+    .split(" ")
+    .map((w) => (w === w.toLowerCase() ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
 
 const webBase = () => (env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL).replace(/\/+$/, "");
 const yy = (batch: number | null) => (batch ? `'${String(batch).slice(-2)}` : "");
@@ -239,6 +265,10 @@ export class WhatsAppService implements NoteDeliveryChannel {
       });
       return;
     }
+    if (buttonId === MENU.back) {
+      await this.sendMenu(contact);
+      return;
+    }
     if (buttonId === MENU.pause || buttonId === MENU.resume) {
       const pause = buttonId === MENU.pause;
       await this.repo.setPausedForPerson(contact.person_id, pause);
@@ -251,7 +281,8 @@ export class WhatsAppService implements NoteDeliveryChannel {
       return;
     }
 
-    if (contact.state.step === "awaiting_referral" && text && !["hi", "hello", "menu", "start"].includes(word)) {
+    // In search: any text is another company, until hi / menu (or the Back to menu button).
+    if (contact.state.step === "awaiting_referral" && text && !MENU_WORDS.includes(word)) {
       await this.handleReferralAsk(contact, text);
       return;
     }
@@ -281,6 +312,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
     const day = today();
     const count = contact.state.askDay === day ? (contact.state.askCount ?? 0) : 0;
     if (count >= MAX_ASKS_PER_DAY) {
+      // Out of search, so the next message gets the menu instead of this again.
       await this.repo.setState(contact.wa_id, { askDay: day, askCount: count });
       await this.reply(contact.wa_id, {
         kind: "text",
@@ -290,30 +322,35 @@ export class WhatsAppService implements NoteDeliveryChannel {
     }
 
     const question = `Referral at ${text}`.slice(0, 500);
-    const result = await this.matchService.match({
-      question,
-      overrides: { category: "referral" },
-      viewerPersonId: contact.person_id!,
-      viewerIsDemo: false
-    });
+    const ask = (company?: string) =>
+      this.matchService.match({
+        question,
+        overrides: company ? { category: "referral", company } : { category: "referral" },
+        viewerPersonId: contact.person_id!,
+        viewerIsDemo: false
+      });
+    let result = await ask();
+    // Not recognised: read the reply as "company, role" (see companyFromReply).
+    if (!result.intent.company) {
+      const typed = companyFromReply(text, Boolean(result.intent.role));
+      if (typed) result = await ask(typed);
+    }
 
     if (!result.intent.company) {
       // Keep waiting for the company; this does not use up one of the day's asks.
       await this.repo.setState(contact.wa_id, { step: "awaiting_referral", askDay: day, askCount: count });
-      await this.reply(contact.wa_id, {
-        kind: "text",
-        body: "Which company? Please include its name, for example: Razorpay, product manager"
-      });
+      await this.replyWithBack(contact.wa_id, "Which company? Please include its name, for example: Razorpay, product manager");
       return;
     }
 
-    await this.repo.setState(contact.wa_id, { askDay: day, askCount: count + 1 });
+    // Stay in search: the next message is another company, until hi / menu / Back to menu.
+    await this.repo.setState(contact.wa_id, { step: "awaiting_referral", askDay: day, askCount: count + 1 });
     const top = result.results.slice(0, 3);
     if (top.length === 0) {
-      await this.reply(contact.wa_id, {
-        kind: "text",
-        body: `No one on Alma Mater matches a referral at ${result.intent.company} yet. Text hi to try another company, or post it on the Wall: ${webBase()}/home`
-      });
+      await this.replyWithBack(
+        contact.wa_id,
+        `No one on Alma Mater matches a referral at ${result.intent.company} yet. Type another company, or post it on the Wall: ${webBase()}/home`
+      );
       return;
     }
 
@@ -322,10 +359,22 @@ export class WhatsAppService implements NoteDeliveryChannel {
       const next = `/match?${new URLSearchParams({ q: question, reach: r.id, via: "whatsapp" }).toString()}`;
       return `${i + 1}. ${r.fullName}${r.batchYear ? ` (${yy(r.batchYear)})` : ""}${headline ? `\n${headline}` : ""}\nWhy: ${r.whyThem}\nSend a note: ${this.linkUrl(contact.wa_id, next)}`;
     });
-    await this.reply(contact.wa_id, {
-      kind: "text",
-      body: `Here's who can help with a referral at ${result.intent.company}:\n\n${lines.join("\n\n")}\n\nNotes are written on the website. Text hi for the menu.`
-    });
+    await this.replyWithBack(
+      contact.wa_id,
+      `Here's who can help with a referral at ${result.intent.company}:\n\n${lines.join("\n\n")}\n\nNotes are written on the website. Type another company to search again.`
+    );
+  }
+
+  /**
+   * One reply with a "Back to menu" button. WhatsApp allows 1,024 characters with buttons; a longer
+   * message goes as plain text with a line saying how to get back instead (never cut short).
+   */
+  private async replyWithBack(waId: string, body: string): Promise<void> {
+    if (body.length <= BUTTON_BODY_MAX) {
+      await this.reply(waId, { kind: "buttons", body, buttons: [{ id: MENU.back, title: "Back to menu" }] });
+      return;
+    }
+    await this.reply(waId, { kind: "text", body: `${body}\nType menu to go back.` });
   }
 
   private async handleNoteAction(contact: WaContactRow, payload: string): Promise<void> {
