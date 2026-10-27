@@ -63,6 +63,7 @@ export interface CreateContactRequestInput {
   forwardedToInstitutionalEmail: string;
   source?: ContactRequestSource | null;
   sourceCategory?: string | null;
+  sourceRank?: number | null;
 }
 
 /** A note the viewer sent (GET /v1/contact-requests/sent). */
@@ -204,9 +205,9 @@ export class ContactRequestRepo {
       `
       INSERT INTO contact_requests (
         sender_person_id, recipient_person_id, message, forwarded_to_institutional_email,
-        source, source_category
+        source, source_category, source_rank
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
       `,
       [
@@ -215,7 +216,8 @@ export class ContactRequestRepo {
         input.message,
         input.forwardedToInstitutionalEmail,
         input.source ?? null,
-        input.source ? (input.sourceCategory ?? null) : null
+        input.source ? (input.sourceCategory ?? null) : null,
+        input.source ? (input.sourceRank ?? null) : null
       ]
     );
     return mapContactRequest(result.rows[0]!);
@@ -532,4 +534,3 @@ export class ContactRequestRepo {
     return row ? mapContactRequest(row) : null;
   }
 }
-
