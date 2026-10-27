@@ -293,4 +293,4 @@ export class ProfileService {
   async claimInvite(personId: string, inviterPersonId: string, channel: "copy" | "whatsapp"): Promise<boolean> {
     return this.personRepo.setInvitedByIfNew(personId, inviterPersonId, channel);
   }
-  }
+}
