@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
 import { env } from "../config/env.js";
 import { isAppError } from "../lib/errors.js";
@@ -5,7 +6,7 @@ import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
 import type { ContactRequestService, NoteDeliveryChannel } from "../services/contactRequestService.js";
 import type { MatchService } from "../services/matchService.js";
 import { isDefiniteRejection, type OutboundMessage, type ReplyButton, type WhatsAppSender } from "./client.js";
-import { signLinkToken, verifyLinkToken } from "./linkToken.js";
+import { LINK_TTL_MS, signLinkToken, verifyLinkToken } from "./linkToken.js";
 import { WaRepo, type ClaimResult, type LinkStatus, type WaContactRow } from "./repo.js";
 
 /**
@@ -29,6 +30,20 @@ export const MENU = {
 const BUTTON_BODY_MAX = 1024;
 /** Words that leave search mode and show the menu. */
 const MENU_WORDS = ["hi", "hello", "hey", "menu", "start"];
+
+/** Short link codes: 8 letters/digits (62^8 ≈ 218 trillion). */
+const CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+export const isShortCode = (s: string) => /^[A-Za-z0-9]{8}$/.test(s);
+function newShortCode(): string {
+  let code = "";
+  // Rejection sampling keeps every character equally likely.
+  while (code.length < 8) {
+    for (const b of randomBytes(16)) {
+      if (b < 248 && code.length < 8) code += CODE_ALPHABET[b % 62];
+    }
+  }
+  return code;
+}
 
 /** Template quick-reply payloads: "cr:<contactRequestId>:<action>". */
 export type NoteAction = "accept_wa" | "accept_email" | "decline";
@@ -95,26 +110,52 @@ export class WhatsAppService implements NoteDeliveryChannel {
     this.notes = new ContactRequestRepo(pool);
   }
 
-  /** Website link for this number: links it to the member after they sign in, then goes to `next`. */
-  linkUrl(waId: string, next?: string): string {
-    const params = new URLSearchParams({ t: signLinkToken(waId) });
+  /**
+   * Website link for this number: links it to the member after they sign in, then goes to `next`.
+   * Sent as a short link (/w/<code>); the signed link and destination stay on our side.
+   */
+  async linkUrl(waId: string, next?: string): Promise<string> {
+    const token = signLinkToken(waId);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const code = newShortCode();
+      const saved = await this.repo.createShortLink({
+        code,
+        token,
+        next: next ?? null,
+        expiresAt: new Date(Date.now() + LINK_TTL_MS)
+      });
+      if (saved) return `${webBase()}/w/${code}`;
+    }
+    // Five collisions in a row is practically impossible; fall back to the full link.
+    const params = new URLSearchParams({ t: token });
     if (next) params.set("next", next);
     return `${webBase()}/wa?${params.toString()}`;
+  }
+
+  /** A short code or a full signed link → the signed link, plus the destination stored with a short code. */
+  private async resolveLink(tokenOrCode: string): Promise<{ token: string; next: string | null } | null> {
+    if (isShortCode(tokenOrCode)) return this.repo.resolveShortLink(tokenOrCode);
+    return { token: tokenOrCode, next: null };
   }
 
   /**
    * Web side, before asking "Link WhatsApp ending 3210?": what this token would do for this member.
    * null when the token is invalid or expired.
    */
-  async checkLink(personId: string, token: string): Promise<{ status: LinkStatus; numberHint: string } | null> {
-    const t = verifyLinkToken(token);
-    if (!t) return null;
-    return { status: await this.repo.linkStatus(t.waId, personId, t.nonce), numberHint: t.waId.slice(-4) };
+  async checkLink(
+    personId: string,
+    tokenOrCode: string
+  ): Promise<{ status: LinkStatus; numberHint: string; next: string | null } | null> {
+    const link = await this.resolveLink(tokenOrCode);
+    const t = link ? verifyLinkToken(link.token) : null;
+    if (!link || !t) return null;
+    return { status: await this.repo.linkStatus(t.waId, personId, t.nonce), numberHint: t.waId.slice(-4), next: link.next };
   }
 
   /** Web side, after the member confirms: link the number once. null when the token is invalid or expired. */
-  async claimLink(personId: string, token: string): Promise<ClaimResult | null> {
-    const t = verifyLinkToken(token);
+  async claimLink(personId: string, tokenOrCode: string): Promise<ClaimResult | null> {
+    const link = await this.resolveLink(tokenOrCode);
+    const t = link ? verifyLinkToken(link.token) : null;
     if (!t) return null;
     const client = await this.pool.connect();
     let status: ClaimResult;
@@ -134,8 +175,8 @@ export class WhatsAppService implements NoteDeliveryChannel {
     return status;
   }
 
-  async purgeUsedLinks(): Promise<number> {
-    return this.repo.purgeUsedLinks();
+  async purgeExpiredLinks(): Promise<number> {
+    return this.repo.purgeExpiredLinks();
   }
 
   async settingsFor(personId: string) {
@@ -242,7 +283,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
         kind: "link",
         body: "Welcome to Alma Mater, the IIT BHU alumni network. Join on our website in about 2 minutes: sign in with your IIT BHU email and set up your profile.",
         label: "Join Alma Mater",
-        url: this.linkUrl(contact.wa_id)
+        url: await this.linkUrl(contact.wa_id)
       });
       return;
     }
@@ -251,7 +292,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
         kind: "link",
         body: "You're almost there. Finish your profile on the website, then text hi here.",
         label: "Finish profile",
-        url: this.linkUrl(contact.wa_id)
+        url: await this.linkUrl(contact.wa_id)
       });
       return;
     }
@@ -354,11 +395,23 @@ export class WhatsAppService implements NoteDeliveryChannel {
       return;
     }
 
-    const lines = top.map((r, i) => {
+    const lines: string[] = [];
+    for (const [i, r] of top.entries()) {
       const headline = [r.headlineRoleTitle, r.headlineOrganizationName].filter(Boolean).join(" · ");
-      const next = `/match?${new URLSearchParams({ q: question, reach: r.id, via: "whatsapp" }).toString()}`;
-      return `${i + 1}. ${r.fullName}${r.batchYear ? ` (${yy(r.batchYear)})` : ""}${headline ? `\n${headline}` : ""}\nWhy: ${r.whyThem}\nSend a note: ${this.linkUrl(contact.wa_id, next)}`;
-    });
+      // Carry the bot's reading (company, referral) so the website shows the same list; `reach` opens
+      // the chosen alum's note box even if they've since dropped out of that list.
+      const next = `/match?${new URLSearchParams({
+        q: question,
+        cat: "referral",
+        company: result.intent.company,
+        reach: r.id,
+        via: "whatsapp"
+      }).toString()}`;
+      const link = await this.linkUrl(contact.wa_id, next);
+      lines.push(
+        `${i + 1}. ${r.fullName}${r.batchYear ? ` (${yy(r.batchYear)})` : ""}${headline ? `\n${headline}` : ""}\nWhy: ${r.whyThem}\nSend a note: ${link}`
+      );
+    }
     await this.replyWithBack(
       contact.wa_id,
       `Here's who can help with a referral at ${result.intent.company}:\n\n${lines.join("\n\n")}\n\nNotes are written on the website. Type another company to search again.`
