@@ -62,6 +62,19 @@ function report(days = 30): AnalyticsReport {
       inviteOpened: 20, inviteCopied: 8, inviteWhatsapp: 6, invitedSignups: { copy: 2, whatsapp: 3 }, trendInvitedSignups: w,
       byBatch: [{ batchYear: 2016, members: 20 }], byDepartment: [{ code: "eee", name: "Electrical Engineering", members: 40 }],
     },
+    whatsapp: {
+      linkedMembers: 12, notesOptedIn: 8, notesPaused: 1, stopped: 0, numbersTexting: 20, linkedInWindow: 10,
+      notesFromBot: 6, notesFromBotAccepted: 4,
+      month: { inbound: 80, serviceReplies: 75, freeServicePerMonth: 1000, templates: 31, templateCap: 300, estimatedSpendRupees: 4.22 },
+      byChannel: [
+        { channel: "email", notes: 40, accepted: 10, declined: 5, medianReplyHours: 50 },
+        { channel: "whatsapp", notes: 31, accepted: 15, declined: 3, medianReplyHours: 6 },
+      ],
+      onboardingByArrival: [
+        { arrival: "whatsapp", started: 10, finished: 8 },
+        { arrival: "website", started: 20, finished: 9 },
+      ],
+    },
     operations: { orgsPending: 3, suspended: 1, deletedInWindow: 0, admins: 4, directory: { total: 260, real: 200, demo: 50, test: 10 } },
   };
 }
@@ -91,14 +104,19 @@ describe("Admin analytics screen", () => {
     expect(apiGet).toHaveBeenCalledWith("/v1/admin/analytics?days=30", expect.anything());
     for (const title of [
       "North star", "Sign-in and sign-up", "Onboarding and profiles", "Asking", "Demand vs supply", "Matching quality",
-      "Outcomes and fairness", "The Wall", "Engagement and Home", "Growth", "Operations",
+      "Outcomes and fairness", "The Wall", "Engagement and Home", "Growth", "WhatsApp pilot", "Operations",
     ]) {
       expect(screen.getByRole("heading", { level: 2, name: title })).toBeTruthy();
     }
-    expect(screen.getByText("45%")).toBeTruthy(); // 9 of 20 helped within 7 days
+    const helped = screen.getByText("Helped within 7 days").closest(".aa-tile") as HTMLElement;
+    expect(within(helped).getByText("45%")).toBeTruthy(); // 9 of 20 helped within 7 days
     expect(screen.getByText("0 · gap")).toBeTruthy(); // demand with nobody offering
     expect(screen.getByText("Asked a question")).toBeTruthy();
     expect(screen.getByText("260")).toBeTruthy();
+    // 31 WhatsApp notes: 48% vs 25% accept (+23 points) → passes; only 10 WhatsApp arrivals → not enough data.
+    expect(screen.getByText(/Test 1 · Alum replies/).closest("p")!.textContent).toContain("Passes");
+    expect(screen.getByText(/Test 2 · Onboarding/).closest("p")!.textContent).toContain("Not enough data yet");
+    expect(screen.getByText("31 / 300")).toBeTruthy();
   });
 
   it("switches the window and can skip the cache", async () => {
