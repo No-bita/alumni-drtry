@@ -28,6 +28,7 @@ import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCou
 import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { OnboardingAnswerKey } from "../components/onboarding/OnboardingAnswerKey";
+import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
 import { OnboardingPastRoles } from "../components/onboarding/OnboardingPastRoles";
 import {
   completePastRoles,
@@ -1208,7 +1209,11 @@ export function Onboarding() {
                   ) : null}
                   {step2CurrentQuestion?.id === "mobilePhone" ? <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>Your number stays private unless you choose to share it.</p> : null}
                   {step2CurrentQuestion?.id === "answerKey" ? (
-                    <OnboardingAnswerKey value={answerKey} onChange={setAnswerKey} />
+                    <>
+                      <OnboardingAnswerKey value={answerKey} onChange={setAnswerKey} />
+                      {/* Shown only when their WhatsApp is linked (they came from the bot). */}
+                      <WhatsAppNotesSettings variant="inline" />
+                    </>
                   ) : null}
                   {step2CurrentQuestion?.id === "pastRoles" ? (
                     <OnboardingPastRoles rows={pastRoles} onChange={setPastRoles} onFieldEnter={handleStep2FieldEnter} />
