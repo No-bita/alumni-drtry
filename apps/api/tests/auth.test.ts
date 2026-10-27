@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
-import { ConsoleEmailSender } from "../src/services/emailSender.js";
+import { ConsoleEmailSender, EmailDeliveryUnconfirmedError, neverConnected } from "../src/services/emailSender.js";
 
 describe("auth", () => {
   let app: Awaited<ReturnType<typeof createApp>>;
@@ -308,5 +308,96 @@ describe("auth", () => {
     expect((second.json() as { challengeId: string }).challengeId).not.toBe(challengeId);
     expect(await challengeCount(email)).toBe(2);
     expect(sendAuthEmailSpy).toHaveBeenCalledTimes(2);
+  });
+
+  // --- The screen and the inbox must agree (fix/sign-in-emails) ---
+
+  const verifyOtp = (challengeId: string, otp: string) =>
+    app.inject({ method: "POST", url: "/v1/auth/verify", payload: { challengeId, otp } });
+  const debugOf = (res: { json: () => unknown }) =>
+    (res.json() as { challengeId: string; debug: { otp: string; magicLinkUrl: string } });
+  const ageChallenge = (id: string) =>
+    db.query("UPDATE auth_challenges SET created_at = now() - interval '3 minutes' WHERE id = $1", [id]);
+
+  it("says what happened: sent, then already_sent with the time left before a resend (requires DB)", async () => {
+    const email = `delivery-${Date.now()}@iitbhu.ac.in`;
+    const first = (await startAuth(email)).json() as { delivery: string; resendAfterSeconds: number };
+    expect(first.delivery).toBe("sent");
+    expect(first.resendAfterSeconds).toBe(120);
+    const again = (await startAuth(email)).json() as { delivery: string; resendAfterSeconds: number; debug?: unknown };
+    expect(again.delivery).toBe("already_sent");
+    expect(again.resendAfterSeconds).toBeGreaterThan(100);
+    expect(again.resendAfterSeconds).toBeLessThanOrEqual(120);
+    expect(again.debug).toBeUndefined();
+    expect(sendAuthEmailSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("no answer from the provider keeps the code, and retries send no second email (requires DB)", async () => {
+    const email = `unconfirmed-${Date.now()}@iitbhu.ac.in`;
+    sendAuthEmailSpy.mockRejectedValueOnce(new EmailDeliveryUnconfirmedError("Resend did not answer: timeout"));
+    const first = await startAuth(email);
+    expect(first.statusCode, first.body).toBe(200);
+    expect((first.json() as { delivery: string }).delivery).toBe("unconfirmed");
+    const { challengeId, debug } = debugOf(first);
+
+    // The client retrying (or the user tapping again) reuses it: still exactly one email.
+    const retry = await startAuth(email);
+    expect((retry.json() as { challengeId: string; delivery: string }).challengeId).toBe(challengeId);
+    expect((retry.json() as { delivery: string }).delivery).toBe("already_sent");
+    expect(sendAuthEmailSpy).toHaveBeenCalledTimes(1);
+    expect(await challengeCount(email)).toBe(1);
+
+    // If that email did arrive, its code works.
+    const ok = await verifyOtp(challengeId, debug.otp);
+    expect(ok.statusCode, ok.body).toBe(200);
+  });
+
+  it("a newer code retires older ones: old code says 'use the latest email', new code works (requires DB)", async () => {
+    const email = `supersede-${Date.now()}@iitbhu.ac.in`;
+    const first = debugOf(await startAuth(email));
+    await ageChallenge(first.challengeId);
+    const second = debugOf(await startAuth(email));
+    expect(second.challengeId).not.toBe(first.challengeId);
+
+    // Old code typed into the screen (which holds the newest challenge id).
+    const typedOld = await verifyOtp(second.challengeId, first.debug.otp);
+    expect(typedOld.statusCode).toBe(401);
+    expect((typedOld.json() as { code: string }).code).toBe("AUTH_CODE_SUPERSEDED");
+    // Old link (carries its own challenge id).
+    const oldLink = new URL(first.debug.magicLinkUrl);
+    const viaOldLink = await app.inject({
+      method: "GET",
+      url: `/v1/auth/verify?challengeId=${encodeURIComponent(oldLink.searchParams.get("challengeId")!)}&magicLinkToken=${encodeURIComponent(oldLink.searchParams.get("magicLinkToken")!)}`,
+    });
+    expect((viaOldLink.json() as { code: string; message: string }).code).toBe("AUTH_CODE_SUPERSEDED");
+    expect((viaOldLink.json() as { message: string }).message).toContain("latest");
+    // A plain wrong code is still just invalid.
+    const wrong = await verifyOtp(second.challengeId, first.debug.otp === "000000" ? "111111" : "000000");
+    expect((wrong.json() as { code: string }).code).toBe("AUTH_INVALID_TOKEN");
+    // The newest code works.
+    const ok = await verifyOtp(second.challengeId, second.debug.otp);
+    expect(ok.statusCode, ok.body).toBe(200);
+  });
+
+  it("a rejected send keeps the previous code valid (requires DB)", async () => {
+    const email = `supersede-reject-${Date.now()}@iitbhu.ac.in`;
+    const first = debugOf(await startAuth(email));
+    await ageChallenge(first.challengeId);
+    sendAuthEmailSpy.mockRejectedValueOnce(new Error("Resend delivery failed (422): bad"));
+    const rejected = await startAuth(email);
+    expect(rejected.statusCode).toBe(503);
+    expect((rejected.json() as { code: string }).code).toBe("AUTH_DELIVERY_FAILED");
+    const ok = await verifyOtp(first.challengeId, first.debug.otp);
+    expect(ok.statusCode, ok.body).toBe(200);
+  });
+});
+
+describe("email send classification", () => {
+  it("only 'never connected' failures count as definitely not sent", () => {
+    expect(neverConnected(Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } }))).toBe(true);
+    expect(neverConnected(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }))).toBe(true);
+    expect(neverConnected(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }))).toBe(false);
+    expect(neverConnected(new DOMException("The operation was aborted due to timeout", "TimeoutError"))).toBe(false);
+    expect(neverConnected(null)).toBe(false);
   });
 });

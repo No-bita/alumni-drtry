@@ -9,11 +9,13 @@ import { AuthChallengeRepo, type AuthChallengeRow } from "../repos/authChallenge
 import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
-import type { EmailSender } from "./emailSender.js";
+import { EmailDeliveryUnconfirmedError, type EmailSender } from "./emailSender.js";
 import {
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo
 } from "../lib/googleOAuth.js";
+
+const SUPERSEDED_MESSAGE = "That is from an earlier sign-in email. Use the code or link in the latest one.";
 
 export interface StartAuthInput {
   institutionalEmail: string;
@@ -21,9 +23,20 @@ export interface StartAuthInput {
   userAgent: string | null;
 }
 
+/**
+ * What happened to the email, so the sign-in screen can say the same thing:
+ * - sent: a new code went out now (older codes for this email are retired)
+ * - already_sent: a code went out moments ago; no second email (same attempt reused)
+ * - unconfirmed: the provider never answered; the code is kept and may still arrive
+ */
+export type AuthStartDelivery = "sent" | "already_sent" | "unconfirmed";
+
 export interface StartAuthResult {
   challengeId: string;
   sentTo: string;
+  delivery: AuthStartDelivery;
+  /** Seconds until another start would email a new code (the duplicate window). */
+  resendAfterSeconds: number;
   debug?: {
     otp: string;
     magicLinkUrl: string;
@@ -172,6 +185,7 @@ export class AuthService {
     const client = await this.pool.connect();
     let challenge: AuthChallengeRow;
     let magicLinkUrl: string;
+    let delivery: AuthStartDelivery = "sent";
     try {
       await client.query("BEGIN");
       // Bound the advisory-lock wait: every waiter holds a pooled client, and a slow
@@ -186,7 +200,12 @@ export class AuthService {
         await client.query("COMMIT");
         // Same attempt: the email already sent for this challenge is still valid.
         // Debug secrets only exist when a challenge is minted - only hashes are stored.
-        return { challengeId: active.id, sentTo: institutionalEmail };
+        return {
+          challengeId: active.id,
+          sentTo: institutionalEmail,
+          delivery: "already_sent",
+          resendAfterSeconds: Math.max(0, Math.ceil((active.created_at.getTime() + duplicateWindowMs - now) / 1000))
+        };
       }
       challenge = await txChallengeRepo.create({
         institutionalEmail,
@@ -200,8 +219,14 @@ export class AuthService {
       });
       const magicLinkBase = env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL;
       magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`;
-      // Send inside the transaction: a failed send rolls the new challenge back, so a
+      // Only the newest email's code and link should work. Inside the transaction, so a
+      // rejected send (rolled back below) leaves the previous code valid.
+      await txChallengeRepo.supersedeOthersByEmail(institutionalEmail, challenge.id);
+      // Send inside the transaction. A clear rejection rolls the new challenge back, so a
       // repeat start can never be pointed at a challenge whose email never went out.
+      // No answer at all is different: the email may have been delivered, so the challenge
+      // is kept (its code works if it arrives) and a repeat start within the duplicate
+      // window reuses it instead of emailing again.
       try {
         await this.emailSender.sendAuthEmail({
           to: institutionalEmail,
@@ -212,8 +237,13 @@ export class AuthService {
         });
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
-        console.error("[auth] sendAuthEmail failed:", detail);
-        throw new AppError(503, "AUTH_DELIVERY_FAILED", "Unable to deliver authentication email. Try again.");
+        if (err instanceof EmailDeliveryUnconfirmedError) {
+          console.warn("[auth] sendAuthEmail unconfirmed, keeping challenge:", detail);
+          delivery = "unconfirmed";
+        } else {
+          console.error("[auth] sendAuthEmail failed:", detail);
+          throw new AppError(503, "AUTH_DELIVERY_FAILED", "We couldn't send the sign-in email. Try again.");
+        }
       }
       await client.query("COMMIT");
     } catch (err) {
@@ -230,6 +260,8 @@ export class AuthService {
     return {
       challengeId: challenge.id,
       sentTo: institutionalEmail,
+      delivery,
+      resendAfterSeconds: env.AUTH_START_DUPLICATE_WINDOW_SECONDS,
       ...(env.SHOW_AUTH_SECRETS_IN_RESPONSE
         ? {
             debug: {
@@ -608,6 +640,10 @@ export class AuthService {
       if (!challenge || challenge.consumed_at) {
         throw new AppError(401, "AUTH_INVALID_CHALLENGE", "Invalid or expired authentication challenge.");
       }
+      if (challenge.superseded_at) {
+        // An older email's link (links carry their own challenge id).
+        throw new AppError(401, "AUTH_CODE_SUPERSEDED", SUPERSEDED_MESSAGE);
+      }
       if (challenge.attempts >= challenge.max_attempts) {
         throw new AppError(429, "AUTH_TOO_MANY_ATTEMPTS", "Challenge exhausted. Request a new one.");
       }
@@ -627,8 +663,16 @@ export class AuthService {
       const verified = verifySecret(submitted, expectedHash, env.AUTH_SECRET_PEPPER);
       if (!verified) {
         await challengeRepo.incrementAttempts(challenge.id);
+        // A code typed from an older email is checked against the newest attempt. Say
+        // "use the latest email" rather than "invalid" (still counts as an attempt).
+        const fromOlderEmail =
+          hasOtp &&
+          (await challengeRepo.findRecentSupersededByEmail(challenge.institutional_email)).some((old) =>
+            verifySecret(submitted, old.otp_hash, env.AUTH_SECRET_PEPPER)
+          );
         await client.query("COMMIT");
         shouldRollback = false;
+        if (fromOlderEmail) throw new AppError(401, "AUTH_CODE_SUPERSEDED", SUPERSEDED_MESSAGE);
         throw new AppError(401, "AUTH_INVALID_TOKEN", "Invalid authentication token.");
       }
 

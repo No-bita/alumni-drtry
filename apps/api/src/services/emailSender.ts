@@ -75,6 +75,26 @@ export interface IntentcastResponseReceivedEmailPayload {
   responseMessage: string;
 }
 
+/**
+ * The provider never answered (timeout, dropped connection), so the email may or may not
+ * have gone out. Auth start keeps the challenge for these: its code stays valid if it arrives.
+ * A non-2xx answer is a clear rejection and is thrown as a plain Error instead.
+ */
+export class EmailDeliveryUnconfirmedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmailDeliveryUnconfirmedError";
+  }
+}
+
+const NEVER_CONNECTED_CODES = new Set(["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED"]);
+
+/** True when fetch failed before any byte reached the provider (undici puts the reason on `cause`). */
+export function neverConnected(err: unknown): boolean {
+  const cause = (err as { cause?: { code?: unknown } } | null)?.cause;
+  return typeof cause?.code === "string" && NEVER_CONNECTED_CODES.has(cause.code);
+}
+
 export interface EmailSender {
   sendAuthEmail(payload: AuthEmailPayload): Promise<void>;
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
@@ -261,22 +281,31 @@ export class ResendEmailSender implements EmailSender {
   }
 
   private async sendEmail(to: string, subject: string, text: string, html: string, timeoutMs?: number): Promise<void> {
-    const response = await fetch("https://api.resend.com/emails", {
-      ...(timeoutMs !== undefined ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.options.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: this.options.from,
-        to: [to],
-        subject,
-        text,
-        html,
-        ...(this.options.replyTo ? { reply_to: this.options.replyTo } : {})
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        ...(timeoutMs !== undefined ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.options.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: this.options.from,
+          to: [to],
+          subject,
+          text,
+          html,
+          ...(this.options.replyTo ? { reply_to: this.options.replyTo } : {})
+        })
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      // Never connected (DNS failure, refused): nothing reached Resend, so nothing was sent.
+      if (neverConnected(err)) throw new Error(`Resend unreachable: ${detail}`);
+      // Otherwise no answer came back: Resend may have accepted it before the wait ran out.
+      throw new EmailDeliveryUnconfirmedError(`Resend did not answer: ${detail}`);
+    }
 
     if (!response.ok) {
       const body = await response.text();

@@ -10,6 +10,8 @@ export interface AuthChallengeRow {
   attempts: number;
   max_attempts: number;
   consumed_at: Date | null;
+  /** Set when a newer code was emailed for the same address (migration 049). */
+  superseded_at: Date | null;
   created_ip: string | null;
   created_user_agent: string | null;
   created_at: Date;
@@ -65,6 +67,7 @@ export class AuthChallengeRepo {
       SELECT * FROM auth_challenges
       WHERE institutional_email = $1
         AND consumed_at IS NULL
+        AND superseded_at IS NULL
         AND otp_expires_at > now()
         AND attempts < max_attempts
       ORDER BY created_at DESC
@@ -73,6 +76,38 @@ export class AuthChallengeRepo {
       [institutionalEmail]
     );
     return result.rows[0] ?? null;
+  }
+
+  /** Retire every other open code for this email: only the newest email's code and link work. */
+  async supersedeOthersByEmail(institutionalEmail: string, keepChallengeId: string): Promise<void> {
+    await this.db.query(
+      `
+      UPDATE auth_challenges
+      SET superseded_at = now()
+      WHERE institutional_email = $1
+        AND id <> $2
+        AND consumed_at IS NULL
+        AND superseded_at IS NULL
+      `,
+      [institutionalEmail, keepChallengeId]
+    );
+  }
+
+  /** Recently retired codes for an email, to tell "old code" apart from "wrong code". */
+  async findRecentSupersededByEmail(institutionalEmail: string): Promise<Pick<AuthChallengeRow, "id" | "otp_hash">[]> {
+    const result = await this.db.query<Pick<AuthChallengeRow, "id" | "otp_hash">>(
+      `
+      SELECT id, otp_hash FROM auth_challenges
+      WHERE institutional_email = $1
+        AND superseded_at IS NOT NULL
+        AND consumed_at IS NULL
+        AND otp_expires_at > now()
+      ORDER BY created_at DESC
+      LIMIT 5
+      `,
+      [institutionalEmail]
+    );
+    return result.rows;
   }
 
   async findByIdForUpdate(challengeId: string): Promise<AuthChallengeRow | null> {
