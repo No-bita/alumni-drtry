@@ -19,7 +19,9 @@ import {
   type MatchOverrideField,
   type MatchResult,
 } from "../lib/matchApi";
+import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
+import type { ProfileResponse } from "../api/client";
 import "../styles/match.css";
 
 /** Ask → Match results (`/match?q=…`). */
@@ -55,8 +57,26 @@ export function MatchPage() {
 
   const data = matchQuery.data;
   // Derived, not stored: the person the bot's link points at, until the box is closed once.
-  const autoIndex = !autoDismissed && reachId && data ? data.results.findIndex((r) => r.id === reachId && !r.yourNote) : -1;
-  const dialogFor = reachOutTo ?? (autoIndex >= 0 ? { result: data!.results[autoIndex]!, rank: autoIndex + 1 } : null);
+  const wantReach = Boolean(!autoDismissed && reachId);
+  const reachIndex = wantReach && data ? data.results.findIndex((r) => r.id === reachId) : -1;
+  const reachResult = reachIndex >= 0 ? data!.results[reachIndex]! : null;
+  // They tapped "Send a note" for this person: if the list no longer includes them (their load
+  // changed, or the list differs), still open their note box, using their profile for the name.
+  const reachMissing = wantReach && !matchQuery.isPending && !matchQuery.isPlaceholderData && reachIndex < 0;
+  const reachProfile = useQuery({
+    queryKey: queryKeys.profiles.detail(reachId ?? ""),
+    queryFn: ({ signal }) => assertApiGet<ProfileResponse>(`/v1/profiles/${reachId}`, signal),
+    enabled: auth.status === "authenticated" && reachMissing,
+    retry: false,
+  });
+  const autoDialog: { result: Pick<MatchResult, "id" | "fullName">; rank: number | null } | null = reachResult
+    ? reachResult.yourNote
+      ? null // already sent them a note: nothing to open
+      : { result: reachResult, rank: reachIndex + 1 }
+    : reachMissing && reachProfile.data
+      ? { result: { id: reachProfile.data.profile.id, fullName: reachProfile.data.profile.fullName }, rank: null }
+      : null;
+  const dialogFor = reachOutTo ?? autoDialog;
   const updating = matchQuery.isFetching && matchQuery.isPlaceholderData;
 
   const onAsk = (e: FormEvent) => {
