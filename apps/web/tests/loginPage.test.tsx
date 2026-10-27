@@ -65,10 +65,10 @@ describe("Login page", () => {
   });
 
   it("shows the server error and stays on the form", async () => {
-    apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your IIT BHU email." } });
+    apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your institute email." } });
     mount();
     submit("x@gmail.com");
-    expect(await screen.findByText("Use your IIT BHU email.")).toBeTruthy();
+    expect(await screen.findByText("Use your institute email.")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "One-time code" })).toBeNull();
   });
 
@@ -98,7 +98,7 @@ describe("Login page", () => {
 
   it("explains Google sign-in errors from the URL", async () => {
     mount("?error=google_domain");
-    expect(await screen.findByText(/Sign in with a Google account that uses your IIT BHU email/)).toBeTruthy();
+    expect(await screen.findByText(/Sign in with a Google account that uses your institute email/)).toBeTruthy();
     cleanup();
     mount("?error=weird");
     expect(await screen.findByText("Something went wrong (weird).")).toBeTruthy();
