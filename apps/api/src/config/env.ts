@@ -66,6 +66,22 @@ const envSchema = z.object({
   MATCH_LLM_ENABLED: environmentBoolean.default(false),
   /** Ask → Match: write privacy-safe query stats (category, field names, result count) to match_queries. */
   MATCH_ANALYTICS_ENABLED: environmentBoolean.default(true),
+  /** WhatsApp pilot (Meta Cloud API). Off unless explicitly enabled and configured. */
+  WHATSAPP_ENABLED: environmentBoolean.default(false),
+  WA_PHONE_NUMBER_ID: z.string().trim().min(1).optional(),
+  WA_ACCESS_TOKEN: z.string().trim().min(1).optional(),
+  /** App secret: verifies X-Hub-Signature-256 on every webhook call. */
+  WA_APP_SECRET: z.string().trim().min(1).optional(),
+  /** Shared secret for Meta's one-time webhook verification (GET hub.verify_token). */
+  WA_VERIFY_TOKEN: z.string().trim().min(1).optional(),
+  WA_GRAPH_VERSION: z.string().trim().regex(/^v\d+\.\d+$/).default("v23.0"),
+  /** The bot's number in international format without "+" (for wa.me links on the website). */
+  WA_BOT_NUMBER: z.string().trim().regex(/^\d{8,15}$/).optional(),
+  /** Approved utility template for notes to alumni, and its language code. */
+  WA_TEMPLATE_NOTE: z.string().trim().min(1).default("alum_referral_note"),
+  WA_TEMPLATE_LANG: z.string().trim().min(2).default("en"),
+  /** Hard cap on paid (template) messages per calendar month; past it notes go by email. */
+  WA_MONTHLY_TEMPLATE_CAP: z.coerce.number().int().min(0).max(100_000).default(300),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
   /** Sliding window: on throttled activity, extend session expiry up to this many hours from "now". */
@@ -180,6 +196,15 @@ if (parsed.data.EMAIL_PROVIDER === "resend") {
     throw new Error(
       `Invalid environment configuration: ${missing.join(", ")} required when EMAIL_PROVIDER=resend`
     );
+  }
+}
+
+if (parsed.data.WHATSAPP_ENABLED) {
+  const missing = (["WA_PHONE_NUMBER_ID", "WA_ACCESS_TOKEN", "WA_APP_SECRET", "WA_VERIFY_TOKEN"] as const).filter(
+    (k) => !parsed.data[k]
+  );
+  if (missing.length > 0) {
+    throw new Error(`Invalid environment configuration: ${missing.join(", ")} required when WHATSAPP_ENABLED=true`);
   }
 }
 
