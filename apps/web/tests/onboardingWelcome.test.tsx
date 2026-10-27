@@ -23,7 +23,7 @@ describe("OnboardingWelcome layout", () => {
     const { container } = mount(true);
     expect(container.querySelector(".onboarding-welcome__left")).not.toBeNull();
     expect(container.querySelector(".onboarding-welcome--intro")).not.toBeNull();
-    expect(screen.getByText("Welcome to the IIT BHU alumni network")).toBeTruthy();
+    expect(screen.getByText("Welcome to Alma Mater")).toBeTruthy();
   });
 
   it("keeps the question steps single column", () => {

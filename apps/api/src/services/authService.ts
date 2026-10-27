@@ -138,7 +138,7 @@ export class AuthService {
     const institutionalEmail = normalizeEmail(input.institutionalEmail);
 
     if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
-      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use your institute email.");
     }
 
     const [recentByEmail, recentByIp] = await Promise.all([
@@ -313,7 +313,7 @@ export class AuthService {
 
     const institutionalEmail = normalizeEmail(emailRaw);
     if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
-      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use your institute email.");
     }
 
     const client = await this.pool.connect();
@@ -395,7 +395,7 @@ export class AuthService {
       throw new AppError(403, "AUTH_PASSWORD_DISABLED", "Password login is unavailable for this email.");
     }
     if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
-      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use your institute email.");
     }
 
     const submittedHash = hashSecret(input.password, env.AUTH_SECRET_PEPPER);
@@ -549,7 +549,7 @@ export class AuthService {
 
     const institutionalEmail = normalizeEmail(input.institutionalEmail);
     if (!isInstitutionalEmailAllowed(institutionalEmail, this.allowedDomains)) {
-      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use an IIT BHU institutional email address.");
+      throw new AppError(400, "AUTH_DOMAIN_NOT_ALLOWED", "Use your institute email.");
     }
 
     // Beta / admin DB allowlist for invite login — temporarily disabled so any allowed-domain

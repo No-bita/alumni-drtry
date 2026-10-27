@@ -85,7 +85,7 @@ const envSchema = z.object({
   EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
   EMAIL_FROM: optionalEmailSchema,
   EMAIL_REPLY_TO: optionalEmailSchema,
-  EMAIL_BRAND_NAME: z.string().min(1).default("IIT BHU Alumni Network"),
+  EMAIL_BRAND_NAME: z.string().min(1).default("Alma Mater"),
   RESEND_API_KEY: optionalStringSchema,
   COOKIE_DOMAIN: optionalStringSchema,
   SHOW_AUTH_SECRETS_IN_RESPONSE: environmentBoolean.default(false),
