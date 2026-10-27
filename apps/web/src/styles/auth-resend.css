@@ -1,0 +1,13 @@
+/* Resend on the code screen: quiet while counting down, so "Enter code" stays the main action. */
+.login-gate-sent__resend-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(252, 248, 240, 0.78);
+}
+
+.login-gate-sent__resend:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+

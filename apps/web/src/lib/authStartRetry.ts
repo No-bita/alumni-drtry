@@ -19,15 +19,22 @@ export const WAKE_BACKOFF_MS = [3000, 5000, 8000, 10000] as const;
 /** After this long without a usable answer we stop and say so. */
 export const WAKE_DEADLINE_MS = 45000;
 
+/** App answers that are safe to retry quietly: the server sent no email for them. */
+const SAFE_APP_RETRY_CODES = new Set(["AUTH_START_BUSY"]);
+
 /**
- * True only when the request most likely never reached the app: the host is asleep or
- * restarting (502/503/504 from the proxy) or the network call failed outright.
- * Anything the app itself answered (validation, rate limit, not allowed) is final.
+ * True only when retrying cannot send a second email: the request most likely never reached
+ * the app (network failure, or a 502/503/504 page from the host's proxy, which carries no app
+ * error code), or the app said it was briefly busy and sent nothing.
+ * Every other answer the app gave is final, including its own 503s: "couldn't send the email"
+ * must be shown, not silently retried into a pile of emails.
  */
 export function isServerWaking<T>(result: AuthStartResult<T>): boolean {
   if (result.data !== undefined || !result.error) return false;
   if (result.error.code === "NETWORK_ERROR") return true;
-  return result.status === 502 || result.status === 503 || result.status === 504;
+  if (SAFE_APP_RETRY_CODES.has(result.error.code)) return true;
+  const proxyPage = result.error.code === "UNKNOWN";
+  return proxyPage && (result.status === 502 || result.status === 503 || result.status === 504);
 }
 
 type Deps = {
