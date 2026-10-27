@@ -37,6 +37,11 @@ export function MatchPage() {
   const draftQuestion = draft.forQuestion === state.question ? draft.text : state.question;
   const setDraftQuestion = (text: string) => setDraft({ forQuestion: state.question, text });
   const [reachOutTo, setReachOutTo] = useState<{ result: MatchResult; rank: number } | null>(null);
+  // From the WhatsApp bot's "Send a note" link: open the note box for that person once results load.
+  const [searchParamsForReach] = useSearchParams();
+  const reachId = searchParamsForReach.get("reach");
+  const viaWhatsApp = searchParamsForReach.get("via") === "whatsapp";
+  const [autoDismissed, setAutoDismissed] = useState(false);
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
 
   const matchQuery = useQuery({
@@ -49,6 +54,9 @@ export function MatchPage() {
   });
 
   const data = matchQuery.data;
+  // Derived, not stored: the person the bot's link points at, until the box is closed once.
+  const autoIndex = !autoDismissed && reachId && data ? data.results.findIndex((r) => r.id === reachId && !r.yourNote) : -1;
+  const dialogFor = reachOutTo ?? (autoIndex >= 0 ? { result: data!.results[autoIndex]!, rank: autoIndex + 1 } : null);
   const updating = matchQuery.isFetching && matchQuery.isPlaceholderData;
 
   const onAsk = (e: FormEvent) => {
@@ -191,13 +199,17 @@ export function MatchPage() {
         </button>
       </main>
 
-      {reachOutTo ? (
+      {dialogFor ? (
         <MatchReachOutDialog
-          recipient={{ id: reachOutTo.result.id, fullName: reachOutTo.result.fullName }}
-          rank={reachOutTo.rank}
+          recipient={{ id: dialogFor.result.id, fullName: dialogFor.result.fullName }}
+          rank={dialogFor.rank}
+          source={viaWhatsApp ? "whatsapp" : "match"}
           question={state.question}
           category={data?.intent.category ?? null}
-          onClose={() => setReachOutTo(null)}
+          onClose={() => {
+            setReachOutTo(null);
+            setAutoDismissed(true);
+          }}
         />
       ) : null}
       <PostBulletinFlow ref={bulletinFlowRef} />
