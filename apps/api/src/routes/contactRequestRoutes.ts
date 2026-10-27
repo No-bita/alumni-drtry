@@ -90,3 +90,4 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 };
+
