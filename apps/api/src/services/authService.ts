@@ -14,6 +14,7 @@ import {
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo
 } from "../lib/googleOAuth.js";
+import { verifyLinkToken } from "../whatsapp/linkToken.js";
 
 const SUPERSEDED_MESSAGE = "That is from an earlier sign-in email. Use the code or link in the latest one.";
 
@@ -21,6 +22,11 @@ export interface StartAuthInput {
   institutionalEmail: string;
   ipAddress: string | null;
   userAgent: string | null;
+  /**
+   * Sign-in started from a WhatsApp bot link: the email's sign-in link carries it on, so the
+   * WhatsApp step continues even when the link opens in another browser or the mail app.
+   */
+  whatsappEntry?: { token: string; next: string | null };
 }
 
 /**
@@ -103,6 +109,17 @@ function newSessionExpiresAt(createdAtMs: number): Date {
       createdAtMs + env.SESSION_HARD_CAP_HOURS * 3_600_000
     )
   );
+}
+
+/** Only a genuine, unexpired bot token and a same-site path go into the email. */
+function whatsappLinkParams(entry: StartAuthInput["whatsappEntry"]): string {
+  if (!entry || !verifyLinkToken(entry.token)) return "";
+  const params = new URLSearchParams({ wa: entry.token });
+  const next = entry.next;
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") && next.length <= 1000) {
+    params.set("waNext", next);
+  }
+  return `&${params.toString()}`;
 }
 
 export class AuthService {
@@ -219,7 +236,7 @@ export class AuthService {
         userAgent: input.userAgent
       });
       const magicLinkBase = env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL;
-      magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`;
+      magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}${whatsappLinkParams(input.whatsappEntry)}`;
       // Only the newest email's code and link should work. Inside the transaction, so a
       // rejected send (rolled back below) leaves the previous code valid.
       await txChallengeRepo.supersedeOthersByEmail(institutionalEmail, challenge.id);
