@@ -12,7 +12,8 @@ export type WhatsAppRouteOptions = {
   verifyToken: string | undefined;
 };
 
-const linkSchema = z.object({ token: z.string().min(10).max(2000) });
+/** `token`: a short link code (8 letters/digits) or a full signed link. */
+const linkSchema = z.object({ token: z.string().min(8).max(2000) });
 const settingsSchema = z
   .object({ notesOptedIn: z.boolean().optional(), notesPaused: z.boolean().optional() })
   .strict();
