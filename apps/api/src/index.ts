@@ -69,6 +69,15 @@ async function main() {
         .catch((err: unknown) => {
           app.log.error({ err }, "contact request reminder tick failed");
         });
+      // Same hourly tick: drop usage events past their 12-month retention.
+      void app.adminMetricsService
+        .purgeOldUsageEvents()
+        .then((purged) => {
+          if (purged > 0) app.log.info({ purged }, "usage events purged");
+        })
+        .catch((err: unknown) => {
+          app.log.error({ err }, "usage event purge failed");
+        });
     };
     reminderStartupTimer = setTimeout(remind, 60_000);
     reminderInterval = setInterval(remind, reminderMs);
@@ -90,4 +99,3 @@ main().catch((error) => {
   process.stderr.write(`Failed to start API: ${String(error)}\n`);
   process.exit(1);
 });
-
