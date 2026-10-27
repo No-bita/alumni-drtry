@@ -93,7 +93,7 @@ export function OnboardingWelcome({
           <div className="onboarding-welcome__right">
             {showBeginButton ? (
               <h1 id="onboarding-welcome-heading" className="onboarding-welcome__headline">
-                Welcome to the IIT BHU alumni network
+                Welcome to Alma Mater
               </h1>
             ) : null}
 
