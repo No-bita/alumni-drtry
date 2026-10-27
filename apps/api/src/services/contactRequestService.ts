@@ -43,6 +43,19 @@ export interface ReplyStatsView {
 
 export interface RespondContactRequestInput {
   action: "accept" | "decline";
+  /** Internal (WhatsApp buttons): share this contact instead of the alum's email. */
+  sharedContactOverride?: string;
+}
+
+/** Another way to tell the alum about a new note (WhatsApp). Returns true when it was sent. */
+export interface NoteDeliveryChannel {
+  trySendNote(input: {
+    contactRequestId: string;
+    recipientPersonId: string;
+    senderName: string;
+    senderBatchYear: number | null;
+    message: string;
+  }): Promise<boolean>;
 }
 
 export interface ContactRequestActionResult {
@@ -60,6 +73,13 @@ export class ContactRequestService {
   ) {
     this.contactRequestRepo = new ContactRequestRepo(pool);
     this.personRepo = new PersonRepo(pool);
+  }
+
+  private noteChannel: NoteDeliveryChannel | null = null;
+
+  /** Wire WhatsApp in after construction (it depends on this service for button replies). */
+  setNoteChannel(channel: NoteDeliveryChannel | null): void {
+    this.noteChannel = channel;
   }
 
   async createRequest(
@@ -126,23 +146,63 @@ export class ContactRequestService {
       sourceRank: input.source ? (input.sourceRank ?? null) : null
     });
 
-    let notificationDelivered = true;
-    try {
-      await this.emailSender.sendContactRequestReceivedEmail({
-        to: recipient.institutional_email,
-        recipientName: recipient.full_name ?? "there",
-        senderName: sender.full_name ?? sender.institutional_email,
-        message
-      });
-    } catch (err) {
-      notificationDelivered = false;
-      console.error("[contact-request] recipient notification email failed (request still saved):", err);
+    // WhatsApp first when the alum opted in (and within the monthly cap); otherwise email, as before.
+    let channel: "email" | "whatsapp" = "email";
+    if (this.noteChannel) {
+      try {
+        const sent = await this.noteChannel.trySendNote({
+          contactRequestId: created.id,
+          recipientPersonId: recipient.id,
+          senderName: sender.full_name ?? "An IIT BHU alum",
+          senderBatchYear: sender.batch_year,
+          message
+        });
+        if (sent) channel = "whatsapp";
+      } catch (err) {
+        console.error("[contact-request] WhatsApp note failed, falling back to email:", err);
+      }
     }
+
+    let notificationDelivered = true;
+    if (channel === "email") {
+      try {
+        await this.emailSender.sendContactRequestReceivedEmail({
+          to: recipient.institutional_email,
+          recipientName: recipient.full_name ?? "there",
+          senderName: sender.full_name ?? sender.institutional_email,
+          message
+        });
+      } catch (err) {
+        notificationDelivered = false;
+        console.error("[contact-request] recipient notification email failed (request still saved):", err);
+      }
+    }
+    await this.contactRequestRepo.setDeliveryChannel(created.id, channel);
 
     return {
       contactRequest: created,
       notificationDelivered
     };
+  }
+
+  /** WhatsApp reported the note as failed after taking it: tell the alum by email instead (once). */
+  async emailNoteAfterWhatsAppFailure(contactRequestId: string): Promise<boolean> {
+    if (!(await this.contactRequestRepo.switchPendingWhatsAppToEmail(contactRequestId))) return false;
+    const note = await this.contactRequestRepo.findByIdWithPeople(contactRequestId);
+    if (!note) return false;
+    try {
+      await this.emailSender.sendContactRequestReceivedEmail({
+        to: note.forwardedToInstitutionalEmail,
+        recipientName: note.recipientFullName ?? "there",
+        senderName: note.senderFullName ?? note.senderInstitutionalEmail,
+        message: note.message
+      });
+      return true;
+    } catch (err) {
+      // Same as a first-time email failure: the note is still on the website and the reminder still runs.
+      console.error("[contact-request] fallback email after WhatsApp failure did not send:", err);
+      return false;
+    }
   }
 
   async listSentForSender(senderPersonId: string): Promise<ContactRequestSentView[]> {
@@ -226,9 +286,9 @@ export class ContactRequestService {
     }
 
     if (input.action === "accept") {
-      const sharedContact = normalizeEmail(
-        existing.recipientPersonalEmail ?? existing.recipientInstitutionalEmail
-      );
+      const sharedContact =
+        input.sharedContactOverride?.trim() ||
+        normalizeEmail(existing.recipientPersonalEmail ?? existing.recipientInstitutionalEmail);
       const updated = await this.contactRequestRepo.markAccepted(existing.id, sharedContact);
       if (!updated) {
         throw new AppError(409, "CONTACT_REQUEST_ALREADY_RESOLVED", "Contact request is already resolved.");
@@ -274,4 +334,3 @@ export class ContactRequestService {
     };
   }
 }
-
