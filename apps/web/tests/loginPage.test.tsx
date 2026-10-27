@@ -64,6 +64,19 @@ describe("Login page", () => {
     expect(await screen.findByRole("group", { name: "One-time code" })).toBeTruthy();
   });
 
+  it("from a WhatsApp bot link: the sign-in email's link carries the WhatsApp step", async () => {
+    window.localStorage.setItem("alma.waEntry", JSON.stringify({ t: "tok123456789", next: "/match?q=x", at: Date.now() }));
+    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+    mount("?src=whatsapp");
+    submit("rahul.s@itbhu.ac.in");
+    await waitFor(() => expect(apiPost).toHaveBeenCalled());
+    expect(apiPost.mock.calls[0][1]).toEqual({
+      institutionalEmail: "rahul.s@itbhu.ac.in",
+      whatsappEntry: { token: "tok123456789", next: "/match?q=x" },
+    });
+    window.localStorage.clear();
+  });
+
   it("shows the server error and stays on the form", async () => {
     apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your institute email." } });
     mount();
