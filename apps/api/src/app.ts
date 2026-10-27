@@ -37,6 +37,7 @@ import { AdminPeopleService } from "./services/adminPeopleService.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
+import { AnalyticsService } from "./services/analyticsService.js";
 import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
@@ -101,6 +102,7 @@ export async function createApp() {
   const adminMetricsService = new AdminMetricsService(pool);
   const campusMonthlyService = new CampusMonthlyService(pool);
   const homeSummaryService = new HomeSummaryService(pool);
+  const analyticsService = new AnalyticsService(pool);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);
   app.decorate("occupationService", occupationService);
@@ -118,6 +120,7 @@ export async function createApp() {
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
   app.decorate("homeSummaryService", homeSummaryService);
+  app.decorate("analyticsService", analyticsService);
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];

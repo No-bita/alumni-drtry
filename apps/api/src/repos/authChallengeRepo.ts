@@ -110,6 +110,16 @@ export class AuthChallengeRepo {
     return result.rows;
   }
 
+  /** Analytics: how this attempt's email went ("sent" or "unconfirmed"). */
+  async setDelivery(challengeId: string, delivery: "sent" | "unconfirmed"): Promise<void> {
+    await this.db.query(`UPDATE auth_challenges SET delivery = $2 WHERE id = $1`, [challengeId, delivery]);
+  }
+
+  /** Analytics: a send that failed outright (its attempt was rolled back). No address is stored. */
+  async recordDeliveryFailure(reason: "rejected" | "unreachable"): Promise<void> {
+    await this.db.query(`INSERT INTO auth_delivery_failures (reason) VALUES ($1)`, [reason]);
+  }
+
   async findByIdForUpdate(challengeId: string): Promise<AuthChallengeRow | null> {
     const result = await this.db.query<AuthChallengeRow>(
       `SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE`,

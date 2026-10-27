@@ -2,6 +2,12 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { BETA_USAGE_EVENT_TYPES } from "../lib/betaUsageEventTypes.js";
 
+const analyticsQuery = z.object({
+  days: z.enum(["7", "30", "90"]).default("30"),
+  /** Skip the 5-minute cache (the screen's Refresh button). */
+  fresh: z.enum(["1"]).optional()
+});
+
 const betaUsageExportQuery = z.object({
   format: z.enum(["json", "csv"]).default("json"),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(24),
@@ -62,6 +68,7 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
         personId: actor?.personId ?? null,
         route: parsed.data.route,
         metadata: parsed.data.metadata ?? {},
+        isDemo: Boolean(actor?.isDemo),
       });
       return reply.code(202).send({ ok: true });
     }
@@ -73,6 +80,21 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const metrics = await app.adminMetricsService.getMetrics();
       return reply.code(200).send({ metrics });
+    }
+  );
+
+  /** Everything on the analytics screen for one window (7, 30 or 90 days), plus 12-week trends. */
+  app.get(
+    "/v1/admin/analytics",
+    { preHandler: adminPreHandlers },
+    async (request, reply) => {
+      const parsed = analyticsQuery.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.code(400).send({ code: "ADMIN_ANALYTICS_BAD_REQUEST", message: "days must be 7, 30 or 90." });
+      }
+      const days = Number(parsed.data.days) as 7 | 30 | 90;
+      const report = await app.analyticsService.report(days, { fresh: parsed.data.fresh === "1" });
+      return reply.code(200).send({ report });
     }
   );
 

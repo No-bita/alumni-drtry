@@ -168,23 +168,29 @@ describe("POST /v1/match (integration)", () => {
     expect(res.statusCode, res.body).toBe(200);
   });
 
-  it("logs stats without question text, entity values or person id", async () => {
+  it("logs what the matcher read, but never the question text or the person (migration 050)", async () => {
     const cols = (
       await db.query<{ column_name: string }>(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'match_queries' ORDER BY ordinal_position`
       )
     ).rows.map((r) => r.column_name);
-    expect(cols).toEqual(["id", "category", "detected_fields", "parser_source", "result_count", "had_overrides", "created_at", "needs_detail"]);
+    expect(cols).toEqual([
+      "id", "category", "detected_fields", "parser_source", "result_count", "had_overrides", "created_at", "needs_detail",
+      "company", "role", "city", "country",
+    ]);
+    expect(cols.some((c) => /question|text|person/.test(c))).toBe(false);
 
     await post({ question: `Need a referral for PM at ${ORG_X}` });
     const last = (
-      await db.query<{ category: string; detected_fields: string[]; result_count: number }>(
-        `SELECT category, detected_fields, result_count FROM match_queries ORDER BY id DESC LIMIT 1`
+      await db.query<{ category: string; detected_fields: string[]; result_count: number; company: string; role: string }>(
+        `SELECT category, detected_fields, result_count, company, role FROM match_queries ORDER BY id DESC LIMIT 1`
       )
     ).rows[0]!;
     expect(last.category).toBe("referral");
     expect(last.detected_fields).toEqual(["company", "role"]);
     expect(last.result_count).toBe(1);
-    expect(JSON.stringify(last)).not.toContain(ORG_X);
+    expect(last.company).toBe(ORG_X);
+    expect(last.role).toBe("Product Manager");
+    expect(JSON.stringify(last)).not.toContain("Need a referral");
   });
 });

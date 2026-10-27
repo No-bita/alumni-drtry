@@ -20,7 +20,11 @@ export interface CreateSessionInput {
   ipAddress: string | null;
   userAgent: string | null;
   rotatedFromSessionId?: string;
+  /** How the member signed in (analytics). Omitted for rotations, which keep no method. */
+  authMethod?: SessionAuthMethod;
 }
+
+export type SessionAuthMethod = "otp" | "magic_link" | "google" | "password" | "invite" | "demo";
 
 export interface SessionWithPersonRow extends SessionRow {
   institutional_email: string;
@@ -35,13 +39,21 @@ export class SessionRepo {
   constructor(private readonly db: DbExecutor) {}
 
   async create(input: CreateSessionInput): Promise<SessionRow> {
+    // Signing in counts as using the app today (member_activity_days, for active-member trends).
     const result = await this.db.query<SessionRow>(
       `
-      INSERT INTO sessions (
-        person_id, session_hash, expires_at, created_ip, created_user_agent, rotated_from
+      WITH s AS (
+        INSERT INTO sessions (
+          person_id, session_hash, expires_at, created_ip, created_user_agent, rotated_from, auth_method
+        )
+        VALUES ($1, $2, $3, $4::INET, $5, $6, $7)
+        RETURNING *
+      ), activity AS (
+        INSERT INTO member_activity_days (person_id, day)
+        SELECT person_id, current_date FROM s
+        ON CONFLICT DO NOTHING
       )
-      VALUES ($1, $2, $3, $4::INET, $5, $6)
-      RETURNING *
+      SELECT * FROM s
       `,
       [
         input.personId,
@@ -49,7 +61,8 @@ export class SessionRepo {
         input.expiresAt,
         input.ipAddress,
         input.userAgent,
-        input.rotatedFromSessionId ?? null
+        input.rotatedFromSessionId ?? null,
+        input.authMethod ?? null
       ]
     );
     return result.rows[0]!;
@@ -106,8 +119,10 @@ export class SessionRepo {
     slidingHours: number;
     hardCapHours: number;
   }): Promise<void> {
+    // The same throttled write also marks today as an active day for the member.
     await this.db.query(
       `
+      WITH touched AS (
       UPDATE sessions s
       SET
         last_seen_at = now(),
@@ -120,6 +135,11 @@ export class SessionRepo {
         AND s.expires_at > now()
         AND s.created_at + ($4::double precision * interval '1 hour') > now()
         AND s.last_seen_at <= now() - ($2::double precision * interval '1 second')
+      RETURNING s.person_id
+      )
+      INSERT INTO member_activity_days (person_id, day)
+      SELECT person_id, current_date FROM touched
+      ON CONFLICT DO NOTHING
       `,
       [input.sessionId, input.throttleSeconds, input.slidingHours, input.hardCapHours]
     );

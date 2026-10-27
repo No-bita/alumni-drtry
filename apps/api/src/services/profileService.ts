@@ -277,4 +277,9 @@ export class ProfileService {
       throw error;
     }
   }
+
+  /** Growth attribution from an invite link (`/login?ref=<inviter>&ch=copy|whatsapp`). */
+  async claimInvite(personId: string, inviterPersonId: string, channel: "copy" | "whatsapp"): Promise<boolean> {
+    return this.personRepo.setInvitedByIfNew(personId, inviterPersonId, channel);
+  }
 }

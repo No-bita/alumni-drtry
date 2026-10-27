@@ -95,6 +95,14 @@ export function neverConnected(err: unknown): boolean {
   return typeof cause?.code === "string" && NEVER_CONNECTED_CODES.has(cause.code);
 }
 
+/** fetch never connected to the provider (DNS failure, refused): nothing was sent. */
+export class EmailUnreachableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmailUnreachableError";
+  }
+}
+
 export interface EmailSender {
   sendAuthEmail(payload: AuthEmailPayload): Promise<void>;
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
@@ -302,7 +310,7 @@ export class ResendEmailSender implements EmailSender {
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       // Never connected (DNS failure, refused): nothing reached Resend, so nothing was sent.
-      if (neverConnected(err)) throw new Error(`Resend unreachable: ${detail}`);
+      if (neverConnected(err)) throw new EmailUnreachableError(`Resend unreachable: ${detail}`);
       // Otherwise no answer came back: Resend may have accepted it before the wait ran out.
       throw new EmailDeliveryUnconfirmedError(`Resend did not answer: ${detail}`);
     }

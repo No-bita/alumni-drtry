@@ -8,7 +8,9 @@ const createContactRequestSchema = z.object({
   message: z.string().max(3000),
   /** Where the note was sent from, for the Ask → Match funnel. */
   source: z.enum(["match"]).optional(),
-  sourceCategory: z.enum(MATCH_CATEGORIES).nullable().optional()
+  sourceCategory: z.enum(MATCH_CATEGORIES).nullable().optional(),
+  /** Position (1 = top) of the person in the match results, for ranking quality. */
+  sourceRank: z.number().int().min(1).max(20).nullable().optional()
 });
 
 const contactRequestParamsSchema = z.object({

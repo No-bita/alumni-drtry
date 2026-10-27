@@ -371,6 +371,14 @@ export class AdminMetricsRepo {
     );
   }
 
+  async purgeUsageEventsOlderThan(days: number): Promise<number> {
+    const result = await this.db.query(
+      `DELETE FROM beta_usage_events WHERE occurred_at < now() - ($1::int * interval '1 day')`,
+      [days]
+    );
+    return result.rowCount ?? 0;
+  }
+
   async getBetaUsageSummary(windowHours: number): Promise<BetaUsageSummary> {
     const betaPerson = betaPersonPredicate("p");
     const result = await this.db.query<{ event_type: string; cnt: string }>(
