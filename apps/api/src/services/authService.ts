@@ -9,7 +9,7 @@ import { AuthChallengeRepo, type AuthChallengeRow } from "../repos/authChallenge
 import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
-import { EmailDeliveryUnconfirmedError, type EmailSender } from "./emailSender.js";
+import { EmailDeliveryUnconfirmedError, EmailUnreachableError, type EmailSender } from "./emailSender.js";
 import {
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo
@@ -186,6 +186,7 @@ export class AuthService {
     let challenge: AuthChallengeRow;
     let magicLinkUrl: string;
     let delivery: AuthStartDelivery = "sent";
+    let failedReason: "rejected" | "unreachable" | null = null;
     try {
       await client.query("BEGIN");
       // Bound the advisory-lock wait: every waiter holds a pooled client, and a slow
@@ -242,12 +243,18 @@ export class AuthService {
           delivery = "unconfirmed";
         } else {
           console.error("[auth] sendAuthEmail failed:", detail);
+          failedReason = err instanceof EmailUnreachableError ? "unreachable" : "rejected";
           throw new AppError(503, "AUTH_DELIVERY_FAILED", "We couldn't send the sign-in email. Try again.");
         }
       }
+      await txChallengeRepo.setDelivery(challenge.id, delivery);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK").catch(() => undefined);
+      if (failedReason) {
+        // Outside the rolled-back transaction, so the failure is still counted. Best effort.
+        await this.authChallengeRepo.recordDeliveryFailure(failedReason).catch(() => undefined);
+      }
       if ((err as { code?: string }).code === "55P03") {
         // lock_not_available: the lock_timeout fired waiting for a same-email start.
         throw new AppError(503, "AUTH_START_BUSY", "Sign-in is briefly busy. Try again.");
@@ -339,6 +346,7 @@ export class AuthService {
       const createdAtMs = Date.now();
       const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
+        authMethod: "google",
         personId: person.id,
         sessionHash,
         expiresAt: sessionExpiresAt,
@@ -424,6 +432,7 @@ export class AuthService {
       const createdAtMs = Date.now();
       const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
+        authMethod: "password",
         personId: person.id,
         sessionHash,
         expiresAt: sessionExpiresAt,
@@ -497,6 +506,7 @@ export class AuthService {
       const createdAtMs = Date.now();
       const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
+        authMethod: "demo",
         personId: person.id,
         sessionHash,
         expiresAt: sessionExpiresAt,
@@ -589,6 +599,7 @@ export class AuthService {
       const createdAtMs = Date.now();
       const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
+        authMethod: "invite",
         personId: person.id,
         sessionHash,
         expiresAt: sessionExpiresAt,
@@ -699,6 +710,7 @@ export class AuthService {
       const createdAtMs = Date.now();
       const sessionExpiresAt = newSessionExpiresAt(createdAtMs);
       await sessionRepo.create({
+        authMethod: hasOtp ? "otp" : "magic_link",
         personId: person.id,
         sessionHash,
         expiresAt: sessionExpiresAt,
