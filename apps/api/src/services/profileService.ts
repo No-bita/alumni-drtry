@@ -41,6 +41,13 @@ function isPgUniqueViolation(error: unknown): boolean {
 export class ProfileService {
   private readonly personRepo: PersonRepo;
 
+  private onOnboarded: ((personId: string) => Promise<void>) | null = null;
+
+  /** Called once when a member finishes onboarding (wired to WhatsApp after construction). */
+  setOnboardedListener(listener: ((personId: string) => Promise<void>) | null): void {
+    this.onOnboarded = listener;
+  }
+
   constructor(private readonly pool: Pool) {
     this.personRepo = new PersonRepo(pool);
   }
@@ -269,6 +276,10 @@ export class ProfileService {
           "Profile was modified concurrently. Please refresh and try again."
         );
       }
+      if (current.onboardingCompletedAt == null && nextOnboardingCompletedAt != null && this.onOnboarded) {
+        // e.g. WhatsApp: a free "You're in" reply when they texted us in the last 24 hours. Best effort.
+        void this.onOnboarded(personId).catch(() => undefined);
+      }
       return updated;
     } catch (error) {
       if (isPgUniqueViolation(error)) {
@@ -282,4 +293,4 @@ export class ProfileService {
   async claimInvite(personId: string, inviterPersonId: string, channel: "copy" | "whatsapp"): Promise<boolean> {
     return this.personRepo.setInvitedByIfNew(personId, inviterPersonId, channel);
   }
-}
+  }
