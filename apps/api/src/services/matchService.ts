@@ -205,4 +205,4 @@ export function buildCandidateQuery(
     candidateLimit: MATCH_CANDIDATE_LIMIT,
     requiredAnyOf: [...new Set(primarySignalsForIntent(intent).flatMap((sig) => GATE_FOR_SIGNAL[sig]))]
   };
-                                                 }
+}
