@@ -482,6 +482,17 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  /** Sign out of all devices: ends every session for this member, including this one. */
+  app.post(
+    "/v1/auth/logout-all",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      await app.authService.logoutAll(request.actor.personId);
+      clearSessionCookie(reply);
+      return reply.code(204).send();
+    }
+  );
+
   app.post("/v1/auth/logout", async (request, reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
     if (typeof token === "string" && token.length > 0) {
