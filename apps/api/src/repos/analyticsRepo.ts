@@ -848,4 +848,4 @@ export class AnalyticsRepo {
       }))
     };
   }
-      }
+}
