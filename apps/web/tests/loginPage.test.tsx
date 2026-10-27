@@ -227,3 +227,72 @@ describe("responsive login map", () => {
     expect(media.phoneListeners.size).toBe(0);
   });
 });
+
+describe("Login page: the screen matches the inbox", () => {
+  const start = (extra: Record<string, unknown> = {}) => ({
+    data: { challengeId: "c1", sentTo: "rahul.s@itbhu.ac.in", delivery: "sent", resendAfterSeconds: 120, ...extra },
+  });
+
+  it("names the address on a fresh send and counts down to Resend", async () => {
+    apiPost.mockResolvedValue(start());
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    expect(await screen.findByText("We've sent you a code")).toBeTruthy();
+    expect(screen.getByText(/We sent a one-time code to rahul\.s@itbhu\.ac\.in/)).toBeTruthy();
+    const resend = screen.getByRole("button", { name: /Resend code in [12]:\d\d/ }) as HTMLButtonElement;
+    expect(resend.disabled).toBe(true);
+  });
+
+  it("says a code was already sent when the server sent no second email", async () => {
+    apiPost.mockResolvedValue(start({ delivery: "already_sent", resendAfterSeconds: 95 }));
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    expect(await screen.findByText("We already sent you a code")).toBeTruthy();
+    expect(screen.getByText(/so we didn't send another/)).toBeTruthy();
+  });
+
+  it("says the code is on its way when delivery is unconfirmed", async () => {
+    apiPost.mockResolvedValue(start({ delivery: "unconfirmed" }));
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    expect(await screen.findByText("Your code is on its way")).toBeTruthy();
+    expect(screen.getByText(/It can take a minute to arrive/)).toBeTruthy();
+  });
+
+  it("treats an older API answer (no delivery field) as a normal send", async () => {
+    apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    expect(await screen.findByText("We've sent you a code")).toBeTruthy();
+  });
+
+  it("resend gets a new code, says earlier codes stop working, and verifies against the new one", async () => {
+    apiPost
+      .mockResolvedValueOnce(start({ resendAfterSeconds: 0 }))
+      .mockResolvedValueOnce(start({ challengeId: "c2", resendAfterSeconds: 120 }))
+      .mockResolvedValueOnce({ error: { code: "AUTH_CODE_SUPERSEDED", message: "That is from an earlier sign-in email. Use the code or link in the latest one." } });
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    fireEvent.click(await screen.findByRole("button", { name: "Resend code" }));
+    expect(await screen.findByText("New code sent. Earlier codes no longer work.")).toBeTruthy();
+    expect(apiPost.mock.calls[1]).toEqual(["/v1/auth/start", { institutionalEmail: "rahul.s@itbhu.ac.in" }, expect.anything()]);
+    expect((screen.getByRole("button", { name: /Resend code in/ }) as HTMLButtonElement).disabled).toBe(true);
+
+    const cells = screen.getAllByRole("textbox");
+    "123456".split("").forEach((d, i) => fireEvent.change(cells[i], { target: { value: d } }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter code" }));
+    expect(await screen.findByText(/earlier sign-in email/)).toBeTruthy();
+    expect(apiPost.mock.calls[2]).toEqual(["/v1/auth/verify", { challengeId: "c2", otp: "123456" }]);
+  });
+
+  it("shows 'couldn't send' instead of silently retrying into more emails", async () => {
+    apiPost.mockResolvedValue({
+      error: { code: "AUTH_DELIVERY_FAILED", message: "We couldn't send the sign-in email. Try again." },
+      status: 503,
+    });
+    mount();
+    submit("rahul.s@itbhu.ac.in");
+    expect(await screen.findByText("We couldn't send the sign-in email. Try again.")).toBeTruthy();
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+});
