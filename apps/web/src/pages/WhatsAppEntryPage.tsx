@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/Button";
 import { Nav } from "../components/Nav";
@@ -14,6 +14,7 @@ import {
   clearWhatsAppEntry,
   pendingWhatsAppEntry,
   rememberWhatsAppEntry,
+  safeNext,
 } from "../lib/whatsapp";
 import "../styles/whatsapp.css";
 
@@ -25,7 +26,7 @@ type View =
   | { kind: "error"; message: string };
 
 /**
- * /wa — where every link from the WhatsApp bot lands.
+ * /w/<code> (short links) and /wa?t=… (full links) — where every link from the WhatsApp bot lands.
  * After sign-in (if needed) it asks "Link WhatsApp ending 3210 to your account?", links the number
  * once, then continues: onboarding for new members, the link's destination (e.g. "Send note") otherwise.
  * A number that's already this member's skips the question.
@@ -35,10 +36,12 @@ export function WhatsAppEntryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
+  const { code } = useParams<{ code?: string }>();
   const [view, setView] = useState<View>({ kind: "working" });
   const started = useRef(false);
 
-  const t = params.get("t");
+  // A short link's code goes through the same steps as a full signed link; the server knows which is which.
+  const t = code ?? params.get("t");
   const next = params.get("next");
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
 
@@ -82,13 +85,15 @@ export function WhatsAppEntryPage() {
         return;
       }
       const { status, numberHint } = result.check;
+      // Full links carry their destination; short links get it from the server.
+      const to = pending.next ?? safeNext(result.check.next);
       if (status === "already_yours") {
         clearWhatsAppEntry();
-        continueOn(pending.next);
+        continueOn(to);
         return;
       }
       if (status === "ready") {
-        setView({ kind: "confirm", numberHint, token: pending.t, next: pending.next });
+        setView({ kind: "confirm", numberHint, token: pending.t, next: to });
         return;
       }
       clearWhatsAppEntry();
