@@ -73,7 +73,8 @@ export function clearWhatsAppEntry(): void {
 
 /** What the bot's link would do for the signed-in member (POST /v1/me/whatsapp-link/check). */
 export type WhatsAppLinkStatus = "ready" | "already_yours" | "linked_elsewhere" | "you_have_another" | "used";
-export type WhatsAppLinkCheck = { status: WhatsAppLinkStatus; numberHint: string };
+/** `next`: where a short link (/w/<code>) leads; null for full links, which carry it themselves. */
+export type WhatsAppLinkCheck = { status: WhatsAppLinkStatus; numberHint: string; next?: string | null };
 
 const EXPIRED = "This WhatsApp link has expired. Text hi to the bot for a new one.";
 
