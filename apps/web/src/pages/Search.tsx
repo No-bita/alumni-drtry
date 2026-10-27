@@ -270,33 +270,28 @@ export function Search() {
     trackBetaUsageEvent("search_filters_changed", { source: "clear_all" });
   }, [cancelDebouncedUrlCommit, setSearchParams]);
 
+  /** How many search inputs are set (keyword counts as one); the only search detail we record. */
+  const activeFilterCount = [batch, dept, company, occ, residenceCountry, residenceCity, committedQ].filter(
+    (v) => v != null && String(v).trim() !== "",
+  ).length;
+
+  // One "search_executed" per new committed search (not per refetch or page).
+  const lastExecutedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = searchQueryKey.join("|");
+    if (lastExecutedKeyRef.current === key) return;
+    lastExecutedKeyRef.current = key;
+    trackBetaUsageEvent("search_executed", { count: activeFilterCount });
+  }, [activeFilterCount, searchQueryKey]);
+
   useEffect(() => {
     if (fetchingMain || Boolean(errorMessage) || results.length !== 0) return;
     const key = searchQueryKey.join("|");
     if (lastZeroResultKeyRef.current === key) return;
     lastZeroResultKeyRef.current = key;
-    trackBetaUsageEvent("search_zero_results", {
-      q: committedQ,
-      dept,
-      batch,
-      company,
-      occ,
-      residenceCountry,
-      residenceCity,
-    });
-  }, [
-    batch,
-    committedQ,
-    company,
-    dept,
-    errorMessage,
-    fetchingMain,
-    occ,
-    residenceCity,
-    residenceCountry,
-    results.length,
-    searchQueryKey,
-  ]);
+    // No search text or filter values leave the browser: only how many filters were set.
+    trackBetaUsageEvent("search_zero_results", { count: activeFilterCount });
+  }, [activeFilterCount, errorMessage, fetchingMain, results.length, searchQueryKey]);
 
   const canClear =
     !draftsEqual(draft, EMPTY_DIRECTORY_SEARCH_DRAFT) ||
