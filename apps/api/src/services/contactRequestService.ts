@@ -19,6 +19,7 @@ export interface CreateContactRequestInput {
   /** Surface the note was sent from (only "match" today) and the question category. */
   source?: ContactRequestSource;
   sourceCategory?: string | null;
+  sourceRank?: number | null;
 }
 
 /** Reminder rules (approved): one email, for notes pending 3–14 days. */
@@ -121,7 +122,8 @@ export class ContactRequestService {
       message,
       forwardedToInstitutionalEmail: recipient.institutional_email,
       source: input.source ?? null,
-      sourceCategory: input.source ? (input.sourceCategory ?? null) : null
+      sourceCategory: input.source ? (input.sourceCategory ?? null) : null,
+      sourceRank: input.source ? (input.sourceRank ?? null) : null
     });
 
     let notificationDelivered = true;
@@ -272,4 +274,3 @@ export class ContactRequestService {
     };
   }
 }
-
