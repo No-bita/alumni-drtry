@@ -9,6 +9,16 @@ import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
+import {
+  deliveryOf,
+  resendAfterMs,
+  resendNotice,
+  sentBody,
+  sentHeadline,
+  type AuthStartDelivery,
+  type AuthStartResponse,
+} from "../lib/authStartDelivery";
+import { ResendCodeButton } from "../components/ResendCodeButton";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
@@ -65,6 +75,15 @@ export function Login() {
   const submitInFlightRef = useRef(false);
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
+  /** What the server says happened to the email; the code screen says exactly that. */
+  const [delivery, setDelivery] = useState<AuthStartDelivery>("sent");
+  /** The address the code went to, as the server normalised it. */
+  const [sentTo, setSentTo] = useState("");
+  /** Epoch ms when the server will email a new code (its duplicate window). */
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [resendBusy, setResendBusy] = useState(false);
+  /** Result of the last Resend tap ("New code sent. Earlier codes no longer work."). */
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [showSuccessVideo, setShowSuccessVideo] = useState(false);
   const [prefersReduceMotion, setPrefersReduceMotion] = useState(
     () =>
@@ -168,18 +187,7 @@ export function Login() {
       }
 
       setServerWaking(false);
-      startAbortRef.current?.abort();
-      const controller = new AbortController();
-      startAbortRef.current = controller;
-      const outcome = await startAuthWithWakeRetry(
-        (signal) =>
-          api.post<{ challengeId: string; sentTo?: string }>(
-            "/v1/auth/start",
-            { institutionalEmail: normalizedEmail },
-            { signal }
-          ),
-        { signal: controller.signal, onWaking: () => setServerWaking(true) }
-      );
+      const outcome = await requestCode(normalizedEmail, () => setServerWaking(true));
       if (outcome.kind === "aborted") return;
       setServerWaking(false);
       if (outcome.kind === "timeout") {
@@ -202,6 +210,8 @@ export function Login() {
       }
       const cid = data?.challengeId ?? null;
       setChallengeId(cid);
+      if (data) applyDelivery(data, normalizedEmail);
+      setResendMessage(null);
       loginCompleteRef.current = false;
       setShowSuccessVideo(false);
       setOtpDigits(emptyOtpDigits());
@@ -218,6 +228,65 @@ export function Login() {
     } catch {
       setError("Something went wrong. Please try again.");
       setPhase("form");
+    }
+  };
+
+  /** One sign-in start at a time; quiet retries only where they cannot send a second email. */
+  const requestCode = (normalizedEmail: string, onWaking?: () => void) => {
+    startAbortRef.current?.abort();
+    const controller = new AbortController();
+    startAbortRef.current = controller;
+    return startAuthWithWakeRetry(
+      (signal) => api.post<AuthStartResponse>("/v1/auth/start", { institutionalEmail: normalizedEmail }, { signal }),
+      { signal: controller.signal, onWaking }
+    );
+  };
+
+  const applyDelivery = (data: AuthStartResponse, normalizedEmail: string) => {
+    setDelivery(deliveryOf(data));
+    setSentTo(data.sentTo ?? normalizedEmail);
+    setResendAvailableAt(Date.now() + resendAfterMs(data));
+  };
+
+  /** Resend from the code screen. Only reachable once the server would actually email again. */
+  const handleResend = async () => {
+    if (resendBusy || submitInFlightRef.current) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return;
+    submitInFlightRef.current = true;
+    setResendBusy(true);
+    setResendMessage(null);
+    try {
+      const outcome = await requestCode(normalizedEmail);
+      if (outcome.kind === "aborted") return;
+      if (outcome.kind === "timeout") {
+        setResendMessage("Still no answer from the server. Check your inbox before trying again.");
+        return;
+      }
+      const { data, error: err, retryAfterSeconds } = outcome.result;
+      if (err || !data?.challengeId) {
+        if (err?.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
+          const mins = Math.ceil(retryAfterSeconds / 60);
+          setResendAvailableAt(Date.now() + retryAfterSeconds * 1000);
+          setResendMessage(`Too many codes requested. Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`);
+        } else {
+          setResendMessage(err?.message ?? "Could not send a new code. Try again.");
+        }
+        return;
+      }
+      const next = deliveryOf(data);
+      setChallengeId(data.challengeId);
+      applyDelivery(data, normalizedEmail);
+      setResendMessage(resendNotice(next));
+      if (next !== "already_sent") {
+        setOtpDigits(emptyOtpDigits());
+        setOtpError(null);
+      }
+    } catch {
+      setResendMessage("Could not send a new code. Try again.");
+    } finally {
+      submitInFlightRef.current = false;
+      setResendBusy(false);
     }
   };
 
@@ -473,10 +542,8 @@ export function Login() {
           <>
             <LankaGate phase="waiting" />
             <p className="auth-merged__code-kicker">Lanka Bechyu! Lanka Bechyu! Lanka Bechyu</p>
-            <h2 className="section-headline auth-merged__card-title">We&apos;ve sent you a code</h2>
-            <p className="auth-merged__card-subtitle">
-              Check your inbox for the one-time code. You can also open the magic link in the email.
-            </p>
+            <h2 className="section-headline auth-merged__card-title">{sentHeadline(delivery)}</h2>
+            <p className="auth-merged__card-subtitle">{sentBody(delivery, sentTo || email.trim().toLowerCase())}</p>
             {passwordEnabledForEmail ? (
               <div className="auth-merged__toggle-row">
                 <button
@@ -546,6 +613,12 @@ export function Login() {
                 <Button type="submit" variant="primary" style={{ marginTop: 16, width: "100%" }} disabled={!challengeId || otpSubmitting}>
                   {otpSubmitting ? "Checking…" : "Enter code"}
                 </Button>
+                {resendMessage && (
+                  <p role="status" aria-live="polite" className="login-gate-sent__resend-note">
+                    {resendMessage}
+                  </p>
+                )}
+                <ResendCodeButton key={resendAvailableAt} availableAt={resendAvailableAt} busy={resendBusy} onResend={() => void handleResend()} />
               </form>
             )}
             <Button
@@ -563,6 +636,7 @@ export function Login() {
                 setPasswordError(null);
                 setPasswordEnabledForEmail(false);
                 setSentAuthMethod("otp");
+                setResendMessage(null);
               }}
               style={{ marginTop: 24 }}
             >
@@ -588,7 +662,7 @@ export function Login() {
           <div className="auth-merged__card">
             <div role="alert">
               <p className="auth-merged__error">
-                Still no answer. The server is either deep in a nap or having a rough day. We can't confirm your sign-in link went out, so give it another go.
+                Still no answer from the server, so we can&apos;t confirm your code went out. Check your inbox first. If a code arrived, tap Try again and enter it: we won&apos;t send a duplicate.
               </p>
               <Button
                 type="button"
