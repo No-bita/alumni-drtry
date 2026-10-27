@@ -106,10 +106,30 @@ export class WaRepo {
     return "linked";
   }
 
-  /** Used-link records are only needed while their tokens could still be valid (24 hours). */
-  async purgeUsedLinks(): Promise<number> {
-    const r = await this.db.query(`DELETE FROM wa_link_tokens_used WHERE used_at < now() - interval '3 days'`);
-    return r.rowCount ?? 0;
+  /** Save a short link (/w/<code>). False when the code is already taken (pick another). */
+  async createShortLink(input: { code: string; token: string; next: string | null; expiresAt: Date }): Promise<boolean> {
+    const r = await this.db.query(
+      `INSERT INTO wa_short_links (code, token, next, expires_at) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (code) DO NOTHING RETURNING code`,
+      [input.code, input.token, input.next, input.expiresAt]
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** The signed link and destination behind a short code, while it's still valid. */
+  async resolveShortLink(code: string): Promise<{ token: string; next: string | null } | null> {
+    const r = await this.db.query<{ token: string; next: string | null }>(
+      `SELECT token, next FROM wa_short_links WHERE code = $1 AND expires_at > now()`,
+      [code]
+    );
+    return r.rows[0] ?? null;
+  }
+
+  /** Expired short links, and used-link records whose tokens could no longer be valid anyway. */
+  async purgeExpiredLinks(): Promise<number> {
+    const used = await this.db.query(`DELETE FROM wa_link_tokens_used WHERE used_at < now() - interval '3 days'`);
+    const short = await this.db.query(`DELETE FROM wa_short_links WHERE expires_at < now() - interval '1 day'`);
+    return (used.rowCount ?? 0) + (short.rowCount ?? 0);
   }
 
   /** Onboarding test: tag a brand-new member (joined in the last 24 hours) as arriving from WhatsApp. */
