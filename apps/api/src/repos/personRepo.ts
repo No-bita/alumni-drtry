@@ -540,4 +540,4 @@ export class PersonRepo {
 
 function parseOpenToPreferencesRow(raw: unknown): OpenToPreferences | null {
   return parseOpenToPreferences(raw);
-  }
+}
