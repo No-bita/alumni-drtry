@@ -179,4 +179,4 @@ export class AuthChallengeRepo {
     );
     return Number(result.rows[0]?.count ?? "0");
   }
-      }
+}
