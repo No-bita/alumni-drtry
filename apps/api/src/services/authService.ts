@@ -817,4 +817,5 @@ export class AuthService {
   async logoutAll(personId: string): Promise<void> {
     await this.sessionRepo.revokeAllByPersonId(personId);
   }
-  }
+}
+
