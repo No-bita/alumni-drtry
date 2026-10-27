@@ -54,7 +54,7 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match";
+export type ContactRequestSource = "match" | "whatsapp";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;
@@ -221,6 +221,23 @@ export class ContactRequestRepo {
       ]
     );
     return mapContactRequest(result.rows[0]!);
+  }
+
+  async setDeliveryChannel(id: string, channel: "email" | "whatsapp"): Promise<void> {
+    await this.db.query(`UPDATE contact_requests SET delivery_channel = $2 WHERE id = $1`, [id, channel]);
+  }
+
+  /**
+   * WhatsApp said the note failed: switch it to email, once. False when it was already switched,
+   * was never on WhatsApp, or has been answered.
+   */
+  async switchPendingWhatsAppToEmail(id: string): Promise<boolean> {
+    const r = await this.db.query(
+      `UPDATE contact_requests SET delivery_channel = 'email'
+       WHERE id = $1 AND delivery_channel = 'whatsapp' AND status = 'pending' RETURNING id`,
+      [id]
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async listPendingIncomingForRecipient(recipientPersonId: string): Promise<ContactRequestInboxItemView[]> {
@@ -534,4 +551,3 @@ export class ContactRequestRepo {
     return row ? mapContactRequest(row) : null;
   }
 }
-
