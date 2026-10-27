@@ -327,6 +327,27 @@ export class PersonRepo {
     };
   }
 
+  /**
+   * Growth attribution: record who invited a brand-new member (joined in the last 24 hours) and the
+   * channel. Only the first claim counts; self-invites and unknown or deleted inviters are ignored.
+   * Returns whether it was recorded.
+   */
+  async setInvitedByIfNew(personId: string, inviterPersonId: string, channel: "copy" | "whatsapp"): Promise<boolean> {
+    const result = await this.db.query(
+      `
+      UPDATE people p
+      SET invited_by_person_id = $2, invite_channel = $3
+      WHERE p.id = $1
+        AND p.id <> $2
+        AND p.invited_by_person_id IS NULL
+        AND p.created_at >= now() - interval '24 hours'
+        AND EXISTS (SELECT 1 FROM people i WHERE i.id = $2 AND i.deleted_at IS NULL)
+      `,
+      [personId, inviterPersonId, channel]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async updateAdminFields(
     personId: string,
     updates: { role?: "alumni" | "admin"; suspendedAt?: Date | null }
@@ -519,4 +540,4 @@ export class PersonRepo {
 
 function parseOpenToPreferencesRow(raw: unknown): OpenToPreferences | null {
   return parseOpenToPreferences(raw);
-}
+  }
