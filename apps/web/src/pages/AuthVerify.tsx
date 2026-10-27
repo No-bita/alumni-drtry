@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { FoldToFlight } from "../components/FoldToFlight";
 import { api } from "../api/client";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
+import { pendingWhatsAppEntry, rememberWhatsAppEntry } from "../lib/whatsapp";
 import { queryKeys } from "../lib/queryKeys";
 
 export function AuthVerify() {
@@ -18,10 +19,13 @@ export function AuthVerify() {
     refetchRef.current = refetch;
   }, [refetch]);
 
-  const { challengeId, magicLinkToken } = useMemo(() => {
+  const { challengeId, magicLinkToken, waToken, waNext } = useMemo(() => {
     return {
       challengeId: searchParams.get("challengeId"),
       magicLinkToken: searchParams.get("magicLinkToken"),
+      // Sign-in started from a WhatsApp bot link: the email's link carries it (any browser or mail app).
+      waToken: searchParams.get("wa"),
+      waNext: searchParams.get("waNext"),
     };
   }, [searchParams]);
 
@@ -55,7 +59,13 @@ export function AuthVerify() {
         setSessionRefetchFailed(true);
         return;
       }
-      const { profile: p } = snap;
+      const { person, profile: p } = snap;
+      // Came from the WhatsApp bot: continue to linking the number (it then routes to onboarding or the link).
+      if (waToken) rememberWhatsAppEntry(waToken, waNext);
+      if (!person.isDemo && pendingWhatsAppEntry()) {
+        navigate("/wa", { replace: true });
+        return;
+      }
       if (!p) {
         navigate("/home", { replace: true });
         return;
@@ -66,7 +76,7 @@ export function AuthVerify() {
       }
       navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });
     })();
-  }, [verifyQuery.isSuccess, navigate]);
+  }, [verifyQuery.isSuccess, navigate, waToken, waNext]);
 
   return (
     <>
