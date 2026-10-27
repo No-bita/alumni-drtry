@@ -16,6 +16,7 @@ import {
   toggleOpenToSelection,
 } from "../lib/openToPreferences";
 import { queryKeys } from "../lib/queryKeys";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/home-answer-key.css";
 
 const DISMISS_FLAG = "answerKeyDismissed";
@@ -49,6 +50,7 @@ export function HomeAnswerKeyCard() {
   }
 
   const dismiss = () => {
+    trackBetaUsageEvent("home_answer_key_dismissed");
     writeFlag(personId, DISMISS_FLAG);
     setDismissed(true);
   };
@@ -85,7 +87,14 @@ export function HomeAnswerKeyCard() {
         </div>
         {!open ? (
           <div className="home-answer-key__actions">
-            <button type="button" className="btn btn--primary" onClick={() => setOpen(true)}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                trackBetaUsageEvent("home_answer_key_opened");
+                setOpen(true);
+              }}
+            >
               Choose what you’ll help with
             </button>
             <button type="button" className="home-answer-key__dismiss" onClick={dismiss}>
