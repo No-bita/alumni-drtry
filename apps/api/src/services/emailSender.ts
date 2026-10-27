@@ -320,4 +320,4 @@ export class ResendEmailSender implements EmailSender {
       throw new Error(`Resend delivery failed (${response.status}): ${body}`);
     }
   }
-    }
+}
