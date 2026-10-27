@@ -5,7 +5,7 @@ import { createApp } from "../src/app.js";
 import { ConsoleEmailSender } from "../src/services/emailSender.js";
 import { RecordingSender, WhatsAppRejectedError, toGraphPayload, type OutboundMessage } from "../src/whatsapp/client.js";
 import { signLinkToken, verifyLinkToken, verifyWebhookSignature } from "../src/whatsapp/linkToken.js";
-import { MAX_ASKS_PER_DAY, MENU } from "../src/whatsapp/service.js";
+import { MAX_ASKS_PER_DAY, MENU, companyFromReply } from "../src/whatsapp/service.js";
 import { loginForTest } from "./helpers/login.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -82,6 +82,8 @@ describe("WhatsApp bot (integration)", () => {
   });
 
   afterAll(async () => {
+    // Search log rows from this file's asks would crowd other tests' demand lists in the shared test database.
+    await db?.query(`DELETE FROM match_queries WHERE company = ANY($1::text[])`, [["Meesho", "Acme Labs", "The Hindu", ORG]]);
     await db?.end();
     await app?.close();
   });
@@ -236,6 +238,30 @@ describe("WhatsApp bot (integration)", () => {
     expect(q.get("reach")).toBe(alum.personId);
     expect(q.get("via")).toBe("whatsapp");
     expect(verifyLinkToken(new URL(link).searchParams.get("t")!)?.waId).toBe(ASKER);
+  });
+
+  it("stays in search after a result: the next text is another company, read as 'company, role'", async () => {
+    let out = await hear(textMsg(ASKER, "meesho, product manager"));
+    expect(body(out[0]!.message)).toContain("No one on Alma Mater matches a referral at Meesho yet");
+    expect(out[0]!.message).toMatchObject({ kind: "buttons", buttons: [{ id: MENU.back }] });
+    // Several words, all of them.
+    out = await hear(textMsg(ASKER, "acme labs, pm"));
+    expect(body(out[0]!.message)).toContain("referral at Acme Labs yet");
+    await db.query(`UPDATE wa_contacts SET state = jsonb_set(state, '{askCount}', '0') WHERE wa_id = $1`, [ASKER]);
+    // Just a company, no comma.
+    out = await hear(textMsg(ASKER, "the hindu"));
+    expect(body(out[0]!.message)).toContain("referral at The Hindu yet");
+    // "menu" leaves search.
+    out = await hear(textMsg(ASKER, "menu"));
+    expect(out[0]!.message).toMatchObject({ kind: "buttons", buttons: [{ id: MENU.referral }] });
+    out = await hear(textMsg(ASKER, "meesho, product manager"));
+    expect(out[0]!.message).toMatchObject({ kind: "buttons", buttons: [{ id: MENU.referral }] });
+    // So does the Back to menu button.
+    await hear(buttonMsg(ASKER, MENU.referral));
+    await db.query(`UPDATE wa_contacts SET state = jsonb_set(state, '{askCount}', '0') WHERE wa_id = $1`, [ASKER]);
+    await hear(textMsg(ASKER, "meesho, pm"));
+    out = await hear(buttonMsg(ASKER, MENU.back));
+    expect(out[0]!.message).toMatchObject({ kind: "buttons", buttons: [{ id: MENU.referral }] });
   });
 
   it("caps referral asks per day", async () => {
@@ -419,6 +445,16 @@ describe("WhatsApp bot (integration)", () => {
 });
 
 describe("WhatsApp helpers", () => {
+  it("bot replies read as 'company, role': before the comma, or the whole message when it names no role", () => {
+    expect(companyFromReply("meesho, product manager", true)).toBe("Meesho");
+    expect(companyFromReply("acme labs, pm", true)).toBe("Acme Labs");
+    expect(companyFromReply("jp morgan, analyst", true)).toBe("Jp Morgan");
+    expect(companyFromReply("JPMorgan Chase, analyst", true)).toBe("JPMorgan Chase");
+    expect(companyFromReply("meesho", false)).toBe("Meesho");
+    expect(companyFromReply("product manager please", true)).toBeNull();
+    expect(companyFromReply("a very long name with many words, pm", true)).toBeNull();
+    expect(companyFromReply("<script>, pm", true)).toBeNull();
+  });
   it("every link token carries its own nonce", () => {
     const a = verifyLinkToken(signLinkToken("919876543210"))!;
     const b = verifyLinkToken(signLinkToken("919876543210"))!;
