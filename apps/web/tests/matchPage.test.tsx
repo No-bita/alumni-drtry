@@ -205,3 +205,24 @@ describe("MatchPage — reach-out loop", () => {
     expect(await screen.findByText("You already have a note waiting for Ananya Rao.")).toBeTruthy();
   });
 });
+
+describe("MatchPage — from the WhatsApp bot", () => {
+  it("opens the note box for the linked person and records the note as coming from WhatsApp", async () => {
+    post.mockImplementation(async (path: string) =>
+      path === "/v1/match"
+        ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
+        : { data: { contactRequest: { id: "x" } } },
+    );
+    mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
+    const note = (await screen.findByLabelText("What are you hoping to talk about?")) as HTMLTextAreaElement;
+    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
+      recipientPersonId: result.id,
+      message: note.value.trim(),
+      source: "whatsapp",
+      sourceCategory: "referral",
+      sourceRank: 1,
+    });
+  });
+});
