@@ -78,9 +78,9 @@ async function main() {
         .catch((err: unknown) => {
           app.log.error({ err }, "usage event purge failed");
         });
-      // And forget used WhatsApp link tokens once they've expired anyway.
-      void app.whatsappService.purgeUsedLinks().catch((err: unknown) => {
-        app.log.error({ err }, "whatsapp used-link purge failed");
+      // And forget expired WhatsApp links (short links and used-link records).
+      void app.whatsappService.purgeExpiredLinks().catch((err: unknown) => {
+        app.log.error({ err }, "whatsapp link purge failed");
       });
     };
     reminderStartupTimer = setTimeout(remind, 60_000);
@@ -103,4 +103,3 @@ main().catch((error) => {
   process.stderr.write(`Failed to start API: ${String(error)}\n`);
   process.exit(1);
 });
-
