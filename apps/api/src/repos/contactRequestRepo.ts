@@ -534,3 +534,4 @@ export class ContactRequestRepo {
     return row ? mapContactRequest(row) : null;
   }
 }
+
