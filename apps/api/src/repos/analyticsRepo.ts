@@ -728,4 +728,4 @@ export class AnalyticsRepo {
       directory: { total: n(c.dir_total), real: n(c.dir_real), demo: n(c.dir_demo), test: n(c.dir_test) }
     };
   }
-      }
+}
