@@ -818,4 +818,3 @@ export class AuthService {
     await this.sessionRepo.revokeAllByPersonId(personId);
   }
 }
-
