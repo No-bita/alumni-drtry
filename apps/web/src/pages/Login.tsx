@@ -19,6 +19,7 @@ import {
   type AuthStartResponse,
 } from "../lib/authStartDelivery";
 import { ResendCodeButton } from "../components/ResendCodeButton";
+import { claimRememberedInvite, rememberInviteFromUrl } from "../lib/inviteAttribution";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
@@ -106,6 +107,8 @@ export function Login() {
   const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
   const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
   useEffect(() => {
+    // Invite links (`/login?ref=&ch=`): remember them until sign-in finishes.
+    rememberInviteFromUrl(window.location.search);
     // Invisible: start waking the API host while the user types their email.
     warmUpApi();
     return () => {
@@ -302,6 +305,8 @@ export function Login() {
         return;
       }
       const { person, profile: p } = snap;
+      // Credit an invite link, if one brought them here (server ignores it for existing members).
+      void claimRememberedInvite();
       if (person.isDemo) {
         navigate("/search", { replace: true });
         return;
