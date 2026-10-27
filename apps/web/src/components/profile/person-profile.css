@@ -18,3 +18,9 @@
 /* The signed-in shell already reserves space for the mobile dock. */
 .profile-page:has(.person-profile){padding-bottom:20px}.profile-page:has(.person-profile) .home-dashboard__main:has(.profile-page__sections:empty){display:none}
 .person-profile__path .person-profile__section-head h2,.person-profile__contact .person-profile__section-head h2{font-family:var(--font-display,Georgia,serif)}
+
+.person-profile__signout-group{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 24px;margin:20px 0}.person-profile__signout-group .person-profile__signout{margin:0}
+.person-profile__signout-confirm{flex-basis:100%;display:grid;gap:10px;padding:14px 16px;border:1px solid #e3d5c3;border-radius:12px;background:#fbf6ee;font-size:13px;color:#4a3a2c}.person-profile__signout-confirm p{margin:0}
+.person-profile__signout-confirm div{display:flex;flex-wrap:wrap;gap:10px}.person-profile__signout-confirm button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #d9c6ae;background:transparent;color:#4a3a2c;font-size:13px}
+.person-profile__signout-confirm .person-profile__signout-yes{background:#825135;border-color:#825135;color:#fff}.person-profile__signout-confirm button:disabled{opacity:.6}
+.person-profile__signout-error{color:#a2412a}
