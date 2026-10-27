@@ -139,7 +139,11 @@ export class MatchService {
         parserSource: intent.source,
         resultCount,
         hadOverrides: Boolean(input.overrides && Object.keys(input.overrides).length > 0),
-        needsDetail
+        needsDetail,
+        company: intent.company,
+        role: intent.role,
+        city: intent.city,
+        country: intent.country
       });
     } catch {
       /* analytics must never break matching */
@@ -201,4 +205,4 @@ export function buildCandidateQuery(
     candidateLimit: MATCH_CANDIDATE_LIMIT,
     requiredAnyOf: [...new Set(primarySignalsForIntent(intent).flatMap((sig) => GATE_FOR_SIGNAL[sig]))]
   };
-}
+                                                 }
