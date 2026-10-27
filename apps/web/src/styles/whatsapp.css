@@ -1,0 +1,78 @@
+/* WhatsApp settings and the /wa entry page. 390px first. */
+.wa-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.wa-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.wa-card__text {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink-muted);
+}
+
+.wa-card__text a {
+  font-weight: 600;
+  color: var(--brick);
+}
+
+.wa-card__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--brick);
+}
+
+.wa-switch,
+.wa-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.wa-switch input,
+.wa-inline input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--brick);
+}
+
+.wa-inline {
+  margin-top: 12px;
+  color: rgba(252, 248, 240, 0.85);
+}
+
+.wa-entry {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 3rem var(--page-x);
+  display: grid;
+  gap: 16px;
+}
+
+.wa-entry__title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.wa-entry__text {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.wa-entry__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
