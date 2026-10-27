@@ -8,6 +8,11 @@ const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const openToOptionIdSchema = z.enum(OPEN_TO_OPTION_IDS);
 
+const invitedBySchema = z.object({
+  ref: z.string().uuid(),
+  channel: z.enum(["copy", "whatsapp"])
+});
+
 const openToPreferencesSchema = z
   .object({
     selected: z.array(openToOptionIdSchema).max(OPEN_TO_MAX_SELECTED),
@@ -239,6 +244,22 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link id.");
       }
       await app.linkService.deleteMyLink(request.actor.personId, params.data.id);
+      return reply.code(204).send();
+    }
+  );
+
+  /**
+   * Invite attribution: the web app sends the invite link's ref once, right after a new member's
+   * first sign-in (works for email and Google). Always 204, so it reveals nothing about people.
+   */
+  app.post(
+    "/v1/me/invited-by",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = invitedBySchema.safeParse(request.body);
+      if (parsed.success) {
+        await app.profileService.claimInvite(request.actor.personId, parsed.data.ref, parsed.data.channel);
+      }
       return reply.code(204).send();
     }
   );
