@@ -111,9 +111,12 @@ function newSessionExpiresAt(createdAtMs: number): Date {
   );
 }
 
-/** Only a genuine, unexpired bot token and a same-site path go into the email. */
+/**
+ * Only a genuine, unexpired bot token, or a short link code (8 letters/digits, checked when used),
+ * and a same-site path go into the email.
+ */
 function whatsappLinkParams(entry: StartAuthInput["whatsappEntry"]): string {
-  if (!entry || !verifyLinkToken(entry.token)) return "";
+  if (!entry || !(/^[A-Za-z0-9]{8}$/.test(entry.token) || verifyLinkToken(entry.token))) return "";
   const params = new URLSearchParams({ wa: entry.token });
   const next = entry.next;
   if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") && next.length <= 1000) {
