@@ -4,6 +4,7 @@ import {
   BULLETIN_CONTENT_MAX_LENGTH,
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_INTENTCAST_OPEN_DAYS,
+  BULLETIN_LISTING_URL_MAX_CHARS,
   BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH,
   BULLETIN_TITLE_MAX_CHARS
 } from "../constants/bulletin.js";
@@ -16,6 +17,8 @@ import {
   type IntentcastStatus
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
+import { tryNormalizeListingUrl } from "../lib/listingUrl.js";
+import { REFERRAL_FIT_ANSWER_MAX_CHARS } from "../constants/bulletin.js";
 import type { EmailSender } from "./emailSender.js";
 
 function splitBulletinHeadlineAndDetails(raw: string): { headline: string; details: string } {
@@ -59,6 +62,10 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
   content: string;
+  /** Referral asks only: structured job listing URL (validated http(s), stored in its own column). */
+  roleListingUrl?: string | null;
+  /** Referral asks only: structured resume URL (validated http(s), stored in its own column). */
+  resumeListingUrl?: string | null;
 }
 
 export interface IntentcastFeedOutput {
@@ -72,6 +79,9 @@ export interface IntentcastFeedOutput {
 export interface UpdateIntentcastInput {
   category?: IntentcastCategory;
   content?: string;
+  /** Structured listing URL edit: value sets, null clears, undefined leaves unchanged. */
+  roleListingUrl?: string | null;
+  resumeListingUrl?: string | null;
 }
 
 /** Signed-in author — aggregated bulletin replies for Home “Replies” tab. */
@@ -96,6 +106,23 @@ export interface ReceivedBulletinRepliesFeedOutput {
 
 export interface RespondIntentcastInput {
   message: string;
+}
+
+/** Optional structured listing URL: trimmed, normalized to http(s), length-capped; null when absent/blank. */
+function normalizeListingUrlInput(raw: string | null | undefined, field: string): string | null {
+  if (raw === undefined || raw === null || !raw.trim()) return null;
+  if (raw.trim().length > BULLETIN_LISTING_URL_MAX_CHARS) {
+    throw new AppError(
+      400,
+      "INTENTCAST_LISTING_URL_TOO_LONG",
+      `${field} must be at most ${BULLETIN_LISTING_URL_MAX_CHARS} characters.`
+    );
+  }
+  const normalized = tryNormalizeListingUrl(raw);
+  if (!normalized) {
+    throw new AppError(400, "INTENTCAST_LISTING_URL_INVALID", `${field} must be a valid http(s) URL.`);
+  }
+  return normalized;
 }
 
 function isPgUniqueViolation(error: unknown): boolean {
@@ -134,6 +161,21 @@ export class IntentcastService {
     }
     assertGeneralIntentcastHeadlineDetails(content, input.category);
 
+    const roleListingUrl = normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
+    const resumeListingUrl = normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
+
+    if (roleListingUrl != null || resumeListingUrl != null) {
+      const contentWithoutUiCategory = content.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
+      const { details } = splitBulletinHeadlineAndDetails(contentWithoutUiCategory);
+      if (details.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+        throw new AppError(
+          400,
+          "INTENTCAST_REFERRAL_FIT_TOO_LONG",
+          `Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`
+        );
+      }
+    }
+
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -141,7 +183,9 @@ export class IntentcastService {
       authorPersonId,
       content,
       category: input.category,
-      expiresAt
+      expiresAt,
+      roleListingUrl,
+      resumeListingUrl
     });
     const view = await this.intentcastRepo.findFeedItemById(created.id, authorPersonId);
     if (!view) {
@@ -214,6 +258,21 @@ export class IntentcastService {
       throw new AppError(409, "INTENTCAST_NOT_EDITABLE", "This post was removed from the bulletin.");
     }
 
+    const nextRoleListingUrl =
+      input.roleListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.roleListingUrl, "roleListingUrl");
+    const nextResumeListingUrl =
+      input.resumeListingUrl === undefined
+        ? undefined
+        : normalizeListingUrlInput(input.resumeListingUrl, "resumeListingUrl");
+
+    const effectiveRoleListingUrl =
+      nextRoleListingUrl !== undefined ? nextRoleListingUrl : existing.role_listing_url;
+    const effectiveResumeListingUrl =
+      nextResumeListingUrl !== undefined ? nextResumeListingUrl : existing.resume_listing_url;
+    const isReferral = effectiveRoleListingUrl != null || effectiveResumeListingUrl != null;
+
     const nextContent = input.content?.trim();
     if (nextContent !== undefined && nextContent.length < 10) {
       throw new AppError(400, "INTENTCAST_CONTENT_TOO_SHORT", "Intentcast content must be at least 10 characters.");
@@ -228,13 +287,30 @@ export class IntentcastService {
     const effectiveCategory = input.category ?? existing.category;
     if (nextContent !== undefined) {
       assertGeneralIntentcastHeadlineDetails(nextContent, effectiveCategory);
+      // Referral asks: the fit answer keeps its compose-time 500-char budget on edit too,
+      // regardless of whether the post has a role link, resume link, or both.
+      if (isReferral) {
+        // Content arrives with the UI marker prefix ([[cat:...]]); strip it so the
+        // marker and headline never count against the fit-answer budget.
+        const contentWithoutUiCategory = nextContent.replace(/^\s*\[\[cat:[a-z]+\]\]\s*\n?/i, "");
+        const { details } = splitBulletinHeadlineAndDetails(contentWithoutUiCategory);
+        if (details.length > REFERRAL_FIT_ANSWER_MAX_CHARS) {
+          throw new AppError(
+            400,
+            "INTENTCAST_REFERRAL_FIT_TOO_LONG",
+            `Your fit answer must be at most ${REFERRAL_FIT_ANSWER_MAX_CHARS} characters.`
+          );
+        }
+      }
     }
 
     const updated = await this.intentcastRepo.updateWithinEditWindow({
       intentcastId,
       authorPersonId,
       content: nextContent,
-      category: input.category
+      category: input.category,
+      roleListingUrl: nextRoleListingUrl,
+      resumeListingUrl: nextResumeListingUrl
     });
     if (!updated) {
       throw new AppError(

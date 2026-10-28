@@ -362,6 +362,10 @@ export type IntentcastFeedItem = {
   authorCurrentOrganizationName?: string | null;
   category: "hiring" | "mentorship" | "collaboration" | "guidance";
   content: string;
+  /** Structured referral job listing URL (own column; null for other posts). */
+  roleListingUrl?: string | null;
+  /** Structured referral resume URL (own column; null for other posts). */
+  resumeListingUrl?: string | null;
   status: string;
   expiresAt: string;
   closedAt: string | null;
