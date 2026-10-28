@@ -6,6 +6,10 @@ const pendingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional()
 });
 
+const approvedQuerySchema = z.object({
+  q: z.string().max(100).optional()
+});
+
 const adminOrgParamsSchema = z.object({
   id: z.string().uuid()
 });
@@ -31,6 +35,20 @@ export const adminOrgRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const organizations = await app.organizationService.listPendingOrganizations(query.data.limit);
+      return reply.code(200).send({ organizations });
+    }
+  );
+
+  /** "Same company as…" picker: approved companies that aren't linked to another, by name, 20 at most. */
+  app.get(
+    "/v1/admin/orgs/approved",
+    { preHandler: adminPreHandlers },
+    async (request, reply) => {
+      const query = approvedQuerySchema.safeParse(request.query);
+      if (!query.success) {
+        throw new AppError(400, "ADMIN_ORG_BAD_REQUEST", "Invalid approved organizations query.");
+      }
+      const organizations = await app.organizationService.searchApprovedOrganizations(query.data.q ?? "");
       return reply.code(200).send({ organizations });
     }
   );

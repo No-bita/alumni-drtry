@@ -29,7 +29,24 @@ export interface OrganizationView {
 }
 
 export interface PendingOrganizationView extends OrganizationView {
-  createdByInstitutionalEmail: string | null;
+  /** Who typed it, masked for the review screen: "sh•••@itbhu.ac.in". The full address never leaves the API. */
+  createdByEmailMasked: string | null;
+}
+
+/** For the "Same company as…" picker: just enough to choose. */
+export interface ApprovedOrganizationOption {
+  id: string;
+  name: string;
+}
+
+/** "shahaaryan.milan.mst20@itbhu.ac.in" → "sh•••@itbhu.ac.in" (one visible letter for very short names). */
+export function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return "•••";
+  const local = email.slice(0, at);
+  const visible = local.length <= 3 ? local.slice(0, 1) : local.slice(0, 2);
+  return `${visible}•••${email.slice(at)}`;
 }
 
 interface PendingOrganizationRow extends OrganizationRow {
@@ -54,7 +71,7 @@ function mapOrganization(row: OrganizationRow): OrganizationView {
 function mapPendingOrganization(row: PendingOrganizationRow): PendingOrganizationView {
   return {
     ...mapOrganization(row),
-    createdByInstitutionalEmail: row.created_by_institutional_email
+    createdByEmailMasked: maskEmail(row.created_by_institutional_email)
   };
 }
 
@@ -155,6 +172,28 @@ export class OrganizationRepo {
       [limit]
     );
     return result.rows.map(mapPendingOrganization);
+  }
+
+  /**
+   * Approved companies that aren't themselves linked to another (the ones a name can be linked to).
+   * Case-insensitive "contains" search on the name (% and _ typed by the admin are plain text),
+   * ordered by name. An empty search returns the first ones alphabetically.
+   */
+  async listApprovedOptions(search: string, limit: number): Promise<ApprovedOrganizationOption[]> {
+    const pattern = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const result = await this.db.query<ApprovedOrganizationOption>(
+      `
+      SELECT id, name::TEXT AS name
+      FROM organizations
+      WHERE approval_status = 'approved'
+        AND canonical_organization_id IS NULL
+        AND name::TEXT ILIKE $1 ESCAPE '\\'
+      ORDER BY lower(name::TEXT), name::TEXT, id
+      LIMIT $2
+      `,
+      [pattern, limit]
+    );
+    return result.rows;
   }
 
   async approve(

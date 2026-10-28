@@ -20598,10 +20598,17 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .profile-page__analytics-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.profile-page__admin-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .profile-page__analytics-grid {

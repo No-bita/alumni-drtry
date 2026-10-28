@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { WeeklyBars } from "../components/WeeklyBars";
 import { useAuth } from "../contexts/AuthContext";
@@ -451,7 +452,15 @@ function Report({ r }: { r: AnalyticsReport }) {
           <Tile label="Admins" value={compact(r.operations.admins)} />
           <Tile label="Suspended" value={compact(r.operations.suspended)} />
           <Tile label="Deleted" value={compact(r.operations.deletedInWindow)} hint={`in the last ${r.windowDays} days`} />
-          <Tile label="Companies waiting for approval" value={compact(r.operations.orgsPending)} />
+          <Tile
+            label="Companies waiting for approval"
+            value={compact(r.operations.orgsPending)}
+            hint={
+              <Link to="/admin/companies" className="aa-link">
+                Review
+              </Link>
+            }
+          />
         </div>
       </Section>
     </>
