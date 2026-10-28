@@ -121,6 +121,32 @@ describe("Admin analytics screen", () => {
     expect(within(pendingTile).getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/admin/companies");
   });
 
+  it("shows a Company review card at the top with the waiting count and a link", async () => {
+    mount();
+    const card = (await screen.findByRole("heading", { level: 2, name: "Company review" })).closest("section") as HTMLElement;
+    expect(within(card).getByText("3 company names are waiting for approval.")).toBeTruthy();
+    expect(within(card).getByRole("link", { name: "Review companies" }).getAttribute("href")).toBe("/admin/companies");
+    // Above the date controls.
+    expect(card.compareDocumentPosition(screen.getByRole("group", { name: "Time range" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the Company review card when nothing is waiting, and uses the singular for one", async () => {
+    const withCount = (n: number) =>
+      apiGet.mockImplementation(async () => {
+        const r = report();
+        r.operations.orgsPending = n;
+        return { report: r };
+      });
+    withCount(0);
+    mount();
+    expect(await screen.findByText("No company names are waiting.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Review companies" })).toBeTruthy();
+    cleanup();
+    withCount(1);
+    mount();
+    expect(await screen.findByText("1 company name is waiting for approval.")).toBeTruthy();
+  });
+
   it("switches the window and can skip the cache", async () => {
     mount();
     await screen.findByText("Accepted notes");
