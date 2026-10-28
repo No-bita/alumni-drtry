@@ -5,7 +5,7 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/match.css";
 
 const EXAMPLE_QUESTIONS = [
-  "Referral for a PM role at Razorpay",
+  "Referral at Meesho",
   "Interview prep for consulting",
   "Moving to Bengaluru next month",
 ] as const;
