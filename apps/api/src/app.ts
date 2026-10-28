@@ -18,6 +18,8 @@ import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
 import { matchRoutes } from "./routes/matchRoutes.js";
+import { careersRoutes } from "./routes/careersRoutes.js";
+import { CareersService } from "./services/careersService.js";
 import { homeRoutes } from "./routes/homeRoutes.js";
 import { meRoutes } from "./routes/meRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
@@ -124,6 +126,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("organizationService", organizationService);
   app.decorate("discoveryService", discoveryService);
   app.decorate("matchService", matchService);
+  app.decorate("careersService", new CareersService(pool, contactRequestService));
   app.decorate("adminPlacesService", adminPlacesService);
   app.decorate("locationCleanupService", locationCleanupService);
   app.decorate("intentcastService", intentcastService);
@@ -192,6 +195,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(meRoutes);
   await app.register(discoveryRoutes);
   await app.register(matchRoutes);
+  await app.register(careersRoutes);
   await app.register(homeRoutes);
   await app.register(whatsappRoutes, {
     service: whatsappService,

@@ -24,6 +24,14 @@ import { queryKeys } from "../lib/queryKeys";
 import type { ProfileResponse } from "../api/client";
 import "../styles/match.css";
 
+/** What to write, when Ask opens from a Careers topic shortcut with the topic already chosen. */
+const TOPIC_PROMPTS: Partial<Record<string, string>> = {
+  interview_prep: "Which company or role are you interviewing for? For example: Google, software engineer",
+  career_switch: "What are you moving from and to? For example: from consulting to product management",
+  higher_studies: "What are you planning? For example: MS in computer science in the US",
+  relocation: "Which city are you moving to? For example: moving to Bengaluru for work",
+};
+
 /** Ask → Match results (`/match?q=…`). */
 export function MatchPage() {
   const auth = useAuth();
@@ -83,8 +91,10 @@ export function MatchPage() {
     e.preventDefault();
     const q = draftQuestion.trim();
     if (q.length < MATCH_QUESTION_MIN) return;
-    // A new question starts fresh: drop chip corrections made for the old one.
-    setSearchParams(buildMatchSearch({ question: q, overrides: {} }).slice(1));
+    // A new question starts fresh: drop chip corrections made for the old one. The exception is
+    // the first question after a Careers topic shortcut (/match?cat=…): that topic stays chosen.
+    const presetCategory = !state.question && state.overrides.category ? { category: state.overrides.category } : {};
+    setSearchParams(buildMatchSearch({ question: q, overrides: presetCategory }).slice(1));
   };
 
   const onChipChange = useCallback(
@@ -145,7 +155,11 @@ export function MatchPage() {
         </form>
 
         {!hasQuestion ? (
-          <p className="match-page__state">Write what you’re trying to get done, and we’ll find the alum who can help.</p>
+          <p className="match-page__state">
+            {state.overrides.category && TOPIC_PROMPTS[state.overrides.category]
+              ? TOPIC_PROMPTS[state.overrides.category]
+              : "Write what you’re trying to get done, and we’ll find the alum who can help."}
+          </p>
         ) : matchQuery.isPending ? (
           <p className="match-page__state" role="status">
             Finding the right alum…

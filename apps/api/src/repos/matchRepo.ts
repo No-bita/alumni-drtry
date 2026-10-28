@@ -356,7 +356,7 @@ export class MatchRepo {
   async logQuery(input: {
     category: string | null;
     detectedFields: string[];
-    parserSource: "rules" | "llm";
+    parserSource: "rules" | "llm" | "careers";
     resultCount: number;
     hadOverrides: boolean;
     needsDetail: boolean;

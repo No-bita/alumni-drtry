@@ -336,7 +336,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setHeadline((options?.headline ?? "").trim().slice(0, BULLETIN_TITLE_MAX_CHARS));
       setBody((options?.body ?? "").trim().slice(0, BULLETIN_DESCRIPTION_MAX_CHARS));
       setReferralJobLink("");
-      setReferralCompanyName("");
+      setReferralCompanyName((options?.referralCompanyName ?? "").trim().slice(0, 120));
       setReferralResumeLink("");
       setError(null);
       setOpen(true);

@@ -440,6 +440,35 @@
   color: var(--ink);
 }
 
+.match-dialog__input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-input);
+  background: var(--cream);
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.match-dialog__input[aria-invalid="true"] {
+  border-color: var(--brick);
+}
+
+.match-dialog__optional {
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.match-dialog__link {
+  align-self: center;
+  margin-right: auto;
+  font-weight: 600;
+  color: var(--brick);
+}
+
 .match-dialog__textarea {
   width: 100%;
   padding: var(--space-md);

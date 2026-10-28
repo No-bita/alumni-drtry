@@ -32,6 +32,7 @@ const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
 const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
+const CareerCompanyPage = lazy(() => import("./pages/CareerCompanyPage").then((m) => ({ default: m.CareerCompanyPage })));
 const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
 const WhatsAppEntryPage = lazy(() =>
@@ -280,6 +281,16 @@ function AppRoutes() {
             <RequireAuth>
               <ProfileGate mode="home">
                 <CareerPage />
+              </ProfileGate>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/intent/career/company"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <CareerCompanyPage />
               </ProfileGate>
             </RequireAuth>
           }

@@ -21,6 +21,8 @@ export type PostBulletinOpenOptions = {
   headline?: string;
   /** Prefill the details body (truncated to the bulletin description limit). */
   body?: string;
+  /** Referral ask: prefill the company (e.g. from the Careers company screen). */
+  referralCompanyName?: string;
 };
 
 export type PostBulletinFlowHandleShape = {

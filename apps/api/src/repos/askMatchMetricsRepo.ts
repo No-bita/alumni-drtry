@@ -79,7 +79,7 @@ export class AskMatchMetricsRepo {
       n AS (
         SELECT source_category AS category, status, created_at, responded_at
         FROM contact_requests
-        WHERE source IN ('match', 'whatsapp') AND created_at >= now() - ($1::int * interval '1 day')
+        WHERE source IN ('match', 'whatsapp', 'careers') AND created_at >= now() - ($1::int * interval '1 day')
       ),
       keys AS (
         SELECT category FROM q UNION SELECT category FROM n
@@ -112,7 +112,7 @@ export class AskMatchMetricsRepo {
       SELECT source_category AS category, GROUPING(source_category) AS grp,
              percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (responded_at - created_at))) AS median_reply_seconds
       FROM contact_requests
-      WHERE source IN ('match', 'whatsapp') AND responded_at IS NOT NULL
+      WHERE source IN ('match', 'whatsapp', 'careers') AND responded_at IS NOT NULL
         AND created_at >= now() - ($1::int * interval '1 day')
       GROUP BY GROUPING SETS ((source_category), ())
     `;
