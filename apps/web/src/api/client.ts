@@ -297,7 +297,6 @@ export type ConnectionThreadDetailResponse = {
   messageCount: number;
   showShareNudge: boolean;
   showOfflineContactPrompt: boolean;
-  messagesDeletionWarning: string | null;
   referralReplyCount: number;
   availableDisclosures: AvailableDisclosureOption[];
 };
