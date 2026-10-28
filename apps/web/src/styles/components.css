@@ -14547,6 +14547,29 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   line-height: 1.45;
 }
 
+.auth-merged__google {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.auth-merged__google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.auth-merged__google-or {
+  margin: 0;
+  text-align: center;
+  color: rgba(252, 248, 240, 0.6);
+  font-size: 13px;
+}
+
 .auth-merged__error {
   margin: 0 0 0.75rem;
   color: var(--brick-light);
