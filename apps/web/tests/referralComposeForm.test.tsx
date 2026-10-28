@@ -39,7 +39,7 @@ function fillApprovedForm() {
   fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
   fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
   fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-  fireEvent.change(screen.getByLabelText(/Why are you a fit for this role/), {
+  fireEvent.change(screen.getByLabelText(/Point 1/), {
     target: { value: "Three years building APIs on the same stack this team uses." },
   });
   fireEvent.change(screen.getByLabelText(/Resume link/), { target: { value: "https://example.com/cv.pdf" } });
@@ -51,8 +51,11 @@ describe("approved referral compose form", () => {
     expect(screen.getByLabelText(/Job link \*/)).toBeTruthy();
     expect(screen.getByLabelText(/^Role \*/)).toBeTruthy();
     expect(screen.getByLabelText(/Company \*/)).toBeTruthy();
-    expect(screen.getByLabelText(/Why are you a fit for this role\? \*/)).toBeTruthy();
-    expect(screen.getByLabelText(/Resume link \(optional\)/)).toBeTruthy();
+    expect(screen.getByLabelText(/Point 1 \*/)).toBeTruthy();
+    expect(screen.getByLabelText(/Point 2/)).toBeTruthy();
+    expect(screen.getByLabelText(/Point 3/)).toBeTruthy();
+    expect(screen.getByRole("heading", {name:"Ask for a referral"})).toBeTruthy();
+    expect(screen.getByLabelText(/Resume link/)).toBeTruthy();
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
 
@@ -60,7 +63,7 @@ describe("approved referral compose form", () => {
     mount();
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.change(screen.getByLabelText(/Point 1/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.getByRole("alert").textContent).toContain("job link");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "not a url !! " } });
@@ -73,7 +76,7 @@ describe("approved referral compose form", () => {
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.change(screen.getByLabelText(/Point 1/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "mailto:user@example.com" } });
@@ -89,7 +92,7 @@ describe("approved referral compose form", () => {
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp:21/download" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.change(screen.getByLabelText(/Point 1/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.getByRole("alert")).toBeTruthy();
   });
@@ -99,7 +102,7 @@ describe("approved referral compose form", () => {
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com:8080/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.change(screen.getByLabelText(/Point 1/), { target: { value: "I match the stack." } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -112,7 +115,7 @@ describe("approved referral compose form", () => {
     expect(screen.getByRole("alert").textContent).toContain("company");
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    expect(screen.getByRole("alert").textContent).toContain("fit");
+    expect(screen.getByRole("alert").textContent).toContain("point 1");
   });
 
   it("publishes the approved structure and the feed row contract renders the job link", async () => {
@@ -166,4 +169,26 @@ describe("approved referral compose form", () => {
     expect(row!.summary).not.toContain("Resume link:");
     expect(stored.split("\n")[0]).toContain("Looking for referral");
   });
+  it("keeps only the first point required and keeps preview without numbered steps", () => {
+    mount();
+    expect(screen.queryByLabelText("Referral ask steps")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Job link/), {target:{value:"https://example.com/job"}});
+    fireEvent.change(screen.getByLabelText(/^Role/), {target:{value:"Engineer"}});
+    fireEvent.change(screen.getByLabelText(/Company/), {target:{value:"Example Co"}});
+    fireEvent.click(screen.getByRole("button",{name:"Preview"}));
+    expect(screen.getByRole("alert").textContent).toContain("point 1");
+    fireEvent.change(screen.getByLabelText(/Point 1/), {target:{value:"2 years experience in backend systems"}});
+    fireEvent.click(screen.getByRole("button",{name:"Preview"}));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button",{name:"Publish"})).toBeTruthy();
+  });
+
+  it("preserves numeric experience phrasing and point boundaries through real feed derivation", () => {
+    const summary = "2 years experience in backend systems\nBuilt a payments integration\nEx-CRED, payments infra";
+    const row = mapIntentcastToRow({id:"preserve",category:"mentorship",content:`[[cat:careers]]\nLooking for referral for Engineer at Example Co\n${summary}\n\nRole link: https://example.com/job\n\nResume link: https://example.com/cv`,authorPersonId:"p2",authorFullName:"Sample",authorDepartmentCode:"CSE",authorBatchYear:2020,createdAt:"2026-10-24T07:00:00Z"} as never);
+    expect(row!.summary).toBe(summary);
+    expect(row!.roleListingUrl).toBe("https://example.com/job");
+    expect(row!.resumeListingUrl).toBe("https://example.com/cv");
+  });
+
 });

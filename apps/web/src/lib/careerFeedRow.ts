@@ -15,7 +15,6 @@ import {
   hiringExperienceChipFromParsed,
   parseHiringBulletin,
   promoteBareLeadingListingToResumeForReferral,
-  stripHiringTailChipDuplicateProse,
   stripStructuredHiringTailMeta,
 } from "./parseHiringBulletin";
 
@@ -150,7 +149,7 @@ export function mapIntentcastToRow(
 
     if (isHiringLane) {
       const proseTail = stripStructuredHiringTailMeta(
-        stripHiringTailChipDuplicateProse(parsed.description)
+        parsed.description
       ).trim();
       summaryText = proseTail || bulletinSummaryFull;
     } else {
@@ -180,7 +179,7 @@ export function mapIntentcastToRow(
       roleListingUrl = coerced.listingUrl;
       resumeListingUrl = coerced.resumeUrl;
       summaryText = stripStructuredHiringTailMeta(
-        stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
+        coerced.proseAfterLink
       ).trim();
     }
     if (!companySubtitle && isHiringLane && chipsFallback.length > 0) {

@@ -20912,3 +20912,30 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     right: 8px;
   }
 }
+
+
+/* Referral-only compact form and approved 20px display heading. */
+
+.career-hiring-flow__dialog--compact { padding: 12px 16px; gap: 8px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__main { padding: 14px 16px; gap: 12px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__grid { gap: 12px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__field { gap: 6px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__points-legend { margin-bottom: -6px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__actions { padding-top: 4px; }
+
+.career-hiring-flow__dialog--compact .career-hiring-flow__head h2.career-hiring-flow__title {
+  
+  margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 700;
+  
+  letter-spacing: -0.01em; color: var(--ink);
+  
+}
+
+
+
+

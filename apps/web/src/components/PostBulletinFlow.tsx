@@ -82,6 +82,7 @@ type CareersActivityPreviewProps = {
   companyLoc: string | null;
   description: string;
   chips: readonly string[];
+  bulletPoints?: boolean;
   listingUrl: string | null;
   resumeUrl: string | null;
 };
@@ -94,12 +95,13 @@ function CareersActivityPostPreview({
   chips,
   listingUrl,
   resumeUrl,
+  bulletPoints,
 }: CareersActivityPreviewProps) {
   return (
     <>
       <ReferralIntentHeadline as="p" className="career-hiring-flow__preview-title" headline={role} />
       {companyLoc ? <p className="career-hiring-flow__preview-meta">{companyLoc}</p> : null}
-      {description.trim() ? <p className="career-hiring-flow__preview-copy">{description}</p> : null}
+      {bulletPoints && description.split("\n").filter(Boolean).length > 1 ? <ul className="career-hiring-flow__preview-points">{description.split("\n").filter(Boolean).map((p,i)=><li key={i}>{p}</li>)}</ul> : description.trim() ? <p className="career-hiring-flow__preview-copy">{description}</p> : null}
       {listingUrl ? (
         <p className="career-hiring-flow__preview-note">
           <a href={listingUrl} target="_blank" rel="noopener noreferrer">
@@ -157,6 +159,10 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [referralCompanyName, setReferralCompanyName] = useState("");
     const [referralResumeLink, setReferralResumeLink] = useState("");
 
+    const [referralPoint1, setReferralPoint1] = useState("");
+    const [referralPoint2, setReferralPoint2] = useState("");
+    const [referralPoint3, setReferralPoint3] = useState("");
+
     const composeHeadlineRef = useRef<HTMLInputElement>(null);
     const previewPanelRef = useRef<HTMLElement>(null);
 
@@ -164,7 +170,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (careersPreset === "referralSeeking") {
         const role = headline.trim();
         const company = referralCompanyName.trim();
-        const detailsBlock = referralSeekingDetailsBlock(body, referralJobLink, referralResumeLink);
+        const detailsBlock = referralSeekingDetailsBlock([referralPoint1, referralPoint2, referralPoint3].map(p => p.trim()).filter(Boolean).join("\n"), referralJobLink, referralResumeLink);
         if (!role && !company && !detailsBlock) return "";
         if (role) {
           const headLine = buildReferralIntentBulletinHeadline(role, company);
@@ -181,7 +187,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       if (!b) return h;
       if (!h) return b;
       return `${h}\n${b}`;
-    }, [body, careersPreset, headline, referralCompanyName, referralJobLink, referralResumeLink]);
+    }, [body, careersPreset, headline, referralCompanyName, referralJobLink, referralResumeLink, referralPoint1, referralPoint2, referralPoint3]);
 
     const previewSplit = useMemo(
       () => splitBulletinPostBody(composedContent || headline || "Preview headline"),
@@ -191,74 +197,14 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const careersActivityPreview = useMemo((): CareersActivityPreviewProps => {
       const raw = composedContent.trim();
       const split = previewSplit;
-      if (!raw) {
-        if (careersPreset === "referralSeeking") {
-          const ht = headline.trim();
-          const co = referralCompanyName.trim();
-          return {
-            role: buildReferralIntentBulletinHeadline(ht || "Role", co),
-            companyLoc: null,
-            description: body.trim(),
-            chips: [],
-            listingUrl: null,
-            resumeUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
-          };
-        }
-        return {
-          role: split.title.trim() || "Headline",
-          companyLoc: null,
-          description: (split.summary ?? "").trim(),
-          chips: [],
-          listingUrl: null,
-          resumeUrl: null,
-        };
-      }
       if (careersPreset === "referralSeeking") {
-        const parsedReferral = parseHiringBulletin(raw);
-        if (parsedReferral) {
-          const coerced = promoteBareLeadingListingToResumeForReferral(
-            extractStructuredCareerRoleLink(parsedReferral.description)
-          );
-          const proseTail = stripStructuredHiringTailMeta(
-            stripHiringTailChipDuplicateProse(coerced.proseAfterLink)
-          ).trim();
-          const descriptionText = proseTail || (split.summary ?? "").trim();
-          const chips = [
-            parsedReferral.employmentLabel,
-            hiringExperienceChipFromParsed(parsedReferral.experienceLabel),
-            hiringCompensationChipFromParsed(parsedReferral.salaryLabel),
-          ].filter((x): x is string => Boolean(x)).slice(0, 3);
-          return {
-            role: buildReferralIntentBulletinHeadline(
-              parsedReferral.title.trim() || headline.trim() || "Role",
-              parsedReferral.company.trim()
-            ),
-            companyLoc: null,
-            description: descriptionText,
-            chips,
-            listingUrl: coerced.listingUrl,
-            resumeUrl:
-              coerced.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
-          };
-        }
-        const ht = headline.trim();
-        const co = referralCompanyName.trim();
-        const summaryRaw = (split.summary ?? "").trim();
-        const coercedTail = promoteBareLeadingListingToResumeForReferral(
-          extractStructuredCareerRoleLink(summaryRaw)
-        );
-        const proseTail = stripStructuredHiringTailMeta(
-          stripHiringTailChipDuplicateProse(coercedTail.proseAfterLink)
-        ).trim();
-        const descriptionText = proseTail || body.trim();
         return {
-          role: split.title.trim() || buildReferralIntentBulletinHeadline(ht || "Role", co),
+          role: buildReferralIntentBulletinHeadline(headline.trim() || "Role", referralCompanyName.trim()),
           companyLoc: null,
-          description: descriptionText,
+          description: [referralPoint1, referralPoint2, referralPoint3].map(p => p.trim()).filter(Boolean).join("\n"),
           chips: [],
-          listingUrl: coercedTail.listingUrl,
-          resumeUrl:
-            coercedTail.resumeUrl ?? tryNormalizeExternalHttpUrl(referralResumeLink),
+          listingUrl: tryNormalizeExternalHttpUrl(referralJobLink),
+          resumeUrl: tryNormalizeExternalHttpUrl(referralResumeLink),
         };
       }
       const parsed = parseHiringBulletin(raw);
@@ -295,13 +241,16 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         resumeUrl: null,
       };
     }, [
-      body,
       careersPreset,
       composedContent,
       headline,
       previewSplit,
       referralCompanyName,
+      referralJobLink,
       referralResumeLink,
+      referralPoint1,
+      referralPoint2,
+      referralPoint3,
     ]);
 
     const reset = useCallback(() => {
@@ -312,6 +261,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralJobLink("");
       setReferralCompanyName("");
       setReferralResumeLink("");
+      setReferralPoint1("");
+      setReferralPoint2("");
+      setReferralPoint3("");
       setError(null);
       setCareersPreset(null);
     }, []);
@@ -338,6 +290,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralJobLink("");
       setReferralCompanyName("");
       setReferralResumeLink("");
+      setReferralPoint1("");
+      setReferralPoint2("");
+      setReferralPoint3("");
       setError(null);
       setOpen(true);
     }, []);
@@ -374,7 +329,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         if (!headlineOk) return "Add a role title (at least 3 characters).";
         const ht = headline.trim();
         const co = referralCompanyName.trim();
-        const bt = body.trim();
+        const bt = [referralPoint1, referralPoint2, referralPoint3].map(p => p.trim()).filter(Boolean).join("\n");
         if (ht.length > BULLETIN_TITLE_MAX_CHARS) {
           return `Role must be at most ${BULLETIN_TITLE_MAX_CHARS} characters.`;
         }
@@ -386,7 +341,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         if (headLine.length > BULLETIN_TITLE_MAX_CHARS) {
           return `Referral headline is too long (max ${BULLETIN_TITLE_MAX_CHARS} characters). Shorten the role or company.`;
         }
-        if (!bt) return "Add why you're a fit for this role.";
+        if (!referralPoint1.trim()) return "Add point 1 - one reason you're a fit.";
         if (bt.length > BULLETIN_DESCRIPTION_MAX_CHARS) {
           return `Your fit answer must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
         }
@@ -424,6 +379,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       referralCompanyName,
       referralJobLink,
       referralResumeLink,
+      referralPoint1,
+      referralPoint2,
+      referralPoint3,
     ]);
 
     const goToPreview = useCallback(() => {
@@ -468,8 +426,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
         ? step === "compose"
-          ? "Ask alumni for a referral, step 1 of 2: Compose"
-          : "Ask alumni for a referral, step 2 of 2: Preview"
+          ? "Ask alumni for a referral: Compose"
+          : "Ask alumni for a referral: Preview"
         : careersPreset === "canHelp"
           ? step === "compose"
             ? "Offer help to alumni, step 1 of 2: Compose"
@@ -537,6 +495,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         step={step}
         stepsAriaLabel={stepsAriaLabel}
         closeAriaLabel={closeAriaLabel}
+        hideSteps={careersPreset === "referralSeeking"}
+        dialogClassName={careersPreset === "referralSeeking" ? "career-hiring-flow__dialog--compact" : undefined}
+        title={careersPreset === "referralSeeking" ? "Ask for a referral" : undefined}
       >
         <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
           <div className="career-hiring-flow__main ds-surface-card">
@@ -599,30 +560,35 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       />
                     </label>
                   ) : null}
+                  {careersPreset === "referralSeeking" ? (
+                    <>
+                      <div className="career-hiring-flow__field career-hiring-flow__field--wide career-hiring-flow__points-legend" role="group" aria-label="Why are you a fit?"><span>Why are you a fit?</span></div>
+                      {([
+                        ["Point 1 *", referralPoint1, setReferralPoint1, "2 years in backend systems"],
+                        ["Point 2", referralPoint2, setReferralPoint2, "Built a payments integration"],
+                        ["Point 3", referralPoint3, setReferralPoint3, "Ex-CRED, payments infra"],
+                      ] as const).map(([label, value, setter, placeholder]) => (
+                        <label key={label} className="career-hiring-flow__field career-hiring-flow__field--wide">
+                          <span>{label}</span><input className="input" value={value} onChange={e => setter(e.target.value)} placeholder={placeholder} maxLength={BULLETIN_DESCRIPTION_MAX_CHARS} autoComplete="off" />
+                        </label>
+                      ))}
+                    </>
+                  ) : (
                   <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                    <span>{careersPreset === "referralSeeking" ? "Why are you a fit for this role? *" : "Details *"}</span>
+                    <span>Details *</span>
                     <textarea
                       className="input input--textarea"
                       rows={4}
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       placeholder={detailsPlaceholder}
-                      maxLength={
-                        careersPreset === "referralSeeking"
-                          ? Math.max(
-                              0,
-                              BULLETIN_DESCRIPTION_MAX_CHARS -
-                                referralSeekingLinkLines(referralJobLink, referralResumeLink)
-                                  .join("\n\n").length -
-                                2
-                            )
-                          : BULLETIN_DESCRIPTION_MAX_CHARS
-                      }
+                      maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
                     />
                   </label>
+                  )}
                   {careersPreset === "referralSeeking" ? (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Resume link (optional)</span>
+                      <span>Resume link</span>
                       <input
                         className="input"
                         type="url"
