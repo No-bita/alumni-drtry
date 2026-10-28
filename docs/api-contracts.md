@@ -25,6 +25,8 @@ Error responses use:
 - `GET /v1/auth/verify`: verifies a magic-link click. `401 AUTH_CODE_SUPERSEDED` for a link from an earlier email.
 - `POST /v1/auth/password-login`: password login for supported admin/dev flows.
 - `POST /v1/auth/logout`: clears the session.
+- `POST /v1/auth/logout-all` (signed in, not the demo account): ends every session for this member, including the current one, and clears the cookie. `204`.
+- Sessions: 7 days without use (`SESSION_SLIDING_HOURS`, default 168), 30 days at most (`SESSION_HARD_CAP_HOURS`, default 720). See docs/sign-in.md.
 - `GET /v1/auth/google/config`: returns whether Google auth is enabled.
 - `GET /v1/auth/google/start`: starts Google OAuth.
 - `GET /v1/auth/google/callback`: completes Google OAuth.

@@ -17,6 +17,8 @@ type Props = {
   onPreviewChange?: (preview: boolean) => void;
   onEdit: () => void;
   onSignOut: () => void;
+  /** Sign out of all devices. Rejects with a message when the server refused. */
+  onSignOutEverywhere?: () => Promise<void>;
 };
 function Icon({ kind }: { kind: 'edit'|'pin'|'eye'|'lock'|'mail'|'phone'|'share'|'exit'|'back'|'link' }) {
   const paths = {
@@ -33,7 +35,33 @@ function Icon({ kind }: { kind: 'edit'|'pin'|'eye'|'lock'|'mail'|'phone'|'share'
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind]} /></svg>;
 }
-export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, onEdit, onSignOut, onPreviewChange }: Props) {
+/** "Sign out" plus "Sign out of all devices", which asks once before ending every session. */
+function SignOutActions({ onSignOut, onSignOutEverywhere }: { onSignOut: () => void; onSignOutEverywhere?: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const everywhere = async () => {
+    if (!onSignOutEverywhere) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onSignOutEverywhere();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't sign out of all devices. Try again.");
+      setBusy(false);
+    }
+  };
+  return <div className="person-profile__signout-group">
+    <button type="button" className="person-profile__signout" onClick={onSignOut}><Icon kind="exit" />Sign out</button>
+    {onSignOutEverywhere ? (confirming ? <div className="person-profile__signout-confirm" role="group" aria-label="Sign out of all devices">
+      <p>This signs you out on every phone and computer, including this one. Continue?</p>
+      <div><button type="button" className="person-profile__signout-yes" disabled={busy} onClick={() => void everywhere()}>{busy ? 'Signing out…' : 'Yes, sign out everywhere'}</button><button type="button" disabled={busy} onClick={() => { setConfirming(false); setError(null); }}>Cancel</button></div>
+      {error ? <p className="person-profile__signout-error" role="alert">{error}</p> : null}
+    </div> : <button type="button" className="person-profile__signout" onClick={() => setConfirming(true)}><Icon kind="lock" />Sign out of all devices</button>) : null}
+  </div>;
+}
+
+export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, onEdit, onSignOut, onSignOutEverywhere, onPreviewChange }: Props) {
   const [preview, setPreview] = useState(false);
   const [shareStatus, setShareStatus] = useState('Share');
   const owner = isOwnProfile && !preview;
@@ -65,6 +93,6 @@ export function PersonProfileView({ profile, occupations, links, isOwnProfile, o
     {(sorted.length > 0 || owner) ? <section className="person-profile__path">{head('My path', edit('Edit experience'))}{sorted.length ? <ol>{sorted.map(occupation => <li key={occupation.id}><h3>{occupation.roleTitle}</h3>{formatOccupationCompanyTypeLine(occupation) ? <p>{formatOccupationCompanyTypeLine(occupation)}</p> : null}{formatOccupationDatesDurationLine(occupation) ? <small>{formatOccupationDatesDurationLine(occupation)}</small> : null}{occupation.description?.trim() ? <p>{occupation.description}</p> : null}</li>)}</ol> : <p className="person-profile__muted">No experience added.</p>}</section> : null}
     {(links.length > 0 || owner) ? <section className="person-profile__links">{head('Links', edit('Edit links'))}<div className="person-profile__link-row">{links.map(link => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"><Icon kind="link" />{link.label || link.platform}</a>)}<button type="button" onClick={() => void share()}><Icon kind="share" />{shareStatus}</button></div></section> : <button type="button" className="person-profile__share" onClick={() => void share()}><Icon kind="share" />{shareStatus}</button>}
     {owner ? <section className="person-profile__contact">{head('Contact', edit('Edit contact details'))}<p className="person-profile__privacy"><Icon kind="lock" />Private · hidden from alumni</p><dl><div><dt><Icon kind="mail" />Personal email</dt><dd>{privateContact?.personalEmail || 'Not added'}</dd></div><div><dt><Icon kind="phone" />Phone</dt><dd>{privateContact?.mobilePhone || 'Not added'}</dd></div></dl></section> : null}
-    {owner ? <button type="button" className="person-profile__signout" onClick={onSignOut}><Icon kind="exit" />Sign out</button> : null}
+    {owner ? <SignOutActions onSignOut={onSignOut} onSignOutEverywhere={onSignOutEverywhere} /> : null}
   </section>;
 }

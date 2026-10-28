@@ -84,10 +84,10 @@ const envSchema = z.object({
   WA_MONTHLY_TEMPLATE_CAP: z.coerce.number().int().min(0).max(100_000).default(300),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
-  /** Sliding window: on throttled activity, extend session expiry up to this many hours from "now". */
-  SESSION_SLIDING_HOURS: z.coerce.number().int().min(1).max(24 * 14).default(4),
-  /** Hard cap from `sessions.created_at`: session cannot outlive this many hours (default 48 = 2 days). */
-  SESSION_HARD_CAP_HOURS: z.coerce.number().int().min(1).max(24 * 90).default(48),
+  /** Sliding window: on throttled activity, extend session expiry up to this many hours from "now" (default 7 days idle). */
+  SESSION_SLIDING_HOURS: z.coerce.number().int().min(1).max(24 * 14).default(24 * 7),
+  /** Hard cap from `sessions.created_at`: session cannot outlive this many hours (default 30 days). */
+  SESSION_HARD_CAP_HOURS: z.coerce.number().int().min(1).max(24 * 90).default(24 * 30),
   /** Min seconds between DB writes that refresh `last_seen_at` / sliding `expires_at` (reduces load). */
   SESSION_TOUCH_MIN_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(3600).default(120),
   OTP_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),

@@ -812,4 +812,9 @@ export class AuthService {
     const sessionHash = hashSecret(sessionToken, env.AUTH_SECRET_PEPPER);
     await this.sessionRepo.revokeByHash(sessionHash);
   }
+
+  /** Sign out of all devices: every open session for this member ends. */
+  async logoutAll(personId: string): Promise<void> {
+    await this.sessionRepo.revokeAllByPersonId(personId);
+  }
 }

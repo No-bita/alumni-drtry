@@ -34,6 +34,8 @@ export type AuthSessionSnapshot = {
 type AuthContextValue = AuthState & {
   refetch: () => Promise<AuthSessionSnapshot | null>;
   logout: () => Promise<void>;
+  /** Sign out of all devices (every session for this member). Throws when the server refused. */
+  logoutAll: () => Promise<void>;
 };
 
 function sessionToSnapshot(d: AuthSessionData): AuthSessionSnapshot | null {
@@ -66,6 +68,7 @@ const AuthContext = createContext<AuthContextValue>({
   status: "loading",
   refetch: async () => null,
   logout: async () => {},
+  logoutAll: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -91,6 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, { kind: "unauthenticated" });
   }, []);
 
+  const logoutAll = useCallback(async () => {
+    const { error } = await api.post("/v1/auth/logout-all");
+    if (error) throw new Error(error.message ?? "Couldn't sign out of all devices. Try again.");
+    queryClient.clear();
+    queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, { kind: "unauthenticated" });
+  }, []);
+
   const value = useMemo((): AuthContextValue => {
     let base: AuthState;
     if (query.isPending) {
@@ -100,8 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       base = dataToAuthState(query.data);
     }
-    return { ...base, refetch, logout };
-  }, [query.isPending, query.isError, query.data, refetch, logout]);
+    return { ...base, refetch, logout, logoutAll };
+  }, [query.isPending, query.isError, query.data, refetch, logout, logoutAll]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

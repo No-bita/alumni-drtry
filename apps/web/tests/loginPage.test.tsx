@@ -64,6 +64,19 @@ describe("Login page", () => {
     expect(await screen.findByRole("group", { name: "One-time code" })).toBeTruthy();
   });
 
+  it("shows Continue with Google only when Google sign-in is configured", async () => {
+    mount();
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/google/config"));
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    cleanup();
+    apiGet.mockResolvedValue({ data: { enabled: true } });
+    mount();
+    const google = await screen.findByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("href")).toMatch(/\/v1\/auth\/google$/);
+    expect(screen.getByText("or use your email")).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+  });
+
   it("from a WhatsApp bot link: the sign-in email's link carries the WhatsApp step", async () => {
     window.localStorage.setItem("alma.waEntry", JSON.stringify({ t: "tok123456789", next: "/match?q=x", at: Date.now() }));
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
@@ -130,8 +143,8 @@ describe("Login page", () => {
     expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
     expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
     expect(screen.getByText("Sending your sign-in link…")).toBeTruthy();
-    // No demo-config preflight exists anymore.
-    expect(apiGet).not.toHaveBeenCalled();
+    // Nothing is checked before sending: the only GET is the Google config, which doesn't block Continue.
+    expect(apiGet.mock.calls.every((c) => c[0] === "/v1/auth/google/config")).toBe(true);
   });
 
   it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
