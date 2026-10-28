@@ -38,7 +38,7 @@ export function HomeAskBox() {
     <form className="home-ask" onSubmit={onSubmit} role="search" aria-label="Ask alumni">
       {/* The page heading asks the question out loud; this label names the box for screen readers. */}
       <label htmlFor={inputId} className="visually-hidden">
-        What do you need help with?
+        How can Alma Mater help you?
       </label>
       <div className="home-ask__row">
         <input

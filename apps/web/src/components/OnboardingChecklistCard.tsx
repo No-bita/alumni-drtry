@@ -41,9 +41,9 @@ export function OnboardingChecklistCard() {
         onClick: undefined,
       }
     : {
-        text: "join your city board",
-        why: " to see who is nearby and what they are asking for.",
-        cta: "Open city board",
+        text: "open your city",
+        why: " to see who is nearby and what they are asking",
+        cta: "Open your city",
         to: citySlug ? `/intent/location/${citySlug}` : "/intent/location",
         onClick: () => {
           writeFlag(personId, "city");

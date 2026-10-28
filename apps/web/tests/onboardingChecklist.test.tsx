@@ -49,7 +49,7 @@ describe("OnboardingChecklistCard", () => {
     expect(screen.getByText("add your batch and city")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Add them" }).getAttribute("href")).toBe("/profiles/p1");
     // Only one step at a time, never the whole list.
-    expect(screen.queryByText("join your city board")).toBeNull();
+    expect(screen.queryByText("open your city")).toBeNull();
     expect(screen.queryByText("Send your first message")).toBeNull();
   });
   it("is dismissible and stays dismissed", async () => {
@@ -67,8 +67,8 @@ describe("OnboardingChecklistCard", () => {
     setAuth({ batchYear: 2022, residenceCity: "Pune" });
     mount();
     await waitFor(() => screen.getByText(/One step left:/));
-    expect(screen.getByText("join your city board")).toBeTruthy();
-    const cta = screen.getByRole("link", { name: "Open city board" });
+    expect(screen.getByText("open your city")).toBeTruthy();
+    const cta = screen.getByRole("link", { name: "Open your city" });
     expect(cta.getAttribute("href")).toBe("/intent/location/pune");
     fireEvent.click(cta);
     cleanup();

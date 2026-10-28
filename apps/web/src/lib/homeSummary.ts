@@ -24,7 +24,7 @@ export function reassuranceLine(s: HomeSummary): string | null {
   if (s.alumni <= 0) return null;
   const people = s.alumni === 1 ? "1 alum" : `${fmt(s.alumni)} alumni`;
   const companies = s.companies === 1 ? "1 company" : `${fmt(s.companies)} companies`;
-  const head = s.companies > 0 ? `${people} across ${companies} can help` : `${people} can help`;
+  const head = s.companies > 0 ? `${people} across ${companies}` : people;
   return s.openToReferrals > 0 ? `${head} · ${fmt(s.openToReferrals)} open to referrals` : head;
 }
 

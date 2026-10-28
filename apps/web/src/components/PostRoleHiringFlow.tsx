@@ -156,7 +156,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
 
     const dialogAriaLabel =
       hiringStep === "compose"
-        ? "Post a role to alumni, step 1 of 2: Compose"
+        ? "Post a role to alumni, step 1 of 2: Write"
         : "Post a role to alumni, step 2 of 2: Preview";
 
     const openHiringFlow = useCallback(() => {
@@ -273,6 +273,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
         step={hiringStep}
         stepsAriaLabel="Hiring flow steps"
         closeAriaLabel="Close hiring flow"
+        composeStepLabel="Write"
       >
           <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
             <div className="career-hiring-flow__main ds-surface-card">

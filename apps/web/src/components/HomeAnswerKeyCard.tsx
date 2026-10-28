@@ -44,7 +44,7 @@ export function HomeAnswerKeyCard() {
     return (
       <section className="home-answer-key home-answer-key--done" aria-live="polite">
         <p className="home-answer-key__title">Answer key saved.</p>
-        <p className="home-answer-key__copy">Juniors asking about these will now be sent your way. Edit anytime on your profile.</p>
+        <p className="home-answer-key__copy">You can change this on your profile.</p>
       </section>
     );
   }
@@ -82,7 +82,7 @@ export function HomeAnswerKeyCard() {
             Be someone’s answer key
           </h2>
           <p className="home-answer-key__copy">
-            Tell us what you can help with, and we’ll send you only those questions.
+            Choose what you can help with. It shows on your card when a search matches you.
           </p>
         </div>
         {!open ? (

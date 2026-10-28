@@ -30,13 +30,13 @@ afterEach(cleanup);
 describe("reassurance line", () => {
   it("says all three counts when they are real", () => {
     expect(reassuranceLine({ alumni: 1240, companies: 310, openToReferrals: 86 })).toBe(
-      "1,240 alumni across 310 companies can help · 86 open to referrals",
+      "1,240 alumni across 310 companies · 86 open to referrals",
     );
   });
   it("leaves out any part that would read 0, and singulars read right", () => {
-    expect(reassuranceLine({ alumni: 12, companies: 0, openToReferrals: 0 })).toBe("12 alumni can help");
+    expect(reassuranceLine({ alumni: 12, companies: 0, openToReferrals: 0 })).toBe("12 alumni");
     expect(reassuranceLine({ alumni: 1, companies: 1, openToReferrals: 1 })).toBe(
-      "1 alum across 1 company can help · 1 open to referrals",
+      "1 alum across 1 company · 1 open to referrals",
     );
   });
   it("says nothing when nobody can help yet", () => {
@@ -45,7 +45,7 @@ describe("reassurance line", () => {
   it("renders the line from the API, and nothing when it would be zero", async () => {
     apiGet.mockResolvedValue({ alumni: 40, companies: 12, openToReferrals: 5 });
     wrap(<HomeReassurance />);
-    expect(await screen.findByText("40 alumni across 12 companies can help · 5 open to referrals")).toBeTruthy();
+    expect(await screen.findByText("40 alumni across 12 companies · 5 open to referrals")).toBeTruthy();
     expect(apiGet).toHaveBeenCalledWith("/v1/home/summary", expect.anything());
     cleanup();
     apiGet.mockResolvedValue({ alumni: 0, companies: 0, openToReferrals: 0 });

@@ -37,7 +37,7 @@ export function HomeFootprintStrip({ myPosts, replyCount: totalReplies, viewerPe
         <button type="button" className="home-footprint__replies" onClick={onOpenReplies}>
           <span className="home-footprint__replies-count">{replyCount}</span>{" "}
           <span className="home-footprint__replies-text">
-            {replyCount === 1 ? "reply is" : "replies are"} waiting on your posts. Go see who answered.
+            {replyCount === 1 ? "reply" : "replies"} on your posts
           </span>
           <span className="home-footprint__chevron" aria-hidden>
             ›

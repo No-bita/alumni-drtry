@@ -396,7 +396,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
           if (!norm) return "Resume Link must be a valid http(s) URL.";
         }
         const content = composedContent.trim();
-        if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
+        if (content.length < 10) return "Add a bit more detail (10 characters minimum)";
         const generalErr = validateGeneralBulletinHeadlineDetails(content);
         if (generalErr) {
           return "Your fit answer, job link and resume link together are too long — shorten the fit answer.";
@@ -413,7 +413,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         return `Details must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
       }
       const content = composedContent.trim();
-      if (content.length < 10) return "Add a bit more detail — posts must be at least 10 characters.";
+      if (content.length < 10) return "Add a bit more detail (10 characters minimum)";
       return validateGeneralBulletinHeadlineDetails(content);
     }, [
       body,
@@ -456,7 +456,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
-        setError(apiErr?.message ?? apiErr?.code ?? "Could not publish post.");
+        setError(apiErr?.message ?? apiErr?.code ?? "Couldn't publish. Try again.");
         return;
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
@@ -468,14 +468,14 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
         ? step === "compose"
-          ? "Ask alumni for a referral, step 1 of 2: Compose"
+          ? "Ask alumni for a referral, step 1 of 2: Write"
           : "Ask alumni for a referral, step 2 of 2: Preview"
         : careersPreset === "canHelp"
           ? step === "compose"
-            ? "Offer help to alumni, step 1 of 2: Compose"
+            ? "Offer help to alumni, step 1 of 2: Write"
             : "Offer help to alumni, step 2 of 2: Preview"
           : step === "compose"
-            ? "Share with alumni, step 1 of 2: Compose"
+            ? "Share with alumni, step 1 of 2: Write"
             : "Share with alumni, step 2 of 2: Preview";
 
     const stepsAriaLabel =
@@ -497,7 +497,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         ? "Senior Backend Engineer"
         : careersPreset === "canHelp"
           ? "Can refer into Razorpay — Backend & Platform"
-          : "Looking for advice on switching from IC to EM";
+          : "Advice on becoming a manager";
 
     const referralCompanyPlaceholder = "Razorpay";
     const referralJobLinkPlaceholder = "https://company.com/jobs/…";
@@ -537,6 +537,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         step={step}
         stepsAriaLabel={stepsAriaLabel}
         closeAriaLabel={closeAriaLabel}
+        composeStepLabel="Write"
       >
         <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
           <div className="career-hiring-flow__main ds-surface-card">

@@ -63,7 +63,7 @@ describe("HomeFootprintStrip", () => {
     );
     expect(screen.getByText("Live for 3 more days")).toBeTruthy();
     expect(screen.getByText("Last call: 5 hours left").className).toContain("--soon");
-    fireEvent.click(screen.getByRole("button", { name: /2 replies are waiting on your posts/ }));
+    fireEvent.click(screen.getByRole("button", { name: /2 replies on your posts/ }));
     expect(open).toHaveBeenCalledTimes(1);
   });
 

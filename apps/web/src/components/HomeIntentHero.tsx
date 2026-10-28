@@ -7,7 +7,7 @@ export function HomeIntentHero() {
     <section className="home-ideal__intent-hero" aria-labelledby="home-intent-hero-heading">
       <div className="home-ideal__intent-hero-head">
         <h1 id="home-intent-hero-heading" className="home-ideal__intent-hero-title">
-          What do you need <strong className="home-ideal__intent-hero-accent">help with?</strong>
+          How can Alma Mater <strong className="home-ideal__intent-hero-accent">help you?</strong>
         </h1>
       </div>
       <HomeAskBox />
