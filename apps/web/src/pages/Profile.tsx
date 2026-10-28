@@ -162,9 +162,13 @@ export function Profile() {
 
   useEffect(() => {
     const editMode = searchParams.get("edit");
-    if (!isOwnProfile || isEditing || editMode !== "contact" || !profileQuery.data?.profile) return;
+    // ?edit=contact opens editing; ?edit=open-to (from Careers' "Offer help") also scrolls to Open to.
+    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to") || !profileQuery.data?.profile) return;
     const t = window.setTimeout(() => {
       beginEdit();
+      if (editMode === "open-to") {
+        window.setTimeout(() => document.getElementById("profile-open-to")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+      }
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("edit");
@@ -562,7 +566,7 @@ export function Profile() {
         />
 
         <div className="profile-page__engage-wrap">
-          <section className="profile-page__engage-row" aria-label="Profile highlights">
+          <section id="profile-open-to" className="profile-page__engage-row" aria-label="Profile highlights">
             <ProfileEngagementCards
               loading={loading}
               openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}

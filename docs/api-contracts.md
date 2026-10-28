@@ -72,6 +72,13 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `POST /v1/intentcasts/:id/respond`: creates a private response to the author.
 - `GET /v1/intentcasts/:id/responses`: returns `{ responses }` for the post author.
 
+## Careers (signed in)
+
+- `GET /v1/careers/company?name=&role=`: the company screen. `{ company, current, past }`; each person `{ id, fullName, batchYear, roleTitle, organizationName, openToReferrals, yourNote }`. Matches a company the way Ask does (the company's name or its main company's name contains the typed name as whole words, ignoring capitals); current open-to-referrals first; at most 100; never the viewer; demo/test profiles follow Ask's rules. Each lookup is logged in the search log as a referral question with `parser_source = 'careers'` (not for the demo account). Same read budget as the directory.
+- `GET /v1/careers/referral-companies`: `{ companies: [{ company, alumni }] }`: companies (main names) where alumni working there now are open to referrals, most first, at most 50.
+- `GET /v1/careers/my-company-demand`: `{ demand: { company, asks, days } | null }`: asks (Ask questions and Careers lookups) naming your current company, its main name or names linked to it, in the last 30 days; null without a current company.
+- `POST /v1/contact-requests` accepts `source: "careers"` (migration 053).
+
 ## WhatsApp pilot (off unless `WHATSAPP_ENABLED=true`; see docs/whatsapp-setup.md)
 
 - `GET /v1/whatsapp/webhook`: Meta's one-time verification (`hub.verify_token` must equal `WA_VERIFY_TOKEN`).

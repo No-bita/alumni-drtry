@@ -9,6 +9,7 @@ import type { ConnectionThreadService } from "../services/connectionThreadServic
 import type { ContactRequestService } from "../services/contactRequestService.js";
 import type { DiscoveryService } from "../services/discoveryService.js";
 import type { MatchService } from "../services/matchService.js";
+import type { CareersService } from "../services/careersService.js";
 import type { HomeSummaryService } from "../services/homeSummaryService.js";
 import type { AnalyticsService } from "../services/analyticsService.js";
 import type { WhatsAppService } from "../whatsapp/service.js";
@@ -32,6 +33,7 @@ declare module "fastify" {
     organizationService: OrganizationService;
     discoveryService: DiscoveryService;
     matchService: MatchService;
+    careersService: CareersService;
     homeSummaryService: HomeSummaryService;
     analyticsService: AnalyticsService;
     whatsappService: WhatsAppService;

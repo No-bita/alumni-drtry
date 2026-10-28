@@ -269,3 +269,19 @@ describe("MatchPage — from the WhatsApp bot", () => {
     expect(getJson).not.toHaveBeenCalled();
   });
 });
+
+describe("MatchPage — from a Careers topic shortcut", () => {
+  it("shows the topic's prompt and keeps the topic on the first question", async () => {
+    post.mockResolvedValue({ data: { intent: { ...intent, category: "interview_prep" }, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?cat=interview_prep");
+    expect(screen.getByText(/Which company or role are you interviewing for\?/)).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Google SDE interview next month" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?q=Google+SDE+interview+next+month&cat=interview_prep"));
+    // A later new question starts fresh, as before.
+    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Moving to Pune for work" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?q=Moving+to+Pune+for+work"));
+  });
+});

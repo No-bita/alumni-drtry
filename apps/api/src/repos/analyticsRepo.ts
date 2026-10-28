@@ -533,7 +533,7 @@ export class AnalyticsRepo {
         `SELECT cr.source_rank AS rank, COUNT(*)::text AS c,
                 COUNT(*) FILTER (WHERE cr.status = 'accepted')::text AS a,
                 COUNT(*) FILTER (WHERE cr.status = 'declined')::text AS d
-         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp') AND ${inWindow("cr.created_at")}
+         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp', 'careers') AND ${inWindow("cr.created_at")}
          GROUP BY cr.source_rank ORDER BY cr.source_rank NULLS LAST`,
         [days]
       ),
@@ -542,7 +542,7 @@ export class AnalyticsRepo {
                 COUNT(*) FILTER (WHERE cr.status = 'accepted')::text AS a,
                 COUNT(*) FILTER (WHERE cr.status = 'declined')::text AS d,
                 COUNT(*) FILTER (WHERE cr.status = 'pending')::text AS p
-         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp') AND ${inWindow("cr.created_at")}
+         FROM ${this.notesFrom} AND cr.source IN ('match', 'whatsapp', 'careers') AND ${inWindow("cr.created_at")}
          GROUP BY cr.source_category ORDER BY COUNT(*) DESC`,
         [days]
       )
