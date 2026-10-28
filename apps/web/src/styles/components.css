@@ -18121,10 +18121,10 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero-title {
-  font-size: clamp(2.2rem, 5.25vw, 3.55rem);
+  font-size: clamp(2.2rem, 4.6vw, 3.1rem);
   line-height: 1.04;
   letter-spacing: -0.035em;
-  max-width: 20ch;
+  max-width: none;
 }
 
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero-head {
