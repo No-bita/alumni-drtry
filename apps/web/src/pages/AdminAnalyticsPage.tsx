@@ -517,6 +517,23 @@ export function AdminAnalyticsPage() {
           </p>
         ) : (
           <>
+            {query.data ? (
+              <section className="aa-review" aria-labelledby="aa-review-title">
+                <div className="aa-review__text">
+                  <h2 id="aa-review-title" className="aa-review__title">
+                    Company review
+                  </h2>
+                  <p className="aa-review__count">
+                    {query.data.operations.orgsPending === 0
+                      ? "No company names are waiting."
+                      : `${compact(query.data.operations.orgsPending)} company ${query.data.operations.orgsPending === 1 ? "name is" : "names are"} waiting for approval.`}
+                  </p>
+                </div>
+                <Link to="/admin/companies" className="aa-review__btn">
+                  Review companies
+                </Link>
+              </section>
+            ) : null}
             <div className="aa-controls">
               <div className="aa-range" role="group" aria-label="Time range">
                 {ANALYTICS_WINDOWS.map((d) => (
