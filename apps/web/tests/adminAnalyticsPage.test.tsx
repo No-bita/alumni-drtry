@@ -117,6 +117,8 @@ describe("Admin analytics screen", () => {
     expect(screen.getByText(/Test 1 · Alum replies/).closest("p")!.textContent).toContain("Passes");
     expect(screen.getByText(/Test 2 · Onboarding/).closest("p")!.textContent).toContain("Not enough data yet");
     expect(screen.getByText("31 / 300")).toBeTruthy();
+    const pendingTile = screen.getByText("Companies waiting for approval").closest(".aa-tile") as HTMLElement;
+    expect(within(pendingTile).getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/admin/companies");
   });
 
   it("switches the window and can skip the cache", async () => {

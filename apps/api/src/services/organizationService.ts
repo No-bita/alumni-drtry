@@ -2,9 +2,13 @@ import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
 import {
   OrganizationRepo,
+  type ApprovedOrganizationOption,
   type OrganizationView,
   type PendingOrganizationView
 } from "../repos/organizationRepo.js";
+
+/** Most options the "Same company as…" picker shows at once. */
+export const APPROVED_ORG_OPTIONS_MAX = 20;
 
 export interface SuggestOrganizationResult {
   organization: OrganizationView;
@@ -42,6 +46,11 @@ export class OrganizationService {
   async listPendingOrganizations(limit = 50): Promise<PendingOrganizationView[]> {
     const safeLimit = Math.max(1, Math.min(limit, 200));
     return this.organizationRepo.listPending(safeLimit);
+  }
+
+  /** Admin picker: approved, non-linked companies whose name contains `search` (case-insensitive), by name, 20 at most. */
+  async searchApprovedOrganizations(search: string): Promise<ApprovedOrganizationOption[]> {
+    return this.organizationRepo.listApprovedOptions(search.trim(), APPROVED_ORG_OPTIONS_MAX);
   }
 
   async approveOrganization(

@@ -316,3 +316,10 @@
 .aa-verdict--passes {
   border-color: var(--badge-open-text);
 }
+
+.aa-link {
+  font-weight: 600;
+  color: var(--brick);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -1,0 +1,178 @@
+/* Company review (/admin/companies). Builds on admin-analytics.css. 390px first. */
+.cr-page {
+  max-width: 760px;
+  gap: var(--space-md, 16px);
+}
+
+.cr-head {
+  display: grid;
+  gap: 8px;
+}
+
+.cr-head__lede {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.cr-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--brick);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.cr-done {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--palette-bg-cream);
+  border: 1px solid var(--rule);
+  font-size: 0.9rem;
+}
+
+.cr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.cr-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.cr-card.is-open {
+  border-color: var(--ink-muted);
+}
+
+.cr-card__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cr-card__meta {
+  margin: -6px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.cr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cr-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cr-btn--primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+.cr-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cr-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--palette-bg-cream);
+  border: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.cr-panel__text,
+.cr-panel__note {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cr-panel__note {
+  color: var(--ink-muted);
+}
+
+.cr-panel__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cr-panel__error {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--brick);
+}
+
+.cr-search {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.cr-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.cr-option {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.cr-option:hover,
+.cr-option:focus-visible {
+  border-color: var(--ink-muted);
+}

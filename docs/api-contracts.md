@@ -109,7 +109,8 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 ## Organizations And Admin
 
 - `POST /v1/orgs/suggest`: suggests an organization.
-- `GET /v1/admin/orgs/pending`: lists pending organization suggestions.
+- `GET /v1/admin/orgs/pending?limit=` (1–200, default 50): pending company names, oldest first. Each has `createdByEmailMasked` ("sh•••@itbhu.ac.in"); the full creator email is not returned.
+- `GET /v1/admin/orgs/approved?q=` (admins): the "Same company as…" picker. `{ organizations: [{ id, name }] }`: approved companies that aren't themselves linked to another, name contains `q` (ignoring capitals; `%` and `_` are plain text), ordered by name, at most 20. Empty `q` returns the first 20.
 - `PATCH /v1/admin/orgs/:id`: approves or updates an organization.
 - `DELETE /v1/admin/orgs/:id`: rejects/removes an organization.
 - `GET /v1/admin/people/:id`: returns admin person detail.

@@ -18,9 +18,11 @@ describe('Profile preview/edit state',()=>{
   client.setQueryData(queryKeys.profiles.detail('p1'),{profile,occupations:[],links:[]});
   client.setQueryData(queryKeys.me.links(),{links:[]});
   client.setQueryData(['admin-allowed-emails','profile-dashboard'],[]);
+  client.setQueryData(['admin','orgs','pending'],[{id:'o1',name:'Goldman',createdAt:'2026-10-27',createdByEmailMasked:null},{id:'o2',name:'Acme',createdAt:'2026-10-27',createdByEmailMasked:null}]);
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/profiles/p1']}><Routes><Route path="/profiles/:id" element={<Profile/>}/></Routes></MemoryRouter></QueryClientProvider>);
   expect(screen.getByRole('heading',{name:'Admin tools'})).toBeTruthy();
   expect(screen.getByRole('heading',{name:'Admin email allowlist'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Company review · 2 waiting'}).getAttribute('href')).toBe('/admin/companies');
   fireEvent.click(screen.getByRole('button',{name:'Preview seam'}));
   expect(screen.queryByRole('heading',{name:'Admin tools'})).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Begin contact edit seam'}));

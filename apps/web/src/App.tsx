@@ -37,6 +37,9 @@ const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m
 const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
 );
+const AdminCompanyReviewPage = lazy(() =>
+  import("./pages/AdminCompanyReviewPage").then((m) => ({ default: m.AdminCompanyReviewPage }))
+);
 const AdminAnalyticsPage = lazy(() =>
   import("./pages/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage }))
 );
@@ -347,6 +350,14 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <AdminAnalyticsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/companies"
+          element={
+            <RequireAuth>
+              <AdminCompanyReviewPage />
             </RequireAuth>
           }
         />

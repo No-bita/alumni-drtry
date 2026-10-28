@@ -21,6 +21,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
+import { PENDING_COMPANIES_KEY, PENDING_LIMIT, fetchPendingCompanies } from "../lib/adminCompanies";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import { preflightProfileEdits } from "../lib/profileSavePreflight";
@@ -98,6 +99,13 @@ export function Profile() {
     queryKey: queryKeys.me.links(),
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
     enabled: Boolean(isOwnProfile),
+  });
+
+  // Admin tools: how many company names wait for review (shares the Company review page's cache).
+  const pendingCompaniesQuery = useQuery({
+    queryKey: PENDING_COMPANIES_KEY,
+    queryFn: ({ signal }) => fetchPendingCompanies(signal),
+    enabled: Boolean(isOwnProfile && isAdminViewer),
   });
 
   const adminAllowedEmailsQuery = useQuery({
@@ -617,9 +625,17 @@ export function Profile() {
               <article id="admin-tools" className="home-dashboard__card profile-page__analytics-card">
                 <div className="profile-page__analytics-header">
                   <h2 className="profile-page__section-title">Admin tools</h2>
-                  <Link to="/admin/analytics" className="nav__profile-edit nav__profile-edit--ghost">
-                    Open analytics
-                  </Link>
+                  <div className="profile-page__admin-links">
+                    <Link to="/admin/analytics" className="nav__profile-edit nav__profile-edit--ghost">
+                      Open analytics
+                    </Link>
+                    <Link to="/admin/companies" className="nav__profile-edit nav__profile-edit--ghost">
+                      Company review
+                      {pendingCompaniesQuery.data
+                        ? ` · ${pendingCompaniesQuery.data.length >= PENDING_LIMIT ? `${PENDING_LIMIT}+` : pendingCompaniesQuery.data.length} waiting`
+                        : ""}
+                    </Link>
+                  </div>
                 </div>
                   <div className="profile-page__analytics-grid">
                     <section className="profile-page__analytics-section">
