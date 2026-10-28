@@ -64,7 +64,7 @@ export function HomeNetworkPanel({
       <input className="home-network-invite__link" readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} />
       <div className="home-network-invite__actions">
         <button type="button" className="btn btn--secondary" onClick={() => void onCopy()}>
-          {copied === "yes" ? "Copied. Go forth." : copied === "no" ? "Couldn't copy. Long-press the link instead" : "Copy link"}
+          {copied === "yes" ? "Copied" : copied === "no" ? "Couldn't copy. Long-press the link instead" : "Copy link"}
         </button>
         <a
           className="btn btn--primary"
@@ -114,7 +114,6 @@ export function HomeNetworkPanel({
         })}
         {overflow > 0 ? <span className="home-ideal__avatar-overflow">+{overflow}</span> : null}
       </div>
-      <p className="home-ideal__panel-copy">Strengthen your batch network and stay connected.</p>
       <div className="home-ideal__panel-actions">
         <button
           type="button"
