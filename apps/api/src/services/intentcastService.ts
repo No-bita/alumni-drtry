@@ -59,6 +59,8 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
   content: string;
+  /** Cities v1: canonical place id when posted from a city page. */
+  placeId?: string | null;
 }
 
 export interface IntentcastFeedOutput {
@@ -137,12 +139,21 @@ export class IntentcastService {
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
-    const created = await this.intentcastRepo.create({
-      authorPersonId,
-      content,
-      category: input.category,
-      expiresAt
-    });
+    const created = await this.intentcastRepo
+      .create({
+        authorPersonId,
+        content,
+        category: input.category,
+        expiresAt,
+        placeId: input.placeId ?? null
+      })
+      .catch((err: unknown) => {
+        // Unknown city id (foreign key): a bad request, not a server error.
+        if ((err as { code?: string })?.code === "23503") {
+          throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Unknown city.");
+        }
+        throw err;
+      });
     const view = await this.intentcastRepo.findFeedItemById(created.id, authorPersonId);
     if (!view) {
       throw new AppError(500, "INTENTCAST_CREATE_FAILED", "Failed to load created intentcast.");
