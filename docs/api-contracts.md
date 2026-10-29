@@ -79,6 +79,16 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `GET /v1/careers/my-company-demand`: `{ demand: { company, asks, days } | null }`: asks (Ask questions and Careers lookups) naming your current company, its main name or names linked to it, in the last 30 days; null without a current company.
 - `POST /v1/contact-requests` accepts `source: "careers"` (migration 053).
 
+## Cities v1 (signed in; Bengaluru first)
+
+Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migration 055.
+
+- `GET /v1/cities`, `GET /v1/cities/search?q=`, `GET /v1/cities/:placeId`, `GET /v1/cities/:placeId/alumni?filter=&cursor=`.
+- `POST /v1/cities/arrivals`, `POST /v1/cities/arrivals/end`, `POST /v1/cities/arrivals/:arrivalId/offers`, `DELETE /v1/cities/offers/:offerId`, `POST /v1/cities/offers/seen`, `PATCH /v1/me/city-nudge`.
+- `PATCH /v1/me/profile` returns `arrivalPrompt` and resolves the typed city to a canonical place; `openToPreferences.limits.coffee` (1/2/3/5) is required to turn coffee on.
+- `POST /v1/contact-requests` accepts `source: "cities"` with `coffee`, `relocation`, `visiting`, `newcomer` (+ `cityHelpOfferId`). `POST /v1/intentcasts` accepts `placeId`.
+- `GET /v1/admin/metrics/cities?days=7|30|90` (admins).
+
 ## WhatsApp pilot (off unless `WHATSAPP_ENABLED=true`; see docs/whatsapp-setup.md)
 
 - `GET /v1/whatsapp/webhook`: Meta's one-time verification (`hub.verify_token` must equal `WA_VERIFY_TOKEN`).

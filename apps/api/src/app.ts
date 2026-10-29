@@ -20,6 +20,8 @@ import { intentcastRoutes } from "./routes/intentcastRoutes.js";
 import { matchRoutes } from "./routes/matchRoutes.js";
 import { careersRoutes } from "./routes/careersRoutes.js";
 import { CareersService } from "./services/careersService.js";
+import { citiesRoutes } from "./routes/citiesRoutes.js";
+import { CitiesService } from "./services/citiesService.js";
 import { homeRoutes } from "./routes/homeRoutes.js";
 import { meRoutes } from "./routes/meRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
@@ -119,6 +121,8 @@ export async function createApp(options: CreateAppOptions = {}) {
   const campusMonthlyService = new CampusMonthlyService(pool);
   const homeSummaryService = new HomeSummaryService(pool);
   const analyticsService = new AnalyticsService(pool);
+  const citiesService = new CitiesService(pool, contactRequestService, emailSender, adminMetricsService);
+  profileService.setResidenceSync(citiesService);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);
   app.decorate("occupationService", occupationService);
@@ -127,6 +131,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("discoveryService", discoveryService);
   app.decorate("matchService", matchService);
   app.decorate("careersService", new CareersService(pool, contactRequestService));
+  app.decorate("citiesService", citiesService);
   app.decorate("adminPlacesService", adminPlacesService);
   app.decorate("locationCleanupService", locationCleanupService);
   app.decorate("intentcastService", intentcastService);
@@ -196,6 +201,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(discoveryRoutes);
   await app.register(matchRoutes);
   await app.register(careersRoutes);
+  await app.register(citiesRoutes);
   await app.register(homeRoutes);
   await app.register(whatsappRoutes, {
     service: whatsappService,

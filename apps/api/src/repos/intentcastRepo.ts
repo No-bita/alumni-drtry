@@ -117,6 +117,8 @@ export interface CreateIntentcastInput {
   content: string;
   category: IntentcastCategory;
   expiresAt: Date;
+  /** Cities v1: a post made from a city page carries that city. */
+  placeId?: string | null;
 }
 
 export interface FeedInput {
@@ -248,11 +250,11 @@ export class IntentcastRepo {
   async create(input: CreateIntentcastInput): Promise<IntentcastRow> {
     const result = await this.db.query<IntentcastRow>(
       `
-      INSERT INTO intentcasts (author_person_id, content, category, expires_at, editable_until)
-      VALUES ($1, $2, $3, $4, now() + interval '5 minutes')
+      INSERT INTO intentcasts (author_person_id, content, category, expires_at, editable_until, place_id)
+      VALUES ($1, $2, $3, $4, now() + interval '5 minutes', $5::uuid)
       RETURNING *
       `,
-      [input.authorPersonId, input.content, input.category, input.expiresAt]
+      [input.authorPersonId, input.content, input.category, input.expiresAt, input.placeId ?? null]
     );
     return result.rows[0]!;
   }

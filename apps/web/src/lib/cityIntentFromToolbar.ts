@@ -1,7 +1,6 @@
 import type { ResidenceCityAggregate } from "../api/client";
 import type { TopCityPick } from "../constants/locationLens";
 import { LOCATION_LENS_TOP_CITIES_FALLBACK } from "../constants/locationLens";
-import { CITY_EVENTS, CITY_NEEDS } from "../constants/citiesSupport";
 import { normalizeQ } from "./directorySearchUrlState";
 
 /** Mirrors location hub slug normalization (ASCII slug from display name). */
@@ -62,12 +61,6 @@ function addPickSlug(map: Map<string, TopCityPick>, pick: TopCityPick) {
 export function buildCityIntentSlugLookup(apiRows?: ResidenceCityAggregate[]): Map<string, TopCityPick> {
   const map = new Map<string, TopCityPick>();
   for (const item of LOCATION_LENS_TOP_CITIES_FALLBACK) {
-    addPickSlug(map, { city: item.city, country: item.country });
-  }
-  for (const item of CITY_NEEDS) {
-    addPickSlug(map, { city: item.city, country: item.country });
-  }
-  for (const item of CITY_EVENTS) {
     addPickSlug(map, { city: item.city, country: item.country });
   }
   if (apiRows?.length) {
