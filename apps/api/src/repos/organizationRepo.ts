@@ -7,6 +7,7 @@ interface OrganizationRow {
   name: string;
   approval_status: OrganizationApprovalStatus;
   canonical_organization_id: string | null;
+  submitted_name: string | null;
   created_by_person_id: string | null;
   reviewed_by_person_id: string | null;
   reviewed_at: Date | null;
@@ -20,6 +21,8 @@ export interface OrganizationView {
   name: string;
   approvalStatus: OrganizationApprovalStatus;
   canonicalOrganizationId: string | null;
+  /** The name as first typed, kept once an admin renames it (null if never renamed). */
+  submittedName: string | null;
   createdByPersonId: string | null;
   reviewedByPersonId: string | null;
   reviewedAt: Date | null;
@@ -37,6 +40,17 @@ export interface PendingOrganizationView extends OrganizationView {
 export interface ApprovedOrganizationOption {
   id: string;
   name: string;
+}
+
+/** A row in Company review's "Approved companies" section. */
+export interface ApprovedOrganizationListItem {
+  id: string;
+  name: string;
+  submittedName: string | null;
+  /** The main company this name is linked to ("Same company as…"), or null if it's a main company itself. */
+  linkedTo: { id: string; name: string } | null;
+  /** How many other names are linked to this one. */
+  linkedNames: number;
 }
 
 /** "shahaaryan.milan.mst20@itbhu.ac.in" → "sh•••@itbhu.ac.in" (one visible letter for very short names). */
@@ -59,6 +73,7 @@ function mapOrganization(row: OrganizationRow): OrganizationView {
     name: row.name,
     approvalStatus: row.approval_status,
     canonicalOrganizationId: row.canonical_organization_id,
+    submittedName: row.submitted_name,
     createdByPersonId: row.created_by_person_id,
     reviewedByPersonId: row.reviewed_by_person_id,
     reviewedAt: row.reviewed_at,
@@ -86,6 +101,7 @@ export class OrganizationRepo {
         name::TEXT AS name,
         approval_status,
         canonical_organization_id,
+        submitted_name,
         created_by_person_id,
         reviewed_by_person_id,
         reviewed_at,
@@ -110,6 +126,7 @@ export class OrganizationRepo {
         name::TEXT AS name,
         approval_status,
         canonical_organization_id,
+        submitted_name,
         created_by_person_id,
         reviewed_by_person_id,
         reviewed_at,
@@ -136,6 +153,7 @@ export class OrganizationRepo {
         name::TEXT AS name,
         approval_status,
         canonical_organization_id,
+        submitted_name,
         created_by_person_id,
         reviewed_by_person_id,
         reviewed_at,
@@ -156,6 +174,7 @@ export class OrganizationRepo {
         o.name::TEXT AS name,
         o.approval_status,
         o.canonical_organization_id,
+        o.submitted_name,
         o.created_by_person_id,
         o.reviewed_by_person_id,
         o.reviewed_at,
@@ -196,6 +215,107 @@ export class OrganizationRepo {
     return result.rows;
   }
 
+  /**
+   * Every approved company, linked or not, whose name (or first-typed name) contains `search`
+   * (case-insensitive; % and _ are plain text), by name.
+   */
+  async listApproved(search: string, limit: number): Promise<ApprovedOrganizationListItem[]> {
+    const pattern = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const result = await this.db.query<{
+      id: string;
+      name: string;
+      submitted_name: string | null;
+      main_id: string | null;
+      main_name: string | null;
+      linked_names: number;
+    }>(
+      `
+      SELECT
+        o.id,
+        o.name::TEXT AS name,
+        o.submitted_name,
+        main.id AS main_id,
+        main.name::TEXT AS main_name,
+        (SELECT count(*)::INT FROM organizations l WHERE l.canonical_organization_id = o.id) AS linked_names
+      FROM organizations o
+      LEFT JOIN organizations main ON main.id = o.canonical_organization_id
+      WHERE o.approval_status = 'approved'
+        AND (o.name::TEXT ILIKE $1 ESCAPE '\\' OR o.submitted_name ILIKE $1 ESCAPE '\\')
+      ORDER BY lower(o.name::TEXT), o.name::TEXT, o.id
+      LIMIT $2
+      `,
+      [pattern, limit]
+    );
+    return result.rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      submittedName: r.submitted_name,
+      linkedTo: r.main_id && r.main_name ? { id: r.main_id, name: r.main_name } : null,
+      linkedNames: r.linked_names
+    }));
+  }
+
+  /** Rename. The first name it had is kept in submitted_name (later renames don't overwrite it). */
+  async rename(organizationId: string, name: string): Promise<OrganizationView> {
+    const result = await this.db.query<OrganizationRow>(
+      `
+      UPDATE organizations
+      SET
+        submitted_name = COALESCE(submitted_name, name::TEXT),
+        name = $2
+      WHERE id = $1
+      RETURNING
+        id,
+        name::TEXT AS name,
+        approval_status,
+        canonical_organization_id,
+        submitted_name,
+        created_by_person_id,
+        reviewed_by_person_id,
+        reviewed_at,
+        rejection_reason,
+        created_at,
+        updated_at
+      `,
+      [organizationId, name]
+    );
+    return mapOrganization(result.rows[0]!);
+  }
+
+  /** Point every name linked to `fromId` at `toId` instead. Returns how many moved. */
+  async moveLinkedNames(fromId: string, toId: string): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE organizations SET canonical_organization_id = $2 WHERE canonical_organization_id = $1`,
+      [fromId, toId]
+    );
+    return result.rowCount ?? 0;
+  }
+
+  /** Link an already approved company to a main one (approval fields unchanged). */
+  async setCanonical(organizationId: string, canonicalOrganizationId: string): Promise<OrganizationView> {
+    const result = await this.db.query<OrganizationRow>(
+      `
+      UPDATE organizations
+      SET canonical_organization_id = $2
+      WHERE id = $1
+      RETURNING
+        id,
+        name::TEXT AS name,
+        approval_status,
+        canonical_organization_id,
+        submitted_name,
+        created_by_person_id,
+        reviewed_by_person_id,
+        reviewed_at,
+        rejection_reason,
+        created_at,
+        updated_at
+      `,
+      [organizationId, canonicalOrganizationId]
+    );
+    return mapOrganization(result.rows[0]!);
+  }
+
   async approve(
     organizationId: string,
     reviewedByPersonId: string,
@@ -216,6 +336,7 @@ export class OrganizationRepo {
         name::TEXT AS name,
         approval_status,
         canonical_organization_id,
+        submitted_name,
         created_by_person_id,
         reviewed_by_person_id,
         reviewed_at,
@@ -248,6 +369,7 @@ export class OrganizationRepo {
         name::TEXT AS name,
         approval_status,
         canonical_organization_id,
+        submitted_name,
         created_by_person_id,
         reviewed_by_person_id,
         reviewed_at,
