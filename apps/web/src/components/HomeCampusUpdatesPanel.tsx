@@ -40,7 +40,7 @@ export function HomeCampusUpdatesPanel() {
       </header>
       <article className="home-ideal__campus-card">
         <div className="home-ideal__campus-cover" aria-hidden>
-          <span className="home-ideal__campus-cover-brand">IIT BHU</span>
+          <span className="home-ideal__campus-cover-brand">Alma Mater</span>
           <span className="home-ideal__campus-cover-title">Alma Communique</span>
           <span className="home-ideal__campus-cover-seal">1916</span>
         </div>

@@ -118,7 +118,7 @@ export function CareerPage() {
           <h2 id="careers-hero-title" className="careers__title">
             Get referred where you&apos;re applying.
           </h2>
-          <p className="careers__lede">Find IIT BHU alumni at the company and ask them directly.</p>
+          <p className="careers__lede">Find alumni at the company and ask them directly.</p>
           <form className="careers__search" onSubmit={onFind}>
             <label htmlFor={companyId} className="careers__label">
               Where are you applying?

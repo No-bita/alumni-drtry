@@ -143,7 +143,7 @@ export function CareerCompanyPage() {
               {role ? <span className="careers__chip">{role}</span> : null}
               {nobodyNow ? (
                 <div className="careers__callout">
-                  <p className="careers__row-title">No one from IIT BHU at {companyName} on Alma Mater yet.</p>
+                  <p className="careers__row-title">No one at {companyName} on Alma Mater yet.</p>
                   <p className="careers__note">
                     {past.length > 0 ? "Alumni who used to work there can still give you an inside view." : "No one on Alma Mater has worked there either."}
                   </p>

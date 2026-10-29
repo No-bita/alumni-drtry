@@ -11,7 +11,7 @@ export function buildInviteLink(origin: string, inviterPersonId?: string | null,
 }
 
 export function buildInviteMessage(link: string): string {
-  return `I'm on Alma Mater, the IIT BHU alumni network. Come join so we can finally find each other: ${link}`;
+  return `I'm on Alma Mater, our alumni network. Come join so we can finally find each other: ${link}`;
 }
 
 export function buildWhatsAppShareUrl(link: string): string {

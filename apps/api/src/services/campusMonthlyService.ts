@@ -10,7 +10,7 @@ function headingForIssueMonth(issueMonth: Date): string {
   const label = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     issueMonth
   );
-  return `${label} at IIT BHU`;
+  return `${label} on campus`;
 }
 
 export class CampusMonthlyService {
