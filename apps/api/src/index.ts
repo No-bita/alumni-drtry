@@ -78,6 +78,8 @@ async function main() {
         .catch((err: unknown) => {
           app.log.error({ err }, "usage event purge failed");
         });
+      // Cities email rollout is parked. Keep sendNudges available for isolated tests only;
+      // do not run it from the production reminder scheduler.
       // And forget expired WhatsApp links (short links and used-link records).
       void app.whatsappService.purgeExpiredLinks().catch((err: unknown) => {
         app.log.error({ err }, "whatsapp link purge failed");
