@@ -312,6 +312,20 @@ export type NotificationItem =
       senderPersonId: string;
       senderFullName: string | null;
       message: string;
+      /** Where the note came from (e.g. "cities") and its category, for copy. */
+      source?: string | null;
+      sourceCategory?: string | null;
+    }
+  | {
+      /** Cities: a local offered to help the newcomer (in-app only). */
+      kind: "city_help_offer_received";
+      id: string;
+      occurredAt: string;
+      offerId: string;
+      offererPersonId: string;
+      offererFullName: string | null;
+      kinds: Array<"areas" | "commute" | "coffee" | "intros">;
+      cityName: string;
     }
   | {
       kind: "contact_request_resolved";
