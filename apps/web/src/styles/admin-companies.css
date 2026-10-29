@@ -176,3 +176,23 @@
 .cr-option:focus-visible {
   border-color: var(--ink-muted);
 }
+
+/* "Approved companies": below the pending list. */
+.cr-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.cr-section__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.cr-section .cr-list {
+  margin-top: 4px;
+}
