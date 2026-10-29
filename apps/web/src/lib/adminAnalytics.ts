@@ -227,3 +227,43 @@ export function onboardingVerdict(rows: AnalyticsReport["whatsapp"]["onboardingB
     detail: `Finish rate ${lift >= 0 ? "+" : ""}${Math.round(lift)} points vs website`,
   };
 }
+
+/** Cities v1 metrics (GET /v1/admin/metrics/cities). */
+export type CitiesNoteMetrics = {
+  category: string;
+  sent: number;
+  accepted: number;
+  declined: number;
+  pending: number;
+  acceptanceRate: number | null;
+  declineRate: number | null;
+};
+
+export type CitiesMetrics = {
+  windowDays: number;
+  notes: { overall: CitiesNoteMetrics; byCategory: CitiesNoteMetrics[] };
+  arrivals: {
+    promptShown: number;
+    optedIn: number;
+    optInRate: number | null;
+    offers: number;
+    offersPerArrival: number | null;
+    withOfferIn7dShare: number | null;
+    newcomerNotesPerArrival: number | null;
+  };
+  coffee: { asksSent: number; accepted: number; fullThisWeekImpressions: number };
+  cityHelpOnFromPanel: number;
+  cityUpdatesFromMovedAway: number;
+  nudge: { sent: number; visitedIn7d: number; actedIn7d: number; stopRate: number | null };
+};
+
+export const citiesMetricsQueryKey = (days: AnalyticsWindow) => ["admin", "analytics", "cities", days] as const;
+
+export async function fetchCitiesMetrics(days: AnalyticsWindow, signal: AbortSignal): Promise<CitiesMetrics> {
+  return (await assertApiGet<{ metrics: CitiesMetrics }>(`/v1/admin/metrics/cities?days=${days}`, signal)).metrics;
+}
+
+/** A 0–1 rate as a percentage ("—" when there is nothing to divide). */
+export function rate(r: number | null): string {
+  return r === null ? "—" : `${Math.round(r * 100)}%`;
+}
