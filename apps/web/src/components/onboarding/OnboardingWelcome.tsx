@@ -69,7 +69,7 @@ export function OnboardingWelcome({
         <div className="onboarding-welcome__grid">
           {showBeginButton ? (
             <div className="onboarding-welcome__left">
-              <p className="onboarding-welcome__eyebrow">Alma Mater · IIT BHU alumni</p>
+              <p className="onboarding-welcome__eyebrow">Alma Mater · your alumni network</p>
               <p className="onboarding-welcome__quote">
                 Everyone who ever called Banaras home is{" "}
                 <span className="onboarding-welcome__quote-accent">one message away</span>.

@@ -120,7 +120,7 @@ describe("Careers company screen", () => {
   it("nobody there now or before: says so, and the Wall is the next step, prefilled; posting closes the loop", async () => {
     apiGet.mockResolvedValue({ company: "Microsoft", current: [], past: [] });
     mount("/intent/career/company?name=Microsoft&role=SDE");
-    expect(await screen.findByText("No one from IIT BHU at Microsoft on Alma Mater yet.")).toBeTruthy();
+    expect(await screen.findByText("No one at Microsoft on Alma Mater yet.")).toBeTruthy();
     expect(screen.getByText("No one on Alma Mater has worked there either.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Post it on the Wall" }));
     expect(wall.open).toHaveBeenCalledWith({ careersPreset: "referralSeeking", referralCompanyName: "Microsoft", headline: "SDE" });
