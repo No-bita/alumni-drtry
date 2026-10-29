@@ -11,6 +11,8 @@ import {
 import { normalizeEmail } from "../lib/domainAllowlist.js";
 import { personRowIsDemoProfile } from "../lib/demoPersonProfile.js";
 import { PersonRepo } from "../repos/personRepo.js";
+import { CitiesRepo } from "../repos/citiesRepo.js";
+import { coffeeWeeklyLimit, parseOpenToPreferences } from "../lib/openToPreferences.js";
 import type { EmailSender } from "./emailSender.js";
 
 export interface CreateContactRequestInput {
@@ -20,6 +22,38 @@ export interface CreateContactRequestInput {
   source?: ContactRequestSource;
   sourceCategory?: string | null;
   sourceRank?: number | null;
+  /** Cities v1, newcomer notes: the offer this note answers. */
+  cityHelpOfferId?: string | null;
+}
+
+/** Cities v1 note categories (source "cities"). */
+export const CITIES_NOTE_CATEGORIES = ["coffee", "relocation", "visiting", "newcomer"] as const;
+export type CitiesNoteCategory = (typeof CITIES_NOTE_CATEGORIES)[number];
+
+/** A coffee ask must say why them: at least this many characters (the optional "When suits me" line excluded). */
+export const COFFEE_REASON_MIN_CHARS = 40;
+/** Most relocation/visiting asks a sender may have waiting at once, across all cities. */
+export const CITY_HELP_PENDING_MAX = 3;
+
+/** The reason part of a coffee ask: the note without its trailing "When suits me: …" line. */
+export function coffeeReasonText(message: string): string {
+  return message.replace(/\n+\s*When suits me:[^\n]*\s*$/i, "").trim();
+}
+
+/** How the email describes a Cities note (keyed by category). */
+function citiesEmailLead(category: string | null | undefined): string | undefined {
+  switch (category) {
+    case "coffee":
+      return "asked you for coffee";
+    case "relocation":
+      return "is moving to your city and asked for your help settling in";
+    case "visiting":
+      return "is visiting your city and asked for your help";
+    case "newcomer":
+      return "replied to your offer to help them settle in";
+    default:
+      return undefined;
+  }
 }
 
 /** Reminder rules (approved): one email, for notes pending 3–14 days. */
@@ -136,7 +170,7 @@ export class ContactRequestService {
       }
     }
 
-    const created = await this.contactRequestRepo.create({
+    const createInput = {
       senderPersonId: sender.id,
       recipientPersonId: recipient.id,
       message,
@@ -144,7 +178,11 @@ export class ContactRequestService {
       source: input.source ?? null,
       sourceCategory: input.source ? (input.sourceCategory ?? null) : null,
       sourceRank: input.source ? (input.sourceRank ?? null) : null
-    });
+    };
+    const created =
+      input.source === "cities"
+        ? await this.createCitiesNote(createInput, input.sourceCategory ?? null, input.cityHelpOfferId ?? null)
+        : await this.contactRequestRepo.create(createInput);
 
     // WhatsApp first when the alum opted in (and within the monthly cap); otherwise email, as before.
     let channel: "email" | "whatsapp" = "email";
@@ -170,7 +208,8 @@ export class ContactRequestService {
           to: recipient.institutional_email,
           recipientName: recipient.full_name ?? "there",
           senderName: sender.full_name ?? sender.institutional_email,
-          message
+          message,
+          lead: input.source === "cities" ? citiesEmailLead(input.sourceCategory) : undefined
         });
       } catch (err) {
         notificationDelivered = false;
@@ -183,6 +222,90 @@ export class ContactRequestService {
       contactRequest: created,
       notificationDelivered
     };
+  }
+
+  /**
+   * Cities notes pass the reach-out principle: the recipient said yes to this kind of contact and the
+   * sender gives a reason. Checks and insert run in one transaction with row locks, so two asks sent
+   * at once cannot both take a recipient's last coffee spot (or a sender's last city-help slot).
+   */
+  private async createCitiesNote(
+    createInput: Parameters<ContactRequestRepo["create"]>[0],
+    category: string | null,
+    cityHelpOfferId: string | null
+  ): Promise<ContactRequestView> {
+    if (!category || !(CITIES_NOTE_CATEGORIES as readonly string[]).includes(category)) {
+      throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid Cities note category.");
+    }
+    const { senderPersonId, recipientPersonId, message } = createInput;
+    if (category === "coffee" && coffeeReasonText(message).length < COFFEE_REASON_MIN_CHARS) {
+      throw new AppError(
+        400,
+        "COFFEE_REASON_TOO_SHORT",
+        `Say why them in at least ${COFFEE_REASON_MIN_CHARS} characters.`
+      );
+    }
+    if (category === "newcomer" && !cityHelpOfferId) {
+      throw new AppError(404, "OFFER_NOT_FOUND", "That offer is no longer available.");
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const cities = new CitiesRepo(client);
+      const notes = new ContactRequestRepo(client);
+      const prefs = parseOpenToPreferences((await cities.openToPreferences([recipientPersonId])).get(recipientPersonId));
+
+      if (category === "coffee") {
+        await cities.lockPerson(recipientPersonId);
+        const limit = coffeeWeeklyLimit(prefs);
+        if (limit === null) {
+          throw new AppError(403, "COFFEE_NOT_OPEN", "This alum isn't taking coffee asks.");
+        }
+        const used = (await cities.coffeeAsksThisWeek([recipientPersonId])).get(recipientPersonId) ?? 0;
+        if (used >= limit) {
+          throw new AppError(409, "COFFEE_LIMIT_REACHED", "They're full this week. Try again from Monday.");
+        }
+      } else if (category === "relocation" || category === "visiting") {
+        if (!prefs?.selected.includes("city_help")) {
+          throw new AppError(403, "CITY_HELP_NOT_OPEN", "This alum isn't open to city help.");
+        }
+        await cities.lockPerson(senderPersonId);
+        if ((await cities.pendingCityHelpAsks(senderPersonId)) >= CITY_HELP_PENDING_MAX) {
+          throw new AppError(
+            429,
+            "CITY_ASK_LIMIT",
+            `You have ${CITY_HELP_PENDING_MAX} asks waiting. Send more once they reply.`
+          );
+        }
+      } else {
+        const offer = await cities.offerById(cityHelpOfferId!);
+        if (
+          !offer ||
+          offer.withdrawn_at !== null ||
+          offer.arrival_person_id !== senderPersonId ||
+          offer.offerer_person_id !== recipientPersonId
+        ) {
+          throw new AppError(404, "OFFER_NOT_FOUND", "That offer is no longer available.");
+        }
+      }
+
+      // Same one-pending-note-per-pair rule as every other note, re-checked under the lock.
+      if (await notes.hasPendingBetween(senderPersonId, recipientPersonId)) {
+        throw new AppError(409, "CONTACT_REQUEST_DUPLICATE_PENDING", "You already have a note waiting for them.");
+      }
+      const created = await notes.create({
+        ...createInput,
+        cityHelpOfferId: category === "newcomer" ? cityHelpOfferId : null
+      });
+      await client.query("COMMIT");
+      return created;
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /** WhatsApp reported the note as failed after taking it: tell the alum by email instead (once). */
