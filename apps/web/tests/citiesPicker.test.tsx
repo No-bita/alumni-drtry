@@ -1,143 +1,74 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { LocationPage } from "../src/pages/LocationPage";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { CitySwitcherSheet } from "../src/components/cities/CitySwitcherSheet";
 
-const authState = vi.hoisted(() => ({ value: null as unknown }));
-vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
-vi.mock("../src/components/Nav", () => ({
-  Nav: ({ appToolbarLead }: { appToolbarLead?: React.ReactNode }) => <header>{appToolbarLead}</header>,
-}));
-vi.mock("../src/lib/assertApiGet", () => ({
-  assertApiGet: vi.fn(async (path: string) => {
-    if (path.startsWith("/v1/directory/residence-cities")) {
-      return {
-        cities: [
-          { city: "Mumbai", country: "India", count: 30 },
-          { city: "Bangalore", country: "India", count: 41 },
-        ],
-      };
-    }
-    return {};
-  }),
-}));
-vi.stubGlobal("matchMedia", (query: string) => ({
-  matches: false,
-  media: query,
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  addListener: () => {},
-  removeListener: () => {},
-  onchange: null,
-  dispatchEvent: () => false,
-}));
-
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
-
+const blr = { placeId: "blr", city: "Bengaluru", country: "India", slug: "bengaluru", count: 41 };
+const mumbai = { placeId: "mum", city: "Mumbai", country: "India", slug: "mumbai", count: 30 };
+function PickerHarness() {
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  return <>
+    <button type="button" onClick={() => setOpen(true)}>Change city</button>
+    {open ? <CitySwitcherSheet cities={[mumbai, blr]} viewerCity={blr} currentPlaceId="blr" onClose={() => setOpen(false)} /> : null}
+    <div data-testid="where">{location.pathname}</div>
+  </>;
+}
+function mount() {
+  return render(<MemoryRouter initialEntries={["/intent/location/bengaluru"]}><PickerHarness /></MemoryRouter>);
+}
 afterEach(cleanup);
 
-function Where() {
-  return <div data-testid="where">{useLocation().pathname}</div>;
-}
-
-function mount() {
-  authState.value = {
-    status: "authenticated",
-    person: { personId: "p1", institutionalEmail: "test@iitbhu.ac.in", role: "alumni" },
-    myProfile: { id: "me-1", fullName: "Test Alum", onboardingCompletedAt: "2026-01-01" },
-  };
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={["/intent/location/bengaluru"]}>
-        <Routes>
-          <Route path="/intent/location/:citySlug" element={<><LocationPage /><Where /></>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
-
 describe("Cities city switcher", () => {
-  it("shows the current city as a tappable title and no city strip", () => {
-    const { container } = mount();
-    expect(screen.getByRole("button", { name: /Bengaluru.*Change city/ })).toBeTruthy();
-    expect(container.querySelector(".cities-v2__popular")).toBeNull();
-  });
-
-  it("opens a picker, marks the current city, and navigates on pick", async () => {
+  it("opens from the city control and shows real city counts with your city first", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: /Change city/ }));
-    const dialog = screen.getByRole("dialog", { name: "Pick a city" });
-    const current = within(dialog).getByRole("button", { name: /Bengaluru/ });
-    expect(current.getAttribute("aria-pressed")).toBe("true");
-    expect(within(current).getByText("Current")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: /Mumbai/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Change city" }));
+    const dialog = screen.getByRole("dialog", { name: "All cities" });
+    const links = within(dialog).getAllByRole("link");
+    expect(links[0].textContent).toMatch(/Bengaluru.*your city.*41 alumni/);
+    expect(links[1].textContent).toMatch(/Mumbai.*30 alumni/);
+  });
+  it("marks the current city and navigates to a selected city, closing the sheet", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Change city" }));
+    const dialog = screen.getByRole("dialog", { name: "All cities" });
+    expect(within(dialog).getByRole("link", { name: /Bengaluru/ }).getAttribute("aria-current")).toBe("page");
+    fireEvent.click(within(dialog).getByRole("link", { name: /Mumbai/ }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByTestId("where").textContent).toBe("/intent/location/mumbai");
   });
-
-  it("closes without changing the city", () => {
-    mount();
-    fireEvent.click(screen.getByRole("button", { name: /Change city/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  it("closes on backdrop without changing the city", () => {
+    const { container } = mount();
+    fireEvent.click(screen.getByRole("button", { name: "Change city" }));
+    fireEvent.click(container.querySelector(".cities-sheet__overlay")!);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByTestId("where").textContent).toBe("/intent/location/bengaluru");
   });
-});
-
-describe("Cities picker keyboard", () => {
-  it("moves focus into the sheet, closes on Escape and returns focus to the title button", () => {
+  it("moves focus into the sheet, closes on Escape and restores trigger focus", async () => {
     mount();
-    const trigger = screen.getByRole("button", { name: /Change city/ });
+    const trigger = screen.getByRole("button", { name: "Change city" });
     trigger.focus();
     fireEvent.click(trigger);
-    const dialog = screen.getByRole("dialog", { name: "Pick a city" });
-    expect(document.activeElement).toBe(dialog);
+    const dialog = screen.getByRole("dialog", { name: "All cities" });
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
-});
-
-describe("Cities picker vs delayed help form", () => {
-  beforeAll(() => {
-    Element.prototype.scrollIntoView = vi.fn();
+  it("filters city names without opening the retired delayed draft-help form", async () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Change city" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a city" }), { target: { value: "Mumb" } });
+    expect(screen.queryByRole("link", { name: /Bengaluru/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Mumbai/ })).toBeTruthy();
+    expect(screen.queryByText("Draft a request")).toBeNull();
   });
-  it("cancels the pending 'Ask for help' auto-open when the picker opens", () => {
-    vi.useFakeTimers();
-    try {
-      mount();
-      fireEvent.click(screen.getByRole("button", { name: /Ask for help/ }));
-      fireEvent.click(screen.getByRole("button", { name: /Change city/ }));
-      act(() => {
-        vi.advanceTimersByTime(1500);
-      });
-      expect(screen.getByRole("dialog", { name: "Pick a city" })).toBeTruthy();
-      expect(screen.queryByText("Draft a request")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("still opens the help form after the delay when the picker is not opened", () => {
-    vi.useFakeTimers();
-    try {
-      mount();
-      fireEvent.click(screen.getByRole("button", { name: /Ask for help/ }));
-      act(() => {
-        vi.advanceTimersByTime(1500);
-      });
-      expect(screen.getByText("Draft a request")).toBeTruthy();
-    } finally {
-      vi.useRealTimers();
-    }
+  it("shows the empty result while preserving the selected city", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Change city" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a city" }), { target: { value: "No matching city" } });
+    expect(screen.getByText("No alumni live in a city by that name yet.")).toBeTruthy();
+    expect(screen.getByTestId("where").textContent).toBe("/intent/location/bengaluru");
   });
 });
