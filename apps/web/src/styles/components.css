@@ -3155,6 +3155,127 @@ textarea {
   border-color: color-mix(in srgb, var(--brick) 30%, transparent);
 }
 
+/* The Wall (Home opportunities rail): approved card treatment -
+   one muted taupe edge for every post, neutral pills for all lanes.
+   Scoped to the Wall container so the Careers feed keeps its look. */
+.home-ideal__opportunities .career-feed-rows__row {
+  border-left: 3px solid #9c7f6d;
+}
+
+@media (hover: hover) {
+  .home-ideal__opportunities .career-feed-rows__row:hover {
+    border-left-color: #9c7f6d;
+  }
+}
+
+.home-ideal__opportunities .career-feed-rows__lane-badge--hiring,
+.home-ideal__opportunities .career-feed-rows__lane-badge--referral,
+.home-ideal__opportunities .career-feed-rows__lane-badge--can_help,
+.home-ideal__opportunities .career-feed-rows__lane-badge--relocation,
+.home-ideal__opportunities .career-feed-rows__lane-badge--startups,
+.home-ideal__opportunities .career-feed-rows__lane-badge--inbound_reply {
+  background: color-mix(in srgb, var(--ink) 9%, #fff);
+  color: color-mix(in srgb, var(--ink) 81%, #fff);
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+/* Compact Wall card arrangement (approved card option): warm surface,
+   tighter padding, time top-right, author as one quiet meta line. */
+.home-ideal__opportunities .career-feed-rows__row {
+  background: var(--palette-card, #fcf8f0);
+  padding: 12px 15px 10px;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-layout {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "primary rail"
+    "author rail";
+  gap: 6px 16px;
+  align-items: start;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-rail-col {
+  min-height: 0;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.home-ideal__opportunities .career-feed-rows__rail-top:empty {
+  display: none;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-author-col {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block .avatar {
+  display: none;
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-text {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 12.5px;
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-text > span + span::before {
+  content: "\00b7  ";
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-meta.dept-batch-meta,
+.home-ideal__opportunities .career-feed-rows__author-block-role,
+.home-ideal__opportunities .career-feed-rows__author-block-org {
+  font-size: 12.5px;
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block .dept-batch-meta__cap-icon {
+  display: none;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-title {
+  font-size: 1.05rem;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-company,
+.home-ideal__opportunities .career-feed-rows__row-desc {
+  font-size: 13px;
+}
+
+@media (max-width: 820px) {
+  .home-ideal__opportunities .career-feed-rows__row-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "primary"
+      "rail"
+      "author";
+    gap: 8px;
+  }
+
+  .home-ideal__opportunities .career-feed-rows__row-rail-col {
+    flex-direction: row;
+    justify-content: flex-end;
+    min-height: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .home-ideal__opportunities .career-feed-rows__row-author-col {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
 .career-feed-rows__tags--trail {
   margin: 10px 0 0;
 }
