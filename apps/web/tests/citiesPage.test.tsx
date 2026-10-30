@@ -12,7 +12,7 @@ const wallOpen = vi.hoisted(() => vi.fn());
 const authState = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
-vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
+vi.mock("../src/components/Nav", () => ({ Nav: ({ appToolbarLead }: { appToolbarLead?: React.ReactNode }) => <nav>{appToolbarLead}</nav> }));
 vi.mock("../src/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/api/client")>()),
   api: { get: vi.fn(), post: apiPost, patch: apiPatch, delete: apiDelete },
@@ -133,8 +133,8 @@ describe("Cities page: local view (screen 1)", () => {
   it("opens on your own city with the sections in order and no message button for anyone not open to coffee", async () => {
     world(lists, payload());
     mount();
-    expect(await screen.findByRole("heading", { name: "Bengaluru" })).toBeTruthy();
-    expect(screen.getByText("41 alumni live here")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Change city: Bengaluru" })).toBeTruthy();
+    expect(await screen.findByText("41 alumni live here")).toBeTruthy();
     expect(screen.getByRole("link", { name: "See all 41 alumni in Bengaluru" }).getAttribute("href")).toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
     expect(screen.getByRole("link", { name: "Moved away? Update your city" }).getAttribute("href")).toBe("/profiles/me1?edit=city");
 
@@ -221,7 +221,7 @@ describe("Cities page: local view (screen 1)", () => {
   it("New in town collapses entirely when nobody opted in", async () => {
     world(lists, payload({ arrivals: { total: 0, items: [] } }));
     mount();
-    await screen.findByRole("heading", { name: "Bengaluru" });
+    await screen.findByRole("button", { name: "Change city: Bengaluru" });
     expect(screen.queryByRole("heading", { name: "New in Bengaluru" })).toBeNull();
   });
 
@@ -383,8 +383,8 @@ describe("Cities page: other cities (check 13)", () => {
     });
     world({ ...lists, viewerCity: PUNE }, pune);
     mount();
-    expect(await screen.findByRole("heading", { name: "Pune" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Alumni in Pune" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Change city: Pune" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Alumni in Pune" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "New in Pune" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Get together" })).toBeNull();
@@ -394,7 +394,9 @@ describe("Cities page: other cities (check 13)", () => {
   it("the city switcher lists cities with live counts", async () => {
     world(lists, payload());
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Change city" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change city: Bengaluru" }));
+    expect(screen.getByRole("button", { name: "Change city: Bengaluru" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.queryByRole("heading", { level: 2, name: "Bengaluru" })).toBeNull();
     const dialog = screen.getByRole("dialog", { name: "All cities" });
     expect(within(dialog).getByRole("link", { name: /Pune.*12 alumni/ }).getAttribute("href")).toBe("/intent/location/pune");
   });

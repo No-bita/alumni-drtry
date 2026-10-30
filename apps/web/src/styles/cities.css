@@ -913,3 +913,37 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* The selected city is also the existing city-picker action in the toolbar. */
+.cities-toolbar-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.cities-toolbar-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.cities-toolbar-picker > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cities-toolbar-picker > svg { flex: 0 0 16px; }
+.cities-toolbar-picker:focus-visible {
+  outline: 2px solid var(--brick);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
