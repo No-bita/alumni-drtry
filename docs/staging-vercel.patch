@@ -1,0 +1,20 @@
+# Staging-branch routing patch - apply ONLY on the `staging` branch, never on main.
+# The CI guard (scripts/check-web-api-target.mjs) fails any PR that brings this
+# change to main. The staging API hostname below is the PLANNED Render service
+# name; confirm the real URL after the staging service is created and update if
+# Render assigns a different one.
+#
+# Apply with: git checkout staging && git apply docs/staging-vercel.patch
+# (keep this patch file itself on main so the staging branch carries it forward)
+
+--- a/apps/web/vercel.json
++++ b/apps/web/vercel.json
+@@ -2,7 +2,7 @@
+   "rewrites": [
+     {
+       "source": "/v1/(.*)",
+-      "destination": "https://alma-mater-api.onrender.com/v1/$1"
++      "destination": "https://alma-mater-api-staging.onrender.com/v1/$1"
+     },
+     { "source": "/(.*)", "destination": "/index.html" }
+   ]
