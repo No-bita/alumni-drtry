@@ -95,6 +95,7 @@ export function LocationPage() {
     });
 
   const data = city.data;
+  const ToolbarTitle = data?.viewerRole === "arriver" && data.counts.alumni > 0 ? "div" : "h1";
   const toolbarCity = data?.place.city ?? target?.city ?? "Cities";
   const cities = list.data?.cities ?? [];
   let body: React.ReactNode;
@@ -172,12 +173,12 @@ export function LocationPage() {
         avatarName={displayName}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
-            <h1 className="nav-app-toolbar__welcome-title cities-toolbar-title">
+            <ToolbarTitle className="nav-app-toolbar__welcome-title cities-toolbar-title">
               <button type="button" className="cities-toolbar-picker" aria-label={`Change city: ${toolbarCity}`} aria-haspopup="dialog" aria-expanded={switcherOpen} title={toolbarCity} onClick={() => setSwitcherOpen(true)}>
                 <span>{toolbarCity}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
               </button>
-            </h1>
+            </ToolbarTitle>
           </div>
         }
       />

@@ -54,9 +54,11 @@ export function ArriverView({
             ‹ Your city: {data.viewerCity.city}
           </Link>
         ) : null}
+        {/* Counts are temporarily hidden by product choice; keep the data and markup.
         <p className="cities__count">
           {data.counts.alumni} {data.counts.alumni === 1 ? "alum lives" : "alumni live"} here · {data.counts.openToCityHelp} open to city help
         </p>
+        */}
       </header>
 
       {thin ? (
@@ -76,9 +78,9 @@ export function ArriverView({
       ) : (
         <>
           <section className="cities__section" aria-labelledby="cities-brings-title">
-            <h2 id="cities-brings-title" className="cities__label">
+            <h1 id="cities-brings-title" className="cities__primary-title">
               What brings you to {city}?
-            </h2>
+            </h1>
             <div className="cities__segmented" role="radiogroup" aria-labelledby="cities-brings-title">
               {(
                 [
