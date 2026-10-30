@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { FoldToFlight, FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
+import { StagingMarker } from "./components/StagingMarker";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
@@ -377,6 +378,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      <StagingMarker />
       {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
         <AuthSessionExpiredRegistrar />
