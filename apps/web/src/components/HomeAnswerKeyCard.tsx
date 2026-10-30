@@ -77,7 +77,7 @@ export function HomeAnswerKeyCard() {
   const full = !canSelectMoreOpenTo(draft);
 
   return (
-    <section className="home-answer-key" aria-labelledby="home-answer-key-title">
+    <section className={`home-answer-key${open ? " home-answer-key--open" : ""}`} aria-labelledby="home-answer-key-title">
       <div className="home-answer-key__head">
         <div>
           <h2 id="home-answer-key-title" className="home-answer-key__title">
