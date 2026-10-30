@@ -13,6 +13,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  api-target-guard:
+    name: api-target-guard
+    runs-on: ubuntu-latest
+    # Only gate main: feature PRs into the staging branch legitimately
+    # carry the staging API target and must not fail here.
+    if: >-
+      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Fails if apps/web proxies /v1 anywhere except the production API,
+      # so staging routing can never reach main. See docs/staging.md.
+      - run: node scripts/check-web-api-target.mjs
   web:
     name: web
     runs-on: ubuntu-latest
