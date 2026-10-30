@@ -320,7 +320,8 @@ describe("Cities page: arriver (screen 7)", () => {
     world({ ...lists, viewerCity: PUNE }, arriver(0));
     mount("/intent/location/bengaluru");
     expect(await screen.findByRole("link", { name: "‹ Your city: Pune" })).toBeTruthy();
-    expect(screen.getByText("41 alumni live here · 6 open to city help")).toBeTruthy();
+    expect(screen.queryByText("41 alumni live here · 6 open to city help")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "What brings you to Bengaluru?" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Moving here" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("Replied to 5 of 6 notes · usually within 2 days")).toBeTruthy();
     const others = screen.getByRole("region", { name: "Others in Bengaluru" });
