@@ -54,7 +54,6 @@ export function ArriverView({
             ‹ Your city: {data.viewerCity.city}
           </Link>
         ) : null}
-        <h2 className="cities__city">{city}</h2>
         <p className="cities__count">
           {data.counts.alumni} {data.counts.alumni === 1 ? "alum lives" : "alumni live"} here · {data.counts.openToCityHelp} open to city help
         </p>
