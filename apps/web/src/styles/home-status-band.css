@@ -1,0 +1,103 @@
+/* Home status band: one compact card grouping the four existing self-status
+   items (your notes, your Wall posts, getting-started step, answer key nudge).
+   Layout only: every item keeps its own data source and show/hide rules.
+   Cells flex-grow to fill each row, so any combination of 1-4 visible items
+   fills the band with no empty slots; internal hairlines come from a 1px gap
+   over the rule colour. The band collapses entirely when all four hide. */
+
+.home-status-band {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.home-status-band:empty {
+  display: none;
+}
+
+/* Cells lose their own card chrome inside the band and share row space. */
+.home-status-band > .home-notes-line,
+.home-status-band > .home-footprint,
+.home-status-band > .onboarding-checklist,
+.home-status-band > .home-answer-key {
+  flex: 1 1 170px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.home-status-band > .home-notes-line {
+  padding: 11px 16px;
+  align-content: start;
+  align-items: baseline;
+  justify-content: start;
+  gap: 4px 12px;
+}
+
+.home-status-band > .home-footprint {
+  padding: 11px 16px;
+}
+
+.home-status-band > .onboarding-checklist--line {
+  padding: 11px 40px 11px 16px;
+  align-content: start;
+  align-items: baseline;
+  position: relative;
+}
+
+.home-status-band > .onboarding-checklist--line .onboarding-checklist__line {
+  flex: 1 1 100%;
+  font-size: 0.9rem;
+}
+
+.home-status-band > .onboarding-checklist--line .onboarding-checklist__dismiss {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 36px;
+  height: 36px;
+}
+
+.home-status-band > .home-answer-key {
+  padding: 11px 16px;
+  gap: 8px;
+  align-content: start;
+}
+
+/* Compact cell: head and actions stack so narrow cells never overflow. */
+.home-status-band > .home-answer-key:not(.home-answer-key--open) .home-answer-key__head,
+.home-status-band > .home-answer-key:not(.home-answer-key--open) .home-answer-key__actions {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.home-status-band > .home-answer-key:not(.home-answer-key--open) .home-answer-key__title {
+  font-size: 17px;
+}
+
+.home-status-band > .home-answer-key:not(.home-answer-key--open) .home-answer-key__copy {
+  font-size: 13px;
+}
+
+.home-status-band > .home-answer-key:not(.home-answer-key--open) .btn {
+  width: auto;
+  max-width: 100%;
+  white-space: normal;
+  padding-block: 10px;
+}
+
+/* The open answer-key picker needs room: it takes its own full-width row. */
+.home-status-band > .home-answer-key--open {
+  flex-basis: 100%;
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
