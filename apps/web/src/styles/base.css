@@ -15,7 +15,7 @@ html {
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 400;
   font-size: var(--text-body);
   line-height: var(--lh-body);
   color: var(--ink);
@@ -87,13 +87,13 @@ html[data-app-shell="sidebar"] #root {
 }
 
 /* Display — Playfair */
-h1, h2, h3, .headline, .section-headline, .card-headline, .subheadline {
+h1, h2, h3, h4, .headline, .section-headline, .card-headline, .subheadline {
   font-family: var(--font-display);
   font-weight: 400;
   color: var(--ink);
 }
 
-/* App-wide request: section headers use modern grotesk sans-serif. */
+/* App-wide typography rule (Oct 2026): one heading family everywhere - headings use the display serif. */
 main h1,
 main h2,
 main h3,
@@ -102,7 +102,7 @@ main .headline,
 main .section-headline,
 main .card-headline,
 main .subheadline {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
 }
 
 h1, .page-headline {
@@ -138,7 +138,7 @@ h3, .card-headline {
 /* Body — DM Sans */
 p, .body-text {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 400;
   font-size: var(--text-body);
   line-height: var(--lh-body);
   color: var(--ink);
@@ -165,7 +165,7 @@ p, .body-text {
 
 .small-note {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 400;
   font-size: 11px;
   line-height: var(--lh-small);
   color: var(--ink-faint);
