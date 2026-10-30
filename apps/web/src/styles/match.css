@@ -105,6 +105,10 @@
   color: var(--ink-muted);
 }
 
+.match-page__section-title {
+  font-family: var(--font-display);
+}
+
 .match-page__understood {
   display: grid;
   gap: var(--space-sm);
@@ -303,6 +307,7 @@
   margin: 0;
   font-size: 14px;
   color: var(--ink-muted);
+  font-family: var(--font-display);
 }
 
 .match-card__why {
