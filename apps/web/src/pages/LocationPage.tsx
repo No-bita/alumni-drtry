@@ -95,6 +95,7 @@ export function LocationPage() {
     });
 
   const data = city.data;
+  const toolbarCity = data?.place.city ?? target?.city ?? "Cities";
   const cities = list.data?.cities ?? [];
   let body: React.ReactNode;
 
@@ -171,19 +172,16 @@ export function LocationPage() {
         avatarName={displayName}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
-            <h1 className="nav-app-toolbar__welcome-title">Cities</h1>
+            <h1 className="nav-app-toolbar__welcome-title cities-toolbar-title">
+              <button type="button" className="cities-toolbar-picker" aria-label={`Change city: ${toolbarCity}`} aria-haspopup="dialog" aria-expanded={switcherOpen} title={toolbarCity} onClick={() => setSwitcherOpen(true)}>
+                <span>{toolbarCity}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+            </h1>
           </div>
         }
       />
       <main className="cities">
-        <div className="cities__toolbar">
-          <button type="button" className="cities__switcher" aria-label="Change city" onClick={() => setSwitcherOpen(true)}>
-            All cities
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
         {notice ? (
           <div className="cities__notice" role="status">
             <span>{notice}</span>
@@ -262,7 +260,6 @@ function ResidentView({
     <>
       <header className="cities__header">
         <p className="cities__eyebrow">{newcomer ? "Your city · new in town" : "Your city"}</p>
-        <h2 className="cities__city">{city}</h2>
         {newcomer ? (
           <p className="cities__count">
             Shown as new to local alumni for {data.myArrival!.daysLeft} more {data.myArrival!.daysLeft === 1 ? "day" : "days"}
