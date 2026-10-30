@@ -82,6 +82,7 @@ export function ProfileAbout({
             autoComplete="country-name"
           />
           <Input
+            id="profile-residence-city"
             label="City of residence (optional)"
             value={draftResidenceCity}
             onChange={(e) => onDraftResidenceCity(e.target.value)}

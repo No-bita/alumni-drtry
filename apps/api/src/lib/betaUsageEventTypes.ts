@@ -38,6 +38,13 @@ export const BETA_USAGE_EVENT_TYPES = [
   "invite_opened",
   "invite_copied",
   "invite_whatsapp_shared",
+  // Cities v1
+  "cities_viewed",
+  "cities_arrival_prompt_shown",
+  "cities_coffee_full_shown",
+  "cities_city_help_on",
+  "cities_city_updated",
+  "cities_nudge_sent",
 ] as const;
 
 export type BetaUsageEventType = (typeof BETA_USAGE_EVENT_TYPES)[number];
@@ -69,12 +76,18 @@ export const RECORDED_EVENT_TYPES: ReadonlySet<BetaUsageEventType> = new Set<Bet
   "invite_opened",
   "invite_copied",
   "invite_whatsapp_shared",
+  "cities_viewed",
+  "cities_arrival_prompt_shown",
+  "cities_coffee_full_shown",
+  "cities_city_help_on",
+  "cities_city_updated",
+  "cities_nudge_sent",
 ]);
 
 /** Metadata keys we keep; everything else (free text such as a search query) is dropped. */
 const METADATA_KEYS = new Set([
   "stage", "questionId", "questionIndex", "stepIndex", "source", "key", "kind",
-  "link", "surface", "count", "category", "resultsCount"
+  "link", "surface", "count", "category", "resultsCount", "via", "role"
 ]);
 
 /** Keep only short, known, primitive metadata values: no free text ever reaches the table. */

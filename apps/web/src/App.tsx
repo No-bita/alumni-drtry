@@ -48,11 +48,6 @@ const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
 
-function LocationHubRedirect() {
-  const { search } = useLocation();
-  return <Navigate to={{ pathname: "/intent/location/bengaluru", search }} replace />;
-}
-
 function RouteFallback() {
   return <FoldToFlight ready={false} />;
 }
@@ -260,7 +255,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                <LocationHubRedirect />
+                <LocationPage />
               </ProfileGate>
             </RequireAuth>
           }

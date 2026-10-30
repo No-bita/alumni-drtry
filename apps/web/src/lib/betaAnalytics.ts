@@ -40,6 +40,12 @@ export const BETA_USAGE_EVENT_TYPES = [
   "invite_opened",
   "invite_copied",
   "invite_whatsapp_shared",
+  // Cities v1
+  "cities_viewed",
+  "cities_arrival_prompt_shown",
+  "cities_coffee_full_shown",
+  "cities_city_help_on",
+  "cities_city_updated",
 ] as const;
 
 export type BetaUsageEventType = (typeof BETA_USAGE_EVENT_TYPES)[number];
@@ -71,6 +77,11 @@ export const RECORDED_EVENT_TYPES: ReadonlySet<BetaUsageEventType> = new Set<Bet
   "invite_opened",
   "invite_copied",
   "invite_whatsapp_shared",
+  "cities_viewed",
+  "cities_arrival_prompt_shown",
+  "cities_coffee_full_shown",
+  "cities_city_help_on",
+  "cities_city_updated",
 ]);
 
 type Sender = (body: { eventType: BetaUsageEventType; route: string; metadata: Record<string, unknown> }) => void;

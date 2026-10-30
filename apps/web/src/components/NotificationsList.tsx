@@ -6,6 +6,7 @@ import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { invalidateNotificationRelatedQueries } from "../lib/invalidateAppQueries";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { queryKeys } from "../lib/queryKeys";
+import { HELP_KIND_LABELS, cityNoteKindLabel } from "../lib/cities";
 import { Button } from "./Button";
 
 type NotificationsListProps = {
@@ -59,6 +60,9 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         break;
       case "bulletin_response":
         navigate("/home");
+        break;
+      case "city_help_offer_received":
+        navigate("/intent/location");
         break;
       default: {
         const _exhaustive: never = item;
@@ -164,7 +168,7 @@ function NotificationListItem({
           <div className="notifications-page__item-main">
             <p className="notifications-page__item-title">
               <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
-              wants to connect
+              {(item.source === "cities" ? cityNoteKindLabel(item.sourceCategory) : null) ?? "wants to connect"}
             </p>
             <p className="notifications-page__item-detail">{item.message}</p>
             <div className="notifications-page__item-actions">
@@ -244,6 +248,31 @@ function NotificationListItem({
             }
             meta={<span className="notifications-page__item-preview">“{item.postPreview}”</span>}
             preview={item.responseMessage}
+          />
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
+    case "city_help_offer_received": {
+      const name = displayName(item.offererFullName);
+      return (
+        <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={inSheet ? `Open inbox: ${name} offered to help` : `Open Cities: ${name} offered to help`}
+          />
+          <ClickableNotificationBody
+            title={
+              <>
+                <ProfileName personId={item.offererPersonId} name={name} inSheet={inSheet} /> offered to help you settle in{" "}
+                {item.cityName}
+              </>
+            }
+            preview={item.kinds.map((k) => HELP_KIND_LABELS[k]).join(" · ")}
           />
           <time className="notifications-page__item-time" dateTime={item.occurredAt}>
             {timeLabel}

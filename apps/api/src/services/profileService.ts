@@ -38,10 +38,59 @@ function isPgUniqueViolation(error: unknown): boolean {
   );
 }
 
+/** Shown after a save that moved someone into a Cities v1 city ("New in Bengaluru?"). */
+export interface ArrivalPrompt {
+  placeId: string;
+  cityName: string;
+}
+
+/** Keeps `residence_canonical_place_id` in step with the typed city (wired to CitiesService). */
+export interface ResidenceSync {
+  /** `before` is the typed city/country before this save, so an unchanged city is never cleared or moved. */
+  syncResidence(personId: string, before: { city: string | null; country: string | null }): Promise<ArrivalPrompt | null>;
+}
+
+/**
+ * Coffee needs a weekly limit (Cities v1). A save without one keeps the stored limit; someone who
+ * already had coffee on before limits existed may keep it (read as 2). Turning coffee on fresh
+ * without a limit is refused.
+ */
+function withCoffeeLimitRule(next: OpenToPreferences, current: OpenToPreferences | null): OpenToPreferences {
+  if (!next.selected.includes("coffee") || next.limits?.coffee) return next;
+  if (current?.selected.includes("coffee")) {
+    return current.limits?.coffee ? { ...next, limits: { coffee: current.limits.coffee } } : next;
+  }
+  throw new AppError(400, "COFFEE_LIMIT_REQUIRED", "Choose how many coffee asks a week you're happy to get.");
+}
+
 export class ProfileService {
   private readonly personRepo: PersonRepo;
 
   private onOnboarded: ((personId: string) => Promise<void>) | null = null;
+  private residenceSync: ResidenceSync | null = null;
+
+  /** Cities v1: resolve the typed city to a canonical place after a save that touched it. */
+  setResidenceSync(sync: ResidenceSync | null): void {
+    this.residenceSync = sync;
+  }
+
+  /** PATCH /v1/me/profile: the save, then (when the city was part of it) the city bookkeeping. */
+  async updateMyProfileWithCity(
+    personId: string,
+    input: UpdateMyProfileInput
+  ): Promise<{ profile: PersonProfileView; arrivalPrompt: ArrivalPrompt | null }> {
+    const before = await this.personRepo.findProfileById(personId);
+    const profile = await this.updateMyProfile(personId, input);
+    const touchedCity = input.residenceCity !== undefined || input.residenceCountry !== undefined;
+    const arrivalPrompt =
+      touchedCity && this.residenceSync
+        ? await this.residenceSync.syncResidence(personId, {
+            city: before?.residenceCity ?? null,
+            country: before?.residenceCountry ?? null
+          })
+        : null;
+    return { profile, arrivalPrompt };
+  }
 
   /** Called once when a member finishes onboarding (wired to WhatsApp after construction). */
   setOnboardedListener(listener: ((personId: string) => Promise<void>) | null): void {
@@ -222,7 +271,7 @@ export class ProfileService {
         if (!parsed) {
           throw new AppError(400, "PROFILE_INVALID_OPEN_TO", "Invalid open-to preferences.");
         }
-        nextOpenToPreferences = normalizeOpenToPreferencesForStorage(parsed);
+        nextOpenToPreferences = withCoffeeLimitRule(normalizeOpenToPreferencesForStorage(parsed), current.openToPreferences);
       }
     }
 

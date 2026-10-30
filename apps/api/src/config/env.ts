@@ -126,6 +126,10 @@ const envSchema = z.object({
    * Set to `0` to disable the scheduler in production (use an external cron instead).
    */
   INTENTCAST_EXPIRY_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
+  /** Cities v1: canonical place ids with the full city page (comma-separated). Unset → Bengaluru, India by name. */
+  CITIES_V1_PLACE_IDS: optionalStringSchema,
+  /** Cities v1: chapter group links, JSON {"<placeId>": {"url": "https://…", "label": "…"}}. */
+  CITY_CHAPTER_LINKS: optionalStringSchema,
   /** Contact-request reminder emails: interval in ms (default hourly in production, off elsewhere; 0 = off). */
   CONTACT_REQUEST_REMINDER_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
 

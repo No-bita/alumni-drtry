@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { AdminMetrics } from "../repos/adminMetricsRepo.js";
 import { AdminMetricsRepo } from "../repos/adminMetricsRepo.js";
 import { AskMatchMetricsRepo, type AskMatchMetrics } from "../repos/askMatchMetricsRepo.js";
+import { CitiesMetricsRepo, type CitiesMetrics } from "../repos/citiesMetricsRepo.js";
 import {
   RECORDED_EVENT_TYPES,
   USAGE_EVENT_RETENTION_DAYS,
@@ -14,15 +15,22 @@ export class AdminMetricsService {
   private readonly repo: AdminMetricsRepo;
 
   private readonly askMatchRepo: AskMatchMetricsRepo;
+  private readonly citiesMetricsRepo: CitiesMetricsRepo;
 
   private readonly usageLimiter = new UsageEventRateLimiter();
 
   constructor(private readonly pool: Pool) {
     this.repo = new AdminMetricsRepo(pool);
     this.askMatchRepo = new AskMatchMetricsRepo(pool);
+    this.citiesMetricsRepo = new CitiesMetricsRepo(pool);
   }
 
   /** Ask → Match funnel over the last `windowDays` plus current profile completeness. */
+  /** Cities v1: acceptance of Cities notes by category, arrivals, coffee, nudge funnel. */
+  async getCitiesMetrics(windowDays = 30): Promise<CitiesMetrics> {
+    return this.citiesMetricsRepo.getMetrics(windowDays);
+  }
+
   async getAskMatchMetrics(windowDays = 30): Promise<AskMatchMetrics> {
     return this.askMatchRepo.getMetrics(windowDays);
   }

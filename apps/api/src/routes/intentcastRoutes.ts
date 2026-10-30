@@ -8,7 +8,9 @@ const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", 
 
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,
-  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH)
+  content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH),
+  /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
+  placeId: z.string().uuid().nullable().optional()
 });
 
 /** Query helper — comma-separated `category` tokens */

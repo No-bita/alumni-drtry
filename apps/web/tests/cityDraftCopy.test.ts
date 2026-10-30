@@ -8,10 +8,12 @@ describe("city draft board copy", () => {
       expect(text).toMatch(/this device/);
     }
   });
-  it("the page no longer claims posts are live", () => {
+  it("the live Cities page does not use the retained local-draft notices", () => {
     const page = readFileSync("src/pages/LocationPage.tsx", "utf8");
     expect(page).not.toMatch(/Request posted\. It now appears/);
     expect(page).not.toMatch(/Event created\. It now appears/);
-    expect(page).toContain("CITY_REQUEST_SAVED_NOTICE");
+    expect(page).not.toContain("CITY_REQUEST_SAVED_NOTICE");
+    expect(page).not.toContain("CITY_EVENT_SAVED_NOTICE");
+    expect(page).toContain("Posted. It’s on the Wall and under Get together.");
   });
 });

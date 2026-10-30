@@ -54,7 +54,7 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match" | "whatsapp" | "careers";
+export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;
@@ -64,6 +64,8 @@ export interface CreateContactRequestInput {
   source?: ContactRequestSource | null;
   sourceCategory?: string | null;
   sourceRank?: number | null;
+  /** Cities v1: the offer a newcomer's note answers. */
+  cityHelpOfferId?: string | null;
 }
 
 /** A note the viewer sent (GET /v1/contact-requests/sent). */
@@ -107,6 +109,9 @@ export interface ContactRequestInboxItemView {
   senderDepartmentCode: string | null;
   message: string;
   createdAt: Date;
+  /** Where the note came from ("cities", "careers", …) and its category, for wording. */
+  source: string | null;
+  sourceCategory: string | null;
 }
 
 interface ContactRequestInboxRow {
@@ -116,6 +121,8 @@ interface ContactRequestInboxRow {
   sender_department_code: string | null;
   message: string;
   created_at: Date;
+  source: string | null;
+  source_category: string | null;
 }
 
 /** Resolved outgoing requests (sender notifications: accept/decline). */
@@ -142,7 +149,9 @@ function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView 
     senderFullName: row.sender_full_name,
     senderDepartmentCode: row.sender_department_code,
     message: row.message,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    source: row.source,
+    sourceCategory: row.source_category
   };
 }
 
@@ -205,9 +214,9 @@ export class ContactRequestRepo {
       `
       INSERT INTO contact_requests (
         sender_person_id, recipient_person_id, message, forwarded_to_institutional_email,
-        source, source_category, source_rank
+        source, source_category, source_rank, city_help_offer_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
       `,
       [
@@ -217,7 +226,8 @@ export class ContactRequestRepo {
         input.forwardedToInstitutionalEmail,
         input.source ?? null,
         input.source ? (input.sourceCategory ?? null) : null,
-        input.source ? (input.sourceRank ?? null) : null
+        input.source ? (input.sourceRank ?? null) : null,
+        input.cityHelpOfferId ?? null
       ]
     );
     return mapContactRequest(result.rows[0]!);
@@ -249,7 +259,9 @@ export class ContactRequestRepo {
         s.full_name AS sender_full_name,
         d.code AS sender_department_code,
         c.message,
-        c.created_at
+        c.created_at,
+        c.source,
+        c.source_category
       FROM contact_requests c
       JOIN people s ON s.id = c.sender_person_id
       LEFT JOIN departments d ON d.id = s.department_id

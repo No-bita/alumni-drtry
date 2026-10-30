@@ -23,6 +23,8 @@ export type PostBulletinOpenOptions = {
   body?: string;
   /** Referral ask: prefill the company (e.g. from the Careers company screen). */
   referralCompanyName?: string;
+  /** Cities: tag the post with this canonical place so it shows under the city's Get together. */
+  placeId?: string;
 };
 
 export type PostBulletinFlowHandleShape = {

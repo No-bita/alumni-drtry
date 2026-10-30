@@ -10,6 +10,7 @@ import type { ContactRequestService } from "../services/contactRequestService.js
 import type { DiscoveryService } from "../services/discoveryService.js";
 import type { MatchService } from "../services/matchService.js";
 import type { CareersService } from "../services/careersService.js";
+import type { CitiesService } from "../services/citiesService.js";
 import type { HomeSummaryService } from "../services/homeSummaryService.js";
 import type { AnalyticsService } from "../services/analyticsService.js";
 import type { WhatsAppService } from "../whatsapp/service.js";
@@ -34,6 +35,7 @@ declare module "fastify" {
     discoveryService: DiscoveryService;
     matchService: MatchService;
     careersService: CareersService;
+    citiesService: CitiesService;
     homeSummaryService: HomeSummaryService;
     analyticsService: AnalyticsService;
     whatsappService: WhatsAppService;
