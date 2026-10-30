@@ -247,6 +247,7 @@
   color: var(--ink);
   overflow-wrap: anywhere;
   text-decoration: none;
+  font-family: var(--font-display);
 }
 
 .careers__row-meta {

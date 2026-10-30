@@ -365,6 +365,7 @@
 .cities__row-title {
   font-weight: 600;
   overflow-wrap: anywhere;
+  font-family: var(--font-display);
 }
 
 /* Help panel */
@@ -397,6 +398,7 @@
 .cities__switch-title {
   font-size: 15px;
   font-weight: 600;
+  font-family: var(--font-display);
 }
 
 .cities__switch {
@@ -706,6 +708,7 @@
 .cities__infobox-title {
   font-size: 14px;
   font-weight: 600;
+  font-family: var(--font-display);
 }
 
 .cities__capacity {
