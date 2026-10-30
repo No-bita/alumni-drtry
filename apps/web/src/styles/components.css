@@ -1291,6 +1291,7 @@ textarea {
 
 .page-state-block__title {
   margin-bottom: var(--space-sm);
+  font-family: var(--font-display);
 }
 
 .page-state-block__description {
@@ -3193,9 +3194,9 @@ textarea {
 
 .career-feed-rows__row-title {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: clamp(1.15rem, 2vw, 1.35rem);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.25;
   color: var(--ink);
@@ -3236,7 +3237,7 @@ textarea {
   margin: 4px 0 0;
   font-size: 14px;
   line-height: 1.45;
-  font-weight: 450;
+  font-weight: 400;
   color: color-mix(in srgb, var(--ink) 48%, transparent);
 }
 
@@ -4523,7 +4524,7 @@ textarea {
 
 .global-messaging-widget__title {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.1;
@@ -5413,6 +5414,7 @@ textarea {
   font-size: 16px;
   font-weight: 600;
   color: var(--ink);
+  font-family: var(--font-display);
 }
 
 .build-page__state-copy {
@@ -7419,6 +7421,7 @@ button.career-referrals-v3__matching-pill--editable:active {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  font-family: var(--font-display);
 }
 
 .career-hiring-flow__head-icon {
@@ -7436,7 +7439,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .career-hiring-flow__head h2 {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.9rem;
   line-height: 1.08;
@@ -7833,7 +7836,7 @@ button.career-referrals-v3__matching-pill--editable:active {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   color: var(--ink);
 }
 
@@ -7871,6 +7874,7 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-size: 13px;
   font-weight: 700;
   color: #3d342d;
+  font-family: var(--font-display);
 }
 
 .career-hiring-flow__preview-note {
@@ -9869,7 +9873,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .home-dashboard__digest-title {
   margin: 0 0 6px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -10037,6 +10041,7 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink);
+  font-family: var(--font-display);
 }
 
 .home-dashboard__bulletin-state-copy {
@@ -10089,9 +10094,9 @@ button.career-referrals-v3__matching-pill--editable:active {
 .home-dashboard__bulletin-title,
 .home-dashboard__inbox-title {
   margin: 0 0 4px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.22rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--ink);
@@ -10534,7 +10539,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .global-notifications-widget__head h2 {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--ink);
@@ -10597,7 +10602,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .notifications-page__heading {
   margin: 0 0 8px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -10710,7 +10715,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .notifications-page__item-title {
   margin: 0 0 6px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.45;
   color: var(--ink);
@@ -10960,7 +10965,7 @@ button.career-referrals-v3__matching-pill--editable:active {
 
 .connection-thread-page__title {
   margin: 0 0 6px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -11852,7 +11857,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .career-post-replies__title {
   margin: 0 0 var(--space-sm);
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -12037,7 +12042,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .home-dashboard__bulletin-archived-title {
   margin: 0 0 6px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -12779,7 +12784,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .profile-page__open-to-item-title {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 650;
   color: var(--ink);
@@ -13021,7 +13026,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .profile-page__hero-headline {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.05rem;
   line-height: 1.45;
   font-weight: 500;
@@ -13031,6 +13036,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .profile-page__hero-headline-org {
   color: var(--nav-sidebar-bg);
   font-weight: 600;
+  font-family: var(--font-display);
 }
 
 .profile-page__hero-headline-at {
@@ -14510,6 +14516,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   align-items: center;
   gap: 0.85rem;
   margin-bottom: 1.1rem;
+  font-family: var(--font-display);
 }
 
 .auth-merged__card-icon {
@@ -14532,7 +14539,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .auth-merged__card-title {
   margin-bottom: 0.42rem;
   color: rgba(252, 248, 240, 0.96);
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: clamp(1.2rem, 2.2vw, 1.5rem);
 }
 
@@ -16359,6 +16366,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   line-height: 1.24;
   color: var(--ink);
   font-family: var(--font-display);
+  font-weight: 600;
 }
 
 .events-card__meta {
@@ -16497,6 +16505,7 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   margin: 0 0 6px;
   font-size: 16px;
   color: var(--ink);
+  font-family: var(--font-display);
 }
 
 .events-page__empty-copy {
@@ -17047,6 +17056,7 @@ button.home-ideal__quick-action-card {
   font-size: 15px;
   font-weight: 650;
   letter-spacing: -0.01em;
+  font-family: var(--font-display);
 }
 
 .home-ideal__quick-action-copy {
@@ -17119,7 +17129,7 @@ button.home-ideal__quick-action-card {
   margin: 0;
   font-size: 1.75rem;
   line-height: 1.15;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
 }
 
 .home-ideal__opportunities-subtitle {
@@ -17634,7 +17644,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   margin: 0;
   font-size: clamp(1.05rem, 2.1vw, 1.2rem);
   line-height: 1.34;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.015em;
   font-family: var(--font-display);
 }
@@ -17920,6 +17930,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   font-weight: 700;
   font-size: 1.5rem;
   line-height: 1.18;
+  font-family: var(--font-display);
 }
 
 .home-ideal__campus-copy {
@@ -19670,10 +19681,11 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .ds-title-lg {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: clamp(1.65rem, 3vw, 2rem);
   line-height: 1.15;
   color: var(--ink);
+  font-weight: 600;
 }
 
 .home-ideal__opportunities-title.ds-title-lg {
@@ -19683,10 +19695,11 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .ds-title-md {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 1.2rem;
   line-height: 1.2;
   color: var(--ink);
+  font-weight: 600;
 }
 
 .ds-copy {
@@ -20343,7 +20356,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .home-dashboard--ideal .home-ideal__quick-action-title,
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__quick-action-title {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -20571,18 +20584,15 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 .home-dashboard--ideal .home-ideal__intent-hero-head,
-.home-dashboard--ideal .home-ideal__quick-action-title,
 .home-dashboard--ideal .home-ideal__quick-action-copy,
 .home-dashboard--ideal .home-ideal__chip,
 .home-dashboard--ideal .home-ideal__chip-count,
-.home-dashboard--ideal .home-ideal__campus-title,
 .home-dashboard--ideal .home-ideal__campus-copy,
 .home-dashboard--ideal .home-ideal__campus-meta,
 .home-dashboard--ideal .home-ideal__panel-copy,
 .home-dashboard--ideal .home-ideal__campus-past-link,
 .home-dashboard--ideal .home-dashboard__text-link,
 .home-dashboard--ideal .home-ideal__empty p,
-.home-dashboard--ideal .bb-post-card__title,
 .home-dashboard--ideal .bb-post-card__summary,
 .home-dashboard--ideal .bb-post-card__header,
 .home-dashboard--ideal .bb-post-card__footer,
@@ -20919,3 +20929,4 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     right: 8px;
   }
 }
+
