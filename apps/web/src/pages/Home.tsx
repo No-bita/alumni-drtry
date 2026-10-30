@@ -33,6 +33,7 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
+import "../styles/home-status-band.css";
 
 const EMPTY_POSTS: IntentcastFeedItem[] = [];
 
@@ -797,7 +798,8 @@ export function Home() {
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
           <HomeIntentHero />
-          <div className="home-activity">
+          <HomeBrowseRow />
+          <div className="home-status-band">
             <HomeSentNotesLine />
             {authPersonId && !useDevMocks ? (
               <HomeFootprintStrip
@@ -807,10 +809,9 @@ export function Home() {
                 onOpenReplies={openRepliesTab}
               />
             ) : null}
+            <OnboardingChecklistCard />
+            <HomeAnswerKeyCard />
           </div>
-          <HomeBrowseRow />
-          <OnboardingChecklistCard />
-          <HomeAnswerKeyCard />
           <HomeOpportunityRail
             intentcasts={opportunityIntentcasts}
             activeCategory={viewModel.activeCategory}
