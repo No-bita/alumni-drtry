@@ -25,8 +25,6 @@ const createContactRequestSchema = z
       if (!v.message || !v.message.trim()) {
         ctx.addIssue({ code: "custom", message: "Cities notes need a message.", path: ["message"] });
       }
-    } else if (!v.note) {
-      ctx.addIssue({ code: "custom", message: "Send a referral or advice note.", path: ["note"] });
     }
     const cat = v.sourceCategory ?? null;
     const citiesCat = cat !== null && (CITIES_NOTE_CATEGORIES as readonly string[]).includes(cat);
