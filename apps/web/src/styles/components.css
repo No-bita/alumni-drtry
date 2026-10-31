@@ -12843,6 +12843,33 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: var(--brick);
 }
 
+/* Own-profile flag: a company on their job entries was rejected in review. */
+.profile-page__org-flag {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--ochre);
+  margin-bottom: 12px;
+}
+
+.profile-page__org-flag-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.profile-page__org-flag-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.profile-page__org-flag .nav__profile-edit {
+  justify-self: start;
+}
+
 .profile-page {
   background: var(--home-cream);
 }
