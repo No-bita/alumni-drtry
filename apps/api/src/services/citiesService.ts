@@ -99,7 +99,7 @@ function toPerson(r: PersonCardRow): CityPerson {
 
 /** The strongest thing a person shares with the viewer, in sort order: batch window, department, company. */
 export function sharedTag(
-  person: { batch_year: number | null; department_code: string | null; org_name: string | null; same_company?: boolean },
+  person: { batch_year: number | null; department_code: string | null; org_name: string | null; same_company?: boolean | null },
   viewer: ViewerFacts
 ): string | null {
   if (person.batch_year !== null && viewer.batchYear !== null) {
@@ -665,4 +665,4 @@ export function nudgeSubject(city: string, arrivals: number, askCount: number | 
 function firstLine(text: string): string {
   const line = text.trim().split(/\n/)[0]!.trim();
   return line.length > 90 ? `${line.slice(0, 89)}…` : line;
-}
+  }
