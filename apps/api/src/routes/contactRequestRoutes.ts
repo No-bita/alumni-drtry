@@ -2,13 +2,17 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
 import { MATCH_CATEGORIES } from "../lib/matchIntent.js";
+import { noteInputSchema } from "../lib/noteDetails.js";
 import { CITIES_NOTE_CATEGORIES } from "../services/contactRequestService.js";
 
 const createContactRequestSchema = z
   .object({
     recipientPersonId: z.string().uuid(),
-    message: z.string().max(3000),
-    /** Where the note was sent from, for the Ask → Match funnel (and Cities v1). */
+    /** Note form: referral or advice with its fields; the server builds the message from them. Required except for Cities notes. */
+    note: noteInputSchema.optional().nullable(),
+    /** Cities v1 notes stay free-text; other surfaces send the note form instead. */
+    message: z.string().max(3000).optional(),
+    /** Where the note was sent from, for the Ask → Match funnel (and Cities v1). Outside Cities the category comes from the note. */
     source: z.enum(["match", "whatsapp", "careers", "cities"]).optional(),
     sourceCategory: z.enum([...MATCH_CATEGORIES, ...CITIES_NOTE_CATEGORIES]).nullable().optional(),
     /** Position (1 = top) of the person in the match results, for ranking quality. */
@@ -17,6 +21,13 @@ const createContactRequestSchema = z
     cityHelpOfferId: z.string().uuid().nullable().optional()
   })
   .superRefine((v, ctx) => {
+    if (v.source === "cities") {
+      if (!v.message || !v.message.trim()) {
+        ctx.addIssue({ code: "custom", message: "Cities notes need a message.", path: ["message"] });
+      }
+    } else if (!v.note) {
+      ctx.addIssue({ code: "custom", message: "Send a referral or advice note.", path: ["note"] });
+    }
     const cat = v.sourceCategory ?? null;
     const citiesCat = cat !== null && (CITIES_NOTE_CATEGORIES as readonly string[]).includes(cat);
     if (v.source === "cities" ? !citiesCat : cat !== null && !(MATCH_CATEGORIES as readonly string[]).includes(cat)) {
@@ -45,6 +56,7 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
         recipientPersonId: r.recipientPersonId,
         recipientFullName: r.recipientFullName,
         message: r.message,
+        details: r.details,
         status: r.status,
         recipientContactShared: r.status === "accepted" ? r.recipientContactShared : null,
         createdAt: r.createdAt.toISOString(),
@@ -62,6 +74,7 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
         senderFullName: r.senderFullName,
         senderDepartmentCode: r.senderDepartmentCode,
         message: r.message,
+        details: r.details,
         createdAt: r.createdAt.toISOString(),
         source: r.source,
         sourceCategory: r.sourceCategory
@@ -106,4 +119,3 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 };
-
