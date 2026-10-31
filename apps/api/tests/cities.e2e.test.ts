@@ -6,6 +6,8 @@ import { coffeeReasonText } from "../src/services/contactRequestService.js";
 import { isNudgeTime, nudgeSubject, sharedTag } from "../src/services/citiesService.js";
 import { loginForTest } from "./helpers/login.js";
 
+import { assertDisposableCitiesDatabase } from "./helpers/disposableDatabase.js";
+
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string; email: string };
 const run = Date.now();
@@ -39,6 +41,7 @@ describe("Cities v1 API (integration, local test database only)", () => {
     req("POST", "/v1/contact-requests", w, { recipientPersonId, message, source: "cities", sourceCategory, ...extra });
 
   beforeAll(async () => {
+    assertDisposableCitiesDatabase(process.env.DATABASE_URL);
     app = await createApp();
     db = new Pool({ connectionString: process.env.DATABASE_URL });
     const place = async (cityLabel: string) => {
