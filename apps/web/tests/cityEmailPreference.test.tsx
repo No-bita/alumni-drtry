@@ -1,0 +1,23 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const save = vi.hoisted(() => vi.fn());
+vi.mock("../src/lib/cities", async importOriginal => ({ ...(await importOriginal<typeof import("../src/lib/cities")>()), setNudgeFrequency: save }));
+import { CityEmailsControl } from "../src/components/cities/CityEmailsControl";
+afterEach(cleanup);
+it("follows loaded preference but does not overwrite an in-flight choice", async () => {
+ let resolve: (value: object) => void = () => {};
+ save.mockReturnValue(new Promise(r => { resolve = r; }));
+ const qc = new QueryClient();
+ const view = (current: "weekly" | "monthly" | "never") => <QueryClientProvider client={qc}><CityEmailsControl current={current} onClose={() => {}} /></QueryClientProvider>;
+ const r = render(view("never"));
+ expect(screen.getByRole("radio", { name: "Never" }).getAttribute("aria-checked")).toBe("true");
+ r.rerender(view("monthly"));
+ expect(screen.getByRole("radio", { name: "Monthly" }).getAttribute("aria-checked")).toBe("true");
+ fireEvent.click(screen.getByRole("radio", { name: "Weekly" }));
+ r.rerender(view("never"));
+ expect(screen.getByRole("radio", { name: "Weekly" }).getAttribute("aria-checked")).toBe("true");
+ resolve({});
+ await waitFor(() => expect(screen.getByRole("radio", { name: "Weekly" }).hasAttribute("disabled")).toBe(false));
+ expect(screen.getByRole("radio", { name: "Never" }).getAttribute("aria-checked")).toBe("true");
+});
