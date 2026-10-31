@@ -272,7 +272,6 @@ export class ContactRequestRepo {
         d.code AS sender_department_code,
         c.message,
         c.details,
-        c.created_at
         c.created_at,
         c.source,
         c.source_category
