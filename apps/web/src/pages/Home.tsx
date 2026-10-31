@@ -28,7 +28,6 @@ import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
-import { HomeBrowseRow } from "../components/HomeBrowseRow";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
@@ -808,7 +807,6 @@ export function Home() {
               />
             ) : null}
           </div>
-          <HomeBrowseRow />
           <OnboardingChecklistCard />
           <HomeAnswerKeyCard />
           <HomeOpportunityRail
