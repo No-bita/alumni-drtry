@@ -3189,10 +3189,10 @@ textarea {
 .home-ideal__opportunities .career-feed-rows__row-layout {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "primary rail"
+    "primary primary"
     "author rail";
   gap: 6px 16px;
-  align-items: start;
+  align-items: end;
 }
 
 .home-ideal__opportunities .career-feed-rows__row-rail-col {
@@ -3247,6 +3247,44 @@ textarea {
   font-size: 1.05rem;
 }
 
+/* Wall card structure (approved 31 Oct 2026): heading and lane pill share the
+   top row (pill right, heading wraps around it), body below, no secondary
+   pills, author left + time right on the last row. The own-post menu keeps
+   its top-right corner via absolute placement, beside the pill. */
+.home-ideal__opportunities .career-feed-rows__row {
+  position: relative;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-primary-body {
+  display: block;
+}
+
+.home-ideal__opportunities .career-feed-rows__lane-badge {
+  float: right;
+  margin: 2px 0 6px 10px;
+}
+
+.home-ideal__opportunities .career-feed-rows__row-company,
+.home-ideal__opportunities .career-feed-rows__row-desc,
+.home-ideal__opportunities .career-feed-rows__row-role-link {
+  clear: both;
+}
+
+.home-ideal__opportunities .career-feed-rows__tags {
+  display: none;
+}
+
+.home-ideal__opportunities .career-feed-rows__rail-top:not(:empty) {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: auto;
+}
+
+.home-ideal__opportunities .career-feed-rows__row--own .career-feed-rows__lane-badge {
+  margin-right: 30px;
+}
+
 .home-ideal__opportunities .career-feed-rows__row-company,
 .home-ideal__opportunities .career-feed-rows__row-desc {
   font-size: 13px;
@@ -3254,12 +3292,11 @@ textarea {
 
 @media (max-width: 820px) {
   .home-ideal__opportunities .career-feed-rows__row-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "primary"
-      "rail"
-      "author";
-    gap: 8px;
+      "primary primary"
+      "author rail";
+    gap: 8px 12px;
   }
 
   .home-ideal__opportunities .career-feed-rows__row-rail-col {
