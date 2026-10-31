@@ -1,3 +1,4 @@
+import type { NoteDetails } from "../lib/noteDetails.js";
 import type { Pool } from "pg";
 import { ConnectionThreadRepo } from "../repos/connectionThreadRepo.js";
 import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
@@ -25,6 +26,8 @@ export type NotificationItemDto =
       senderPersonId: string;
       senderFullName: string | null;
       message: string;
+      /** Note form fields (null on older notes). */
+      details: NoteDetails | null;
       /** Where the note came from and its category (e.g. "cities" + "coffee"), for wording. */
       source: string | null;
       sourceCategory: string | null;
@@ -103,6 +106,7 @@ export class NotificationService {
         senderPersonId: p.senderPersonId,
         senderFullName: p.senderFullName,
         message: p.message,
+        details: p.details,
         source: p.source,
         sourceCategory: p.sourceCategory
       });
