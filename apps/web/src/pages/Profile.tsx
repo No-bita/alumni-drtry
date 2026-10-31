@@ -110,6 +110,19 @@ export function Profile() {
     enabled: Boolean(isOwnProfile),
   });
 
+  // Own profile only: companies on their job entries that review rejected, so they can fix them.
+  const rejectedOrgsQuery = useQuery({
+    queryKey: ["me", "rejected-organizations"],
+    queryFn: ({ signal }) =>
+      assertApiGet<{ organizations: { id: string; name: string; rejectionReason: string | null }[] }>(
+        "/v1/me/rejected-organizations",
+        signal,
+      ),
+    enabled: Boolean(isOwnProfile && !previewProfile),
+  });
+  const rejectedOrgs = rejectedOrgsQuery.data?.organizations ?? [];
+
+
   // Admin tools: how many company names wait for review (shares the Company review page's cache).
   const pendingCompaniesQuery = useQuery({
     queryKey: PENDING_COMPANIES_KEY,
@@ -537,6 +550,24 @@ export function Profile() {
     !loading && isOwnProfile && isEditing ? otherProfileLinks(editLinks) : [];
   const showProfileSidebar = sidebarOtherLinks.length > 0;
 
+  const orgFlag =
+    isOwnProfile && !previewProfile && rejectedOrgs.length > 0 ? (
+      <div className="profile-page__org-flag" role="status">
+        <h3 className="profile-page__org-flag-title">Company needs updating</h3>
+        {rejectedOrgs.map((org) => (
+          <p key={org.id} className="profile-page__org-flag-text">
+            &lsquo;{org.name}&rsquo; wasn&rsquo;t accepted as a company.
+            {org.rejectionReason ? ` Reason: ${org.rejectionReason.replace(/[.\s]+$/, "")}.` : ""} Please update the company on your profile.
+          </p>
+        ))}
+        {!isEditing ? (
+          <button type="button" className="nav__profile-edit" onClick={beginEdit}>
+            Update company
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
   return (
     <>
       <Nav variant="home" avatarName={navAvatarName} />
@@ -562,6 +593,7 @@ export function Profile() {
               : undefined
           }
         */}
+        {!loading && profile && !isEditing ? orgFlag : null}
         {!loading && profile && !isEditing ? (
           <PersonProfileView profile={profile} occupations={occupations} links={links}
             isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
@@ -604,6 +636,7 @@ export function Profile() {
               onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
               editNotice={openToNotice}
             />
+            {orgFlag}
             <ProfileExperience
               loading={loading}
               occupations={occupations}
