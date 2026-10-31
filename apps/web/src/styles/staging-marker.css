@@ -1,0 +1,36 @@
+/* Only the staging build adds this attribute. Reserve space, never cover controls. */
+html[data-alma-environment="staging"] {
+  --staging-marker-height: 28px;
+}
+
+html[data-alma-environment="staging"] #root {
+  padding-top: var(--staging-marker-height);
+}
+
+html[data-alma-environment="staging"][data-app-shell="sidebar"] #root {
+  padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + var(--staging-marker-height));
+}
+
+html[data-alma-environment="staging"] .nav-sidebar,
+html[data-alma-environment="staging"] .nav-app-toolbar {
+  top: var(--staging-marker-height);
+}
+
+.staging-marker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 205;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e4ab48;
+  color: #2d210e;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { adviceNote } from "./helpers/note.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -261,7 +262,7 @@ describe("e2e: full flow", () => {
       method: "POST",
       url: "/v1/contact-requests",
       headers: { cookie: `${cookieName}=${userA.cookie}` },
-      payload: { recipientPersonId: userB.personId, message: "E2E test message" },
+      payload: { recipientPersonId: userB.personId, note: adviceNote() },
     });
     expect(createRes.statusCode).toBe(201);
     const createBody = createRes.json() as { contactRequest?: { id: string; status: string } };

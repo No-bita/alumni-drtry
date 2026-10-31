@@ -1,4 +1,7 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import type { ArrivalPrompt, ProfilePatchResponse } from "../lib/cities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -61,6 +64,12 @@ export function Profile() {
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
+  /** Cities: after a city change into a v1 city, offer "New in [city]?" (screen 5). */
+  const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null);
+  /** Cities' "Moved away? Update your city" opened this edit (for the city-update count). */
+  const cityEditFromCitiesRef = useRef(false);
+  /** Cities sent the member here at the 5-tag cap to make room for city help. */
+  const [openToNotice, setOpenToNotice] = useState<string | null>(null);
   const [draftPersonalEmail, setDraftPersonalEmail] = useState("");
   const [draftMobilePhone, setDraftMobilePhone] = useState("");
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
@@ -163,15 +172,29 @@ export function Profile() {
   useEffect(() => {
     const editMode = searchParams.get("edit");
     // ?edit=contact opens editing; ?edit=open-to (from Careers' "Offer help") also scrolls to Open to.
-    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to") || !profileQuery.data?.profile) return;
+    // ?edit=city (Cities' "Moved away? Update your city") opens editing with the city field focused.
+    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to" && editMode !== "city") || !profileQuery.data?.profile) return;
+    const capReason = searchParams.get("limit") === "city_help";
     const t = window.setTimeout(() => {
       beginEdit();
       if (editMode === "open-to") {
+        setOpenToNotice(
+          capReason ? "You can be open to 5 things at once. Turn one off to make room for city help, then save." : null,
+        );
         window.setTimeout(() => document.getElementById("profile-open-to")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+      }
+      if (editMode === "city") {
+        cityEditFromCitiesRef.current = true;
+        window.setTimeout(() => {
+          const el = document.getElementById("profile-residence-city");
+          el?.scrollIntoView({ block: "center", behavior: "smooth" });
+          (el as HTMLInputElement | null)?.focus();
+        }, 50);
       }
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("edit");
+        next.delete("limit");
         return next;
       }, { replace: true });
     }, 0);
@@ -283,7 +306,7 @@ export function Profile() {
       return;
     }
 
-    const { error: profileError } = await api.patch("/v1/me/profile", {
+    const { data: patched, error: profileError } = await api.patch<ProfilePatchResponse>("/v1/me/profile", {
       personalEmail: draftPersonalEmail.trim() || null,
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
@@ -296,6 +319,10 @@ export function Profile() {
       setEditError(profileError.message ?? profileError.code);
       return;
     }
+    if (cityEditFromCitiesRef.current && (draftResidenceCity.trim() || null) !== (data.profile.residenceCity ?? null)) {
+      trackBetaUsageEvent("cities_city_updated");
+    }
+    cityEditFromCitiesRef.current = false;
 
     for (const draft of draftOccupations) {
       const validation = validateOccupationDraft(draft);
@@ -353,7 +380,9 @@ export function Profile() {
       setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
     }
     setOpenSocialPlatform(null);
+    setOpenToNotice(null);
     setIsEditing(false);
+    if (patched?.arrivalPrompt) setArrivalPrompt(patched.arrivalPrompt);
   }, [
     data,
     draftPersonalEmail,
@@ -573,6 +602,7 @@ export function Profile() {
               isEditing={isOwnProfile && isEditing}
               draftOpenTo={isEditing ? draftOpenTo : undefined}
               onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
+              editNotice={openToNotice}
             />
             <ProfileExperience
               loading={loading}
@@ -733,6 +763,14 @@ export function Profile() {
           ) : null}
         </div> : null}
       </div>
+      {arrivalPrompt ? (
+        <ArrivalOptInSheet
+          placeId={arrivalPrompt.placeId}
+          cityName={arrivalPrompt.cityName}
+          onClose={() => setArrivalPrompt(null)}
+          onDone={() => navigate("/intent/location")}
+        />
+      ) : null}
     </>
   );
     }

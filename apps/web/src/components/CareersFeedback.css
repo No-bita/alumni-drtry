@@ -1,0 +1,33 @@
+/* Scoped to the three approved Careers feedback sites; inherits the app's fonts. */
+.careers-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  min-width: 0;
+}
+.careers-feedback--success {
+  background: #edf6ee;
+  color: #205c34;
+  border-color: #bad9c0;
+}
+.careers-feedback--error {
+  background: #fcefee;
+  color: #982c25;
+  border-color: #e8beb9;
+}
+.careers-feedback__icon { flex: 0 0 18px; font-weight: 700; text-align: center; }
+.careers-feedback__content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.careers-feedback__content > .careers__notice {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.careers-feedback__content > .careers__note { margin: 0; color: inherit; }
+.careers-feedback button { color: inherit; }
+.careers-feedback .careers__notice button { flex-shrink: 0; white-space: nowrap; }

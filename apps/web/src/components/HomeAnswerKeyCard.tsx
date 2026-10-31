@@ -13,8 +13,8 @@ import {
   isOpenToSelected,
   normalizeOpenToPreferences,
   parseOpenToPreferences,
-  toggleOpenToSelection,
 } from "../lib/openToPreferences";
+import { useCoffeeLimitGate } from "./cities/useCoffeeLimitGate";
 import { queryKeys } from "../lib/queryKeys";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/home-answer-key.css";
@@ -34,6 +34,8 @@ export function HomeAnswerKeyCard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // Turning coffee on asks for a weekly limit first (Cities v1).
+  const coffeeGate = useCoffeeLimitGate(draft, setDraft);
 
   if (!personId || !profile || dismissed) return null;
   if (!profile.profileCompletedAt) return null;
@@ -117,7 +119,7 @@ export function HomeAnswerKeyCard() {
                     className={`home-answer-key__option${selected ? " home-answer-key__option--selected" : ""}`}
                     aria-pressed={selected}
                     disabled={!selected && full}
-                    onClick={() => setDraft((d) => toggleOpenToSelection(d, id))}
+                    onClick={() => coffeeGate.toggle(id)}
                   >
                     <span className="home-answer-key__option-title">{OPEN_TO_CATALOG[id].title}</span>
                     <span className="home-answer-key__option-example">{ANSWER_KEY_EXAMPLES[id]}</span>
@@ -126,6 +128,7 @@ export function HomeAnswerKeyCard() {
               );
             })}
           </ul>
+          {coffeeGate.sheet}
           {error ? (
             <p className="home-answer-key__error" role="alert">
               {error}

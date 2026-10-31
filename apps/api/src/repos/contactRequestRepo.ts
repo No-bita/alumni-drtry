@@ -1,4 +1,5 @@
 import type { DbExecutor } from "../db/types.js";
+import type { NoteDetails } from "../lib/noteDetails.js";
 
 export type ContactRequestStatus = "pending" | "accepted" | "declined";
 
@@ -7,6 +8,7 @@ interface ContactRequestRow {
   sender_person_id: string;
   recipient_person_id: string;
   message: string;
+  details?: NoteDetails | null;
   status: ContactRequestStatus;
   recipient_contact_shared: string | null;
   forwarded_to_institutional_email: string;
@@ -46,6 +48,8 @@ export interface ContactRequestView {
   senderPersonId: string;
   recipientPersonId: string;
   message: string;
+  /** Note form fields (null on notes sent before the form). */
+  details: NoteDetails | null;
   status: ContactRequestStatus;
   recipientContactShared: string | null;
   forwardedToInstitutionalEmail: string;
@@ -54,16 +58,20 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match" | "whatsapp" | "careers";
+export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;
   recipientPersonId: string;
   message: string;
+  /** Note form fields (null on Cities notes and notes sent before the form). */
+  details: NoteDetails | null;
   forwardedToInstitutionalEmail: string;
   source?: ContactRequestSource | null;
   sourceCategory?: string | null;
   sourceRank?: number | null;
+  /** Cities v1: the offer a newcomer's note answers. */
+  cityHelpOfferId?: string | null;
 }
 
 /** A note the viewer sent (GET /v1/contact-requests/sent). */
@@ -72,6 +80,7 @@ export interface ContactRequestSentView {
   recipientPersonId: string;
   recipientFullName: string | null;
   message: string;
+  details: NoteDetails | null;
   status: ContactRequestStatus;
   /** Only set once the recipient accepted. */
   recipientContactShared: string | null;
@@ -106,7 +115,11 @@ export interface ContactRequestInboxItemView {
   /** Department code from sender profile when set. */
   senderDepartmentCode: string | null;
   message: string;
+  details: NoteDetails | null;
   createdAt: Date;
+  /** Where the note came from ("cities", "careers", …) and its category, for wording. */
+  source: string | null;
+  sourceCategory: string | null;
 }
 
 interface ContactRequestInboxRow {
@@ -115,7 +128,10 @@ interface ContactRequestInboxRow {
   sender_full_name: string | null;
   sender_department_code: string | null;
   message: string;
+  details: NoteDetails | null;
   created_at: Date;
+  source: string | null;
+  source_category: string | null;
 }
 
 /** Resolved outgoing requests (sender notifications: accept/decline). */
@@ -142,7 +158,10 @@ function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView 
     senderFullName: row.sender_full_name,
     senderDepartmentCode: row.sender_department_code,
     message: row.message,
-    createdAt: row.created_at
+    details: row.details ?? null,
+    createdAt: row.created_at,
+    source: row.source,
+    sourceCategory: row.source_category
   };
 }
 
@@ -152,6 +171,7 @@ function mapContactRequest(row: ContactRequestRow): ContactRequestView {
     senderPersonId: row.sender_person_id,
     recipientPersonId: row.recipient_person_id,
     message: row.message,
+    details: row.details ?? null,
     status: row.status,
     recipientContactShared: row.recipient_contact_shared,
     forwardedToInstitutionalEmail: row.forwarded_to_institutional_email,
@@ -205,9 +225,9 @@ export class ContactRequestRepo {
       `
       INSERT INTO contact_requests (
         sender_person_id, recipient_person_id, message, forwarded_to_institutional_email,
-        source, source_category, source_rank
+        source, source_category, source_rank, city_help_offer_id, details
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
       RETURNING *
       `,
       [
@@ -217,7 +237,9 @@ export class ContactRequestRepo {
         input.forwardedToInstitutionalEmail,
         input.source ?? null,
         input.source ? (input.sourceCategory ?? null) : null,
-        input.source ? (input.sourceRank ?? null) : null
+        input.source ? (input.sourceRank ?? null) : null,
+        input.cityHelpOfferId ?? null,
+        input.details ? JSON.stringify(input.details) : null
       ]
     );
     return mapContactRequest(result.rows[0]!);
@@ -249,7 +271,10 @@ export class ContactRequestRepo {
         s.full_name AS sender_full_name,
         d.code AS sender_department_code,
         c.message,
-        c.created_at
+        c.details,
+        c.created_at,
+        c.source,
+        c.source_category
       FROM contact_requests c
       JOIN people s ON s.id = c.sender_person_id
       LEFT JOIN departments d ON d.id = s.department_id
@@ -337,13 +362,14 @@ export class ContactRequestRepo {
       recipient_person_id: string;
       recipient_full_name: string | null;
       message: string;
+      details: NoteDetails | null;
       status: ContactRequestStatus;
       recipient_contact_shared: string | null;
       created_at: Date;
       responded_at: Date | null;
     }>(
       `
-      SELECT c.id, c.recipient_person_id, r.full_name AS recipient_full_name, c.message, c.status,
+      SELECT c.id, c.recipient_person_id, r.full_name AS recipient_full_name, c.message, c.details, c.status,
              CASE WHEN c.status = 'accepted' THEN c.recipient_contact_shared::text END AS recipient_contact_shared,
              c.created_at, c.responded_at
       FROM contact_requests c
@@ -359,6 +385,7 @@ export class ContactRequestRepo {
       recipientPersonId: row.recipient_person_id,
       recipientFullName: row.recipient_full_name,
       message: row.message,
+      details: row.details ?? null,
       status: row.status,
       recipientContactShared: row.recipient_contact_shared,
       createdAt: row.created_at,

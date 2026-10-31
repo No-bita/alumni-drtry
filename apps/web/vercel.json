@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/v1/(.*)",
-      "destination": "https://alma-mater-api.onrender.com/v1/$1"
+      "destination": "https://alma-staging.onrender.com/v1/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

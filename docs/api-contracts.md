@@ -79,6 +79,16 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `GET /v1/careers/my-company-demand`: `{ demand: { company, asks, days } | null }`: asks (Ask questions and Careers lookups) naming your current company, its main name or names linked to it, in the last 30 days; null without a current company.
 - `POST /v1/contact-requests` accepts `source: "careers"` (migration 053).
 
+## Cities v1 (signed in; Bengaluru first)
+
+Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migration 055.
+
+- `GET /v1/cities`, `GET /v1/cities/search?q=`, `GET /v1/cities/:placeId`, `GET /v1/cities/:placeId/alumni?filter=&cursor=`.
+- `POST /v1/cities/arrivals`, `POST /v1/cities/arrivals/end`, `POST /v1/cities/arrivals/:arrivalId/offers`, `DELETE /v1/cities/offers/:offerId`, `POST /v1/cities/offers/seen`, `PATCH /v1/me/city-nudge`.
+- `PATCH /v1/me/profile` returns `arrivalPrompt` and resolves the typed city to a canonical place; `openToPreferences.limits.coffee` (1/2/3/5) is required to turn coffee on.
+- `POST /v1/contact-requests` accepts `source: "cities"` with `coffee`, `relocation`, `visiting`, `newcomer` (+ `cityHelpOfferId`). `POST /v1/intentcasts` accepts `placeId`.
+- `GET /v1/admin/metrics/cities?days=7|30|90` (admins).
+
 ## WhatsApp pilot (off unless `WHATSAPP_ENABLED=true`; see docs/whatsapp-setup.md)
 
 - `GET /v1/whatsapp/webhook`: Meta's one-time verification (`hub.verify_token` must equal `WA_VERIFY_TOKEN`).
@@ -97,7 +107,14 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 ## Contact And Messaging
 
 - `GET /v1/contact-requests/sent`: the viewer's sent notes (newest first, max 100) with status; `recipientContactShared` only when accepted.
-- `POST /v1/contact-requests` also accepts optional `source: "match"` and `sourceCategory`; returns `409 CONTACT_REQUEST_DUPLICATE_PENDING` when a note to the same person is still pending.
+- `POST /v1/contact-requests` (migration 055): two shapes, by surface.
+  - Note form (every surface except Cities): `{ recipientPersonId, note, source?, sourceRank? }`. The server builds the readable `message` from `note` (so email, WhatsApp, reminders and Notifications are unchanged) and stores the fields in `contact_requests.details`; the category comes from the note (referral → `referral`; advice → its topic; `other` → none). `note` is one of:
+    - `{ purpose: "referral", jobUrl, role, company, fit, resumeUrl? }`: `jobUrl` and `resumeUrl` are http(s) links with a dotted host (≤ 500 characters); `role` and `company` 1–120 characters (spaces tidied); `fit` 80–500 characters.
+    - `{ purpose: "advice", topic, question }`: `topic` is `interview_prep`, `career_switch`, `higher_studies`, `relocation`, `founder_advice` or `other`; `question` 80–1000 characters.
+    - Errors (400): `CONTACT_REQUEST_PURPOSE_REQUIRED` (missing or unknown purpose, including a bare `message` outside Cities), `CONTACT_REQUEST_JOB_LINK_REQUIRED`, `CONTACT_REQUEST_ROLE_REQUIRED`, `CONTACT_REQUEST_COMPANY_REQUIRED`, `CONTACT_REQUEST_FIT_LENGTH`, `CONTACT_REQUEST_RESUME_LINK_INVALID`, `CONTACT_REQUEST_TOPIC_REQUIRED`, `CONTACT_REQUEST_QUESTION_LENGTH`. Each has a plain-language `message`.
+  - Cities v1 (unchanged): `{ recipientPersonId, message, source: "cities", sourceCategory, cityHelpOfferId? }` - free-text `message` (min 10 characters), category one of `coffee`, `relocation`, `visiting`, `newcomer`; `cityHelpOfferId` only with `newcomer`. Coffee asks need a 40+ character reason; at most 3 relocation/visiting asks waiting at once.
+  - Returns `409 CONTACT_REQUEST_DUPLICATE_PENDING` when a note to the same person is still pending; the existing per-sender window limit stays.
+  - `GET /v1/contact-requests/inbox`, `GET /v1/contact-requests/sent` and `contact_request_received` notifications include `details` (null on Cities notes and notes sent before the form); inbox items and notifications also include `source` and `sourceCategory` for wording.
 - `GET /v1/admin/metrics/ask-match` (admin): Ask → Match funnel and profile completeness.
 
 - `POST /v1/contact-requests`: creates a contact request.

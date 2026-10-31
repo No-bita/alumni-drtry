@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildMatchSearch,
   bulletinCategoryForMatch,
-  defaultReachOutNote,
   matchHref,
   needsDetailPrompt,
   parseMatchUrlState,
@@ -45,11 +44,5 @@ describe("match helpers", () => {
   it("asks for the missing field by category", () => {
     expect(needsDetailPrompt("relocation")).toEqual({ title: "Which city are you moving to?", field: "city" });
     expect(needsDetailPrompt(null).field).toBeNull();
-  });
-
-  it("drafts a reach-out note with the first name and question", () => {
-    expect(defaultReachOutNote("Ananya Rao", "Need a referral at Razorpay.")).toBe(
-      "Hi Ananya, I found you on Alma Mater. Need a referral at Razorpay.\n\nWould you be open to a quick chat?",
-    );
   });
 });

@@ -1,1158 +1,333 @@
-import {
-  type FormEvent,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import "../styles/cities.css";
 import { Nav } from "../components/Nav";
-import { Avatar } from "../components/Avatar";
-import { Button } from "../components/Button";
-// Messaging paused: unused while city-request Message actions are commented out.
-// import type { MessagingOpenDraftDetail } from "../components/GlobalMessagingWidget";
+import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
+import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
+import { ArriverView } from "../components/cities/ArriverView";
+import { CityAlumniList } from "../components/cities/CityAlumniList";
+import { CityEmailsControl } from "../components/cities/CityEmailsControl";
+import { CityHelpPanel } from "../components/cities/CityHelpPanel";
+import { CityMeetups } from "../components/cities/CityMeetups";
+import { CitySwitcherSheet } from "../components/cities/CitySwitcherSheet";
+import { NewInCitySection } from "../components/cities/NewInCitySection";
+import { NewcomerOffersSection } from "../components/cities/NewcomerOffersSection";
+import { NoCityPrompt } from "../components/cities/NoCityPrompt";
 import { useAuth } from "../contexts/AuthContext";
-import { LOCATION_LENS_TOP_CITIES_FALLBACK, type TopCityPick } from "../constants/locationLens";
 import {
-  type ResidenceCitiesResponse,
-  type ResidenceCityAggregate,
-} from "../api/client";
-import { RESIDENCE_CITIES_AGGREGATE_LIMIT } from "../constants/directorySearch";
-import { assertApiGet } from "../lib/assertApiGet";
-import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
+  CITIES_KEY,
+  citiesKeys,
+  endArrival,
+  fetchCities,
+  fetchCity,
+  findCityBySlug,
+  type ArrivalPrompt,
+  type CityAskMode,
+  type CityPayload,
+} from "../lib/cities";
 import { queryKeys } from "../lib/queryKeys";
-import {
-  CITY_EVENTS,
-  CITY_NEEDS,
-  matchCityItem,
-  type CityEventItem,
-  type CityNeedItem,
-} from "../constants/citiesSupport";
-import {
-  capLocationRequestText,
-  LOCATION_REQUEST_DESCRIPTION_MAX_CHARS,
-  LOCATION_REQUEST_TITLE_MAX_CHARS,
-} from "../constants/requestPostDisplay";
-import { IconCalendar, IconCity, IconHelp, IconMapPin, IconUsers } from "../components/LocationPageIcons";
-import { humanizeCityIntentSlug, normalizeCityIntentSlug } from "../lib/cityIntentFromToolbar";
-import { isDevHubPagesEnabled } from "../lib/devHubPages";
-import { CITY_DRAFT_NOTE, CITY_EVENT_SAVED_NOTICE, CITY_REQUEST_SAVED_NOTICE } from "../lib/cityDraftCopy";
-import { loadCityDrafts, saveCityDrafts } from "../lib/cityDraftStorage";
-import "../styles/city-draft-board.css";
-
-const DEFAULT_CITY_PICK: TopCityPick = { city: "Bengaluru", country: "India" };
-
-const HIGHLIGHT_CREATE_REQUEST_QUERY = "highlightCreateRequest";
-const HIGHLIGHT_NAV_SEARCH_QUERY = "highlightNavSearch";
-
-/** Empty feed on the location hub — same message for every city so the page feels consistent while content is sparse. */
-const LOCATION_PAGE_EMPTY_POSTS_COPY =
-  "No posts to show yet—this hub is quiet across cities for now. Switch city above or add a request or event below.";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import { SENT_NOTES_QUERY_KEY } from "../lib/sentNotes";
 
 /**
- * Prefer merge list from `/v1/directory/residence-cities` so any surfaced city slug (e.g. Pune) resolves.
+ * Cities (/intent/location and /intent/location/:citySlug). Built around the settled local: what changed in
+ * your city since last time (people arriving), and who you can help. Supports the arriver (lives elsewhere),
+ * the newcomer (just arrived and opted in) and someone with no city yet. Nothing here is sample data.
+ * Reach-out rule (SPEC §2): a note only to someone who said yes to that kind of contact, with a reason.
  */
-function resolveCityFromSlug(citySlug: string | undefined, residenceRows: ResidenceCityAggregate[] | undefined): TopCityPick {
-  if (!citySlug?.trim()) return DEFAULT_CITY_PICK;
-  const normalizedSlug = normalizeCityIntentSlug(citySlug);
-  if (!normalizedSlug) return DEFAULT_CITY_PICK;
-
-  if (normalizedSlug === "bengaluru" || normalizedSlug === "bangalore") {
-    return DEFAULT_CITY_PICK;
-  }
-
-  if (residenceRows?.length) {
-    for (const raw of residenceRows) {
-      const row = canonicalResidenceCityRow(raw);
-      if (normalizeCityIntentSlug(row.city) === normalizedSlug) {
-        return { city: row.city, country: row.country };
-      }
-    }
-  }
-
-  const cityPool = [
-    ...LOCATION_LENS_TOP_CITIES_FALLBACK.map(({ city, country }) => ({ city, country })),
-    ...CITY_NEEDS.map(({ city, country }) => ({ city, country })),
-    ...CITY_EVENTS.map(({ city, country }) => ({ city, country })),
-  ];
-  for (const pick of cityPool) {
-    if (normalizeCityIntentSlug(pick.city) === normalizedSlug) {
-      return { city: pick.city, country: pick.country };
-    }
-  }
-
-  return { city: humanizeCityIntentSlug(normalizedSlug), country: "" };
-}
-
-function cityLabel(city: string, country: string): string {
-  const cCity = city.trim();
-  const cCountry = country.trim();
-  return cCountry ? `${cCity}, ${cCountry}` : cCity;
-}
-
-function cityIntentPath(city: string): string {
-  return `/intent/location/${normalizeCityIntentSlug(city)}`;
-}
-
-/** Normalizes spellings API may split (e.g. Bangalore vs Bengaluru). */
-function canonicalResidenceCityRow(row: ResidenceCityAggregate): ResidenceCityAggregate {
-  const country = row.country.trim();
-  const city = row.city.trim();
-  if (country.toLowerCase() === "india" && city.toLowerCase() === "bangalore") {
-    return { ...row, city: "Bengaluru", country };
-  }
-  return { ...row, city, country };
-}
-
-function residenceCityAggregateKey(row: Pick<ResidenceCityAggregate, "city" | "country">): string {
-  return `${normalizeCityIntentSlug(row.city)}|||${normalizeCityIntentSlug(row.country)}`;
-}
-
-/** Merges duplicate keys and keeps rows sorted by alumni count (desc). */
-function dedupeMergedResidenceCities(rows: ResidenceCityAggregate[]): ResidenceCityAggregate[] {
-  const map = new Map<string, ResidenceCityAggregate>();
-  for (const raw of rows) {
-    const row = canonicalResidenceCityRow(raw);
-    const key = residenceCityAggregateKey(row);
-    const prev = map.get(key);
-    if (!prev) {
-      map.set(key, row);
-    } else {
-      map.set(key, { ...row, city: prev.city, country: prev.country, count: prev.count + row.count });
-    }
-  }
-  return [...map.values()].sort((a, b) => b.count - a.count);
-}
-
-/** Explore grid order: canonical fallback list first, then any API-only cities alphabetically — counts come from API when present. */
-function exploreCitiesStableCatalog(apiRowsRaw: ResidenceCityAggregate[]): ResidenceCityAggregate[] {
-  const mergedApi = apiRowsRaw.length ? dedupeMergedResidenceCities(apiRowsRaw) : [];
-  const byKey = new Map<string, ResidenceCityAggregate>();
-  for (const row of mergedApi) {
-    const c = canonicalResidenceCityRow(row);
-    byKey.set(residenceCityAggregateKey(c), c);
-  }
-
-  const seen = new Set<string>();
-  const out: ResidenceCityAggregate[] = [];
-  for (const pick of LOCATION_LENS_TOP_CITIES_FALLBACK) {
-    const skeleton = canonicalResidenceCityRow({ city: pick.city, country: pick.country, count: 0 });
-    const key = residenceCityAggregateKey(skeleton);
-    seen.add(key);
-    out.push(byKey.get(key) ?? skeleton);
-  }
-
-  const extras: ResidenceCityAggregate[] = [];
-  for (const row of mergedApi) {
-    const c = canonicalResidenceCityRow(row);
-    const key = residenceCityAggregateKey(c);
-    if (!seen.has(key)) extras.push(c);
-  }
-  extras.sort((a, b) => {
-    const la = `${a.country.toLowerCase()}\u0000${a.city.toLowerCase()}`;
-    const lb = `${b.country.toLowerCase()}\u0000${b.city.toLowerCase()}`;
-    return la.localeCompare(lb);
-  });
-  return [...out, ...extras];
-}
-
-type ExploreRegion = "all" | "asia" | "europe" | "north_america" | "oceania" | "middle_east" | "africa";
-
-const EXPLORE_REGION_TABS: Array<{ id: ExploreRegion; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "asia", label: "Asia" },
-  { id: "europe", label: "Europe" },
-  { id: "north_america", label: "North America" },
-  { id: "oceania", label: "Oceania" },
-  { id: "middle_east", label: "Middle East" },
-  { id: "africa", label: "Africa" },
-];
-
-function regionForCountry(country: string): ExploreRegion {
-  const c = country.trim().toLowerCase();
-  if (["india", "singapore", "japan", "china", "south korea"].includes(c)) return "asia";
-  if (["uk", "united kingdom", "germany", "france", "spain", "italy", "netherlands"].includes(c)) return "europe";
-  if (["usa", "united states", "canada", "mexico"].includes(c)) return "north_america";
-  if (["australia", "new zealand"].includes(c)) return "oceania";
-  if (["uae", "saudi arabia", "qatar", "oman", "kuwait"].includes(c)) return "middle_east";
-  if (["south africa", "kenya", "nigeria", "egypt", "ghana", "morocco"].includes(c)) return "africa";
-  return "asia";
-}
-
-function flagForCountry(country: string): string {
-  const c = country.trim().toLowerCase();
-  const map: Record<string, string> = {
-    india: "🇮🇳",
-    usa: "🇺🇸",
-    "united states": "🇺🇸",
-    canada: "🇨🇦",
-    uk: "🇬🇧",
-    "united kingdom": "🇬🇧",
-    uae: "🇦🇪",
-    singapore: "🇸🇬",
-    australia: "🇦🇺",
-    germany: "🇩🇪",
-    france: "🇫🇷",
-    japan: "🇯🇵",
-  };
-  return map[c] ?? "🌍";
-}
-
-function humanNeedType(type: CityNeedItem["type"]): string {
-  switch (type) {
-    case "housing":
-      return "Housing";
-    case "accommodation":
-      return "Short stay";
-    case "sports_activity":
-      return "Activities";
-    case "city_help":
-      return "General";
-    default:
-      return "General";
-  }
-}
-
-/** Only when the post has an author profile id from the backend (creator). */
-function cityNeedPosterProfileHref(need: CityNeedItem): string | null {
-  const id = need.askedByPersonId?.trim();
-  return id ? `/profiles/${id}` : null;
-}
-
 export function LocationPage() {
   const { citySlug } = useParams();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const auth = useAuth();
-  const profile = auth.status === "authenticated" ? auth.myProfile : null;
-  const upcomingEventsScrollRef = useRef<HTMLUListElement | null>(null);
-  const requestsPanelRef = useRef<HTMLElement | null>(null);
-  const sideStackRef = useRef<HTMLElement | null>(null);
-  const composerPanelRef = useRef<HTMLElement | null>(null);
-  const autoOpenRequestTimerRef = useRef<number | null>(null);
-  const [isEventsHovered, setIsEventsHovered] = useState(false);
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const flowRef = useRef<PostBulletinFlowHandle>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [optIn, setOptIn] = useState<ArrivalPrompt | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const signedIn = auth.status === "authenticated";
 
-  const topCitiesQuery = useQuery({
-    queryKey: queryKeys.directory.residenceCities(RESIDENCE_CITIES_AGGREGATE_LIMIT),
-    queryFn: async ({ signal }) => {
-      const data = await assertApiGet<ResidenceCitiesResponse>(
-        `/v1/directory/residence-cities?limit=${RESIDENCE_CITIES_AGGREGATE_LIMIT}`,
-        signal
-      );
-      return data.cities ?? [];
-    },
-    enabled: auth.status === "authenticated",
+  const list = useQuery({ queryKey: citiesKeys.list(), queryFn: ({ signal }) => fetchCities(signal), enabled: signedIn });
+  const target = citySlug ? findCityBySlug(list.data, citySlug) : (list.data?.viewerCity ?? null);
+  const placeId = target?.placeId ?? null;
+  const city = useQuery({
+    queryKey: citiesKeys.city(placeId ?? "none"),
+    queryFn: ({ signal }) => fetchCity(placeId!, signal),
+    enabled: signedIn && placeId !== null,
   });
 
-  const topCitiesRows = useMemo(() => {
-    if (topCitiesQuery.data && topCitiesQuery.data.length > 0) {
-      return dedupeMergedResidenceCities(topCitiesQuery.data);
-    }
-    return LOCATION_LENS_TOP_CITIES_FALLBACK.map((p) => ({ ...p, count: 0 }));
-  }, [topCitiesQuery.data]);
-
-  const topCitiesLoading = topCitiesQuery.isLoading;
-  const topCitiesUpdating = topCitiesQuery.isFetching && !topCitiesQuery.isLoading;
-  const topCitiesError =
-    topCitiesQuery.error instanceof Error
-      ? topCitiesQuery.error.message
-      : topCitiesQuery.error
-        ? String(topCitiesQuery.error)
-        : null;
-
-  const exploreStableCatalogRows = useMemo(
-    () => exploreCitiesStableCatalog(topCitiesQuery.data ?? []),
-    [topCitiesQuery.data],
-  );
-
-  const resolvedPick = useMemo(
-    () => resolveCityFromSlug(citySlug, topCitiesRows),
-    [citySlug, topCitiesRows],
-  );
-
-  const [selected, setSelected] = useState<TopCityPick>(() => resolveCityFromSlug(citySlug, undefined));
-
-  if (selected.city !== resolvedPick.city || selected.country !== resolvedPick.country) {
-    setSelected(resolvedPick);
-  }
-
-  const [activeNeed, setActiveNeed] = useState<CityNeedItem["type"] | "all">("all");
-  const [activeExploreRegion, setActiveExploreRegion] = useState<ExploreRegion>("all");
-  const [cityPickerOpen, setCityPickerOpen] = useState(false);
-  const cityPickerSheetRef = useRef<HTMLDivElement | null>(null);
-  const cityPickerReturnFocusRef = useRef<HTMLElement | null>(null);
-
+  // One "viewed" event per city opened (and whether the nudge email brought them), for the nudge funnel.
+  const viewedRole = city.data?.viewerRole ?? null;
+  const via = searchParams.get("via");
   useEffect(() => {
-    if (!cityPickerOpen) return undefined;
-    const sheet = cityPickerSheetRef.current;
-    cityPickerReturnFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    sheet?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setCityPickerOpen(false);
-        return;
-      }
-      if (event.key !== "Tab" || !sheet) return;
-      const focusable = Array.from(
-        sheet.querySelectorAll<HTMLElement>("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"),
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || active === sheet)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      cityPickerReturnFocusRef.current?.focus();
-    };
-  }, [cityPickerOpen]);
-  // Drafts stay in this browser (localStorage), kept per signed-in person so a shared device does not mix them.
-  const draftOwner = auth.status === "authenticated" ? auth.person.personId : "guest";
-  const [draftsOwner, setDraftsOwner] = useState(draftOwner);
-  const [createdNeeds, setCreatedNeeds] = useState<CityNeedItem[]>(() => loadCityDrafts<CityNeedItem>(draftOwner, "needs"));
-  const [createdEvents, setCreatedEvents] = useState<CityEventItem[]>(() => loadCityDrafts<CityEventItem>(draftOwner, "events"));
-  if (draftsOwner !== draftOwner) {
-    setDraftsOwner(draftOwner);
-    setCreatedNeeds(loadCityDrafts<CityNeedItem>(draftOwner, "needs"));
-    setCreatedEvents(loadCityDrafts<CityEventItem>(draftOwner, "events"));
-  }
-  useEffect(() => {
-    if (draftsOwner === draftOwner) saveCityDrafts(draftOwner, "needs", createdNeeds);
-  }, [draftOwner, draftsOwner, createdNeeds]);
-  useEffect(() => {
-    if (draftsOwner === draftOwner) saveCityDrafts(draftOwner, "events", createdEvents);
-  }, [draftOwner, draftsOwner, createdEvents]);
-  const [highlightCreateRequestCta, setHighlightCreateRequestCta] = useState(false);
-  const [composerMode, setComposerMode] = useState<null | "request" | "event">(null);
-  const [composerError, setComposerError] = useState<string | null>(null);
-  const [composerNotice, setComposerNotice] = useState<string | null>(null);
-  const [requestForm, setRequestForm] = useState({
-    title: "",
-    type: "housing" as CityNeedItem["type"],
-    description: "",
-  });
-  const [eventForm, setEventForm] = useState({
-    title: "",
-    date: "",
-    time: "",
-    venue: "",
-  });
+    if (!placeId || !viewedRole) return;
+    trackBetaUsageEvent("cities_viewed", { role: viewedRole, ...(via === "nudge" ? { via: "nudge" } : {}) });
+  }, [placeId, viewedRole, via]);
 
-  const cityNeeds = useMemo(
-    () => [...createdNeeds, ...CITY_NEEDS].filter((item) => matchCityItem(item, selected.city, selected.country)),
-    [selected, createdNeeds]
-  );
-  const filteredNeeds = useMemo(
-    () => cityNeeds.filter((item) => (activeNeed === "all" ? true : item.type === activeNeed)),
-    [cityNeeds, activeNeed]
-  );
-  const requestTabCounts = useMemo(
-    () =>
-      cityNeeds.reduce<Record<CityNeedItem["type"], number>>(
-        (acc, item) => {
-          acc[item.type] += 1;
-          return acc;
-        },
-        {
-          housing: 0,
-          accommodation: 0,
-          sports_activity: 0,
-          city_help: 0,
-        }
-      ),
-    [cityNeeds]
-  );
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: CITIES_KEY });
+    void queryClient.invalidateQueries({ queryKey: SENT_NOTES_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.contactRequests.all });
+  }, [queryClient]);
 
-  const cityEvents = useMemo(
-    () => [...createdEvents, ...CITY_EVENTS].filter((item) => matchCityItem(item, selected.city, selected.country)).slice(0, 2),
-    [selected, createdEvents]
-  );
-  /** Match Active requests panel height to the right column stack on desktop so the hub row stays fixed and the list scrolls. */
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-    const panel = requestsPanelRef.current;
-    if (!panel) return;
-    const mq = window.matchMedia("(min-width: 1121px)");
+  if (!signedIn) return null;
 
-    const applyRequestsCapFromSideStack = () => {
-      if (!mq.matches) {
-        panel.style.removeProperty("--location-requests-cap");
-        return;
-      }
-      const side = sideStackRef.current;
-      if (!side) {
-        panel.style.removeProperty("--location-requests-cap");
-        return;
-      }
-      const h = Math.round(side.getBoundingClientRect().height);
-      if (h > 0) {
-        panel.style.setProperty("--location-requests-cap", `${h}px`);
-      } else {
-        panel.style.removeProperty("--location-requests-cap");
-      }
-    };
-
-    applyRequestsCapFromSideStack();
-    const side = sideStackRef.current;
-    const ro = new ResizeObserver(applyRequestsCapFromSideStack);
-    if (side) {
-      ro.observe(side);
-    }
-    mq.addEventListener("change", applyRequestsCapFromSideStack);
-    return () => {
-      ro.disconnect();
-      mq.removeEventListener("change", applyRequestsCapFromSideStack);
-      panel.style.removeProperty("--location-requests-cap");
-    };
-  }, [cityEvents.length]);
-
-  const displayName =
-    auth.status === "authenticated"
-      ? (profile?.fullName ?? "").trim() ||
-          profile?.fullName?.trim() ||
-          displayFirstNameFromEmail(auth.person.institutionalEmail)
-      : "";
-
-  const myPersonId = auth.status === "authenticated" ? auth.person.personId : null;
-
-  /* Messaging paused: city-request Message action commented out for now.
-  function openMessagingForCityNeed(need: CityNeedItem) {
-    if (!myPersonId) return;
-    if (need.askedByPersonId === myPersonId) return;
-
-    if (!need.askedByPersonId) {
-      window.dispatchEvent(
-        new CustomEvent<MessagingOpenDraftDetail>("messaging:open-draft", { detail: { openPanelOnly: true } })
-      );
-      return;
-    }
-
-    const firstName = need.askedByName.trim().split(/\s+/)[0] ?? "there";
-    const titleRef = capLocationRequestText(need.title, LOCATION_REQUEST_TITLE_MAX_CHARS);
-    const initialMessage = `Hi ${firstName},\nI'm messaging about your city request: "${titleRef}"\n`.slice(0, 300);
-
-    window.dispatchEvent(
-      new CustomEvent<MessagingOpenDraftDetail>("messaging:open-draft", {
-        detail: {
-          recipientPersonId: need.askedByPersonId,
-          recipientName: need.askedByName,
-          initialMessage,
-          kind: "general",
-          requestTitle: titleRef,
-          recipientDepartmentCode: need.askedByDepartmentCode,
-          recipientBatchYear: need.askedByBatchYear,
-        },
-      })
+  const displayName = auth.myProfile?.fullName?.trim() || undefined;
+  const profileId = auth.myProfile?.id ?? null;
+  const emailsOpen = searchParams.get("emails") === "manage";
+  const closeEmails = () =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("emails");
+        return next;
+      },
+      { replace: true },
     );
-  }
-  */
 
-  const requestTabs = [
-    { id: "housing" as const, label: "Housing" },
-    {
-      id: "accommodation" as const,
-      label: "Short stays",
-    },
-    {
-      id: "sports_activity" as const,
-      label: "Activities",
-    },
-    { id: "city_help" as const, label: "General" },
-  ] as const;
-
-  function selectCity(next: TopCityPick) {
-    const nextPath = cityIntentPath(next.city);
-    if (nextPath !== `/intent/location/${citySlug ?? ""}`) {
-      navigate(nextPath);
-    }
-  }
-
-  useEffect(() => {
-    const container = upcomingEventsScrollRef.current;
-    if (!container || isEventsHovered) return;
-    if (container.scrollHeight <= container.clientHeight) return;
-
-    const step = 0.4;
-    const tickMs = 30;
-    const timer = window.setInterval(() => {
-      if (!container.isConnected) return;
-      const bottomGap = container.scrollHeight - container.clientHeight - container.scrollTop;
-      if (bottomGap <= 1) {
-        container.scrollTop = 0;
-        return;
-      }
-      container.scrollTop += step;
-    }, tickMs);
-
-    return () => window.clearInterval(timer);
-  }, [cityEvents.length, isEventsHovered]);
-
-  function clearAutoOpenRequestTimer() {
-    if (autoOpenRequestTimerRef.current == null) return;
-    window.clearTimeout(autoOpenRequestTimerRef.current);
-    autoOpenRequestTimerRef.current = null;
-  }
-
-  function scheduleCreateRequestAutoOpen() {
-    clearAutoOpenRequestTimer();
-    autoOpenRequestTimerRef.current = window.setTimeout(() => {
-      openComposer("request");
-    }, 1000);
-  }
-
-  function showHousingRequests() {
-    setActiveNeed("housing");
-    window.requestAnimationFrame(() => {
-      document.querySelector(".cities-redesign__tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const openWall = (options: { headline?: string; body?: string; placeId?: string | null }) =>
+    flowRef.current?.open({
+      category: "relocation",
+      headline: options.headline,
+      body: options.body,
+      ...(options.placeId ? { placeId: options.placeId } : {}),
     });
-  }
 
-  function openComposer(mode: "request" | "event") {
-    clearAutoOpenRequestTimer();
-    setHighlightCreateRequestCta(false);
-    setComposerError(null);
-    setComposerNotice(null);
-    setComposerMode(mode);
-  }
+  const data = city.data;
+  const ToolbarTitle = data?.viewerRole === "arriver" && data.counts.alumni > 0 ? "div" : "h1";
+  const toolbarCity = data?.place.city ?? target?.city ?? "Cities";
+  const cities = list.data?.cities ?? [];
+  let body: React.ReactNode;
 
-  useEffect(() => {
-    if (searchParams.get(HIGHLIGHT_CREATE_REQUEST_QUERY) !== "1") return;
-    queueMicrotask(() => {
-      setHighlightCreateRequestCta(true);
-      const next = new URLSearchParams(searchParams);
-      next.delete(HIGHLIGHT_CREATE_REQUEST_QUERY);
-      setSearchParams(next, { replace: true });
-      window.requestAnimationFrame(() => {
-        composerPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
-      clearAutoOpenRequestTimer();
-      autoOpenRequestTimerRef.current = window.setTimeout(() => {
-        clearAutoOpenRequestTimer();
-        setHighlightCreateRequestCta(false);
-        setComposerError(null);
-        setComposerNotice(null);
-        setComposerMode("request");
-      }, 1000);
-    });
-  }, [searchParams, setSearchParams]);
-
-  function focusCreateRequestComposer() {
-    setHighlightCreateRequestCta(true);
-    window.requestAnimationFrame(() => {
-      composerPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    scheduleCreateRequestAutoOpen();
-  }
-
-  function nudgeTopSearchForPeople() {
-    const next = new URLSearchParams(searchParams);
-    next.set(HIGHLIGHT_NAV_SEARCH_QUERY, "1");
-    setSearchParams(next, { replace: true });
-  }
-
-  useEffect(() => {
-    return () => {
-      clearAutoOpenRequestTimer();
-    };
-  }, []);
-
-  function closeComposer() {
-    setComposerMode(null);
-    setComposerError(null);
-  }
-
-  function formatEventStartsAtLabel(dateValue: string, timeValue: string): string {
-    const parsedDate = new Date(dateValue);
-    const weekday = Number.isNaN(parsedDate.getTime())
-      ? dateValue
-      : parsedDate.toLocaleDateString("en-US", { weekday: "short" });
-    const [hoursRaw, minutesRaw] = timeValue.split(":");
-    const hours = Number(hoursRaw);
-    const minutes = Number(minutesRaw);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return `${weekday} · ${timeValue}`;
-    const suffix = hours >= 12 ? "PM" : "AM";
-    const hours12 = hours % 12 === 0 ? 12 : hours % 12;
-    const paddedMinutes = String(minutes).padStart(2, "0");
-    return `${weekday} · ${hours12}:${paddedMinutes} ${suffix}`;
-  }
-
-  function handleCreateRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!myPersonId) return;
-    const hubCity = selected.city.trim();
-    const hubCountry = selected.country.trim();
-    if (!requestForm.title.trim() || !requestForm.description.trim() || !hubCity || !hubCountry) {
-      setComposerError(
-        hubCity && !hubCountry
-          ? "Pick a region for this city hub before posting a request."
-          : "Please complete all required fields for the request."
-      );
-      return;
-    }
-    const departmentCode = profile?.departmentCode?.toUpperCase() ?? "ALUM";
-    const batchYear = profile?.batchYear ?? new Date().getFullYear();
-    const askedByName =
-      (profile?.fullName ?? "").trim() || profile?.fullName?.trim() || displayName || "Alumni member";
-    setCreatedNeeds((prev) => [
-      {
-        id: `need-local-${Date.now()}`,
-        city: hubCity,
-        country: hubCountry,
-        type: requestForm.type,
-        askedByName,
-        askedByDepartmentCode: departmentCode,
-        askedByBatchYear: batchYear,
-        askedByPersonId: myPersonId,
-        title: requestForm.title.trim().slice(0, LOCATION_REQUEST_TITLE_MAX_CHARS),
-        description: requestForm.description.trim().slice(0, LOCATION_REQUEST_DESCRIPTION_MAX_CHARS),
-      },
-      ...prev,
-    ]);
-    setRequestForm({ title: "", type: "housing", description: "" });
-    setComposerMode(null);
-    setComposerError(null);
-    setComposerNotice(CITY_REQUEST_SAVED_NOTICE);
-  }
-
-  function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const hubCity = selected.city.trim();
-    const hubCountry = selected.country.trim();
-    if (!eventForm.title.trim() || !eventForm.date || !eventForm.time || !eventForm.venue.trim() || !hubCity || !hubCountry) {
-      setComposerError(
-        hubCity && !hubCountry
-          ? "Pick a region for this city hub before creating an event."
-          : "Please complete title, date, time, and venue for the event."
-      );
-      return;
-    }
-    setCreatedEvents((prev) => [
-      {
-        id: `event-local-${Date.now()}`,
-        city: hubCity,
-        country: hubCountry,
-        title: eventForm.title.trim(),
-        startsAtLabel: formatEventStartsAtLabel(eventForm.date, eventForm.time),
-        venue: eventForm.venue.trim(),
-        attendeeCount: 0,
-      },
-      ...prev,
-    ]);
-    setEventForm({ title: "", date: "", time: "", venue: "" });
-    setComposerMode(null);
-    setComposerError(null);
-    setComposerNotice(CITY_EVENT_SAVED_NOTICE);
+  if (list.isPending || (placeId !== null && city.isPending)) {
+    body = (
+      <p className="cities__note" role="status">
+        Loading…
+      </p>
+    );
+  } else if (list.isError || city.isError) {
+    body = (
+      <p className="cities__note" role="alert">
+        Couldn’t load this city.{" "}
+        <button
+          type="button"
+          className="cities__textbtn"
+          onClick={() => {
+            void list.refetch();
+            if (placeId) void city.refetch();
+          }}
+        >
+          Try again
+        </button>
+      </p>
+    );
+  } else if (!citySlug && !list.data?.viewerCity) {
+    body = (
+      <NoCityPrompt
+        cities={cities}
+        onOpenAll={() => setSwitcherOpen(true)}
+        onSaved={(_place, prompt) => {
+          if (prompt) setOptIn(prompt);
+        }}
+      />
+    );
+  } else if (!target || !data) {
+    body = (
+      <section className="cities__section">
+        <h2 className="cities__h2">We don’t have that city yet</h2>
+        <p className="cities__note">No alumni have it on their profile. Pick a city from the list.</p>
+        <button type="button" className="cities__secondary" onClick={() => setSwitcherOpen(true)}>
+          All cities
+        </button>
+      </section>
+    );
+  } else if (data.viewerRole === "arriver" || data.viewerRole === "no_city") {
+    body = (
+      <ArriverView
+        data={data}
+        onChanged={refresh}
+        onAskWall={(mode: CityAskMode) =>
+          openWall({ headline: `${mode === "moving" ? "Moving to" : "Visiting"} ${data.place.city}`, placeId: data.place.placeId })
+        }
+      />
+    );
+  } else {
+    body = (
+      <ResidentView
+        data={data}
+        profileId={profileId}
+        onChanged={refresh}
+        onOptIn={() => setOptIn({ placeId: data.place.placeId, cityName: data.place.city })}
+        onSwitch={() => setSwitcherOpen(true)}
+        onPostMeetup={() => openWall({ placeId: data.place.placeId })}
+        onNotice={setNotice}
+      />
+    );
   }
 
   return (
-    <div className="intent-page-shell">
+    <div className="intent-page-shell cities-page-shell">
       <Nav
         variant="home"
-        hideNotificationsBell
         avatarName={displayName}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
-            <h1 id="location-toolbar-title" className="nav-app-toolbar__welcome-title nav-app-toolbar__welcome-title--location-page">
-              <button
-                type="button"
-                className="cities-switcher__trigger"
-                aria-haspopup="dialog"
-                aria-expanded={cityPickerOpen}
-                aria-label={`${cityLabel(selected.city, selected.country)}. Change city`}
-                onClick={() => {
-                  clearAutoOpenRequestTimer();
-                  setCityPickerOpen(true);
-                }}
-              >
-                <span className="cities-switcher__trigger-label">{selected.city}</span>
-                <span className="cities-switcher__trigger-chevron" aria-hidden>
-                  &#9662;
-                </span>
+            <ToolbarTitle className="nav-app-toolbar__welcome-title cities-toolbar-title">
+              <button type="button" className="cities-toolbar-picker" aria-label={`Change city: ${toolbarCity}`} aria-haspopup="dialog" aria-expanded={switcherOpen} title={toolbarCity} onClick={() => setSwitcherOpen(true)}>
+                <span>{toolbarCity}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
               </button>
-            </h1>
+            </ToolbarTitle>
           </div>
         }
       />
-      <main className="cities-v2 cities-redesign">
-        <section className="cities-redesign__quick">
-          <h2 className="cities-redesign__section-title">What do you want to do?</h2>
-          <div className="cities-redesign__quick-grid">
-            <button type="button" className="cities-redesign__quick-card" onClick={nudgeTopSearchForPeople}>
-              <span className="cities-redesign__quick-icon"><IconUsers /></span>
-              <div>
-                <p className="cities-redesign__quick-title">Find people</p>
-                <p className="cities-redesign__quick-copy">Connect with alumni in your city</p>
-              </div>
+      <main className="cities">
+        {notice ? (
+          <div className="cities__notice" role="status">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice(null)}>
+              Dismiss
             </button>
-            <button type="button" className="cities-redesign__quick-card" onClick={focusCreateRequestComposer}>
-              <span className="cities-redesign__quick-icon"><IconHelp /></span>
-              <div>
-                <p className="cities-redesign__quick-title">Ask for help</p>
-                <p className="cities-redesign__quick-copy">Draft a request and line up help from alumni</p>
-              </div>
-            </button>
-            <button type="button" className="cities-redesign__quick-card" onClick={showHousingRequests}>
-              <span className="cities-redesign__quick-icon"><IconCity /></span>
-              <div>
-                <p className="cities-redesign__quick-title">Find housing</p>
-                <p className="cities-redesign__quick-copy">Flats, flatmates, and short stays</p>
-              </div>
-            </button>
-            {isDevHubPagesEnabled ? (
-              <Link to="/events" className="cities-redesign__quick-card">
-                <span className="cities-redesign__quick-icon"><IconCalendar /></span>
-                <div>
-                  <p className="cities-redesign__quick-title">Explore events</p>
-                  <p className="cities-redesign__quick-copy">Discover events and activities</p>
-                </div>
+          </div>
+        ) : null}
+        {emailsOpen ? <CityEmailsControl current={data?.nudgeFrequency ?? "weekly"} onClose={closeEmails} /> : null}
+        {body}
+      </main>
+
+      {switcherOpen ? (
+        <CitySwitcherSheet
+          cities={cities}
+          viewerCity={list.data?.viewerCity ?? null}
+          currentPlaceId={placeId}
+          onClose={() => setSwitcherOpen(false)}
+        />
+      ) : null}
+      {optIn ? (
+        <ArrivalOptInSheet
+          placeId={optIn.placeId}
+          cityName={optIn.cityName}
+          onClose={() => setOptIn(null)}
+          onDone={() => setNotice(`You’re shown as new in ${optIn.cityName} for 30 days.`)}
+        />
+      ) : null}
+      <PostBulletinFlow
+        ref={flowRef}
+        onPublishSuccess={() => {
+          setNotice("Posted. It’s on the Wall and under Get together.");
+          refresh();
+        }}
+      />
+    </div>
+  );
+}
+
+/** Local (screen 1) and newcomer (screen 6) views: the viewer lives here. */
+function ResidentView({
+  data,
+  profileId,
+  onChanged,
+  onOptIn,
+  onSwitch,
+  onPostMeetup,
+  onNotice,
+}: {
+  data: CityPayload;
+  profileId: string | null;
+  onChanged: () => void;
+  onOptIn: () => void;
+  onSwitch: () => void;
+  onPostMeetup: () => void;
+  onNotice: (text: string) => void;
+}) {
+  const [stopping, setStopping] = useState(false);
+  const city = data.place.city;
+  const newcomer = data.viewerRole === "newcomer" && data.myArrival !== null;
+
+  const stop = async () => {
+    if (stopping) return;
+    setStopping(true);
+    const res = await endArrival();
+    setStopping(false);
+    if (res.error) {
+      onNotice("Couldn’t update. Try again.");
+      return;
+    }
+    onNotice("You’re no longer shown as new. Offers you already have stay here.");
+    onChanged();
+  };
+
+  return (
+    <>
+      <header className="cities__header">
+        <p className="cities__eyebrow">{newcomer ? "Your city · new in town" : "Your city"}</p>
+        {newcomer ? (
+          <p className="cities__count">
+            Shown as new to local alumni for {data.myArrival!.daysLeft} more {data.myArrival!.daysLeft === 1 ? "day" : "days"}
+          </p>
+        ) : (
+          <p className="cities__count">
+            {data.counts.alumni} {data.counts.alumni === 1 ? "alum lives" : "alumni live"} here
+          </p>
+        )}
+        {newcomer ? (
+          <button type="button" className="cities__textbtn" disabled={stopping} onClick={() => void stop()}>
+            Stop showing me as new
+          </button>
+        ) : (
+          <>
+            {data.arrivalPrompt ? (
+              <button type="button" className="cities__textbtn" onClick={onOptIn}>
+                Just moved? Show me as new in town
+              </button>
+            ) : null}
+            {profileId ? (
+              <Link to={`/profiles/${profileId}?edit=city`} className="cities__link">
+                Moved away? Update your city
               </Link>
             ) : null}
-          </div>
+          </>
+        )}
+      </header>
+
+      {/* Offers stay visible to the newcomer after "Stop showing me as new" (until their 30 days end). */}
+      {newcomer || data.offers.length > 0 ? (
+        <NewcomerOffersSection offers={data.offers} previousCity={data.myArrival?.previousCity ?? null} onChanged={onChanged} />
+      ) : null}
+
+      {!newcomer && data.v1Enabled && data.arrivals && data.arrivals.items.length > 0 ? (
+        <NewInCitySection city={city} arrivals={data.arrivals.items} total={data.arrivals.total} onChanged={onChanged} />
+      ) : null}
+
+      {data.v1Enabled && data.helpPanel ? <CityHelpPanel city={city} panel={data.helpPanel} /> : null}
+
+      {data.alumni ? <CityAlumniList place={data.place} initial={data.alumni} totalAlumni={data.counts.alumni} onChanged={onChanged} /> : null}
+
+      {data.v1Enabled ? (
+        <CityMeetups city={city} posts={data.posts} chapterLink={data.chapterLink} onPost={onPostMeetup} onChanged={onChanged} />
+      ) : null}
+
+      {data.v1Enabled ? (
+        <section className="cities__section" aria-labelledby="cities-else-title">
+          <h2 id="cities-else-title" className="cities__h2">
+            Something else?
+          </h2>
+          <ul className="cities__rows">
+            <li>
+              <button type="button" className="cities__row cities__row--button" onClick={onSwitch}>
+                <span className="cities__row-title">Moving to another city?</span>
+                <span aria-hidden>›</span>
+              </button>
+            </li>
+            <li>
+              <Link to="/match?cat=higher_studies" className="cities__row">
+                <span className="cities__row-title">Studying abroad? Ask alumni</span>
+                <span aria-hidden>›</span>
+              </Link>
+            </li>
+          </ul>
         </section>
-
-        <section className="cities-v2__mid-grid">
-          <section ref={requestsPanelRef} className="cities-redesign__requests">
-            <header className="cities-redesign__requests-head">
-              <h2 className="cities-redesign__section-title">
-                City board
-              </h2>
-              <p className="cities-redesign__draft-note">{CITY_DRAFT_NOTE}</p>
-            </header>
-            <div className="cities-redesign__tabs">
-              {requestTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  aria-pressed={activeNeed === tab.id}
-                  className={`cities-redesign__tab location-page__request-tab${
-                    activeNeed === tab.id ? " location-page__request-tab--selected is-active" : ""
-                  }`}
-                  onClick={() => setActiveNeed((prev) => (prev === tab.id ? "all" : tab.id))}
-                >
-                  <span className={`cities-redesign__tab-icon cities-redesign__tab-icon--${tab.id}`} aria-hidden>
-                    {tab.id === "housing" ? <IconCity /> : null}
-                    {tab.id === "accommodation" ? <IconCity /> : null}
-                    {tab.id === "sports_activity" ? <IconUsers /> : null}
-                    {tab.id === "city_help" ? <IconHelp /> : null}
-                  </span>
-                  {tab.label}
-                  <span className="cities-redesign__tab-count">{requestTabCounts[tab.id]}</span>
-                </button>
-              ))}
-            </div>
-            <div className="cities-redesign__requests-feed">
-              {filteredNeeds.length === 0 ? (
-                <p className="cities-redesign__state cities-redesign__state--feed-empty" role="status">
-                  {LOCATION_PAGE_EMPTY_POSTS_COPY}
-                </p>
-              ) : (
-                <ul
-                  className="cities-redesign__request-list cities-redesign__auto-scroll-list cities-redesign__auto-scroll-list--requests"
-                  role="list"
-                >
-                  {filteredNeeds.map((need) => {
-                    const titleShown = capLocationRequestText(need.title, LOCATION_REQUEST_TITLE_MAX_CHARS);
-                    const descShown = capLocationRequestText(need.description, LOCATION_REQUEST_DESCRIPTION_MAX_CHARS);
-                    const profileHref = cityNeedPosterProfileHref(need);
-                    const avatarEl = (
-                      <Avatar name={need.askedByName} size="lg" tone="pastel" />
-                    );
-                    return (
-                    <li key={need.id} className="cities-redesign__request-row">
-                      <div className="cities-redesign__request-main">
-                        {profileHref ? (
-                          <Link
-                            to={profileHref}
-                            className="cities-redesign__request-avatar-link"
-                            aria-label={`View ${need.askedByName}'s profile`}
-                          >
-                            {avatarEl}
-                          </Link>
-                        ) : (
-                          avatarEl
-                        )}
-                        <div>
-                          {titleShown.trim() ? (
-                            <p className="cities-redesign__request-title" title={need.title}>
-                              {titleShown}
-                            </p>
-                          ) : null}
-                          <p className="cities-redesign__request-meta">
-                            {need.askedByName} · {need.askedByDepartmentCode} '{String(need.askedByBatchYear).slice(-2)} · 2h ago
-                          </p>
-                          {descShown.trim() ? (
-                            <p className="cities-redesign__request-copy" title={need.description}>
-                              {descShown}
-                            </p>
-                          ) : null}
-                          <p className="cities-redesign__request-tags">
-                            <span className={`cities-redesign__tag cities-redesign__tag--type cities-redesign__tag--${need.type}`}>
-                              {humanNeedType(need.type)}
-                            </span>
-                            <span className="cities-redesign__tag cities-redesign__tag--location">
-                              <span className="cities-redesign__tag-icon" aria-hidden>
-                                <IconMapPin />
-                              </span>
-                              {selected.city}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      {/* Messaging paused: city-request Message button commented out for now.
-                      <div className="cities-redesign__request-actions">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={
-                            Boolean(myPersonId) &&
-                            Boolean(need.askedByPersonId) &&
-                            need.askedByPersonId === myPersonId
-                          }
-                          title={need.askedByPersonId === myPersonId ? "Your request" : undefined}
-                          onClick={() => openMessagingForCityNeed(need)}
-                        >
-                          Message
-                        </Button>
-                      </div>
-                      */}
-                    </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <aside ref={sideStackRef} className="cities-v2__side-stack">
-            {isDevHubPagesEnabled ? (
-              <article className="cities-redesign__panel">
-                <header className="cities-redesign__panel-head">
-                  <h3>Upcoming events</h3>
-                </header>
-                <div className="cities-redesign__events-feed">
-                  {cityEvents.length === 0 ? (
-                    <p className="cities-redesign__state cities-redesign__state--feed-empty" role="status">
-                      {LOCATION_PAGE_EMPTY_POSTS_COPY}
-                    </p>
-                  ) : (
-                    <ul
-                      ref={upcomingEventsScrollRef}
-                      className="cities-redesign__event-list cities-redesign__auto-scroll-list cities-redesign__auto-scroll-list--events"
-                      onMouseEnter={() => setIsEventsHovered(true)}
-                      onMouseLeave={() => setIsEventsHovered(false)}
-                    >
-                      {cityEvents.map((event) => (
-                        <li key={event.id} className="cities-redesign__event-item">
-                          <Link
-                            to="/events"
-                            state={{ eventId: event.id, eventTitle: event.title }}
-                            className="cities-redesign__event-link"
-                            aria-label={`View details for ${event.title}`}
-                          >
-                            <div>
-                              <p className="cities-redesign__event-title">{event.title}</p>
-                              <p className="cities-redesign__event-meta">{event.startsAtLabel} · {event.venue}</p>
-                              <p className="cities-redesign__event-attendees">
-                                {event.attendeeCount}{" "}
-                                {event.attendeeCount === 1 ? "alumnus" : "alumni"} attending
-                              </p>
-                            </div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </article>
-            ) : null}
-
-            <article ref={composerPanelRef} className="cities-redesign__panel cities-redesign__composer-card">
-              <header className="cities-redesign__panel-head">
-                <h3>Create in {selected.city}</h3>
-              </header>
-              <p className="cities-redesign__composer-copy">
-                Add a request or event for alumni in this city. We will prefill your city automatically.
-              </p>
-              <div className="cities-redesign__composer-actions">
-                <Button
-                  variant="secondary"
-                  className={`cities-redesign__composer-btn cities-redesign__composer-btn--request${
-                    highlightCreateRequestCta ? " cities-redesign__composer-btn--highlight" : ""
-                  }`}
-                  onClick={() => openComposer("request")}
-                  title={highlightCreateRequestCta ? "Open the form to post your request for this city" : undefined}
-                >
-                  Create request
-                </Button>
-                <Button
-                  variant="primary"
-                  className="cities-redesign__composer-btn cities-redesign__composer-btn--event"
-                  onClick={() => openComposer("event")}
-                >
-                  Create event
-                </Button>
-              </div>
-            </article>
-          </aside>
-        </section>
-        {composerNotice ? <p className="cities-redesign__composer-notice">{composerNotice}</p> : null}
-
-        {cityPickerOpen ? (
-          <div
-            className="cities-switcher__backdrop"
-            onClick={() => setCityPickerOpen(false)}
-          >
-            <div
-              ref={cityPickerSheetRef}
-              tabIndex={-1}
-              className="cities-switcher__sheet"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Pick a city"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="cities-switcher__head">
-                <h3>Pick a city</h3>
-                <button type="button" className="cities-switcher__close" onClick={() => setCityPickerOpen(false)}>
-                  Close
-                </button>
-              </header>
-              <div className="cities-v2__explore-tabs" role="tablist" aria-label="Explore cities by region">
-                {EXPLORE_REGION_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={`cities-v2__explore-tab${activeExploreRegion === tab.id ? " is-active" : ""}`}
-                    onClick={() => setActiveExploreRegion(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              {topCitiesLoading ? <p className="cities-redesign__state">Loading city stats…</p> : null}
-              {topCitiesError ? <p className="cities-redesign__state cities-redesign__state--error">{topCitiesError}</p> : null}
-              {topCitiesUpdating ? <p className="cities-redesign__updating">Updating city stats…</p> : null}
-              <div className="cities-switcher__list">
-                {exploreStableCatalogRows
-                  .filter((row) => activeExploreRegion === "all" || regionForCountry(row.country) === activeExploreRegion)
-                  .map((row) => {
-                    const picked = selected.city === row.city && selected.country === row.country;
-                    return (
-                      <button
-                        key={`${row.city}-${row.country}-explore`}
-                        type="button"
-                        aria-pressed={picked}
-                        className={`cities-switcher__item${picked ? " is-selected" : ""}`}
-                        onClick={() => {
-                          selectCity({ city: row.city, country: row.country });
-                          setActiveNeed("all");
-                          setCityPickerOpen(false);
-                        }}
-                      >
-                        <span className="cities-v2__explore-item-label">
-                          <span aria-hidden>{flagForCountry(row.country)}</span>
-                          <span>{cityLabel(row.city, row.country)}</span>
-                        </span>
-                        <span className="cities-v2__explore-item-count">{picked ? "Current" : `${row.count} active`}</span>
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {composerMode ? (
-          <div className="cities-redesign__composer-overlay" role="presentation" onClick={closeComposer}>
-            <section
-              className="cities-redesign__composer-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-label={composerMode === "request" ? "Create request" : "Create event"}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="cities-redesign__composer-head">
-                <h3>{composerMode === "request" ? "Draft a request" : "Draft an event"}</h3>
-                <button type="button" className="cities-redesign__composer-close" onClick={closeComposer}>
-                  Close
-                </button>
-              </header>
-              {composerMode === "request" ? (
-                <form className="cities-redesign__composer-form" onSubmit={handleCreateRequest}>
-                  <label className="cities-redesign__composer-field">
-                    <span className="cities-redesign__composer-field-label">
-                      <span>Request title</span>
-                    </span>
-                    <div className="cities-redesign__composer-input-wrap">
-                      <input
-                        className="input cities-redesign__composer-input cities-redesign__composer-input--single-line"
-                        value={requestForm.title}
-                        maxLength={LOCATION_REQUEST_TITLE_MAX_CHARS}
-                        onChange={(event) => setRequestForm((prev) => ({ ...prev, title: event.target.value }))}
-                        placeholder="e.g. Looking for a flatmate near Koramangala"
-                        required
-                        aria-describedby="location-request-title-counter"
-                      />
-                      <span
-                        id="location-request-title-counter"
-                        className="cities-redesign__composer-char-count cities-redesign__composer-char-count--inside"
-                        aria-live="polite"
-                      >
-                        {requestForm.title.length} / {LOCATION_REQUEST_TITLE_MAX_CHARS}
-                      </span>
-                    </div>
-                  </label>
-                  <label className="cities-redesign__composer-field">
-                    <span>Category</span>
-                    <select
-                      className="input"
-                      value={requestForm.type}
-                      required
-                      onChange={(event) =>
-                        setRequestForm((prev) => ({
-                          ...prev,
-                          type: event.target.value as CityNeedItem["type"],
-                        }))
-                      }
-                    >
-                      <option value="housing">Housing</option>
-                      <option value="accommodation">Short stay</option>
-                      <option value="sports_activity">Activities</option>
-                      <option value="city_help">General</option>
-                    </select>
-                  </label>
-                  <label className="cities-redesign__composer-field">
-                    <span>City</span>
-                    <input
-                      className="input cities-redesign__composer-city-readonly"
-                      readOnly
-                      tabIndex={-1}
-                      value={cityLabel(selected.city, selected.country)}
-                      aria-readonly="true"
-                      aria-describedby="location-request-city-locked-help"
-                    />
-                    <span id="location-request-city-locked-help" className="visually-hidden">
-                      Locked to this city hub. Change city from the hub page to post elsewhere.
-                    </span>
-                  </label>
-                  <label className="cities-redesign__composer-field">
-                    <span className="cities-redesign__composer-field-label">
-                      <span>Description</span>
-                    </span>
-                    <div className="cities-redesign__composer-input-wrap">
-                      <textarea
-                        className="input input--textarea cities-redesign__composer-input cities-redesign__composer-input--textarea"
-                        rows={4}
-                        value={requestForm.description}
-                        maxLength={LOCATION_REQUEST_DESCRIPTION_MAX_CHARS}
-                        onChange={(event) => setRequestForm((prev) => ({ ...prev, description: event.target.value }))}
-                        placeholder="Add details alumni should know before connecting."
-                        required
-                        aria-describedby="location-request-desc-counter"
-                      />
-                      <span
-                        id="location-request-desc-counter"
-                        className="cities-redesign__composer-char-count cities-redesign__composer-char-count--inside"
-                        aria-live="polite"
-                      >
-                        {requestForm.description.length} / {LOCATION_REQUEST_DESCRIPTION_MAX_CHARS}
-                      </span>
-                    </div>
-                  </label>
-                  {composerError ? <p className="cities-redesign__composer-error">{composerError}</p> : null}
-                  <div className="cities-redesign__composer-footer">
-                    <Button variant="primary" onClick={closeComposer}>
-                      Cancel
-                    </Button>
-                    <Button variant="secondary" type="submit">
-                      Post request
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <form className="cities-redesign__composer-form" onSubmit={handleCreateEvent}>
-                  <label className="cities-redesign__composer-field">
-                    <span>Event title</span>
-                    <input
-                      className="input"
-                      value={eventForm.title}
-                      onChange={(event) => setEventForm((prev) => ({ ...prev, title: event.target.value }))}
-                      placeholder="e.g. Weekend alumni cricket"
-                      required
-                    />
-                  </label>
-                  <label className="cities-redesign__composer-field">
-                    <span>City</span>
-                    <input
-                      className="input cities-redesign__composer-city-readonly"
-                      readOnly
-                      tabIndex={-1}
-                      value={cityLabel(selected.city, selected.country)}
-                      aria-readonly="true"
-                      aria-describedby="location-event-city-locked-help"
-                    />
-                    <span id="location-event-city-locked-help" className="visually-hidden">
-                      Locked to this city hub. Change city from the hub page to create events elsewhere.
-                    </span>
-                  </label>
-                  <div className="cities-redesign__composer-field-grid">
-                    <label className="cities-redesign__composer-field">
-                      <span>Date</span>
-                      <input
-                        type="date"
-                        className="input"
-                        value={eventForm.date}
-                        onChange={(event) => setEventForm((prev) => ({ ...prev, date: event.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label className="cities-redesign__composer-field">
-                      <span>Time</span>
-                      <input
-                        type="time"
-                        className="input"
-                        value={eventForm.time}
-                        onChange={(event) => setEventForm((prev) => ({ ...prev, time: event.target.value }))}
-                        required
-                      />
-                    </label>
-                  </div>
-                  <label className="cities-redesign__composer-field">
-                    <span>Venue</span>
-                    <input
-                      className="input"
-                      value={eventForm.venue}
-                      onChange={(event) => setEventForm((prev) => ({ ...prev, venue: event.target.value }))}
-                      placeholder="e.g. HSR Layout Ground"
-                      required
-                    />
-                  </label>
-                  {composerError ? <p className="cities-redesign__composer-error">{composerError}</p> : null}
-                  <div className="cities-redesign__composer-footer">
-                    <Button variant="primary" onClick={closeComposer}>
-                      Cancel
-                    </Button>
-                    <Button variant="secondary" type="submit">
-                      Create event
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </section>
-          </div>
-        ) : null}
-      </main>
-    </div>
+      ) : null}
+    </>
   );
 }

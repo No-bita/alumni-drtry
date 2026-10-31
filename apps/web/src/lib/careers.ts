@@ -53,18 +53,4 @@ export const CAREER_HELP_TOPICS = [
 
 export const askWithTopicPath = (category: string) => `/match?cat=${encodeURIComponent(category)}`;
 
-/** Only real web links go into a note. */
-export function isWebLink(value: string): boolean {
-  try {
-    const u = new URL(value.trim());
-    return u.protocol === "https:" || u.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
 
-/** The note as sent: the text, then the optional links on their own lines. */
-export function noteWithLinks(note: string, jobLink: string, resumeLink: string): string {
-  const lines = [jobLink.trim() ? `Job: ${jobLink.trim()}` : "", resumeLink.trim() ? `Résumé: ${resumeLink.trim()}` : ""].filter(Boolean);
-  return lines.length ? `${note.trim()}\n\n${lines.join("\n")}` : note.trim();
-}

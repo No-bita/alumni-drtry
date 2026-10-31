@@ -247,6 +247,7 @@
   color: var(--ink);
   overflow-wrap: anywhere;
   text-decoration: none;
+  font-family: var(--font-display);
 }
 
 .careers__row-meta {
@@ -421,4 +422,125 @@
     text-align: center;
     padding: 8px;
   }
+}
+
+/* Careers cards mirroring the merged Wall card structure (PR #127): lane badge
+   floats right in the title row, company/description clear below, author block
+   bottom-left with posted time bottom-right. Whole card links to the profile. */
+.careers__postcard {
+  position: relative;
+  display: block;
+  padding: 12px 15px 10px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-left: 3px solid #9c7f6d;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+@media (hover: hover) {
+  .careers__postcard:hover {
+    border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+    border-left-color: #9c7f6d;
+    box-shadow: 0 10px 36px color-mix(in srgb, var(--ink) 9%, transparent);
+    transform: translateY(-1px);
+  }
+}
+
+.careers__postcard-badge {
+  float: right;
+  margin: 2px 0 6px 10px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  background: color-mix(in srgb, var(--ink) 9%, #fff);
+  color: color-mix(in srgb, var(--ink) 81%, #fff);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.careers__postcard-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.careers__postcard-company,
+.careers__postcard-desc {
+  display: block;
+  clear: both;
+  font-size: 13px;
+}
+
+.careers__postcard-company {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.careers__postcard-desc {
+  margin-top: 2px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--ink) 48%, transparent);
+}
+
+.careers__postcard-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+  clear: both;
+}
+
+.careers__postcard-author {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 12.5px;
+  min-width: 0;
+}
+
+.careers__postcard-author > span + span::before {
+  content: "\00b7  ";
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.careers__postcard .dept-batch-meta__cap-icon {
+  display: none;
+}
+
+.careers__postcard-author-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+.careers__postcard-author-meta {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+  line-height: 1.35;
+}
+
+.careers__postcard-time {
+  font-size: 12px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink) 46%, transparent);
+  white-space: nowrap;
 }
