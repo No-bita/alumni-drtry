@@ -8,6 +8,7 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { queryKeys } from "../lib/queryKeys";
 import { HELP_KIND_LABELS, cityNoteKindLabel } from "../lib/cities";
 import { Button } from "./Button";
+import { NoteBody } from "./NoteBody";
 
 type NotificationsListProps = {
   items: NotificationItem[];
@@ -170,7 +171,7 @@ function NotificationListItem({
               <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
               {(item.source === "cities" ? cityNoteKindLabel(item.sourceCategory) : null) ?? "wants to connect"}
             </p>
-            <p className="notifications-page__item-detail">{item.message}</p>
+            {item.details ? <NoteBody details={item.details} /> : <p className="notifications-page__item-detail">{item.message}</p>}
             <div className="notifications-page__item-actions">
               <Button
                 type="button"
