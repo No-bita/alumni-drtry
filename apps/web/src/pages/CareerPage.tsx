@@ -4,12 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
 import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
+import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { CareerIntentFeedRows } from "../components/CareerIntentFeedRows";
 import { PostRoleHiringFlow, type PostRoleHiringFlowHandle } from "../components/PostRoleHiringFlow";
 import type { ContactRequestsInboxResponse, IntentcastFeedResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
-import { mapIntentcastToRow } from "../lib/careerFeedRow";
+import { careerFeedRowDescription, laneBadgeLabel, mapIntentcastToRow } from "../lib/careerFeedRow";
 import {
   CAREER_HELP_TOPICS,
   askWithTopicPath,
@@ -25,13 +26,25 @@ import { formatRelativeTime } from "../lib/formatRelativeTime";
 
 /** How many companies show before "See all". */
 const COMPANIES_PREVIEW = 5;
-const yy = (y: number | null | undefined) => (y ? `'${String(y).slice(-2)}` : "");
 
 /**
  * Careers (/intent/career). Built around the job seeker: find alumni at the company you're applying
  * to and ask them directly. Smaller sections serve alumni who help, people hiring, and everyone else.
  * Sections that would be empty stay hidden.
  */
+
+/** Mirrors the Wall author line split in CareerIntentFeedRows ("Role, Org" -> role + org spans). */
+function splitAuthorRoleOrg(roleLine: string | null): { role: string | null; org: string | null } {
+  if (!roleLine?.trim()) return { role: null, org: null };
+  const parts = roleLine.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const org = parts[parts.length - 1] ?? null;
+    const role = parts.slice(0, -1).join(", ") || null;
+    return { role, org };
+  }
+  return { role: parts[0] ?? null, org: null };
+}
+
 export function CareerPage() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -284,17 +297,38 @@ export function CareerPage() {
             </button>
           </div>
           {roles.length > 0 ? (
-            <ul className="careers__rows">
-              {roles.map(({ item, row }) => (
-                <li key={item.id}>
-                  <Link to={`/profiles/${item.authorPersonId}`} className="careers__row careers__row--stack">
-                    <span className="careers__row-title">{row!.roleHeader}</span>
-                    <span className="careers__row-meta">
-                      {[row!.companySubtitle, row!.employmentType, `posted by ${item.authorFullName}`].filter(Boolean).join(" · ")}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+            <ul className="careers__cards">
+              {roles.map(({ item, row }) => {
+                const description = careerFeedRowDescription(row!);
+                const companyLine = [row!.companySubtitle, row!.employmentType].filter(Boolean).join(" · ");
+                const { role: authorRoleTitle, org: authorOrgName } = splitAuthorRoleOrg(row!.authorRoleLine);
+                return (
+                  <li key={item.id}>
+                    <Link to={`/profiles/${item.authorPersonId}`} className="careers__postcard">
+                      <span className="careers__postcard-badge">{laneBadgeLabel(row!.tone)}</span>
+                      <span className="careers__postcard-title">{row!.roleHeader}</span>
+                      {companyLine ? <span className="careers__postcard-company">{companyLine}</span> : null}
+                      {description ? <span className="careers__postcard-desc">{description}</span> : null}
+                      <span className="careers__postcard-bottom">
+                        <span className="careers__postcard-author">
+                          <span className="careers__postcard-author-name">{item.authorFullName}</span>
+                          <DeptBatchMeta
+                            className="careers__postcard-author-meta dept-batch-meta"
+                            departmentCode={item.authorDepartmentCode}
+                            batchYear={item.authorBatchYear}
+                          />
+                          {authorRoleTitle ? (
+                            <span className="careers__postcard-author-meta">{authorRoleTitle}</span>
+                          ) : null}
+                          {authorOrgName ? (
+                            <span className="careers__postcard-author-meta">{authorOrgName}</span>
+                          ) : null}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="careers__note">Hiring? Post a role and alumni will see it here.</p>
@@ -303,30 +337,62 @@ export function CareerPage() {
 
         {recent.length > 0 ? (
           <section className="careers__section" aria-labelledby="careers-recent-title">
-            <h2 id="careers-recent-title" className="careers__h2">
-              Recent from alumni
-            </h2>
+            <div className="careers__head careers__head--row">
+              <h2 id="careers-recent-title" className="careers__h2">
+                Recent from alumni
+              </h2>
+              {posts.length > 0 ? (
+                <button
+                  type="button"
+                  className="careers__more"
+                  aria-expanded={activityOpen}
+                  aria-controls="career-activity-feed"
+                  onClick={() => setActivityOpen((open) => !open)}
+                >
+                  {activityOpen ? "Hide all" : "See all"}
+                </button>
+              ) : null}
+            </div>
             <ul className="careers__cards">
-              {recent.map(({ item, row }) => (
-                <li key={item.id}>
-                  <Link to={`/profiles/${item.authorPersonId}`} className="careers__card">
-                    <span className="careers__row-meta">
-                      {row!.chips[0] ?? "Post"}
-                      {row!.postedRelative ? ` · ${row!.postedRelative}` : ""}
-                    </span>
-                    <span className="careers__row-title">{row!.roleHeader}</span>
-                    <span className="careers__row-meta">
-                      {item.authorFullName}
-                      {item.authorBatchYear ? ` · Batch ${yy(item.authorBatchYear)}` : ""}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {recent.map(({ item, row }) => {
+                const description = careerFeedRowDescription(row!);
+                const companyLine = [row!.companySubtitle, row!.employmentType].filter(Boolean).join(" · ");
+                const { role: authorRoleTitle, org: authorOrgName } = splitAuthorRoleOrg(row!.authorRoleLine);
+                return (
+                  <li key={item.id}>
+                    <Link to={`/profiles/${item.authorPersonId}`} className="careers__postcard">
+                      <span className="careers__postcard-badge">{laneBadgeLabel(row!.tone)}</span>
+                      <span className="careers__postcard-title">{row!.roleHeader}</span>
+                      {companyLine ? <span className="careers__postcard-company">{companyLine}</span> : null}
+                      {description ? <span className="careers__postcard-desc">{description}</span> : null}
+                      <span className="careers__postcard-bottom">
+                        <span className="careers__postcard-author">
+                          <span className="careers__postcard-author-name">{item.authorFullName}</span>
+                          <DeptBatchMeta
+                            className="careers__postcard-author-meta dept-batch-meta"
+                            departmentCode={item.authorDepartmentCode}
+                            batchYear={item.authorBatchYear}
+                          />
+                          {authorRoleTitle ? (
+                            <span className="careers__postcard-author-meta">{authorRoleTitle}</span>
+                          ) : null}
+                          {authorOrgName ? (
+                            <span className="careers__postcard-author-meta">{authorOrgName}</span>
+                          ) : null}
+                        </span>
+                        {row!.postedRelative ? (
+                          <span className="careers__postcard-time">{row!.postedRelative}</span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ) : null}
 
-        {posts.length > 0 ? (
+        {posts.length > 0 && recent.length === 0 ? (
           <button
             type="button"
             className="careers__textbtn"
@@ -347,9 +413,6 @@ export function CareerPage() {
           />
         </div>
 
-        <Link to="/search" className="careers__secondary">
-          Browse all alumni
-        </Link>
       </main>
 
       <PostRoleHiringFlow
