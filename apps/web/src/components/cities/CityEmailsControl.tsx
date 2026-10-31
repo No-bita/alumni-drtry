@@ -12,8 +12,14 @@ const OPTIONS: Array<{ id: NudgeFrequency; label: string }> = [
 export function CityEmailsControl({ current, onClose }: { current: NudgeFrequency; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState<NudgeFrequency>(current);
+  const [serverValue, setServerValue] = useState<NudgeFrequency>(current);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+
+  if (!busy && serverValue !== current) {
+    setServerValue(current);
+    setValue(current);
+  }
 
   const choose = async (f: NudgeFrequency) => {
     if (busy || f === value) return;
