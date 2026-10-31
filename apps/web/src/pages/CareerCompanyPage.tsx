@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import "../styles/careers.css";
+import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
@@ -128,12 +129,14 @@ export function CareerCompanyPage() {
             Finding alumni at {name}…
           </p>
         ) : query.isError ? (
-          <p className="careers__note" role="alert">
+          <CareersFeedback tone="error">
+            <p className="careers__note">
             Couldn&apos;t load alumni at {name}.{" "}
             <button type="button" className="careers__textbtn" onClick={() => void query.refetch()}>
               Try again
             </button>
           </p>
+            </CareersFeedback>
         ) : (
           <>
             <section className="careers__head" aria-labelledby="careers-co-title">
@@ -234,4 +237,4 @@ export function CareerCompanyPage() {
       />
     </div>
   );
-}
+            }

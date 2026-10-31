@@ -2,6 +2,7 @@ import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
+import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { CareerIntentFeedRows } from "../components/CareerIntentFeedRows";
 import { PostRoleHiringFlow, type PostRoleHiringFlowHandle } from "../components/PostRoleHiringFlow";
@@ -106,12 +107,14 @@ export function CareerPage() {
       />
       <main className="careers">
         {notice ? (
-          <div className="careers__notice" role="status">
-            <span>{notice}</span>
-            <button type="button" onClick={() => setNotice(null)}>
-              Dismiss
-            </button>
-          </div>
+          <CareersFeedback tone="success">
+            <div className="careers__notice">
+              <span>{notice}</span>
+              <button type="button" onClick={() => setNotice(null)}>
+                Dismiss
+              </button>
+            </div>
+          </CareersFeedback>
         ) : null}
 
         <section className="careers__hero" aria-labelledby="careers-hero-title">
@@ -174,12 +177,14 @@ export function CareerPage() {
               Loading companies…
             </p>
           ) : companies.isError ? (
-            <p className="careers__note" role="alert">
+            <CareersFeedback tone="error">
+            <p className="careers__note">
               Couldn&apos;t load companies.{" "}
               <button type="button" className="careers__textbtn" onClick={() => void companies.refetch()}>
                 Try again
               </button>
             </p>
+            </CareersFeedback>
           ) : companyList.length === 0 ? (
             <p className="careers__empty">
               No alumni have said they&apos;re open to referrals yet. <Link to="/search">Browse all alumni</Link>
