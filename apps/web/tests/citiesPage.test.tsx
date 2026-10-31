@@ -425,3 +425,18 @@ describe("City help optimistic switch", () => {
     expect(control.getAttribute("aria-checked")).toBe("false");
   });
 });
+
+
+it.each(["/intent/location?emails=manage", "/intent/location/bengaluru?emails=manage", "/intent/location"])("keeps all City email controls hidden at %s without changing preferences", async path => {
+  world(lists, payload({ nudgeFrequency: "monthly" }));
+  mount(path);
+  await screen.findByText("You can help");
+  expect(screen.queryByText("City emails")).toBeNull();
+  expect(screen.queryByText("Stop city emails")).toBeNull();
+  expect(screen.queryByRole("radio")).toBeNull();
+  expect(screen.queryByText("Weekly")).toBeNull();
+  expect(screen.queryByText("Monthly")).toBeNull();
+  expect(screen.queryByText("Never")).toBeNull();
+  expect(screen.getByRole("switch", { name: "Open to city help" })).toBeTruthy();
+  expect(apiPatch).not.toHaveBeenCalled();
+});
