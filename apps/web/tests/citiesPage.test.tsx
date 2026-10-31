@@ -404,6 +404,29 @@ describe("Cities page: other cities (check 13)", () => {
 });
 
 
+describe("City help optimistic switch", () => {
+  it("keeps the successful value while old server data waits for refetch", async () => {
+    world(lists, payload());
+    mount();
+    const control = await screen.findByRole("switch", { name: "Open to city help" });
+    expect(control.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(control);
+    await waitFor(() => expect(apiPatch).toHaveBeenCalled());
+    await waitFor(() => expect(control.hasAttribute("disabled")).toBe(false));
+    expect(control.getAttribute("aria-checked")).toBe("true");
+  });
+  it("restores the prior value after a failed save", async () => {
+    world(lists, payload());
+    apiPatch.mockResolvedValue({ error: { code: "FAILED" } });
+    mount();
+    const control = await screen.findByRole("switch", { name: "Open to city help" });
+    fireEvent.click(control);
+    await screen.findByRole("alert");
+    expect(control.getAttribute("aria-checked")).toBe("false");
+  });
+});
+
+
 it.each(["/intent/location?emails=manage", "/intent/location/bengaluru?emails=manage", "/intent/location"])("keeps all City email controls hidden at %s without changing preferences", async path => {
   world(lists, payload({ nudgeFrequency: "monthly" }));
   mount(path);
