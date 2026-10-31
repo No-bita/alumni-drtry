@@ -75,7 +75,9 @@ export function LocationPage() {
 
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
   const profileId = auth.myProfile?.id ?? null;
-  const emailsOpen = searchParams.get("emails") === "manage";
+  // City emails is parked, including controls reached through older email links.
+  const cityEmailsVisible = false;
+  const emailsOpen = cityEmailsVisible && searchParams.get("emails") === "manage";
   const closeEmails = () =>
     setSearchParams(
       (prev) => {
