@@ -191,7 +191,10 @@ export function LocationPage() {
             </button>
           </div>
         ) : null}
-        {emailsOpen ? <CityEmailsControl current={data?.nudgeFrequency ?? "weekly"} onClose={closeEmails} /> : null}
+        {emailsOpen ? (data
+          ? <CityEmailsControl current={data.nudgeFrequency} onClose={closeEmails} />
+          : <p className="cities__note" role="status">Loading your email preference…</p>
+        ) : null}
         {body}
       </main>
 
@@ -330,4 +333,4 @@ function ResidentView({
       ) : null}
     </>
   );
-}
+    }
