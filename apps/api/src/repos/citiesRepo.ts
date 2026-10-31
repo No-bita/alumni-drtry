@@ -118,7 +118,7 @@ export interface CityAlumRow extends PersonCardRow {
   open_to_preferences: unknown;
   batch_near: boolean;
   same_dept: boolean;
-  same_company: boolean;
+  same_company: boolean | null;
 }
 
 export type CityAlumniFilter = "batch" | "department" | "company" | "coffee" | "shared" | "all";
@@ -697,7 +697,7 @@ export class CitiesRepo {
   async personCards(personIds: readonly string[]): Promise<Map<string, CityAlumRow>> {
     if (personIds.length === 0) return new Map();
     const r = await this.db.query<CityAlumRow>(
-      `SELECT ${personCardColumnsSql("p")}, p.open_to_preferences, FALSE AS batch_near, FALSE AS same_dept, FALSE AS same_company
+      `SELECT ${personCardColumnsSql("p")}, p.open_to_preferences, FALSE AS batch_near, FALSE AS same_dept, NULL::boolean AS same_company
        FROM people p ${personCardJoinsSql("p")} WHERE p.id = ANY($1::uuid[])`,
       [[...personIds]]
     );
@@ -814,4 +814,4 @@ export class CitiesRepo {
   async releaseNudge(personId: string, previous: Date | null): Promise<void> {
     await this.db.query(`UPDATE people SET city_nudge_last_sent_at = $2::timestamptz WHERE id = $1`, [personId, previous]);
   }
-}
+  }
