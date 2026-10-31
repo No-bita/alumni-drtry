@@ -402,3 +402,16 @@ describe("Cities page: other cities (check 13)", () => {
     expect(within(dialog).getByRole("link", { name: /Pune.*12 alumni/ }).getAttribute("href")).toBe("/intent/location/pune");
   });
 });
+
+it("does not guess Weekly while email preference data is loading", async () => {
+  world(lists, payload({ nudgeFrequency: "never" }));
+  let release: (v: CityPayload) => void = () => {};
+  const pending = new Promise<CityPayload>(r => { release = r; });
+  apiGet.mockImplementation(async (path: string) => path === "/v1/cities" ? lists : pending);
+  mount("/intent/location?emails=manage");
+  await screen.findByText("Loading your email preference…");
+  expect(screen.queryByRole("radio", { name: "Weekly" })).toBeNull();
+  release(payload({ nudgeFrequency: "never" }));
+  const never = await screen.findByRole("radio", { name: "Never" });
+  expect(never.getAttribute("aria-checked")).toBe("true");
+});
