@@ -298,9 +298,9 @@ export class ResendEmailSender implements EmailSender {
       "If you are interested, review and respond from your alumni dashboard."
     ].join("\n");
     const html = [
-      `<p>Hi ${payload.recipientName},</p>`,
-      `<p><strong>${payload.senderName}</strong> ${lead}:</p>`,
-      `<blockquote>${payload.message}</blockquote>`,
+      `<p>Hi ${escapeHtml(payload.recipientName)},</p>`,
+      `<p><strong>${escapeHtml(payload.senderName)}</strong> ${escapeHtml(lead)}:</p>`,
+      `<blockquote>${escapeHtml(payload.message)}</blockquote>`,
       "<p>If you are interested, review and respond from your alumni dashboard.</p>"
     ].join("");
     await this.sendEmail(payload.to, subject, text, html);
