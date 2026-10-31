@@ -12,7 +12,7 @@ import { queryKeys } from "../lib/queryKeys";
 
 const yy = (y: number | null) => (y ? ` · Batch '${String(y).slice(-2)}` : "");
 
-type Ask = { person: CareersPerson; kind: "referral" | "note" | "past" };
+type Ask = { person: CareersPerson; kind: "referral" | "advice" };
 
 const NOTE_LABEL: Record<string, string> = {
   pending: "Note sent · waiting",
@@ -72,14 +72,8 @@ export function CareerCompanyPage() {
   const past = data?.past ?? [];
   const nobodyNow = data !== undefined && data.current.length === 0;
 
-  const applying = role ? `I'm applying for the ${role} role at ${companyName}` : `I'm applying to ${companyName}`;
-  const firstName = (full: string) => full.trim().split(/\s+/)[0] ?? full;
-  const startNote = (a: Ask) => {
-    const hi = `Hi ${firstName(a.person.fullName)}, I found you on Alma Mater.`;
-    if (a.kind === "referral") return `${hi} ${applying}. Would you be open to referring me? Happy to share my résumé and anything else you need.`;
-    if (a.kind === "past") return `${hi} ${applying} and saw you worked there. Could you tell me what it was like and how to approach it?`;
-    return `${hi} ${applying}. Could you tell me a bit about working there?`;
-  };
+  // Advice starts with where they're applying; they add their own question (80+ characters in all).
+  const applying = role ? `I'm applying for the ${role} role at ${companyName}. ` : `I'm applying to ${companyName}. `;
 
   const wallFallback = (
     <section className="careers__section careers__wall" aria-labelledby="careers-wall-title">
@@ -178,7 +172,7 @@ export function CareerCompanyPage() {
                 </h2>
                 <ul className="careers__people">
                   {others.map((p) => (
-                    <PersonCard key={p.id} person={p} line={`${p.roleTitle}${yy(p.batchYear)}`} action="Send a note" onAsk={() => setAsk({ person: p, kind: "note" })} />
+                    <PersonCard key={p.id} person={p} line={`${p.roleTitle}${yy(p.batchYear)}`} action="Ask for advice" onAsk={() => setAsk({ person: p, kind: "advice" })} />
                   ))}
                 </ul>
               </section>
@@ -198,8 +192,8 @@ export function CareerCompanyPage() {
                       key={p.id}
                       person={p}
                       line={`${p.roleTitle} at ${p.organizationName}${yy(p.batchYear)}`}
-                      action="Ask about it"
-                      onAsk={() => setAsk({ person: p, kind: "past" })}
+                      action="Ask for advice"
+                      onAsk={() => setAsk({ person: p, kind: "advice" })}
                     />
                   ))}
                 </ul>
@@ -217,12 +211,10 @@ export function CareerCompanyPage() {
       {ask ? (
         <MatchReachOutDialog
           recipient={{ id: ask.person.id, fullName: ask.person.fullName }}
-          question={applying}
-          initialNote={startNote(ask)}
-          category={ask.kind === "referral" ? "referral" : null}
+          purpose={ask.kind}
+          referral={{ role, company: companyName }}
+          advice={{ topic: "interview_prep", question: applying }}
           source="careers"
-          withLinks={ask.kind === "referral"}
-          title={ask.kind === "referral" ? `Ask ${firstName(ask.person.fullName)} for a referral` : undefined}
           backTo={{ to: "/intent/career", label: "Back to Careers" }}
           onClose={() => setAsk(null)}
         />
