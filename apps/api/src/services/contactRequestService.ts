@@ -8,6 +8,7 @@ import {
   type ContactRequestSentView,
   type ContactRequestSource
 } from "../repos/contactRequestRepo.js";
+import { composeNoteMessage, noteCategory, NoteDetailsError, validateNoteDetails, type NoteDetails, type NoteInput } from "../lib/noteDetails.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
 import { personRowIsDemoProfile } from "../lib/demoPersonProfile.js";
 import { PersonRepo } from "../repos/personRepo.js";
@@ -17,9 +18,13 @@ import type { EmailSender } from "./emailSender.js";
 
 export interface CreateContactRequestInput {
   recipientPersonId: string;
-  message: string;
-  /** Surface the note was sent from (only "match" today) and the question category. */
+  /** Referral or advice with its fields. The message and category come from it. Required except for Cities notes. */
+  note?: NoteInput | null;
+  /** Cities v1 notes stay free-text; other surfaces send the note form instead. */
+  message?: string;
+  /** Surface the note was sent from. */
   source?: ContactRequestSource;
+  /** Cities v1 category; other surfaces derive the category from the note. */
   sourceCategory?: string | null;
   sourceRank?: number | null;
   /** Cities v1, newcomer notes: the offer this note answers. */
@@ -134,13 +139,30 @@ export class ContactRequestService {
       throw new AppError(400, "CONTACT_REQUEST_SELF", "You cannot send a contact request to yourself.");
     }
 
-    const message = input.message.trim();
-    if (message.length < 10) {
-      throw new AppError(
-        400,
-        "CONTACT_REQUEST_MESSAGE_TOO_SHORT",
-        "Contextual note must be at least 10 characters."
-      );
+    // Cities v1 keeps its free-text notes; every other surface sends the note form,
+    // and the server builds the readable message from its fields.
+    let details: NoteDetails | null = null;
+    let category: string | null = null;
+    let message: string;
+    if (input.source === "cities") {
+      message = (input.message ?? "").trim();
+      if (message.length < 10) {
+        throw new AppError(
+          400,
+          "CONTACT_REQUEST_MESSAGE_TOO_SHORT",
+          "Contextual note must be at least 10 characters."
+        );
+      }
+      category = input.sourceCategory ?? null;
+    } else {
+      try {
+        details = validateNoteDetails(input.note);
+      } catch (err) {
+        if (err instanceof NoteDetailsError) throw new AppError(400, err.code, err.message);
+        throw err;
+      }
+      message = composeNoteMessage(details);
+      category = noteCategory(details);
     }
 
     if (await this.contactRequestRepo.hasPendingBetween(sender.id, recipient.id)) {
@@ -174,9 +196,10 @@ export class ContactRequestService {
       senderPersonId: sender.id,
       recipientPersonId: recipient.id,
       message,
+      details,
       forwardedToInstitutionalEmail: recipient.institutional_email,
       source: input.source ?? null,
-      sourceCategory: input.source ? (input.sourceCategory ?? null) : null,
+      sourceCategory: input.source ? category : null,
       sourceRank: input.source ? (input.sourceRank ?? null) : null
     };
     const created =

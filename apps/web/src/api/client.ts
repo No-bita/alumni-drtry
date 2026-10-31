@@ -1,3 +1,4 @@
+import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
@@ -221,6 +222,7 @@ export type ContactRequestInboxItem = {
   senderFullName: string | null;
   senderDepartmentCode: string | null;
   message: string;
+  details?: NoteDetails | null;
   createdAt: string;
 };
 
@@ -312,6 +314,8 @@ export type NotificationItem =
       senderPersonId: string;
       senderFullName: string | null;
       message: string;
+      /** Note form fields (null on notes sent before the form). */
+      details?: NoteDetails | null;
       /** Where the note came from (e.g. "cities") and its category, for copy. */
       source?: string | null;
       sourceCategory?: string | null;

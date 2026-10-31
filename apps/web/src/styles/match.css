@@ -493,6 +493,127 @@
   gap: var(--space-sm);
 }
 
+/* Note form: referral or advice, then preview. */
+.match-dialog__form {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.match-dialog__step {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.match-dialog__choices {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.match-dialog__choice {
+  display: grid;
+  gap: 4px;
+  min-height: 44px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.match-dialog__choice:hover,
+.match-dialog__choice:focus-visible {
+  border-color: var(--brick);
+}
+
+.match-dialog__choice-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.match-dialog__choice-copy,
+.match-dialog__hint,
+.match-dialog__counter {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.match-dialog__counter {
+  margin-top: -4px;
+}
+
+.match-dialog__textlink {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brick);
+  text-align: left;
+  cursor: pointer;
+}
+
+.match-dialog__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.match-dialog__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.match-dialog__fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.match-dialog__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.match-dialog__chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.match-dialog__chip[aria-pressed="true"] {
+  border-color: var(--brick);
+  background: var(--brick);
+  color: var(--cream);
+}
+
+@media (max-width: 420px) {
+  .match-dialog__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 639px) {
   /* Keep the last card's actions clear of the floating bottom dock. */
   .match-page {

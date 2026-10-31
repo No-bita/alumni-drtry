@@ -58,6 +58,18 @@ function LocationProbe() {
   return <output data-testid="search">{useLocation().search}</output>;
 }
 
+const FIT = "Two years as a product analyst on the payments team, where I shipped the refunds flow end to end.";
+const JOB = "https://jobs.razorpay.com/pm-123";
+const referralNote = { purpose: "referral", jobUrl: JOB, role: "Product Manager", company: "Razorpay", fit: FIT, resumeUrl: null };
+
+/** Fill the referral form (role and company come prefilled), preview, send. */
+async function sendReferral() {
+  fireEvent.change(await screen.findByLabelText("Job link"), { target: { value: JOB } });
+  fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
+  fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+}
+
 function mount(url: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -127,7 +139,7 @@ describe("MatchPage", () => {
     expect(screen.getByLabelText("City")).toBeTruthy();
   });
 
-  it("reach out sends a contact request with the drafted note", async () => {
+  it("reach out on a referral question opens the referral form, prefilled, then previews and sends the fields", async () => {
     post.mockImplementation(async (path: string) =>
       path === "/v1/match"
         ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
@@ -135,18 +147,67 @@ describe("MatchPage", () => {
     );
     mount("/match?q=Need+a+referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
-    const note = screen.getByLabelText("What are you hoping to talk about?") as HTMLTextAreaElement;
-    expect(note.value).toContain("Hi Ananya, I found you on Alma Mater. Need a referral at Razorpay");
+    expect(screen.getByRole("heading", { name: "Ask Ananya for a referral" })).toBeTruthy();
+    expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("Product Manager");
+    expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
+    const preview = screen.getByRole("button", { name: "Preview your note" }) as HTMLButtonElement;
+    expect(preview.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
+    fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: "pls refer" } });
+    expect(screen.getByText("9 / 80 characters minimum")).toBeTruthy();
+    expect(preview.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
+    fireEvent.click(preview);
+    expect(screen.getByRole("heading", { name: "This is what Ananya sees" })).toBeTruthy();
+    expect(screen.getByText("Referral request")).toBeTruthy();
+    expect(screen.getByText("Viewer Person")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Send note" }));
     expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
-      message: note.value.trim(),
+      note: referralNote,
       source: "match",
-      sourceCategory: "referral",
       // Top result: position 1, for ranking-quality analytics.
       sourceRank: 1,
     });
+  });
+
+  it("an advice question opens the advice form with its topic and the question to start from", async () => {
+    post.mockImplementation(async (path: string) =>
+      path === "/v1/match"
+        ? { data: { intent: { ...intent, category: "interview_prep" }, needsDetail: false, results: [result], fallback: null } }
+        : { data: { contactRequest: { id: "x" } } },
+    );
+    mount("/match?q=Google+PM+interview+next+week");
+    fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
+    expect(screen.getByRole("heading", { name: "Ask Ananya for advice" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Interview prep" }).getAttribute("aria-pressed")).toBe("true");
+    const q = screen.getAllByLabelText("Your question").find((el) => el.tagName === "TEXTAREA") as HTMLTextAreaElement;
+    expect(q.value).toBe("Google PM interview next week");
+    const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
+    fireEvent.change(q, { target: { value: longer } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
+      recipientPersonId: result.id,
+      note: { purpose: "advice", topic: "interview_prep", question: longer },
+      source: "match",
+      sourceRank: 1,
+    });
+  });
+
+  it("no clear kind of question: they choose referral or advice first; no 'say hi'", async () => {
+    post.mockResolvedValue({ data: { intent: { ...intent, category: null }, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=Razorpay+people");
+    fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
+    expect(screen.getByRole("heading", { name: "What do you need from Ananya?" })).toBeTruthy();
+    expect(screen.queryByText(/say hi/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Ask for a referral/ }));
+    fireEvent.click(screen.getByRole("button", { name: "No specific opening? Ask for advice instead" }));
+    expect(screen.getByRole("heading", { name: "Ask Ananya for advice" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("heading", { name: "What do you need from Ananya?" })).toBeTruthy();
   });
 
   it("shows a friendly message when rate limited", async () => {
@@ -204,7 +265,7 @@ describe("MatchPage — reach-out loop", () => {
     mount("/match?q=referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.queryByText(/Replied to/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    await sendReferral();
     expect(await screen.findByText("You already have a note waiting for Ananya Rao.")).toBeTruthy();
   });
 });
@@ -217,14 +278,12 @@ describe("MatchPage — from the WhatsApp bot", () => {
         : { data: { contactRequest: { id: "x" } } },
     );
     mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
-    const note = (await screen.findByLabelText("What are you hoping to talk about?")) as HTMLTextAreaElement;
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    await sendReferral();
     expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
-      message: note.value.trim(),
+      note: referralNote,
       source: "whatsapp",
-      sourceCategory: "referral",
       sourceRank: 1,
     });
   });
@@ -232,7 +291,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
   it("uses the bot's reading of the question (company, referral) so the website shows the same list", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount(`/match?q=Referral+at+razorpay%2C+pm&cat=referral&company=Razorpay&reach=${result.id}&via=whatsapp`);
-    await screen.findByLabelText("What are you hoping to talk about?");
+    await screen.findByLabelText("Job link");
     expect(post).toHaveBeenCalledWith(
       "/v1/match",
       { question: "Referral at razorpay, pm", overrides: { category: "referral", company: "Razorpay" } },
@@ -249,15 +308,14 @@ describe("MatchPage — from the WhatsApp bot", () => {
         : { data: { contactRequest: { id: "x" } } },
     );
     mount(`/match?q=Referral+at+Razorpay&cat=referral&company=Razorpay&reach=${priya}&via=whatsapp`);
-    const note = (await screen.findByLabelText("What are you hoping to talk about?")) as HTMLTextAreaElement;
+    await screen.findByLabelText("Job link");
     expect(getJson).toHaveBeenCalledWith(`/v1/profiles/${priya}`, expect.anything());
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+    await sendReferral();
     expect(await screen.findByText("Note sent to Priya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: priya,
-      message: note.value.trim(),
+      note: referralNote,
       source: "whatsapp",
-      sourceCategory: "referral",
     });
   });
 
@@ -265,7 +323,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [{ ...result, yourNote: "pending" }], fallback: null } });
     mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
     expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
-    expect(screen.queryByLabelText("What are you hoping to talk about?")).toBeNull();
+    expect(screen.queryByLabelText("Job link")).toBeNull();
     expect(getJson).not.toHaveBeenCalled();
   });
 });

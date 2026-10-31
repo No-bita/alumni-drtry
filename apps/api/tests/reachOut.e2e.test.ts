@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
+import { adviceNote, referralNote } from "./helpers/note.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -56,9 +57,8 @@ describe("reach-out loop (integration)", () => {
     const send = () =>
       req("POST", "/v1/contact-requests", asker.cookie, {
         recipientPersonId: alum.personId,
-        message: "Hi, could you refer me for PM?",
-        source: "match",
-        sourceCategory: "referral"
+        note: referralNote(),
+        source: "match"
       });
     const first = await send();
     expect(first.statusCode, first.body).toBe(201);

@@ -169,3 +169,26 @@ describe("full inbox back control", () => {
     expect(screen.getByTestId("loc").textContent).toBe("/search");
   });
 });
+
+describe("incoming notes from the note form", () => {
+  const base = { kind: "contact_request_received" as const, occurredAt: new Date().toISOString(), senderPersonId: "p9" };
+  it("shows the label and fields ('Referral request' / 'Advice · topic'); older notes show just the text", () => {
+    wrap(
+      <NotificationsList
+        items={[
+          { ...base, id: "a", contactRequestId: "c1", senderFullName: "Asha", message: "Referral request: PM at X", details: { purpose: "referral", jobUrl: "https://x.example.com/j", role: "PM", company: "X", fit: "f", resumeUrl: null } },
+          { ...base, id: "b", contactRequestId: "c2", senderFullName: "Bilal", message: "Advice · Moving cities", details: { purpose: "advice", topic: "relocation", question: "q" } },
+          { ...base, id: "c", contactRequestId: "c3", senderFullName: "Chirag", message: "An older note" },
+        ]}
+      />,
+    );
+    // Notes with fields show them laid out (label, role at company, fit, job link), not the plain text again.
+    expect(screen.getByText("Referral request")).toBeTruthy();
+    expect(screen.getByText("PM at X")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "https://x.example.com/j" })).toBeTruthy();
+    expect(screen.queryByText("Referral request: PM at X")).toBeNull();
+    expect(screen.getByText("Advice · Moving cities")).toBeTruthy();
+    expect(document.querySelectorAll(".note-body").length).toBe(2);
+    expect(screen.getByText("An older note")).toBeTruthy();
+  });
+});

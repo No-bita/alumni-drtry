@@ -7,6 +7,7 @@ import { RecordingSender, WhatsAppRejectedError, toGraphPayload, type OutboundMe
 import { signLinkToken, verifyLinkToken, verifyWebhookSignature } from "../src/whatsapp/linkToken.js";
 import { MAX_ASKS_PER_DAY, MENU, companyFromReply } from "../src/whatsapp/service.js";
 import { loginForTest } from "./helpers/login.js";
+import { adviceNote, referralNote } from "./helpers/note.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -307,9 +308,8 @@ describe("WhatsApp bot (integration)", () => {
     const before = sender.sent.length;
     const res = await req("POST", "/v1/contact-requests", asker.cookie, {
       recipientPersonId: alum.personId,
-      message: "Hi Arun, could you refer me for the PM role?",
+      note: referralNote(),
       source: "whatsapp",
-      sourceCategory: "referral",
       sourceRank: 1,
     });
     expect(res.statusCode, res.body).toBe(201);
@@ -325,7 +325,7 @@ describe("WhatsApp bot (integration)", () => {
 
     const res2 = await req("POST", "/v1/contact-requests", asker.cookie, {
       recipientPersonId: other.personId,
-      message: "Hi Omar, could we talk about your team?",
+      note: adviceNote(),
     });
     const id2 = (res2.json() as { contactRequest: { id: string } }).contactRequest.id;
     expect(emailSpy).toHaveBeenCalledTimes(1);
@@ -354,7 +354,7 @@ describe("WhatsApp bot (integration)", () => {
     await hear(buttonMsg(ALUM, MENU.pause));
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     const before = sender.sent.length;
-    await req("POST", "/v1/contact-requests", other.cookie, { recipientPersonId: alum.personId, message: "Hello Arun, a quick question about PM." });
+    await req("POST", "/v1/contact-requests", other.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     expect(sender.sent.slice(before).some((s) => s.message.kind === "template")).toBe(false);
     expect(emailSpy).toHaveBeenCalledTimes(1);
 
@@ -375,7 +375,7 @@ describe("WhatsApp bot (integration)", () => {
       [`cap${run}`, fill],
     );
     const before = sender.sent.length;
-    const res = await req("POST", "/v1/contact-requests", asker.cookie, { recipientPersonId: alum.personId, message: "Hi again Arun, one more question." });
+    const res = await req("POST", "/v1/contact-requests", asker.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     expect(res.statusCode, res.body).toBe(201);
     expect(sender.sent.slice(before).some((s) => s.message.kind === "template")).toBe(false);
     await db.query(`DELETE FROM wa_messages WHERE wa_id = $1`, [`cap${run}`]);
@@ -386,7 +386,7 @@ describe("WhatsApp bot (integration)", () => {
     await onboard(s2, "Sana Second");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     const before = sender.sent.length;
-    const res = await req("POST", "/v1/contact-requests", s2.cookie, { recipientPersonId: alum.personId, message: "Hi Arun, could you refer me for the PM role?" });
+    const res = await req("POST", "/v1/contact-requests", s2.cookie, { recipientPersonId: alum.personId, note: referralNote() });
     expect(res.statusCode, res.body).toBe(201);
     const noteId = (res.json() as { contactRequest: { id: string } }).contactRequest.id;
     const tpl = sender.sent.slice(before).find((x) => x.message.kind === "template")!;
@@ -409,7 +409,7 @@ describe("WhatsApp bot (integration)", () => {
     await onboard(s3, "Sid Third");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     vi.spyOn(sender, "send").mockRejectedValueOnce(new Error("The operation was aborted due to timeout"));
-    const res = await req("POST", "/v1/contact-requests", s3.cookie, { recipientPersonId: alum.personId, message: "Hi Arun, a question about PM roles." });
+    const res = await req("POST", "/v1/contact-requests", s3.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     const noteId = (res.json() as { contactRequest: { id: string } }).contactRequest.id;
     expect(emailSpy).toHaveBeenCalledTimes(1);
     const rec = async () =>
@@ -430,7 +430,7 @@ describe("WhatsApp bot (integration)", () => {
     await onboard(s4, "Sam Fourth");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     vi.spyOn(sender, "send").mockRejectedValueOnce(new WhatsAppRejectedError("WhatsApp send failed (400): 132001"));
-    const res = await req("POST", "/v1/contact-requests", s4.cookie, { recipientPersonId: alum.personId, message: "Hi Arun, could we chat about PM?" });
+    const res = await req("POST", "/v1/contact-requests", s4.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     const noteId = (res.json() as { contactRequest: { id: string } }).contactRequest.id;
     expect(emailSpy).toHaveBeenCalledTimes(1);
     expect((await db.query<{ status: string }>(`SELECT status FROM wa_messages WHERE contact_request_id = $1`, [noteId])).rows[0]!.status).toBe("failed");
