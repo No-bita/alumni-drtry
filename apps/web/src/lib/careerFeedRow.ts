@@ -51,6 +51,38 @@ export type MapIntentcastToRowOptions = {
   includeGuidancePosts?: boolean;
 };
 
+/** Top-pill label for a career feed lane. */
+export function laneBadgeLabel(tone: CareerFeedVisualTone): string {
+  switch (tone) {
+    case "hiring":
+      return "Hiring";
+    case "referral":
+      return "Referral";
+    case "can_help":
+      return "Can Help";
+    case "relocation":
+      return "Relocation";
+    case "startups":
+      return "Startups";
+    case "inbound_reply":
+      return "Reply";
+    default: {
+      const _exhaustive: never = tone;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Description line for card bodies: the summary unless it duplicates the title or company line. */
+export function careerFeedRowDescription(row: CareerFeedRowModel): string | null {
+  const collapseWs = (s: string) => s.trim().replace(/\s+/g, " ");
+  const summaryCollapsed = row.summary ? collapseWs(row.summary) : "";
+  if (summaryCollapsed.length === 0) return null;
+  if (summaryCollapsed === collapseWs(row.roleHeader)) return null;
+  if (row.companySubtitle && summaryCollapsed === collapseWs(row.companySubtitle)) return null;
+  return row.summary;
+}
+
 export function mapIntentcastToRow(
   item: IntentcastFeedItem,
   options?: MapIntentcastToRowOptions
