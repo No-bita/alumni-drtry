@@ -20,12 +20,14 @@ export function CityHelpPanel({ city, panel }: { city: string; panel: NonNullabl
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [on, setOn] = useState(panel.cityHelpOn);
+  const [serverOn, setServerOn] = useState(panel.cityHelpOn);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const profileId = auth.status === "authenticated" ? (auth.myProfile?.id ?? null) : null;
 
-  if (on !== panel.cityHelpOn && !busy) {
-    // Server state changed (refetch): follow it.
+  if (serverOn !== panel.cityHelpOn && !busy) {
+    // Follow a new server value, not an old prop that trails an optimistic save.
+    setServerOn(panel.cityHelpOn);
     setOn(panel.cityHelpOn);
   }
 
