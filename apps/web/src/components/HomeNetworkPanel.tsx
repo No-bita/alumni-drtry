@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Avatar } from "./Avatar";
 import type { SearchProfileView } from "../api/client";
 import { buildInviteLink, buildWhatsAppShareUrl, copyText } from "../lib/inviteLink";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -19,16 +18,14 @@ function batchTitle(countLabel: string): string {
   return countLabel === "1" ? "1 of your batchmates is here" : `${countLabel} of your batchmates are here`;
 }
 
-/** Your batch on Home. With nobody here yet: one quiet invite line, no zero count. */
+/** Your batch on Home. Confirmed count: count headline + invite. Otherwise: invite-first card that never claims a count. */
 export function HomeNetworkPanel({
   members,
   directoryHref,
   countLabel,
   inviterPersonId = null,
 }: HomeNetworkPanelProps) {
-  const avatars = members.slice(0, 6);
-  const overflow = Math.max(0, members.length - avatars.length);
-  const isEmpty = avatars.length === 0;
+  const hasConfirmedCount = members.length > 0;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState<"idle" | "yes" | "no">("idle");
   const copiedTimer = useRef<number | null>(null);
@@ -79,20 +76,22 @@ export function HomeNetworkPanel({
     </div>
   ) : null;
 
-  if (isEmpty) {
+  if (!hasConfirmedCount) {
     return (
-      <section className="home-network-line" aria-label="Your network">
-        <p className="home-network-line__text">
-          Know batchmates who should be here?{" "}
+      <section className="home-ideal__panel" aria-labelledby="home-network-heading">
+        <h2 id="home-network-heading" className="home-ideal__panel-title">
+          Bring your batchmates here
+        </h2>
+        <div className="home-ideal__panel-actions">
           <button
             type="button"
-            className="home-network-line__invite"
+            className="btn btn--primary"
             aria-expanded={inviteOpen}
             onClick={toggleInvite}
           >
-            Invite them
+            Invite batchmates
           </button>
-        </p>
+        </div>
         {invitePanel}
       </section>
     );
@@ -103,17 +102,6 @@ export function HomeNetworkPanel({
       <h2 id="home-network-heading" className="home-ideal__panel-title">
         {batchTitle(countLabel ?? String(members.length))}
       </h2>
-      <div className="home-ideal__avatars" aria-label="Batch avatars">
-        {avatars.map((member) => {
-          const displayName = (member.fullName ?? "").trim() || member.fullName.trim();
-          return (
-            <Link key={member.id} to={`/profiles/${member.id}`}>
-              <Avatar name={displayName} size="sm" tone="pastel" />
-            </Link>
-          );
-        })}
-        {overflow > 0 ? <span className="home-ideal__avatar-overflow">+{overflow}</span> : null}
-      </div>
       <div className="home-ideal__panel-actions">
         <button
           type="button"
