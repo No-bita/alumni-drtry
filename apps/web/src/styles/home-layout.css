@@ -129,3 +129,80 @@
   font-weight: 600;
   color: var(--brick);
 }
+
+/* Wall feed scopes. Both tabs share the current feed until matching is approved. */
+.home-wall-feed-tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--border, #d9cec0);
+  margin: 16px 0;
+}
+.home-wall-feed-tabs > button {
+  appearance: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.home-wall-feed-tabs > button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: currentColor;
+}
+.home-wall-feed-tabs > button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.home-wall-topics {
+  position: relative;
+  width: fit-content;
+  margin: 0 0 16px;
+}
+.home-wall-topics > summary {
+  cursor: pointer;
+  border: 1px solid var(--border, #d9cec0);
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+.home-wall-topics__menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(300px, calc(100vw - 68px));
+  background: var(--surface, #fbf8f1);
+  border: 1px solid var(--border, #d9cec0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #38291f20;
+  padding: 6px;
+}
+.home-wall-topics__menu > button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.home-wall-topics__menu > button + button { border-top: 1px solid var(--border, #d9cec0); }
+.home-wall-topics__menu > button[aria-pressed="true"] { font-weight: 700; }
+.home-wall-topics__menu > button:hover { background: #38291f08; }
+.home-wall-topics > summary:focus-visible,
+.home-wall-topics__menu > button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }

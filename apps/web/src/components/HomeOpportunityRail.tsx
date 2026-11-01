@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import type { IntentcastFeedItem, ReceivedBulletinRepliesFeedResponse, ReceivedBulletinReplyFeedItem } from "../api/client";
@@ -8,7 +8,6 @@ import { queryKeys } from "../lib/queryKeys";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
-import { IconBriefcase, IconChatBubble, IconCity, IconRefer } from "./HomeIcons";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
@@ -59,7 +58,6 @@ const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: st
   { id: "relocation", label: "Relocation" },
   { id: "startups", label: "Startups" },
   { id: "guidance", label: "Guidance" },
-  { id: "replies", label: "Replies" },
 ];
 
 function intentcastHomeLane(ic: IntentcastFeedItem): Exclude<HomeOpportunityCategory, "all" | "replies"> {
@@ -118,6 +116,10 @@ export function HomeOpportunityRail({
   onPost,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
+  // Temporary shared content is intentional. Personal matching remains parked.
+  const [feedTab, setFeedTab] = useState<"all" | "for-you">("all");
+  const feedTabsId = useId();
+  const feedTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const showingReplies = activeCategory === "replies";
   const filteredIntentcasts = (
     showingReplies ? [] : activeCategory === "all" ? intentcasts : intentcasts.filter((ic) => intentcastHomeLane(ic) === activeCategory)
@@ -187,33 +189,58 @@ export function HomeOpportunityRail({
           </button>
         ) : null}
       </header>
+      <div className="home-wall-feed-tabs" role="tablist" aria-label="Wall feeds">
+        {([{ id: "all", label: "All posts" }, { id: "for-you", label: "For you" }] as const).map((tab, index) => (
+          <button
+            key={tab.id}
+            ref={(element) => { feedTabRefs.current[index] = element; }}
+            type="button"
+            role="tab"
+            id={`${feedTabsId}-${tab.id}`}
+            aria-selected={feedTab === tab.id}
+            aria-controls={`${feedTabsId}-panel`}
+            tabIndex={feedTab === tab.id ? 0 : -1}
+            onClick={() => setFeedTab(tab.id)}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
+              setFeedTab(next === 0 ? "all" : "for-you");
+              feedTabRefs.current[next]?.focus();
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
           {railDeleteError}
         </p>
       ) : null}
       {chipCategories.length > 0 ? (
-      <div className="home-ideal__chips" role="tablist" aria-label="Opportunity filters">
-        {chipCategories.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            className={`home-ideal__chip home-ideal__chip--${category.id} ds-chip${activeCategory === category.id ? " home-ideal__chip--active ds-chip--active" : ""}`}
-            onClick={() => onCategoryChange(activeCategory === category.id ? "all" : category.id)}
-          >
-            <span className={`home-ideal__chip-icon home-ideal__chip-icon--${category.id}`} aria-hidden>
-              {category.id === "careers" ? <IconRefer /> : null}
-              {category.id === "guidance" ? <IconRefer /> : null}
-              {category.id === "relocation" ? <IconCity /> : null}
-              {category.id === "startups" ? <IconBriefcase /> : null}
-              {category.id === "replies" ? <IconChatBubble /> : null}
-            </span>
-            {category.label}
-            <span className="home-ideal__chip-count">{categoryCounts[category.id]}</span>
-          </button>
-        ))}
-      </div>
+        <details className="home-wall-topics">
+          <summary>Topics</summary>
+          <div className="home-wall-topics__menu" aria-label="Opportunity filters">
+            {chipCategories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={activeCategory === category.id}
+                onClick={(event) => {
+                  onCategoryChange(activeCategory === category.id ? "all" : category.id);
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  event.currentTarget.closest("details")?.querySelector("summary")?.focus();
+                }}
+              >
+                <span>{category.label}</span>
+                <span>{categoryCounts[category.id]}</span>
+              </button>
+            ))}
+          </div>
+        </details>
       ) : null}
+      <div role="tabpanel" id={`${feedTabsId}-panel`} aria-labelledby={`${feedTabsId}-${feedTab}`}>
       {showingReplies ? (
         bulletinRepliesLoading ? (
           <div className="home-ideal__empty" role="status" aria-live="polite">
@@ -259,6 +286,7 @@ export function HomeOpportunityRail({
           />
         </div>
       )}
+      </div>
       <BulletinDeleteIntentcastDialog
         open={Boolean(deleteConfirmId)}
         deleteDialogRef={deleteDialogRef}

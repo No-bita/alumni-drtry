@@ -32,8 +32,17 @@ export interface OrganizationView {
 }
 
 export interface PendingOrganizationView extends OrganizationView {
-  /** Who typed it, masked for the review screen: "sh•••@itbhu.ac.in". The full address never leaves the API. */
+  /** Who typed it, masked: "sh•••@itbhu.ac.in". */
   createdByEmailMasked: string | null;
+  /** Who typed it, in full. Only ever sent on the admin-gated pending list. */
+  createdByEmail: string | null;
+}
+
+/** A rejected company still linked from someone's job entries, for their own-profile flag. */
+export interface RejectedOrganizationFlag {
+  id: string;
+  name: string;
+  rejectionReason: string | null;
 }
 
 /** For the "Same company as…" picker: just enough to choose. */
@@ -86,7 +95,8 @@ function mapOrganization(row: OrganizationRow): OrganizationView {
 function mapPendingOrganization(row: PendingOrganizationRow): PendingOrganizationView {
   return {
     ...mapOrganization(row),
-    createdByEmailMasked: maskEmail(row.created_by_institutional_email)
+    createdByEmailMasked: maskEmail(row.created_by_institutional_email),
+    createdByEmail: row.created_by_institutional_email
   };
 }
 
@@ -347,6 +357,22 @@ export class OrganizationRepo {
       [organizationId, reviewedByPersonId, canonicalOrganizationId]
     );
     return mapOrganization(result.rows[0]!);
+  }
+
+  /** Rejected companies linked from this person's job entries (own-profile flag; distinct, by name). */
+  async listRejectedForPerson(personId: string): Promise<RejectedOrganizationFlag[]> {
+    const result = await this.db.query<{ id: string; name: string; rejection_reason: string | null }>(
+      `
+      SELECT DISTINCT org.id, org.name::TEXT AS name, org.rejection_reason
+      FROM occupations o
+      JOIN organizations org ON org.id = o.organization_id
+      WHERE o.person_id = $1
+        AND org.approval_status = 'rejected'
+      ORDER BY org.name::TEXT
+      `,
+      [personId]
+    );
+    return result.rows.map((r) => ({ id: r.id, name: r.name, rejectionReason: r.rejection_reason }));
   }
 
   async reject(

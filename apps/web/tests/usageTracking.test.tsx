@@ -43,7 +43,7 @@ describe("usage events", () => {
   it("invite panel: opened, copied and WhatsApp events; links carry the inviter and channel", () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<MemoryRouter><HomeNetworkPanel members={[]} directoryHref="/search" inviterPersonId={REF} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "Invite them" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite batchmates" }));
     const input = screen.getByLabelText("Invite link", { selector: "input" }) as HTMLInputElement;
     expect(input.value).toBe(`${window.location.origin}/login?ref=${REF}&ch=copy`);
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));

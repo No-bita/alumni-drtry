@@ -161,6 +161,12 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
+  /** Rejected companies on the caller's own job entries, for the own-profile "company needs updating" flag. */
+  app.get("/v1/me/rejected-organizations", { preHandler: app.authenticate }, async (request, reply) => {
+    const organizations = await app.organizationService.listRejectedForPerson(request.actor.personId);
+    return reply.code(200).send({ organizations });
+  });
+
   app.get("/v1/me/occupations", { preHandler: app.authenticate }, async (request, reply) => {
     const occupations = await app.occupationService.listMyOccupations(request.actor.personId);
     return reply.code(200).send({ occupations });
