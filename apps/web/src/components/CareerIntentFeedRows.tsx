@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { IntentcastFeedItem } from "../api/client";
 import { api } from "../api/client";
-import { CAREER_FEED_INCLUDE_GUIDANCE, mapIntentcastToRow } from "../lib/careerFeedRow";
+import { CAREER_FEED_INCLUDE_GUIDANCE, mapIntentcastToRow, laneBadgeLabel } from "../lib/careerFeedRow";
 import { Avatar } from "./Avatar";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
@@ -99,27 +99,6 @@ function workArrangementSignals(text: string): string[] {
 }
 
 /** Single lane pill — hiring / referral / can-help lanes. */
-function laneBadgeLabel(tone: CareerFeedVisualTone): string {
-  switch (tone) {
-    case "hiring":
-      return "Hiring";
-    case "referral":
-      return "Referral";
-    case "can_help":
-      return "Can Help";
-    case "relocation":
-      return "Relocation";
-    case "startups":
-      return "Startups";
-    case "inbound_reply":
-      return "Reply";
-    default: {
-      const _exhaustive: never = tone;
-      return _exhaustive;
-    }
-  }
-}
-
 /** Split `Title, Org` author line into two rows like the reference card. */
 function splitAuthorRoleOrg(roleLine: string | null): { role: string | null; org: string | null } {
   if (!roleLine?.trim()) return { role: null, org: null };

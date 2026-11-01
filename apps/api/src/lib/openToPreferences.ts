@@ -21,11 +21,29 @@ export type OpenToPreferenceEntry = {
   description: string;
 };
 
+/** Coffee asks a week someone is happy to get (Cities v1). There is no "unlimited". */
+export const COFFEE_LIMIT_OPTIONS = [1, 2, 3, 5] as const;
+export type CoffeeLimit = (typeof COFFEE_LIMIT_OPTIONS)[number];
+/** Rows that turned coffee on before the weekly limit existed read as this. */
+export const COFFEE_LIMIT_LEGACY_DEFAULT: CoffeeLimit = 2;
+
+export function isCoffeeLimit(value: unknown): value is CoffeeLimit {
+  return typeof value === "number" && (COFFEE_LIMIT_OPTIONS as readonly number[]).includes(value);
+}
+
 /** Stored on `people.open_to_preferences` (JSONB). */
 export type OpenToPreferences = {
   selected: OpenToOptionId[];
   descriptions: Partial<Record<OpenToOptionId, string>>;
+  /** Only present when coffee is selected and a limit was chosen. */
+  limits?: { coffee?: CoffeeLimit };
 };
+
+/** Coffee asks a week this person takes, or null when they are not open to coffee. Legacy rows read as 2. */
+export function coffeeWeeklyLimit(prefs: OpenToPreferences | null | undefined): CoffeeLimit | null {
+  if (!prefs?.selected.includes("coffee")) return null;
+  return prefs.limits?.coffee ?? COFFEE_LIMIT_LEGACY_DEFAULT;
+}
 
 function isOpenToOptionId(value: string): value is OpenToOptionId {
   return (OPEN_TO_OPTION_IDS as readonly string[]).includes(value);
@@ -78,7 +96,15 @@ export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
       }
     }
     if (selected.length === 0) return null;
-    return normalizeOpenToPreferencesForStorage({ selected, descriptions });
+    const limits = obj.limits && typeof obj.limits === "object" && !Array.isArray(obj.limits)
+      ? (obj.limits as Record<string, unknown>)
+      : null;
+    const coffee = limits?.coffee;
+    return normalizeOpenToPreferencesForStorage({
+      selected,
+      descriptions,
+      ...(isCoffeeLimit(coffee) ? { limits: { coffee } } : {}),
+    });
   }
 
   return parseLegacyRecord(obj);
@@ -98,5 +124,9 @@ export function normalizeOpenToPreferencesForStorage(input: OpenToPreferences): 
     descriptions[id] = description;
   }
 
+  const coffee = input.limits?.coffee;
+  if (selected.includes("coffee") && isCoffeeLimit(coffee)) {
+    return { selected, descriptions, limits: { coffee } };
+  }
   return { selected, descriptions };
 }

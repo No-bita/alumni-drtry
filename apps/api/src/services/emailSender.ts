@@ -52,6 +52,8 @@ export interface ContactRequestReceivedEmailPayload {
   recipientName: string;
   senderName: string;
   message: string;
+  /** What the sender did, e.g. "asked you for coffee" (Cities notes). Default: "sent you a contextual note". */
+  lead?: string;
 }
 
 export interface ContactRequestAcceptedEmailPayload {
@@ -103,6 +105,71 @@ export class EmailUnreachableError extends Error {
   }
 }
 
+/** Cities v1 weekly "what's new in your city" email. */
+export interface CityNudgeEmailPayload {
+  to: string;
+  recipientName: string;
+  city: string;
+  subject: string;
+  arrivals: Array<{
+    name: string;
+    batchYear: number | null;
+    department: string | null;
+    roleTitle: string | null;
+    organizationName: string | null;
+    previousCity: string | null;
+  }>;
+  /** "[N] moving-help searches for …" (null when under 3). */
+  askCount: number | null;
+  /** Show "Turn on city help" (recipient doesn't have it). */
+  showCityHelp: boolean;
+  /** Titles of new city plans (first line of each post). */
+  plans: string[];
+  pageUrl: string;
+  manageUrl: string;
+}
+
+/** Body for the nudge email: each section only when it has something. Never mentions anyone's notes. */
+export function buildCityNudgeEmail(p: CityNudgeEmailPayload, brandName: string): { subject: string; text: string; html: string } {
+  const yy = (y: number | null) => (y ? `'${String(y).slice(-2)}` : "");
+  const arrivalLine = (a: CityNudgeEmailPayload["arrivals"][number]) => {
+    const head = [a.name, [yy(a.batchYear), a.department].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+    const job = a.roleTitle ? (a.organizationName ? `${a.roleTitle} at ${a.organizationName}` : a.roleTitle) : null;
+    const tail = [job, a.previousCity ? `from ${a.previousCity}` : null].filter(Boolean).join(" · ");
+    return { head, tail };
+  };
+  const text: string[] = [`Hi ${p.recipientName},`, "", `What's new in ${p.city}`];
+  const html: string[] = [`<p>Hi ${escapeHtml(p.recipientName)},</p>`, `<h2>What's new in ${escapeHtml(p.city)}</h2>`];
+  if (p.arrivals.length > 0) {
+    text.push("", "New in town", `They asked to be shown to ${p.city} alumni.`);
+    html.push(`<h3>New in town</h3><p>They asked to be shown to ${escapeHtml(p.city)} alumni.</p><ul>`);
+    for (const a of p.arrivals) {
+      const { head, tail } = arrivalLine(a);
+      text.push(`- ${head}${tail ? ` (${tail})` : ""}`);
+      html.push(`<li><strong>${escapeHtml(head)}</strong>${tail ? `<br>${escapeHtml(tail)}` : ""}</li>`);
+    }
+    text.push(`Offer to help: ${p.pageUrl}`);
+    html.push(`</ul><p><a href="${escapeHtml(p.pageUrl)}">Offer to help</a></p>`);
+  }
+  if (p.askCount !== null) {
+    text.push("", `${p.askCount} moving-help searches for ${p.city}`);
+    html.push(`<h3>${p.askCount} moving-help searches for ${escapeHtml(p.city)}</h3>`);
+    if (p.showCityHelp) {
+      text.push(`Turn on city help and you'll be one of the first alumni they see: ${p.pageUrl}`);
+      html.push(`<p>Turn on city help and you'll be one of the first alumni they see. <a href="${escapeHtml(p.pageUrl)}">Turn on city help</a></p>`);
+    }
+  }
+  if (p.plans.length > 0) {
+    text.push("", "Plans this week", p.plans.join(" · "));
+    html.push(`<h3>Plans this week</h3><p>${p.plans.map(escapeHtml).join(" · ")}</p>`);
+  }
+  text.push("", `Sent only when something's new in your city. Change how often or stop these emails: ${p.manageUrl}`);
+  html.push(
+    `<hr><p style="font-size:12px">Sent only when something's new in your city. <a href="${escapeHtml(p.manageUrl)}">Change how often</a> · <a href="${escapeHtml(p.manageUrl)}">Stop these emails</a></p>`
+  );
+  return { subject: p.subject || `What's new in ${p.city} on ${brandName}`, text: text.join("\n"), html: html.join("") };
+}
+
 export interface EmailSender {
   sendAuthEmail(payload: AuthEmailPayload): Promise<void>;
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
@@ -112,9 +179,16 @@ export interface EmailSender {
   sendIntentcastResponseReceivedEmail(
     payload: IntentcastResponseReceivedEmailPayload
   ): Promise<void>;
+  sendCityNudgeEmail(payload: CityNudgeEmailPayload): Promise<void>;
 }
 
 export class ConsoleEmailSender implements EmailSender {
+  async sendCityNudgeEmail(payload: CityNudgeEmailPayload): Promise<void> {
+    process.stdout.write(
+      `[mail] to=${payload.to} type=city_nudge city="${payload.city}" subject="${payload.subject}" arrivals=${payload.arrivals.length} plans=${payload.plans.length}\n`
+    );
+  }
+
   async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     const redactedOtp = payload.otp.replace(/\d(?=\d{2})/g, "*");
     process.stdout.write(
@@ -194,6 +268,11 @@ function buildAuthEmailContent(payload: AuthEmailPayload, brandName: string): {
 export class ResendEmailSender implements EmailSender {
   constructor(private readonly options: ResendEmailSenderOptions) {}
 
+  async sendCityNudgeEmail(payload: CityNudgeEmailPayload): Promise<void> {
+    const { subject, text, html } = buildCityNudgeEmail(payload, this.options.brandName);
+    await this.sendEmail(payload.to, subject, text, html);
+  }
+
   async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     const { subject, text, html } = buildAuthEmailContent(payload, this.options.brandName);
     // Bounded wait, auth-specific: auth-start holds a per-email DB lock across the send,
@@ -206,19 +285,22 @@ export class ResendEmailSender implements EmailSender {
   async sendContactRequestReceivedEmail(
     payload: ContactRequestReceivedEmailPayload
   ): Promise<void> {
-    const subject = `${payload.senderName} wants to connect on ${this.options.brandName}`;
+    const subject = payload.lead
+      ? `${payload.senderName} ${payload.lead} on ${this.options.brandName}`
+      : `${payload.senderName} wants to connect on ${this.options.brandName}`;
+    const lead = payload.lead ?? "sent you a contextual note";
     const text = [
       `Hi ${payload.recipientName},`,
       "",
-      `${payload.senderName} sent you a contextual note:`,
+      `${payload.senderName} ${lead}:`,
       `"${payload.message}"`,
       "",
       "If you are interested, review and respond from your alumni dashboard."
     ].join("\n");
     const html = [
-      `<p>Hi ${payload.recipientName},</p>`,
-      `<p><strong>${payload.senderName}</strong> sent you a contextual note:</p>`,
-      `<blockquote>${payload.message}</blockquote>`,
+      `<p>Hi ${escapeHtml(payload.recipientName)},</p>`,
+      `<p><strong>${escapeHtml(payload.senderName)}</strong> ${escapeHtml(lead)}:</p>`,
+      `<blockquote>${escapeHtml(payload.message)}</blockquote>`,
       "<p>If you are interested, review and respond from your alumni dashboard.</p>"
     ].join("");
     await this.sendEmail(payload.to, subject, text, html);

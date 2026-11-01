@@ -1,3 +1,4 @@
+import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
 
@@ -73,7 +74,8 @@ export const api = {
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, ...init }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "DELETE", body: body ? JSON.stringify(body) : undefined }),
 };
 
 /** Multipart POST (e.g. PDF upload). Sends cookies; response body must be JSON. */
@@ -221,6 +223,7 @@ export type ContactRequestInboxItem = {
   senderFullName: string | null;
   senderDepartmentCode: string | null;
   message: string;
+  details?: NoteDetails | null;
   createdAt: string;
 };
 
@@ -312,6 +315,22 @@ export type NotificationItem =
       senderPersonId: string;
       senderFullName: string | null;
       message: string;
+      /** Note form fields (null on notes sent before the form). */
+      details?: NoteDetails | null;
+      /** Where the note came from (e.g. "cities") and its category, for copy. */
+      source?: string | null;
+      sourceCategory?: string | null;
+    }
+  | {
+      /** Cities: a local offered to help the newcomer (in-app only). */
+      kind: "city_help_offer_received";
+      id: string;
+      occurredAt: string;
+      offerId: string;
+      offererPersonId: string;
+      offererFullName: string | null;
+      kinds: Array<"areas" | "commute" | "coffee" | "intros">;
+      cityName: string;
     }
   | {
       kind: "contact_request_resolved";

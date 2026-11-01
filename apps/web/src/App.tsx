@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
 import { FoldToFlight, FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
+import { StagingMarker } from "./components/StagingMarker";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
@@ -47,11 +48,6 @@ const AdminAnalyticsPage = lazy(() =>
 const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
-
-function LocationHubRedirect() {
-  const { search } = useLocation();
-  return <Navigate to={{ pathname: "/intent/location/bengaluru", search }} replace />;
-}
 
 function RouteFallback() {
   return <FoldToFlight ready={false} />;
@@ -260,7 +256,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                <LocationHubRedirect />
+                <LocationPage />
               </ProfileGate>
             </RequireAuth>
           }
@@ -382,6 +378,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      <StagingMarker />
       {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
         <AuthSessionExpiredRegistrar />

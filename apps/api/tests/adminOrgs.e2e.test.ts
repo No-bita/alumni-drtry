@@ -83,16 +83,66 @@ describe("admin company review API (integration, local test database only)", () 
     expect((await get(`/v1/admin/orgs/approved?q=${"x".repeat(101)}`, admin)).statusCode).toBe(400);
   });
 
-  it("the pending list shows masked creator emails; the full address never leaves the API", async () => {
+  it("the admin-only pending list shows the creator's full email alongside the masked form", async () => {
     const res = await get("/v1/admin/orgs/pending?limit=200", admin);
     expect(res.statusCode).toBe(200);
-    expect(res.body).not.toContain(`orgrev-member-${run}@iitbhu.ac.in`);
-    const row = (res.json() as { organizations: Array<{ name: string; createdByEmailMasked: string | null; createdAt: string }> }).organizations.find(
-      (o) => o.name === `${P} Pending Co`,
-    )!;
+    const row = (
+      res.json() as { organizations: Array<{ name: string; createdByEmailMasked: string | null; createdByEmail: string | null; createdAt: string }> }
+    ).organizations.find((o) => o.name === `${P} Pending Co`)!;
     expect(row.createdByEmailMasked).toBe("or•••@iitbhu.ac.in");
+    expect(row.createdByEmail).toBe(`orgrev-member-${run}@iitbhu.ac.in`);
     expect(row.createdAt).toBeTruthy();
     expect(row).not.toHaveProperty("createdByInstitutionalEmail");
+  });
+
+  it("reject marks the company rejected with its reason and keeps the record; it leaves the pending list", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/v1/orgs/suggest",
+      headers: { cookie: member.cookie },
+      payload: { name: `${P} Reject Me` },
+    });
+    expect(create.statusCode).toBe(201);
+    const createdId = (create.json() as { organization: { id: string } }).organization.id;
+
+    const bad = await app.inject({ method: "DELETE", url: `/v1/admin/orgs/${createdId}`, headers: { cookie: admin.cookie }, payload: { reason: "no" } });
+    expect(bad.statusCode).toBe(400);
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/v1/admin/orgs/${createdId}`,
+      headers: { cookie: admin.cookie },
+      payload: { reason: "Not a real company" },
+    });
+    expect(res.statusCode).toBe(200);
+    const orgView = (res.json() as { organization: { approvalStatus: string; rejectionReason: string } }).organization;
+    expect(orgView.approvalStatus).toBe("rejected");
+    expect(orgView.rejectionReason).toBe("Not a real company");
+
+    const row = await db.query(`SELECT id FROM organizations WHERE id = $1`, [createdId]);
+    expect(row.rowCount).toBe(1); // rejected, not deleted
+    const pending = await get("/v1/admin/orgs/pending?limit=200", admin);
+    expect(pending.body).not.toContain(`${P} Reject Me`);
+  });
+
+  it("/v1/me/rejected-organizations flags only the caller's own rejected companies", async () => {
+    const orgId = ids[`${P} Rejected Co`]!;
+    const type = await db.query<{ id: string }>(`SELECT id FROM occupation_types WHERE code = 'full_time_employment' LIMIT 1`);
+    await db.query(`INSERT INTO occupations (person_id, occupation_type_id, organization_id, role_title) VALUES ($1, $2, $3, $4)`, [
+      member.personId,
+      type.rows[0]!.id,
+      orgId,
+      "Engineer",
+    ]);
+
+    expect((await get("/v1/me/rejected-organizations")).statusCode).toBe(401);
+    const mine = await get("/v1/me/rejected-organizations", member);
+    expect(mine.statusCode).toBe(200);
+    const rows = (mine.json() as { organizations: Array<{ id: string; name: string; rejectionReason: string | null }> }).organizations;
+    expect(rows).toEqual([{ id: orgId, name: `${P} Rejected Co`, rejectionReason: "test" }]);
+
+    const other = await get("/v1/me/rejected-organizations", admin);
+    expect((other.json() as { organizations: unknown[] }).organizations).toEqual([]);
   });
 
   it("linking with the existing approval API keeps both records; the linked name stops being offered", async () => {

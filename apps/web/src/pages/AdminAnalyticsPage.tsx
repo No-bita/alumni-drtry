@@ -17,6 +17,10 @@ import {
   type AnalyticsReport,
   type AnalyticsWindow,
   type DemandRow,
+  citiesMetricsQueryKey,
+  fetchCitiesMetrics,
+  rate,
+  type CitiesMetrics,
 } from "../lib/adminAnalytics";
 import { MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
 import "../styles/admin-analytics.css";
@@ -33,6 +37,7 @@ const SECTIONS = [
   ["engagement", "Engagement"],
   ["growth", "Growth"],
   ["whatsapp", "WhatsApp pilot"],
+  ["cities", "Cities"],
   ["operations", "Operations"],
 ] as const;
 
@@ -467,6 +472,50 @@ function Report({ r }: { r: AnalyticsReport }) {
   );
 }
 
+const CITIES_NOTE_LABELS: Record<string, string> = {
+  coffee: "Coffee asks",
+  relocation: "Moving here",
+  visiting: "Visiting",
+  newcomer: "Newcomer → local who offered",
+};
+
+/** Cities v1 (SPEC §8). Headline: acceptance of Cities notes (accepted ÷ replied), target 70%. */
+function CitiesSection({ m }: { m: CitiesMetrics }) {
+  const o = m.notes.overall;
+  return (
+    <Section id="cities" title="Cities" note="Bengaluru first. Acceptance counts accepted notes out of those that got a reply; aim for 70% or more.">
+      <div className="aa-tiles">
+        <Tile hero label="Cities notes accepted" value={rate(o.acceptanceRate)} hint={`${compact(o.accepted)} of ${compact(o.accepted + o.declined)} replied · ${compact(o.pending)} waiting`} />
+        <Tile label="Arrival opt-in" value={rate(m.arrivals.optInRate)} hint={`${compact(m.arrivals.optedIn)} of ${compact(m.arrivals.promptShown)} shown the prompt`} />
+        <Tile label="Offers per arrival" value={m.arrivals.offersPerArrival ?? "—"} hint={`${rate(m.arrivals.withOfferIn7dShare)} had an offer within 7 days`} />
+        <Tile label="Newcomer notes per arrival" value={m.arrivals.newcomerNotesPerArrival ?? "—"} />
+        <Tile label="Coffee asks" value={compact(m.coffee.asksSent)} hint={`${compact(m.coffee.accepted)} accepted · “Full this week” shown ${compact(m.coffee.fullThisWeekImpressions)}×`} />
+        <Tile label="City help turned on from the panel" value={compact(m.cityHelpOnFromPanel)} />
+        <Tile label="City updated from “Moved away?”" value={compact(m.cityUpdatesFromMovedAway)} />
+        <Tile
+          label="Nudge emails"
+          value={compact(m.nudge.sent)}
+          hint={`${compact(m.nudge.visitedIn7d)} visited within 7 days · ${compact(m.nudge.actedIn7d)} acted · ${rate(m.nudge.stopRate)} stopped`}
+        />
+      </div>
+      <Table
+        caption="Cities notes by category"
+        head={["Category", "Sent", "Accepted", "Declined", "Waiting", "Accept rate", "Decline rate"]}
+        rows={m.notes.byCategory.map((c) => [
+          CITIES_NOTE_LABELS[c.category] ?? c.category,
+          compact(c.sent),
+          compact(c.accepted),
+          compact(c.declined),
+          compact(c.pending),
+          rate(c.acceptanceRate),
+          rate(c.declineRate),
+        ])}
+        empty="No Cities notes yet."
+      />
+    </Section>
+  );
+}
+
 /** /admin/analytics — every analytics number on one screen (admins only; the API enforces it). */
 export function AdminAnalyticsPage() {
   const auth = useAuth();
@@ -483,8 +532,16 @@ export function AdminAnalyticsPage() {
     staleTime: 60_000,
   });
 
+  const cities = useQuery({
+    queryKey: citiesMetricsQueryKey(days),
+    queryFn: ({ signal }) => fetchCitiesMetrics(days, signal),
+    enabled: isAdmin,
+    staleTime: 60_000,
+  });
+
   const refresh = async () => {
     setRefreshing(true);
+    void cities.refetch();
     try {
       const fresh = await fetchAnalytics(days, new AbortController().signal, true);
       queryClient.setQueryData(analyticsQueryKey(days), fresh);
@@ -571,7 +628,10 @@ export function AdminAnalyticsPage() {
                 Couldn&apos;t load analytics. Try Refresh.
               </p>
             ) : (
-              <Report r={query.data} />
+              <>
+                <Report r={query.data} />
+                {cities.data ? <CitiesSection m={cities.data} /> : null}
+              </>
             )}
           </>
         )}

@@ -66,8 +66,10 @@ describe("Careers company screen", () => {
     const open = screen.getByRole("heading", { name: "Open to referrals" }).closest("section")!;
     expect(within(open).getByRole("button", { name: "Ask for a referral" })).toBeTruthy();
     const also = screen.getByRole("heading", { name: "Also at Razorpay" }).closest("section")!;
-    expect(within(also).getByRole("button", { name: "Send a note" })).toBeTruthy();
+    expect(within(also).getByRole("button", { name: "Ask for advice" })).toBeTruthy();
     const past = screen.getByRole("heading", { name: "Used to work at Razorpay" }).closest("section")!;
+    expect(within(past).getByRole("button", { name: "Ask for advice" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Send a note|Ask about it/ })).toBeNull();
     expect(within(past).getByText(/Analyst at Razorpay/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "← Careers" }).getAttribute("href")).toBe("/intent/career");
   });
@@ -79,42 +81,63 @@ describe("Careers company screen", () => {
     expect(screen.queryByRole("button", { name: "Ask for a referral" })).toBeNull();
   });
 
-  it("referral ask: tailored note with optional job and résumé links, checked, then sent as a Careers note", async () => {
+  it("referral ask: the referral form, prefilled with role and company; job link checked; preview; sent as a Careers note", async () => {
     apiGet.mockResolvedValue({ company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true })], past: [] });
     mount("/intent/career/company?name=Razorpay&role=Product+manager");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for a referral" }));
     const dialog = screen.getByRole("dialog", { name: "Ask Asha for a referral" });
-    const note = within(dialog).getByLabelText("What are you hoping to talk about?") as HTMLTextAreaElement;
-    expect(note.value).toBe(
-      "Hi Asha, I found you on Alma Mater. I'm applying for the Product manager role at Razorpay. Would you be open to referring me? Happy to share my résumé and anything else you need.",
-    );
-    fireEvent.change(within(dialog).getByLabelText(/Job link/), { target: { value: "jobs.razorpay.com/pm" } });
+    expect((within(dialog).getByLabelText("Role") as HTMLInputElement).value).toBe("Product manager");
+    expect((within(dialog).getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
+    fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "jobs.razorpay.com/pm" } });
     expect(within(dialog).getByRole("alert").textContent).toContain("https://");
-    expect((within(dialog).getByRole("button", { name: "Send note" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(within(dialog).getByLabelText(/Job link/), { target: { value: "https://jobs.razorpay.com/pm" } });
+    const fit = "Three years building merchant onboarding at a payments startup; I led the KYC revamp end to end.";
+    fireEvent.change(within(dialog).getByLabelText("Why you’re a fit"), { target: { value: fit } });
+    expect((within(dialog).getByRole("button", { name: "Preview your note" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "https://jobs.razorpay.com/pm" } });
     fireEvent.change(within(dialog).getByLabelText(/Résumé link/), { target: { value: "https://drive.example.com/cv" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Preview your note" }));
+    expect(within(dialog).getByRole("heading", { name: "This is what Asha sees" })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Send note" }));
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
         recipientPersonId: "a",
-        message: `${note.value}\n\nJob: https://jobs.razorpay.com/pm\nRésumé: https://drive.example.com/cv`,
+        note: {
+          purpose: "referral",
+          jobUrl: "https://jobs.razorpay.com/pm",
+          role: "Product manager",
+          company: "Razorpay",
+          fit,
+          resumeUrl: "https://drive.example.com/cv",
+        },
         source: "careers",
-        sourceCategory: "referral",
       }),
     );
     expect(await screen.findByRole("heading", { name: "Note sent to Asha" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to Careers" }).getAttribute("href")).toBe("/intent/career");
   });
 
-  it("past employee: 'Ask about it' sends a plain note with no links or category", async () => {
+  it("past employee: 'Ask for advice' opens advice (interview prep), starting from where they're applying", async () => {
     apiGet.mockResolvedValue({ company: "Microsoft", current: [], past: [person("c", "Chirag Jain", { organizationName: "Microsoft" })] });
     mount("/intent/career/company?name=Microsoft");
-    fireEvent.click(await screen.findByRole("button", { name: "Ask about it" }));
-    const dialog = screen.getByRole("dialog");
-    expect(within(dialog).queryByLabelText(/Job link/)).toBeNull();
-    expect((within(dialog).getByLabelText("What are you hoping to talk about?") as HTMLTextAreaElement).value).toContain("saw you worked there");
+    fireEvent.click(await screen.findByRole("button", { name: "Ask for advice" }));
+    const dialog = screen.getByRole("dialog", { name: "Ask Chirag for advice" });
+    expect(within(dialog).queryByLabelText("Job link")).toBeNull();
+    const q = within(dialog).getByLabelText("Your question") as HTMLTextAreaElement;
+    expect(q.value).toBe("I'm applying to Microsoft. ");
+    // The starter alone is too short: they must add their own question.
+    expect((within(dialog).getByRole("button", { name: "Preview your note" }) as HTMLButtonElement).disabled).toBe(true);
+    const question = "I'm applying to Microsoft. What did the hiring loop look like for your team, and what would you prepare?";
+    fireEvent.change(q, { target: { value: question } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Preview your note" }));
+    expect(within(dialog).getByText("Advice · Interview prep")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Send note" }));
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", expect.objectContaining({ source: "careers", sourceCategory: null })));
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
+        recipientPersonId: "c",
+        note: { purpose: "advice", topic: "interview_prep", question },
+        source: "careers",
+      }),
+    );
   });
 
   it("nobody there now or before: says so, and the Wall is the next step, prefilled; posting closes the loop", async () => {

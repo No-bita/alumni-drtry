@@ -152,7 +152,7 @@ describe("Careers page", () => {
     const recent = screen.getByRole("heading", { name: "Recent from alumni" }).closest("section")!;
     expect(within(recent).getByText(mapIntentcastToRow(ask)!.roleHeader)).toBeTruthy();
     expect(screen.queryByRole("region", { name: "All posts from alumni" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "See all posts from alumni" }));
+    fireEvent.click(screen.getByRole("button", { name: "See all" }));
     expect(within(screen.getByRole("region", { name: "All posts from alumni" })).getByText("Existing feed and filters")).toBeTruthy();
   });
 });

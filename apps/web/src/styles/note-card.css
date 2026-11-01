@@ -1,0 +1,57 @@
+/* A note as the recipient sees it: preview in the note form, and Notifications. */
+.note-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-input);
+  background: var(--cream);
+  min-width: 0;
+}
+
+.note-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: var(--space-md);
+}
+
+.note-card .note-body {
+  margin-bottom: 0;
+}
+
+.note-card__from {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.note-card__from span {
+  color: var(--ink-muted);
+}
+
+.note-card__tag {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cream-dark);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.note-card__headline {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.note-card__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+

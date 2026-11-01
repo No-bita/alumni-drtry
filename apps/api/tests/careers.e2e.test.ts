@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
+import { adviceNote, referralNote } from "./helpers/note.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -107,9 +108,8 @@ describe("Careers API (integration, local test database only)", () => {
       headers: { cookie: viewer.cookie },
       payload: {
         recipientPersonId: people.a!.personId,
-        message: "Hi Asha, could you refer me for the PM role?\n\nJob: https://jobs.example.com/pm",
+        note: referralNote({ role: "PM", company: MAIN }),
         source: "careers",
-        sourceCategory: "referral",
       },
     });
     expect(res.statusCode, res.body).toBe(201);

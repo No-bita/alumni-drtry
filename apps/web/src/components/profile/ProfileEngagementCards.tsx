@@ -1,14 +1,23 @@
+import { useEffect, useRef } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { readFlag, writeFlag } from "../../lib/onboardingChecklist";
 import {
   OPEN_TO_CATALOG,
   OPEN_TO_MAX_SELECTED,
   OPEN_TO_OPTION_IDS,
   canSelectMoreOpenTo,
+  coffeeLimitOf,
+  coffeeNeedsLimit,
+  createEmptyOpenToPreferences,
   isOpenToSelected,
   openToDisplayItems,
   setOpenToDescription,
-  toggleOpenToSelection,
   type OpenToPreferences,
 } from "../../lib/openToPreferences";
+import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
+
+/** Members who had coffee on before weekly limits: the limit sheet shows once in the editor. */
+const COFFEE_LIMIT_SEEN_FLAG = "coffeeLimitSheetSeen";
 
 type OpenToDisplayItem = ReturnType<typeof openToDisplayItems>[number];
 
@@ -112,6 +121,8 @@ type ProfileEngagementCardsProps = {
   isEditing?: boolean;
   draftOpenTo?: OpenToPreferences;
   onDraftOpenToChange?: (next: OpenToPreferences) => void;
+  /** One line above the editor, e.g. why the member was sent here from Cities. */
+  editNotice?: string | null;
 };
 
 export function ProfileEngagementCards({
@@ -120,9 +131,24 @@ export function ProfileEngagementCards({
   isEditing = false,
   draftOpenTo,
   onDraftOpenToChange,
+  editNotice = null,
 }: ProfileEngagementCardsProps) {
+  const auth = useAuth();
+  const personId = auth.status === "authenticated" ? auth.person.personId : null;
   const displayItems = openToDisplayItems(isEditing ? draftOpenTo : openToPreferences);
   const selectedCount = draftOpenTo?.selected.length ?? 0;
+  const gate = useCoffeeLimitGate(draftOpenTo ?? createEmptyOpenToPreferences(), (next) => onDraftOpenToChange?.(next));
+  const legacyShown = useRef(false);
+  const legacyNeedsLimit = isEditing && coffeeNeedsLimit(draftOpenTo);
+  const { changeLimit } = gate;
+
+  useEffect(() => {
+    if (!legacyNeedsLimit || legacyShown.current || !personId) return;
+    legacyShown.current = true;
+    if (readFlag(personId, COFFEE_LIMIT_SEEN_FLAG)) return;
+    writeFlag(personId, COFFEE_LIMIT_SEEN_FLAG);
+    changeLimit();
+  }, [legacyNeedsLimit, personId, changeLimit]);
 
   return (
     <article className="profile-page__engage-card profile-page__engage-card--open-to">
@@ -137,6 +163,7 @@ export function ProfileEngagementCards({
               Choose up to {OPEN_TO_MAX_SELECTED} ({selectedCount}/{OPEN_TO_MAX_SELECTED} selected)
             </p>
           ) : null}
+          {isEditing && editNotice ? <p className="profile-page__engage-card-hint" role="status">{editNotice}</p> : null}
         </div>
       </header>
       {loading ? (
@@ -169,13 +196,21 @@ export function ProfileEngagementCards({
                     type="checkbox"
                     checked={selected}
                     disabled={atLimit}
-                    onChange={() => onDraftOpenToChange(toggleOpenToSelection(draftOpenTo, id))}
+                    onChange={() => gate.toggle(id)}
                   />
                   <span className="profile-page__engage-card-icon-wrap">
                     <IconOpenToItem kind={id} className="profile-page__engage-card-icon" />
                   </span>
                   <span className="profile-page__open-to-item-title">{catalog.title}</span>
                 </label>
+                {id === "coffee" && selected ? (
+                  <p className="profile-page__engage-card-hint">
+                    Coffee · {coffeeLimitOf(draftOpenTo)} a week ·{" "}
+                    <button type="button" className="profile-page__inline-link" onClick={gate.changeLimit}>
+                      Change
+                    </button>
+                  </p>
+                ) : null}
                 {selected ? (
                   <textarea
                     className="input input--textarea profile-page__open-to-edit-desc"
@@ -211,6 +246,7 @@ export function ProfileEngagementCards({
           Not open to anything right now.
         </p>
       )}
+      {gate.sheet}
     </article>
   );
 }

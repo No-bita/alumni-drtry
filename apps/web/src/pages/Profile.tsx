@@ -1,4 +1,7 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
+import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import type { ArrivalPrompt, ProfilePatchResponse } from "../lib/cities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
@@ -61,6 +64,12 @@ export function Profile() {
   const refetchAuth = auth.refetch;
 
   const [isEditing, setIsEditing] = useState(false);
+  /** Cities: after a city change into a v1 city, offer "New in [city]?" (screen 5). */
+  const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null);
+  /** Cities' "Moved away? Update your city" opened this edit (for the city-update count). */
+  const cityEditFromCitiesRef = useRef(false);
+  /** Cities sent the member here at the 5-tag cap to make room for city help. */
+  const [openToNotice, setOpenToNotice] = useState<string | null>(null);
   const [draftPersonalEmail, setDraftPersonalEmail] = useState("");
   const [draftMobilePhone, setDraftMobilePhone] = useState("");
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
@@ -100,6 +109,19 @@ export function Profile() {
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
     enabled: Boolean(isOwnProfile),
   });
+
+  // Own profile only: companies on their job entries that review rejected, so they can fix them.
+  const rejectedOrgsQuery = useQuery({
+    queryKey: ["me", "rejected-organizations"],
+    queryFn: ({ signal }) =>
+      assertApiGet<{ organizations: { id: string; name: string; rejectionReason: string | null }[] }>(
+        "/v1/me/rejected-organizations",
+        signal,
+      ),
+    enabled: Boolean(isOwnProfile && !previewProfile),
+  });
+  const rejectedOrgs = rejectedOrgsQuery.data?.organizations ?? [];
+
 
   // Admin tools: how many company names wait for review (shares the Company review page's cache).
   const pendingCompaniesQuery = useQuery({
@@ -163,15 +185,29 @@ export function Profile() {
   useEffect(() => {
     const editMode = searchParams.get("edit");
     // ?edit=contact opens editing; ?edit=open-to (from Careers' "Offer help") also scrolls to Open to.
-    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to") || !profileQuery.data?.profile) return;
+    // ?edit=city (Cities' "Moved away? Update your city") opens editing with the city field focused.
+    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to" && editMode !== "city") || !profileQuery.data?.profile) return;
+    const capReason = searchParams.get("limit") === "city_help";
     const t = window.setTimeout(() => {
       beginEdit();
       if (editMode === "open-to") {
+        setOpenToNotice(
+          capReason ? "You can be open to 5 things at once. Turn one off to make room for city help, then save." : null,
+        );
         window.setTimeout(() => document.getElementById("profile-open-to")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+      }
+      if (editMode === "city") {
+        cityEditFromCitiesRef.current = true;
+        window.setTimeout(() => {
+          const el = document.getElementById("profile-residence-city");
+          el?.scrollIntoView({ block: "center", behavior: "smooth" });
+          (el as HTMLInputElement | null)?.focus();
+        }, 50);
       }
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("edit");
+        next.delete("limit");
         return next;
       }, { replace: true });
     }, 0);
@@ -283,7 +319,7 @@ export function Profile() {
       return;
     }
 
-    const { error: profileError } = await api.patch("/v1/me/profile", {
+    const { data: patched, error: profileError } = await api.patch<ProfilePatchResponse>("/v1/me/profile", {
       personalEmail: draftPersonalEmail.trim() || null,
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
@@ -296,6 +332,10 @@ export function Profile() {
       setEditError(profileError.message ?? profileError.code);
       return;
     }
+    if (cityEditFromCitiesRef.current && (draftResidenceCity.trim() || null) !== (data.profile.residenceCity ?? null)) {
+      trackBetaUsageEvent("cities_city_updated");
+    }
+    cityEditFromCitiesRef.current = false;
 
     for (const draft of draftOccupations) {
       const validation = validateOccupationDraft(draft);
@@ -353,7 +393,9 @@ export function Profile() {
       setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
     }
     setOpenSocialPlatform(null);
+    setOpenToNotice(null);
     setIsEditing(false);
+    if (patched?.arrivalPrompt) setArrivalPrompt(patched.arrivalPrompt);
   }, [
     data,
     draftPersonalEmail,
@@ -508,6 +550,24 @@ export function Profile() {
     !loading && isOwnProfile && isEditing ? otherProfileLinks(editLinks) : [];
   const showProfileSidebar = sidebarOtherLinks.length > 0;
 
+  const orgFlag =
+    isOwnProfile && !previewProfile && rejectedOrgs.length > 0 ? (
+      <div className="profile-page__org-flag" role="status">
+        <h3 className="profile-page__org-flag-title">Company needs updating</h3>
+        {rejectedOrgs.map((org) => (
+          <p key={org.id} className="profile-page__org-flag-text">
+            &lsquo;{org.name}&rsquo; wasn&rsquo;t accepted as a company.
+            {org.rejectionReason ? ` Reason: ${org.rejectionReason.replace(/[.\s]+$/, "")}.` : ""} Please update the company on your profile.
+          </p>
+        ))}
+        {!isEditing ? (
+          <button type="button" className="nav__profile-edit" onClick={beginEdit}>
+            Update company
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
   return (
     <>
       <Nav variant="home" avatarName={navAvatarName} />
@@ -533,6 +593,7 @@ export function Profile() {
               : undefined
           }
         */}
+        {!loading && profile && !isEditing ? orgFlag : null}
         {!loading && profile && !isEditing ? (
           <PersonProfileView profile={profile} occupations={occupations} links={links}
             isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
@@ -573,7 +634,9 @@ export function Profile() {
               isEditing={isOwnProfile && isEditing}
               draftOpenTo={isEditing ? draftOpenTo : undefined}
               onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
+              editNotice={openToNotice}
             />
+            {orgFlag}
             <ProfileExperience
               loading={loading}
               occupations={occupations}
@@ -733,6 +796,14 @@ export function Profile() {
           ) : null}
         </div> : null}
       </div>
+      {arrivalPrompt ? (
+        <ArrivalOptInSheet
+          placeId={arrivalPrompt.placeId}
+          cityName={arrivalPrompt.cityName}
+          onClose={() => setArrivalPrompt(null)}
+          onDone={() => navigate("/intent/location")}
+        />
+      ) : null}
     </>
   );
     }

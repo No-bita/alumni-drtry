@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { isStagingDeployment } from "./src/lib/stagingEnvironment";
 
 const webRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,6 +56,11 @@ function manualChunks(id: string): string | undefined {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    "__ALMA_STAGING__": JSON.stringify(
+      isStagingDeployment(process.env.VERCEL_ENV, process.env.VERCEL_GIT_COMMIT_REF),
+    ),
+  },
   resolve: {
     alias: {
       "@department-catalog": path.resolve(webRoot, "../api/src/constants/departmentCatalog.ts"),

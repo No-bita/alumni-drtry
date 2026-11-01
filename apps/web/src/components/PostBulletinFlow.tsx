@@ -155,6 +155,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [careersPreset, setCareersPreset] = useState<CareersBulletinPreset | null>(null);
     const [referralJobLink, setReferralJobLink] = useState("");
     const [referralCompanyName, setReferralCompanyName] = useState("");
+    /** Cities: the post is tagged with this city (POST /v1/intentcasts `placeId`). */
+    const [placeId, setPlaceId] = useState<string | null>(null);
     const [referralResumeLink, setReferralResumeLink] = useState("");
 
     const composeHeadlineRef = useRef<HTMLInputElement>(null);
@@ -314,6 +316,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralResumeLink("");
       setError(null);
       setCareersPreset(null);
+      setPlaceId(null);
     }, []);
 
     const closeFlow = useCallback(() => {
@@ -338,6 +341,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralJobLink("");
       setReferralCompanyName((options?.referralCompanyName ?? "").trim().slice(0, 120));
       setReferralResumeLink("");
+      setPlaceId(options?.placeId ?? null);
       setError(null);
       setOpen(true);
     }, []);
@@ -453,6 +457,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: bulletinUiCategoryToApiCategory(category),
         content,
+        ...(placeId ? { placeId } : {}),
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
@@ -463,7 +468,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
       closeFlow();
-    }, [category, closeFlow, composedContent, onPublishSuccess, queryClient, validateCompose]);
+    }, [category, closeFlow, composedContent, onPublishSuccess, placeId, queryClient, validateCompose]);
 
     const dialogAriaLabel =
       careersPreset === "referralSeeking"

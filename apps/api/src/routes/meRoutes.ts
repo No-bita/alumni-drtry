@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
-import { OPEN_TO_MAX_SELECTED, OPEN_TO_OPTION_IDS } from "../lib/openToPreferences.js";
+import type { UpdateMyProfileInput } from "../services/profileService.js";
+import { COFFEE_LIMIT_OPTIONS, OPEN_TO_MAX_SELECTED, OPEN_TO_OPTION_IDS } from "../lib/openToPreferences.js";
 
 const maxProfileBatchYear = new Date().getUTCFullYear() + 5;
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -17,6 +18,16 @@ const openToPreferencesSchema = z
   .object({
     selected: z.array(openToOptionIdSchema).max(OPEN_TO_MAX_SELECTED),
     descriptions: z.partialRecord(openToOptionIdSchema, z.string().max(500)).default({}),
+    /** Cities v1: coffee asks a week (1, 2, 3 or 5). Required when coffee is turned on. */
+    limits: z
+      .object({
+        coffee: z
+          .number()
+          .int()
+          .refine((n) => (COFFEE_LIMIT_OPTIONS as readonly number[]).includes(n), "Coffee limit must be 1, 2, 3 or 5.")
+          .optional()
+      })
+      .optional()
   })
   .superRefine((value, ctx) => {
     const unique = new Set(value.selected);
@@ -142,10 +153,19 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         throw new AppError(400, "PROFILE_BAD_REQUEST", "Invalid profile update payload.");
       }
 
-      const profile = await app.profileService.updateMyProfile(request.actor.personId, parsed.data);
-      return reply.code(200).send({ profile });
+      const { profile, arrivalPrompt } = await app.profileService.updateMyProfileWithCity(
+        request.actor.personId,
+        parsed.data as UpdateMyProfileInput
+      );
+      return reply.code(200).send({ profile, arrivalPrompt });
     }
   );
+
+  /** Rejected companies on the caller's own job entries, for the own-profile "company needs updating" flag. */
+  app.get("/v1/me/rejected-organizations", { preHandler: app.authenticate }, async (request, reply) => {
+    const organizations = await app.organizationService.listRejectedForPerson(request.actor.personId);
+    return reply.code(200).send({ organizations });
+  });
 
   app.get("/v1/me/occupations", { preHandler: app.authenticate }, async (request, reply) => {
     const occupations = await app.occupationService.listMyOccupations(request.actor.personId);
@@ -245,6 +265,20 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       }
       await app.linkService.deleteMyLink(request.actor.personId, params.data.id);
       return reply.code(204).send();
+    }
+  );
+
+  /** Cities v1 nudge email: how often (weekly, monthly, never). */
+  app.patch(
+    "/v1/me/city-nudge",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = z.object({ frequency: z.enum(["weekly", "monthly", "never"]) }).safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "CITY_NUDGE_BAD_REQUEST", "Choose weekly, monthly or never.");
+      }
+      const frequency = await app.citiesService.setNudgeFrequency(request.actor.personId, parsed.data.frequency);
+      return reply.code(200).send({ frequency });
     }
   );
 

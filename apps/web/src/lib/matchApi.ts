@@ -184,15 +184,6 @@ export function needsDetailPrompt(category: MatchCategory | null): { title: stri
 }
 
 /** Must match apps/api contact request limits. */
-export const CONTACT_NOTE_MIN = 10;
-export const CONTACT_NOTE_MAX = 3000;
-
 export function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] ?? fullName;
-}
-
-export function defaultReachOutNote(recipientName: string, question: string): string {
-  const q = question.trim();
-  const sentence = /[.?!]$/.test(q) ? q : `${q}.`;
-  return `Hi ${firstName(recipientName)}, I found you on Alma Mater. ${sentence}\n\nWould you be open to a quick chat?`;
 }

@@ -98,6 +98,18 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
+  /** Cities v1 (SPEC §8): acceptance of Cities notes by category, arrivals, coffee and the nudge email. */
+  app.get(
+    "/v1/admin/metrics/cities",
+    { preHandler: adminPreHandlers },
+    async (request, reply) => {
+      const raw = (request.query as { days?: string } | undefined)?.days;
+      const days = raw === "7" ? 7 : raw === "90" ? 90 : 30;
+      const metrics = await app.adminMetricsService.getCitiesMetrics(days);
+      return reply.code(200).send({ metrics });
+    }
+  );
+
   /** Ask → Match funnel (last 30 days) + current profile completeness. */
   app.get(
     "/v1/admin/metrics/ask-match",

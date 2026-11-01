@@ -23,18 +23,21 @@ const member = (id: string) =>
   ({ id, fullName: `Batchmate ${id}`, batchYear: 2020, departmentCode: "cse" }) as never;
 
 describe("HomeNetworkPanel", () => {
-  it("with nobody here: one invite line, no zero count, no ghost avatars", () => {
+  it("with no confirmed count: invite-first card, no zero count, no avatars, no directory link", () => {
     const { container } = wrap();
-    expect(screen.getByText(/Know batchmates who should be here\?/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Bring your batchmates here" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Invite batchmates" })).toBeTruthy();
     expect(screen.queryByText(/0 of your batchmates/)).toBeNull();
+    expect(screen.queryByText(/of your batchmates is here/)).toBeNull();
     expect(container.querySelector(".home-ideal__avatars")).toBeNull();
+    expect(screen.queryByRole("link", { name: "View all alumni" })).toBeNull();
   });
-  it("invite line reveals link, copy and WhatsApp share", () => {
+  it("count-free card reveals link, copy and WhatsApp share", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     wrap();
     expect(screen.queryByLabelText("Invite link", { selector: "input" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Invite them" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite batchmates" }));
     const input = screen.getByLabelText("Invite link", { selector: "input" }) as HTMLInputElement;
     expect(input.value).toMatch(/\/login$/);
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
@@ -57,5 +60,7 @@ describe("HomeNetworkPanel", () => {
     );
     expect(screen.getByRole("heading", { name: "40+ of your batchmates are here" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Invite batchmates" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "View all alumni" })).toBeTruthy();
+    expect(document.querySelector(".home-ideal__avatars")).toBeNull();
   });
 });

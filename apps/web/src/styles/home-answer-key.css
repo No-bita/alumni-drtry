@@ -86,6 +86,7 @@
 .home-answer-key__option-title {
   font-size: 15px;
   font-weight: 600;
+  font-family: var(--font-display);
 }
 
 .home-answer-key__option-example {
