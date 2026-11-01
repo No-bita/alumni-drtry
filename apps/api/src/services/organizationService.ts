@@ -5,7 +5,8 @@ import {
   type ApprovedOrganizationListItem,
   type ApprovedOrganizationOption,
   type OrganizationView,
-  type PendingOrganizationView
+  type PendingOrganizationView,
+  type RejectedOrganizationFlag
 } from "../repos/organizationRepo.js";
 
 /** Most options the "Same company as…" picker shows at once. */
@@ -204,6 +205,11 @@ export class OrganizationService {
     } finally {
       client.release();
     }
+  }
+
+  /** Rejected companies on the signed-in person's own job entries (drives the own-profile flag). */
+  async listRejectedForPerson(personId: string): Promise<RejectedOrganizationFlag[]> {
+    return this.organizationRepo.listRejectedForPerson(personId);
   }
 
   async rejectOrganization(

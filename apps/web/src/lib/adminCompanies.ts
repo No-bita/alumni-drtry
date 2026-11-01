@@ -1,11 +1,12 @@
 import { api } from "../api/client";
 
-/** GET /v1/admin/orgs/pending (oldest first). The creator's email arrives masked from the API. */
+/** GET /v1/admin/orgs/pending (oldest first). Admin-only route: the creator's full email is included. */
 export type PendingCompany = {
   id: string;
   name: string;
   createdAt: string;
   createdByEmailMasked: string | null;
+  createdByEmail: string | null;
   /** The name as first typed, once an admin has renamed it. */
   submittedName?: string | null;
 };
@@ -91,6 +92,12 @@ export async function renameCompany(id: string, name: string): Promise<RenameRes
   return data;
 }
 
+/** Reject a pending company with a reason the submitter will see on their profile. Nothing is deleted. */
+export async function rejectCompany(id: string, reason: string): Promise<void> {
+  const { error } = await api.delete(`/v1/admin/orgs/${id}`, { reason });
+  if (error) throw new AdminCompanyError(error.code, error.message ?? "That didn't go through. Try again.");
+}
+
 /** "Same company as…" for an approved company. Names linked to it move along. */
 export async function linkApprovedCompany(id: string, toId: string): Promise<{ movedLinkedNames: number }> {
   const { data, error } = await api.patch<{ movedLinkedNames: number }>(`/v1/admin/orgs/${id}/link`, { canonicalOrganizationId: toId });
@@ -116,6 +123,7 @@ export function reviewErrorMessage(err: unknown): { message: string; refreshList
     return { message: "That company can't be chosen any more. Search again and pick another.", refreshList: false };
   }
   if (code === "ORG_NAME_UNCHANGED") return { message: "That's already its name.", refreshList: false };
+  if (code === "ORG_REJECT_REASON_REQUIRED") return { message: "Give a reason (at least 3 characters).", refreshList: false };
   if (code === "ORG_INVALID_NAME") return { message: `Company names are 2 to ${COMPANY_NAME_MAX} characters.`, refreshList: false };
   if (code === "ORG_REJECTED" || code === "ORG_NOT_APPROVED") {
     return { message: "This company's review status changed. Refreshing the list.", refreshList: true };

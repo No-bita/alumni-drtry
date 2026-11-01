@@ -16,6 +16,7 @@ import {
   formatAddedDate,
   linkApprovedCompany,
   renameCompany,
+  rejectCompany,
   reviewCompany,
   reviewErrorMessage,
   searchApprovedCompanies,
@@ -35,6 +36,7 @@ type Open =
   | { id: string; step: "search" }
   | { id: string; step: "link"; target: ApprovedCompanyOption }
   | { id: string; step: "edit"; draft: string }
+  | { id: string; step: "reject"; draft: string }
   | { id: string; step: "taken"; draft: string; existing: NameTaken };
 
 /** What a card needs, for either a pending or an approved company. */
@@ -189,6 +191,63 @@ function EditNamePanel({
   );
 }
 
+/** Reject: a reason is required; the submitter sees it on their profile and can fix the company there. */
+function RejectPanel({
+  company,
+  draft,
+  busy,
+  onDraft,
+  onConfirmReject,
+  onCancel,
+}: {
+  company: CardCompany;
+  draft: string;
+  busy: boolean;
+  onDraft: (v: string) => void;
+  onConfirmReject: () => void;
+  onCancel: () => void;
+}) {
+  const inputId = useId();
+  const reason = draft.trim();
+  const canReject = reason.length >= 3;
+  return (
+    <form
+      className="cr-panel"
+      aria-label={`Reject ${company.name}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canReject && !busy) onConfirmReject();
+      }}
+    >
+      <p className="cr-panel__text">
+        Reject <strong>&lsquo;{company.name}&rsquo;</strong>? It stays out of the directory, and the submitter is asked on their profile to
+        fix it. {NO_UNDO}
+      </p>
+      <label htmlFor={inputId} className="cr-panel__label">
+        Reason (the submitter sees this)
+      </label>
+      <input
+        id={inputId}
+        className="cr-search"
+        type="text"
+        value={draft}
+        autoFocus
+        autoComplete="off"
+        maxLength={500}
+        onChange={(e) => onDraft(e.target.value)}
+      />
+      <div className="cr-actions">
+        <button type="submit" className="cr-btn cr-btn--primary" disabled={!canReject || busy}>
+          {busy ? "Rejecting…" : "Yes, reject"}
+        </button>
+        <button type="button" className="cr-btn" disabled={busy} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function CompanyCard({
   company,
   open,
@@ -198,6 +257,7 @@ function CompanyCard({
   onClose,
   onConfirm,
   onRename,
+  onReject,
 }: {
   company: CardCompany;
   open: Open | null;
@@ -207,6 +267,7 @@ function CompanyCard({
   onClose: () => void;
   onConfirm: (sameAs: ApprovedCompanyOption | null) => void;
   onRename: (name: string) => void;
+  onReject: (reason: string) => void;
 }) {
   const mine = open && open.id === company.id ? open : null;
   const pending = company.kind === "pending";
@@ -232,6 +293,11 @@ function CompanyCard({
           <button type="button" className="cr-btn" onClick={() => onOpen({ id: company.id, step: "edit", draft: company.name })}>
             Edit name
           </button>
+          {pending ? (
+            <button type="button" className="cr-btn" onClick={() => onOpen({ id: company.id, step: "reject", draft: "" })}>
+              Reject
+            </button>
+          ) : null}
         </div>
       ) : mine.step === "approve" ? (
         <div className="cr-panel" role="group" aria-label={`Confirm approving ${company.name}`}>
@@ -261,6 +327,15 @@ function CompanyCard({
           busy={busy}
           onDraft={(draft) => onOpen({ id: company.id, step: "edit", draft })}
           onSave={() => onRename(mine.draft)}
+          onCancel={onClose}
+        />
+      ) : mine.step === "reject" ? (
+        <RejectPanel
+          company={company}
+          draft={mine.draft}
+          busy={busy}
+          onDraft={(draft) => onOpen({ id: company.id, step: "reject", draft })}
+          onConfirmReject={() => onReject(mine.draft.trim())}
           onCancel={onClose}
         />
       ) : mine.step === "taken" ? (
@@ -329,7 +404,7 @@ function pendingCard(c: PendingCompany): CardCompany {
     name: c.name,
     submittedName: c.submittedName ?? null,
     kind: "pending",
-    meta: `${added ? `Added ${added}` : "Added"}${c.createdByEmailMasked ? ` · by ${c.createdByEmailMasked}` : ""}`,
+    meta: `${added ? `Added ${added}` : "Added"}${c.createdByEmail ? ` · by ${c.createdByEmail}` : ""}`,
     linkedNames: 0,
   };
 }
@@ -496,6 +571,21 @@ export function AdminCompanyReviewPage() {
     }
   };
 
+  const reject = async (company: CardCompany, reason: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await rejectCompany(company.id, reason);
+      queryClient.setQueryData<PendingCompany[]>(PENDING_COMPANIES_KEY, (rows) => rows?.filter((r) => r.id !== company.id));
+      setDone(`Rejected ‘${company.name}’. The submitter is asked on their profile to fix it.`);
+      setOpen(null);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const cardProps = (company: CardCompany) => ({
     open,
     busy,
@@ -504,6 +594,7 @@ export function AdminCompanyReviewPage() {
     onClose: close,
     onConfirm: (sameAs: ApprovedCompanyOption | null) => void confirm(company, sameAs),
     onRename: (name: string) => void rename(company, name),
+    onReject: (reason: string) => void reject(company, reason),
   });
 
   const rows = pending.data ?? [];

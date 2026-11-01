@@ -13,8 +13,8 @@ vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 import { AdminCompanyReviewPage } from "../src/pages/AdminCompanyReviewPage";
 
 const pending = [
-  { id: "o1", name: "Goldman", createdAt: "2026-10-27T12:00:00Z", createdByEmailMasked: "sh•••@itbhu.ac.in" },
-  { id: "o2", name: "acme labs", createdAt: "2026-10-26T09:00:00Z", createdByEmailMasked: null },
+  { id: "o1", name: "Goldman", createdAt: "2026-10-27T12:00:00Z", createdByEmail: "sharma.p@itbhu.ac.in" },
+  { id: "o2", name: "acme labs", createdAt: "2026-10-26T09:00:00Z", createdByEmail: null },
 ];
 const approved = [
   { id: "a1", name: "Goldman Sachs" },
@@ -82,7 +82,7 @@ describe("Company review page", () => {
     expect(screen.getByRole("status").textContent).toContain("Loading companies");
     const c = await card("Goldman");
     expect(apiGet).toHaveBeenCalledWith("/v1/admin/orgs/pending?limit=200", expect.anything());
-    expect(c.textContent).toContain("Added 27 Oct 2026 · by sh•••@itbhu.ac.in");
+    expect(c.textContent).toContain("Added 27 Oct 2026 · by sharma.p@itbhu.ac.in");
     expect((await card("acme labs")).textContent).not.toContain(" by ");
     expect(screen.getByText(/2 company names are waiting\. Approving, linking or renaming changes live data, and there's no undo yet\./)).toBeTruthy();
   });
