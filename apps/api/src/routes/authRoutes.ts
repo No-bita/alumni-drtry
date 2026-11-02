@@ -28,12 +28,15 @@ function isGoogleOAuthConfigured(): boolean {
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 }
 
-const startAuthBodySchema = z.object({
+export const startAuthBodySchema = z.object({
   institutionalEmail: z.string().email(),
   /** Sign-in started from a WhatsApp bot link (see StartAuthInput.whatsappEntry). */
   whatsappEntry: z
     .object({ token: z.string().min(8).max(2000), next: z.string().max(1000).nullable().optional() })
     .optional()
+    // A malformed optional entry must not block an otherwise valid sign-in: drop it instead.
+    // The service already ignores unusable entries when building the email link.
+    .catch(undefined)
 });
 
 const verifyAuthBodySchema = z

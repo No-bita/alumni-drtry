@@ -224,6 +224,24 @@ describe("WhatsApp bot (integration)", () => {
     expect((await start({ token: t, next: "//evil.example" })).searchParams.get("waNext")).toBeNull();
   });
 
+  it("a malformed saved WhatsApp entry never blocks sign-in; the link just skips the WhatsApp step", async () => {
+    const start = async (whatsappEntry: unknown) => {
+      const res = await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: `wa-mail-${run}-${Math.random().toString(36).slice(2, 7)}@iitbhu.ac.in`, whatsappEntry } });
+      expect(res.statusCode).toBe(200);
+      return new URL(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
+    };
+    // Over-long token (the poisoned-storage case): sign-in proceeds, no WhatsApp params.
+    const longToken = await start({ token: "x".repeat(5000), next: "/match" });
+    expect(longToken.searchParams.get("wa")).toBeNull();
+    expect(longToken.searchParams.get("waNext")).toBeNull();
+    // Over-long next: the whole entry is dropped the same way.
+    const longNext = await start({ token: "k3x9Qa7Z", next: "/" + "a".repeat(2000) });
+    expect(longNext.searchParams.get("wa")).toBeNull();
+    // A valid entry still flows through, unchanged.
+    const t = signLinkToken(wa(14));
+    expect((await start({ token: t, next: "/match" })).searchParams.get("wa")).toBe(t);
+  });
+
   it("a linked member who hasn't finished onboarding is sent back to the website", async () => {
     const fresh = await loginForTest(app, `wa-fresh-${run}@iitbhu.ac.in`);
     await linkVia(fresh, wa(9));
