@@ -1,3 +1,4 @@
+import { normalizeCountry } from "../lib/countries.js";
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
@@ -246,7 +247,8 @@ export class ProfileService {
       nextResidenceCountry =
         input.residenceCountry === null || input.residenceCountry.trim() === ""
           ? null
-          : input.residenceCountry.trim();
+          : // One name per country ("USA" → "United States"); an unknown country is kept as typed.
+            normalizeCountry(input.residenceCountry);
     }
 
     if (input.residenceCity !== undefined) {
