@@ -406,4 +406,4 @@ export class MatchRepo {
       client.release();
     }
   }
-    }
+}
