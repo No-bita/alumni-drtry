@@ -116,13 +116,14 @@ export class MatchRepo {
                 COALESCE(array_agg(pa.alias_normalized) FILTER (WHERE pa.alias_normalized IS NOT NULL), '{}') AS aliases
          FROM canonical_places cp
          LEFT JOIN place_aliases pa ON pa.canonical_place_id = cp.id
-         WHERE strpos($1, lower(btrim(cp.city_label))) > 0
+         WHERE cp.status = 'approved'
+           AND (strpos($1, lower(btrim(cp.city_label))) > 0
             OR EXISTS (
               SELECT 1 FROM place_aliases pa2
               WHERE pa2.canonical_place_id = cp.id
                 AND char_length(pa2.alias_normalized) >= 3
                 AND strpos($1, pa2.alias_normalized) > 0
-            )
+            ))
          GROUP BY cp.id, cp.city_label, cp.country
          LIMIT 10`,
         [lower]
@@ -287,7 +288,7 @@ export class MatchRepo {
           ${keywordSql} AS keyword_hits
         FROM people p
         LEFT JOIN departments d ON d.id = p.department_id
-        LEFT JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id
+        LEFT JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id AND cp.status = 'approved'
         LEFT JOIN LATERAL (
           SELECT o.role_title, org.name::text AS org_name
           FROM occupations o
@@ -405,4 +406,4 @@ export class MatchRepo {
       client.release();
     }
   }
-}
+    }
