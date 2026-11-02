@@ -1,20 +1,26 @@
-/** Override with `VITE_FEEDBACK_FORM_URL` for your own Google Form. */
-const FEEDBACK_FORM_URL_DEFAULT = "https://forms.gle/99nk9m3xu9FT5cb9A";
+/** Feedback goes to WhatsApp with a prefilled introduction; no backend involved. */
+const FEEDBACK_WHATSAPP_URL =
+  "https://wa.me/919137839907?text=Hi+Aaryan%21+I%27m+using+Alma+Mater+and+wanted+to+share...";
 
 /**
- * Homepage footer line — opens the Google Form in a new tab (no backend).
+ * Homepage feedback panel — opens WhatsApp in a new tab.
  */
 export function HomeFeedbackSection() {
-  const rawUrl = import.meta.env.VITE_FEEDBACK_FORM_URL;
-  const envUrl = typeof rawUrl === "string" ? rawUrl.trim() : "";
-  const formUrl = envUrl || FEEDBACK_FORM_URL_DEFAULT;
-
   return (
-    <p className="home-feedback-line">
-      Something missing or confusing?{" "}
-      <a href={formUrl} target="_blank" rel="noopener noreferrer" aria-label="Tell us what you think — opens in a new tab">
-        Tell us what you think ↗
+    <section className="home-feedback-panel" aria-label="Feedback">
+      <p className="home-feedback-panel__prompt">Something missing or confusing?</p>
+      <a
+        className="home-feedback-panel__action"
+        href={FEEDBACK_WHATSAPP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Give feedback — opens in a new tab"
+      >
+        Give feedback
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+          <path d="M7 17L17 7M7 7h10v10" />
+        </svg>
       </a>
-    </p>
+    </section>
   );
 }
