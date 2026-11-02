@@ -466,4 +466,4 @@ export class PlaceReviewService {
   async final(place: ReviewPlaceRow): Promise<ReviewPlaceRow | null> {
     return this.reader.final(place);
   }
-  }
+}
