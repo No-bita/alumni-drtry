@@ -31,8 +31,6 @@ type SentAuthMethod = "otp" | "password";
 const OTP_LENGTH = 6;
 const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => "");
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
-const BETA_INVITE_AUTH_ENABLED = false;
-const BETA_FORM_LINK = "https://forms.gle/8v3EHEcSzAtG1Bb8A";
 const AUTH_HERO_STATS = [
   { value: "400+", keyword: "alumni", label: "active this week" },
   { value: "38", keyword: "referrals", label: "completed last week" },
@@ -104,9 +102,6 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [betaInviteStepUnlocked, setBetaInviteStepUnlocked] = useState(false);
-  const [showBetaWaitlistCta, setShowBetaWaitlistCta] = useState(false);
   useEffect(() => {
     // Invite links (`/login?ref=&ch=`): remember them until sign-in finishes.
     rememberInviteFromUrl(window.location.search);
@@ -147,7 +142,6 @@ export function Login() {
 
   const submitLogin = async () => {
     setError(null);
-    setShowBetaWaitlistCta(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
     if (!isInstitutionalEmail(normalizedEmail)) {
@@ -160,52 +154,7 @@ export function Login() {
     // dead.
     setPhase("sending");
 
-    if (BETA_INVITE_AUTH_ENABLED && !betaInviteStepUnlocked) {
-      const isAllowedInstitutionalEmail =
-        normalizedEmail.endsWith("@iitbhu.ac.in") || normalizedEmail.endsWith("@itbhu.ac.in");
-      if (!isAllowedInstitutionalEmail) {
-        setError("Beta access is currently limited. Request access using the form below.");
-        setShowBetaWaitlistCta(true);
-        setPhase("form");
-        return;
-      }
-      setBetaInviteStepUnlocked(true);
-      setPhase("form");
-      return;
-    }
-    if (BETA_INVITE_AUTH_ENABLED && !inviteCode.trim()) {
-      setError("Enter your invite code.");
-      setPhase("form");
-      return;
-    }
     try {
-      if (BETA_INVITE_AUTH_ENABLED) {
-        const { error: inviteErr } = await api.post("/v1/auth/invite-login", {
-          institutionalEmail: normalizedEmail,
-          inviteCode: inviteCode.trim(),
-        });
-        if (inviteErr) {
-          if (inviteErr.code === "AUTH_BETA_NOT_ALLOWED") {
-            setError("You are not approved for this beta yet. Request access using the form below.");
-            setShowBetaWaitlistCta(true);
-          } else if (inviteErr.code === "AUTH_DOMAIN_NOT_ALLOWED") {
-            setError(inviteErr.message ?? "Use your institute email.");
-            setShowBetaWaitlistCta(true);
-          } else {
-            setError(inviteErr.message ?? inviteErr.code);
-          }
-          setPhase("form");
-          return;
-        }
-        if (!prefersReduceMotion) {
-          sessionPrefetchRef.current = refetch();
-          void import("../pages/Home");
-        }
-        setShowSuccessVideo(true);
-        setPhase("sent");
-        return;
-      }
-
       setServerWaking(false);
       const outcome = await requestCode(normalizedEmail, () => setServerWaking(true));
       if (outcome.kind === "aborted") return;
@@ -731,9 +680,7 @@ export function Login() {
             <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
               <div className="login-sending__spinner" aria-hidden />
               <p className="login-sending__line">
-                {BETA_INVITE_AUTH_ENABLED
-                  ? "Signing you in…"
-                  : serverWaking
+                {serverWaking
                     ? "Waking up the server. It naps when nobody is around, so this can take up to 30 seconds."
                     : "Sending your sign-in link…"}
               </p>
@@ -783,10 +730,10 @@ export function Login() {
               </svg>
             </span>
             <h2 className="section-headline auth-merged__card-title">
-              {BETA_INVITE_AUTH_ENABLED ? "Join the network" : "Continue with your insti email"}
+              Continue with your insti email
             </h2>
           </div>
-          {googleEnabled && !BETA_INVITE_AUTH_ENABLED ? (
+          {googleEnabled ? (
             <div className="auth-merged__google">
               <a className="btn btn--secondary auth-merged__google-btn" href={`${API_BASE_URL}/v1/auth/google`}>
                 <svg aria-hidden width="18" height="18" viewBox="0 0 48 48">
@@ -807,11 +754,6 @@ export function Login() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (BETA_INVITE_AUTH_ENABLED) {
-                  setBetaInviteStepUnlocked(false);
-                  setInviteCode("");
-                  setShowBetaWaitlistCta(false);
-                }
               }}
               required
               aria-invalid={emailDomainInvalid}
@@ -820,29 +762,9 @@ export function Login() {
               style={{ marginBottom: 16 }}
             />
             {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your institute email.</p> : null}
-            {BETA_INVITE_AUTH_ENABLED && betaInviteStepUnlocked ? (
-              <Input
-                type="password"
-                placeholder="Invite code"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                required
-                autoComplete="off"
-                style={{ marginBottom: 16 }}
-              />
-            ) : null}
             {error && !(emailDomainInvalid && error === "Use your institute email.") && <p className="auth-merged__error">{error}</p>}
-            {BETA_INVITE_AUTH_ENABLED && showBetaWaitlistCta ? (
-              <p className="auth-merged__waitlist">
-                Join beta waitlist:{" "}
-                <a href={BETA_FORM_LINK} target="_blank" rel="noreferrer">
-                  fill this Google form
-                </a>
-                .
-              </p>
-            ) : null}
             <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null || emailDomainInvalid}>
-              {BETA_INVITE_AUTH_ENABLED ? (betaInviteStepUnlocked ? "Enter beta" : "Continue") : "Continue"}
+              Continue
             </Button>
           </form>
         </div>

@@ -8,7 +8,6 @@ export const EXEMPT_CSRF_PATHS = new Set([
   "/v1/auth/start",
   "/v1/auth/verify",
   "/v1/auth/password-login",
-  "/v1/auth/invite-login",
   "/v1/auth/demo-login"
 ]);
 
