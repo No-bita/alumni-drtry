@@ -106,9 +106,9 @@ describe("The Wall", () => {
 });
 
 describe("Small lines", () => {
-  it("feedback is one line that opens the form in a new tab", () => {
+  it("feedback panel opens the form in a new tab", () => {
     wrap(<HomeFeedbackSection />);
-    const link = screen.getByRole("link", { name: /Tell us what you think/ });
+    const link = screen.getByRole("link", { name: /Give feedback/ });
     expect(link.getAttribute("target")).toBe("_blank");
     expect(screen.getByText(/Something missing or confusing\?/)).toBeTruthy();
   });
