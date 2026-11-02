@@ -13,7 +13,7 @@ import { CityMeetups } from "../components/cities/CityMeetups";
 import { CitySwitcherSheet } from "../components/cities/CitySwitcherSheet";
 import { NewInCitySection } from "../components/cities/NewInCitySection";
 import { NewcomerOffersSection } from "../components/cities/NewcomerOffersSection";
-import { NoCityPrompt } from "../components/cities/NoCityPrompt";
+import { NoCityPrompt, SavedCityCard } from "../components/cities/NoCityPrompt";
 import { useAuth } from "../contexts/AuthContext";
 import {
   CITIES_KEY,
@@ -24,6 +24,7 @@ import {
   findCityBySlug,
   type ArrivalPrompt,
   type CityAskMode,
+  type CitiesList,
   type CityPayload,
 } from "../lib/cities";
 import { queryKeys } from "../lib/queryKeys";
@@ -45,6 +46,9 @@ export function LocationPage() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [optIn, setOptIn] = useState<ArrivalPrompt | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // No linked city: correcting a saved entry, and whether that entry was saved just now (this visit).
+  const [editingCity, setEditingCity] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const signedIn = auth.status === "authenticated";
 
   const list = useQuery({ queryKey: citiesKeys.list(), queryFn: ({ signal }) => fetchCities(signal), enabled: signedIn });
@@ -125,20 +129,43 @@ export function LocationPage() {
       </p>
     );
   } else if (!citySlug && !list.data?.viewerCity) {
-    body = (
-      <NoCityPrompt
-        cities={cities}
-        onOpenAll={() => setSwitcherOpen(true)}
-        onSaved={(_place, prompt) => {
-          if (prompt) setOptIn(prompt);
-        }}
-      />
-    );
+    // Not linked to a city page. Saved text (from the server) shows as saved; the form is for a first entry
+    // or a correction. A saved city waiting for review is linked, so it never lands here.
+    const saved = list.data?.viewerResidence ?? null;
+    const savedCity = saved?.city ?? null;
+    body =
+      saved && savedCity && !editingCity ? (
+        <SavedCityCard
+          saved={{ ...saved, city: savedCity }}
+          justSaved={justSaved}
+          cities={cities}
+          onEdit={() => {
+            setEditingCity(true);
+            setJustSaved(false);
+          }}
+          onOpenAll={() => setSwitcherOpen(true)}
+        />
+      ) : (
+        <NoCityPrompt
+          key={saved ? `${saved.city}|${saved.country ?? ""}` : "none"}
+          cities={cities}
+          saved={saved}
+          onOpenAll={() => setSwitcherOpen(true)}
+          onCancel={savedCity ? () => setEditingCity(false) : undefined}
+          onSaved={(prompt) => {
+            setEditingCity(false);
+            const now = queryClient.getQueryData<CitiesList>(citiesKeys.list());
+            if (now?.viewerCity) setNotice("Saved to your profile.");
+            else setJustSaved(true);
+            if (prompt) setOptIn(prompt);
+          }}
+        />
+      );
   } else if (!target || !data) {
     body = (
       <section className="cities__section">
         <h2 className="cities__h2">We don’t have that city yet</h2>
-        <p className="cities__note">No alumni have it on their profile. Pick a city from the list.</p>
+        <p className="cities__note">No alumni have it on their profile yet.</p>
         <button type="button" className="cities__secondary" onClick={() => setSwitcherOpen(true)}>
           All cities
         </button>

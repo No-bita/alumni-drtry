@@ -246,8 +246,13 @@ export class CitiesService implements ResidenceSync {
       res?.placeId ? this.placeReview.place(res.placeId) : Promise.resolve(null)
     ]);
     // Your own city stays yours even while it waits for review (only approved cities are listed).
+    // viewerResidence: what you saved on your profile, linked or not, so the page can show a saved city
+    // that isn't linked to a city page (read-only; matching is unchanged).
+    const typedCity = res?.city?.trim() ? res.city.trim() : null;
+    const typedCountry = res?.country?.trim() ? res.country.trim() : null;
     return {
       viewerCity: mine && mine.status !== "combined" ? { ...cityRef(mine), status: mine.status } : null,
+      viewerResidence: typedCity || typedCountry ? { city: typedCity, country: typedCountry } : null,
       cities: rows.map((r) => ({ ...cityRef(r), count: r.count }))
     };
   }

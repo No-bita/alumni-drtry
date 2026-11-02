@@ -87,7 +87,6 @@ function world(list: CitiesList, city: CityPayload | null) {
   apiGet.mockImplementation(async (path: string) => {
     if (path === "/v1/cities") return list;
     if (city && path === `/v1/cities/${city.place.placeId}`) return city;
-    if (path.startsWith("/v1/cities/search")) return { places: [BLR] };
     throw new Error(`unexpected ${path}`);
   });
 }
@@ -355,19 +354,145 @@ describe("Cities page: arriver (screen 7)", () => {
   });
 });
 
-describe("Cities page: no city (screen 8)", () => {
-  it("asks where you live, saves a canonical place to the profile, and lists cities to browse", async () => {
-    world({ viewerCity: null, cities: lists.cities }, null);
+describe("Cities page: typing your city (no list to pick from)", () => {
+  const LEEDS: CityRef = { placeId: "leeds-1", city: "Leedsy", country: "United Kingdom", slug: "leedsy" };
+  /** The server's cities list, changed by a successful profile save (as the real API would). */
+  function serverWorld(start: CitiesList, afterSave: (body: { residenceCity: string; residenceCountry: string }) => CitiesList, cityPayloads: CityPayload[] = []) {
+    let current = start;
+    world(start, null);
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/cities") return current;
+      const hit = cityPayloads.find((c) => path === `/v1/cities/${c.place.placeId}`);
+      if (hit) return hit;
+      throw new Error(`unexpected ${path}`);
+    });
+    apiPatch.mockImplementation(async (_path: string, body: { residenceCity: string; residenceCountry: string }) => {
+      current = afterSave(body);
+      return { data: { profile: {}, arrivalPrompt: null } };
+    });
+  }
+  const searched = () => apiGet.mock.calls.some(([p]) => String(p).includes("/v1/cities/search"));
+
+  it("no city or country saved: asks for both, saves exactly what was typed, never searches, then shows it as saved", async () => {
+    serverWorld({ viewerCity: null, viewerResidence: null, cities: lists.cities }, (b) => ({
+      viewerCity: null,
+      viewerResidence: { city: b.residenceCity, country: b.residenceCountry },
+      cities: lists.cities,
+    }));
     mount();
     expect(await screen.findByRole("heading", { name: "Where do you live?" })).toBeTruthy();
+    // The city box is plain text: no suggestion list (the country box keeps its country suggestions).
+    expect(screen.queryByRole("combobox", { name: "City" })).toBeNull();
+    expect(screen.queryByRole("listbox")).toBeNull();
     const browse = screen.getByRole("region", { name: "Or browse a city" });
     expect(within(browse).getByRole("link", { name: /Bengaluru/ }).getAttribute("href")).toBe("/intent/location/bengaluru");
-    fireEvent.change(screen.getByRole("combobox", { name: "City" }), { target: { value: "beng" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Bengaluru, India" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "City" }), { target: { value: "  Chhapra Kalan " } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Country" }), { target: { value: "India" } });
     fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
-    await waitFor(() =>
-      expect(apiPatch).toHaveBeenCalledWith("/v1/me/profile", { residenceCity: "Bengaluru", residenceCountry: "India" }),
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/v1/me/profile", { residenceCity: "Chhapra Kalan", residenceCountry: "India" }));
+    expect(await screen.findByText("Saved to your profile.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Chhapra Kalan, India" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Where do you live?" })).toBeNull();
+    expect(screen.queryByText(/review/i)).toBeNull();
+    expect(searched()).toBe(false);
+  });
+
+  it("a saved country is reused (not asked again) and can be changed on purpose", async () => {
+    serverWorld({ viewerCity: null, viewerResidence: { city: null, country: "India" }, cities: lists.cities }, (b) => ({
+      viewerCity: null,
+      viewerResidence: { city: b.residenceCity, country: b.residenceCountry },
+      cities: lists.cities,
+    }));
+    mount();
+    expect(await screen.findByText("Country: India")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Country" })).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "City" }), { target: { value: "Leedsy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/v1/me/profile", { residenceCity: "Leedsy", residenceCountry: "India" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit your city" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change country" }));
+    expect((screen.getByRole("combobox", { name: "Country" }) as HTMLInputElement).value).toBe("India");
+  });
+
+  it("missing city or country: says so and doesn't save", async () => {
+    serverWorld({ viewerCity: null, viewerResidence: null, cities: lists.cities }, () => ({ viewerCity: null, viewerResidence: null, cities: lists.cities }));
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Save to my profile" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Type the city you live in.");
+    fireEvent.change(screen.getByRole("textbox", { name: "City" }), { target: { value: "Leedsy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Add the country too.");
+    expect(apiPatch).not.toHaveBeenCalled();
+  });
+
+  it("a failed save is an error, not a false 'saved': the form and what you typed stay", async () => {
+    world({ viewerCity: null, viewerResidence: { city: null, country: "India" }, cities: lists.cities }, null);
+    apiPatch.mockResolvedValue({ error: { code: "NETWORK_ERROR", message: "offline" } });
+    mount();
+    fireEvent.change(await screen.findByRole("textbox", { name: "City" }), { target: { value: "Leedsy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn’t save: check your connection and try again.");
+    expect((screen.getByRole("textbox", { name: "City" }) as HTMLInputElement).value).toBe("Leedsy");
+    expect(screen.queryByText(/Saved/)).toBeNull();
+  });
+
+  it("after a refresh, a saved city that isn't linked shows as saved (no review wording) and can be corrected", async () => {
+    serverWorld({ viewerCity: null, viewerResidence: { city: "Leedsy", country: "United Kingdom" }, cities: lists.cities }, (b) => ({
+      viewerCity: null,
+      viewerResidence: { city: b.residenceCity, country: b.residenceCountry },
+      cities: lists.cities,
+    }));
+    mount();
+    expect(await screen.findByRole("heading", { name: "Leedsy, United Kingdom" })).toBeTruthy();
+    expect(screen.getByText("Saved on your profile.")).toBeTruthy();
+    expect(screen.queryByText(/review/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit your city" }));
+    const cityBox = screen.getByRole("textbox", { name: "City" }) as HTMLInputElement;
+    expect(cityBox.value).toBe("Leedsy");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Saved on your profile.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit your city" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "City" }), { target: { value: "Leeds" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/v1/me/profile", { residenceCity: "Leeds", residenceCountry: "United Kingdom" }));
+    expect(await screen.findByRole("heading", { name: "Leeds, United Kingdom" })).toBeTruthy();
+    expect(screen.getByText("Saved to your profile.")).toBeTruthy();
+  });
+
+  it("a save that links to an approved city opens that city", async () => {
+    serverWorld(
+      { viewerCity: null, viewerResidence: null, cities: lists.cities },
+      () => ({ viewerCity: BLR, viewerResidence: { city: "Bangalore", country: "India" }, cities: lists.cities }),
+      [payload()],
     );
+    mount();
+    fireEvent.change(await screen.findByRole("textbox", { name: "City" }), { target: { value: "Bangalore" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Country" }), { target: { value: "India" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    expect(await screen.findByRole("heading", { name: "Alumni in Bengaluru" })).toBeTruthy();
+    expect(screen.getByText("Saved to your profile.")).toBeTruthy();
+    expect(searched()).toBe(false);
+  });
+
+  it("a save that creates a city waiting for review opens its page with the review notice", async () => {
+    const pendingPage = payload({
+      place: LEEDS,
+      viewerCity: LEEDS,
+      review: { status: "pending", message: "This city is waiting for review. Until then only the people who live here and admins can see this page.", rejectionReason: null },
+      v1Enabled: false,
+      counts: { alumni: 1, openToCityHelp: 0 },
+      arrivals: null,
+      helpPanel: null,
+    });
+    serverWorld(
+      { viewerCity: null, viewerResidence: { city: null, country: "United Kingdom" }, cities: lists.cities },
+      () => ({ viewerCity: { ...LEEDS, status: "pending" }, viewerResidence: { city: "Leedsy", country: "United Kingdom" }, cities: lists.cities }),
+      [pendingPage],
+    );
+    mount();
+    fireEvent.change(await screen.findByRole("textbox", { name: "City" }), { target: { value: "Leedsy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
+    expect((await screen.findByText(/This city is waiting for review/)).closest("[role=status]")).toBeTruthy();
   });
 });
 

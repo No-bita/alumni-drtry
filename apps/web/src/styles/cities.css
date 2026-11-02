@@ -789,35 +789,6 @@
   font-weight: 600;
 }
 
-.cities__suggestions {
-  list-style: none;
-  margin: -4px 0 0;
-  padding: 4px;
-  display: grid;
-  border: 1px solid var(--border-muted);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.cities__suggestions button {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  font-size: 15px;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.cities__suggestions button:hover,
-.cities__suggestions button:focus-visible {
-  background: var(--cream-dark);
-}
-
 .cities__emails {
   gap: 10px;
 }
@@ -985,4 +956,35 @@
 
 .cities__review-reason {
   color: var(--ink-muted);
+}
+
+/* City entry: typed city, country reused when saved */
+.cities__where-country {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  overflow-wrap: anywhere;
+}
+
+.cities__where-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cities__saved-city {
+  overflow-wrap: anywhere;
+}
+
+.cities__where .cities__input:focus-visible,
+.cities__where button:focus-visible,
+.cities__rows .cities__row:focus-visible {
+  outline: 3px solid var(--ochre, #b7791f);
+  outline-offset: 2px;
+}
+
+.cities__input[aria-invalid="true"] {
+  border-color: #a12a12;
 }
