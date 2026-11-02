@@ -189,56 +189,58 @@ export function HomeOpportunityRail({
           </button>
         ) : null}
       </header>
-      <div className="home-wall-feed-tabs" role="tablist" aria-label="Wall feeds">
-        {([{ id: "all", label: "All posts" }, { id: "for-you", label: "For you" }] as const).map((tab, index) => (
-          <button
-            key={tab.id}
-            ref={(element) => { feedTabRefs.current[index] = element; }}
-            type="button"
-            role="tab"
-            id={`${feedTabsId}-${tab.id}`}
-            aria-selected={feedTab === tab.id}
-            aria-controls={`${feedTabsId}-panel`}
-            tabIndex={feedTab === tab.id ? 0 : -1}
-            onClick={() => setFeedTab(tab.id)}
-            onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-              event.preventDefault();
-              const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
-              setFeedTab(next === 0 ? "all" : "for-you");
-              feedTabRefs.current[next]?.focus();
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="home-wall-toolbar">
+        <div className="home-wall-feed-tabs" role="tablist" aria-label="Wall feeds">
+          {([{ id: "all", label: "All posts" }, { id: "for-you", label: "For you" }] as const).map((tab, index) => (
+            <button
+              key={tab.id}
+              ref={(element) => { feedTabRefs.current[index] = element; }}
+              type="button"
+              role="tab"
+              id={`${feedTabsId}-${tab.id}`}
+              aria-selected={feedTab === tab.id}
+              aria-controls={`${feedTabsId}-panel`}
+              tabIndex={feedTab === tab.id ? 0 : -1}
+              onClick={() => setFeedTab(tab.id)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
+                setFeedTab(next === 0 ? "all" : "for-you");
+                feedTabRefs.current[next]?.focus();
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {chipCategories.length > 0 ? (
+          <details className="home-wall-topics">
+            <summary>Topics</summary>
+            <div className="home-wall-topics__menu" aria-label="Opportunity filters">
+              {chipCategories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  aria-pressed={activeCategory === category.id}
+                  onClick={(event) => {
+                    onCategoryChange(activeCategory === category.id ? "all" : category.id);
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    event.currentTarget.closest("details")?.querySelector("summary")?.focus();
+                  }}
+                >
+                  <span>{category.label}</span>
+                  <span>{categoryCounts[category.id]}</span>
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
       </div>
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
           {railDeleteError}
         </p>
-      ) : null}
-      {chipCategories.length > 0 ? (
-        <details className="home-wall-topics">
-          <summary>Topics</summary>
-          <div className="home-wall-topics__menu" aria-label="Opportunity filters">
-            {chipCategories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                aria-pressed={activeCategory === category.id}
-                onClick={(event) => {
-                  onCategoryChange(activeCategory === category.id ? "all" : category.id);
-                  event.currentTarget.closest("details")?.removeAttribute("open");
-                  event.currentTarget.closest("details")?.querySelector("summary")?.focus();
-                }}
-              >
-                <span>{category.label}</span>
-                <span>{categoryCounts[category.id]}</span>
-              </button>
-            ))}
-          </div>
-        </details>
       ) : null}
       <div role="tabpanel" id={`${feedTabsId}-panel`} aria-labelledby={`${feedTabsId}-${feedTab}`}>
       {showingReplies ? (

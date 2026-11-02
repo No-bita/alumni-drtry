@@ -131,11 +131,20 @@
 }
 
 /* Wall feed scopes. Both tabs share the current feed until matching is approved. */
+.home-wall-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md, 12px);
+  border-bottom: 1px solid var(--border, #d9cec0);
+  margin: var(--space-md-lg, 16px) 0;
+}
 .home-wall-feed-tabs {
   display: flex;
   gap: 24px;
-  border-bottom: 1px solid var(--border, #d9cec0);
-  margin: 16px 0;
+  flex: 1 0 auto;
+  margin: 0;
 }
 .home-wall-feed-tabs > button {
   appearance: none;
@@ -162,7 +171,8 @@
 .home-wall-topics {
   position: relative;
   width: fit-content;
-  margin: 0 0 16px;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
 }
 .home-wall-topics > summary {
   cursor: pointer;
@@ -177,7 +187,7 @@
   position: absolute;
   z-index: 10;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
   width: min(300px, calc(100vw - 68px));
   background: var(--surface, #fbf8f1);
   border: 1px solid var(--border, #d9cec0);
