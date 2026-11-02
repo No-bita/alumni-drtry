@@ -336,7 +336,11 @@ describe("auth", () => {
 
   it("no answer from the provider keeps the code, and retries send no second email (requires DB)", async () => {
     const email = `unconfirmed-${Date.now()}@iitbhu.ac.in`;
-    sendAuthEmailSpy.mockRejectedValueOnce(new EmailDeliveryUnconfirmedError("Resend did not answer: timeout"));
+    // Capture the dispatched email, then report the provider as unconfirmed: the send happened.
+    sendAuthEmailSpy.mockImplementationOnce(async (payload) => {
+      testEmailCapture.authEmails.push(payload);
+      throw new EmailDeliveryUnconfirmedError("Resend did not answer: timeout");
+    });
     const first = await startAuth(email);
     expect(first.statusCode, first.body).toBe(200);
     expect((first.json() as { delivery: string }).delivery).toBe("unconfirmed");
