@@ -1,5 +1,6 @@
 import { HomeAskBox } from "./HomeAskBox";
-import { HomeReassurance } from "./HomeReassurance";
+// Temporarily hidden: the "N alumni across N companies" line. Component and API are kept.
+// import { HomeReassurance } from "./HomeReassurance";
 
 /** Home hero: one question, one box, and an honest line about who can help. */
 export function HomeIntentHero() {
@@ -11,7 +12,7 @@ export function HomeIntentHero() {
         </h1>
       </div>
       <HomeAskBox />
-      <HomeReassurance />
+      {/* <HomeReassurance /> */}
     </section>
   );
 }
