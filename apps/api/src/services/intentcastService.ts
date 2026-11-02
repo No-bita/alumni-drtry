@@ -485,4 +485,4 @@ export class IntentcastService {
       console.error("[intentcast] response email delivery failed:", detail);
     }
   }
-                         }
+}
