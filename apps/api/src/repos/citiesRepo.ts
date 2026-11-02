@@ -822,4 +822,4 @@ export class CitiesRepo {
   async releaseNudge(personId: string, previous: Date | null): Promise<void> {
     await this.db.query(`UPDATE people SET city_nudge_last_sent_at = $2::timestamptz WHERE id = $1`, [personId, previous]);
   }
-}
+  }
