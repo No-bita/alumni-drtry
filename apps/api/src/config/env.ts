@@ -126,6 +126,12 @@ const envSchema = z.object({
    * Set to `0` to disable the scheduler in production (use an external cron instead).
    */
   INTENTCAST_EXPIRY_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
+  /**
+   * City review: an unknown typed city becomes a pending city (linked to the member) and the admin
+   * review queue is on. Off: unknown cities stay as typed text and the queue API is 404. Safe combining,
+   * history and hiding non-approved cities apply either way.
+   */
+  CITY_REVIEW_ENABLED: environmentBoolean.default(false),
   /** Cities v1: canonical place ids with the full city page (comma-separated). Unset → Bengaluru, India by name. */
   CITIES_V1_PLACE_IDS: optionalStringSchema,
   /** Cities v1: chapter group links, JSON {"<placeId>": {"url": "https://…", "label": "…"}}. */
