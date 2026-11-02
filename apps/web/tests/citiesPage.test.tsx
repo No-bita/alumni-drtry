@@ -440,3 +440,38 @@ it.each(["/intent/location?emails=manage", "/intent/location/bengaluru?emails=ma
   expect(screen.getByRole("switch", { name: "Open to city help" })).toBeTruthy();
   expect(apiPatch).not.toHaveBeenCalled();
 });
+
+describe("Cities page: city review", () => {
+  const LEEDS = { placeId: "leeds-1", city: "Leedsy", country: "United Kingdom", slug: "leedsy" };
+  const mine = (review: CityPayload["review"]) =>
+    payload({
+      place: LEEDS,
+      viewerCity: LEEDS,
+      review,
+      v1Enabled: false,
+      counts: { alumni: 2, openToCityHelp: 0 },
+      arrivals: null,
+      helpPanel: null,
+    });
+
+  it("your own city waiting for review says so (it isn't listed for anyone else)", async () => {
+    world(
+      { viewerCity: { ...LEEDS, status: "pending" }, cities: [{ ...BLR, count: 41 }] },
+      mine({ status: "pending", message: "This city is waiting for review. Until then only the people who live here and admins can see this page.", rejectionReason: null }),
+    );
+    mount();
+    expect((await screen.findByText(/This city is waiting for review/)).closest("[role=status]")).toBeTruthy();
+    expect(screen.queryByText(/Reason:/)).toBeNull();
+  });
+
+  it("a rejected city shows the reason to the person who typed it, with a way to change city", async () => {
+    world(
+      { viewerCity: { ...LEEDS, status: "rejected" }, cities: [{ ...BLR, count: 41 }] },
+      mine({ status: "rejected", message: "This city wasn't added.", rejectionReason: "Not a real city name" }),
+    );
+    mount();
+    expect(await screen.findByText("This city wasn't added.")).toBeTruthy();
+    expect(screen.getByText("Reason: Not a real city name")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "change your city" }).getAttribute("href")).toBe("/profiles/me1?edit=city");
+  });
+});

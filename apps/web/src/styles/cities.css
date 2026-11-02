@@ -963,3 +963,26 @@
 @media (max-width: 639px) {
   .cities__primary-title { font-size: 28px; }
 }
+
+/* City review: your city is waiting for review, or wasn't added. */
+.cities__review {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--cream-dark, #ece8e3);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.cities__review p {
+  margin: 0;
+}
+
+.cities__review-title {
+  font-weight: 600;
+}
+
+.cities__review-reason {
+  color: var(--ink-muted);
+}

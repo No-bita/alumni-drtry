@@ -4,7 +4,16 @@ import { normalizeCityIntentSlug } from "./cityIntentFromToolbar";
 
 /* Wire shapes: docs/cities-v1-contract.md */
 
-export type CityRef = { placeId: string; city: string; country: string; slug: string };
+export type CityRef = {
+  placeId: string;
+  city: string;
+  country: string;
+  slug: string;
+  /** City review: only on your own city when it isn't approved yet. */
+  status?: "pending" | "approved" | "rejected";
+};
+/** City review: on the page of a city that isn't approved (seen only by its members and admins). */
+export type CityReviewState = { status: "pending" | "rejected"; message: string; rejectionReason: string | null };
 export type CityListItem = CityRef & { count: number };
 
 export type CityPerson = {
@@ -71,6 +80,7 @@ export type NudgeFrequency = "weekly" | "monthly" | "never";
 
 export type CityPayload = {
   place: CityRef;
+  review?: CityReviewState | null;
   viewerRole: ViewerRole;
   viewerCity: CityRef | null;
   v1Enabled: boolean;

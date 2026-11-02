@@ -89,6 +89,25 @@ Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migrati
 - `POST /v1/contact-requests` accepts `source: "cities"` with `coffee`, `relocation`, `visiting`, `newcomer` (+ `cityHelpOfferId`). `POST /v1/intentcasts` accepts `placeId`.
 - `GET /v1/admin/metrics/cities?days=7|30|90` (admins).
 
+## City review (admins; queue off unless `CITY_REVIEW_ENABLED=true`; see docs/city-review.md)
+
+- `GET /v1/admin/cities/review?status=pending|rejected&q=`: `{ cities: [{ id, city, country, status, linkedMembers, submittedByEmailMasked, submittedAt, aliases, rejectionReason, reviewedAt }] }`, oldest first, at most 200. The submitter's email is masked; the full address never leaves the API.
+- `GET /v1/admin/cities/approved?q=&exclude=`: "Same city as…" picker, approved cities only, at most 20.
+- `POST /v1/admin/cities/:placeId/approve` body `{ cityLabel? }` (optional rename first; the typed spelling stays as an alias): pending → approved. Errors: `CITY_NOT_PENDING` (409), `CITY_NAME_TAKEN` (409), `CITY_REVIEW_BAD_REQUEST`.
+- `POST /v1/admin/cities/:placeId/reject` body `{ reason }` (3–500 characters, required): pending → rejected. Members stay linked. Errors: `CITY_REJECT_REASON_REQUIRED` (400), `CITY_NOT_PENDING` (409).
+- `POST /v1/admin/cities/:placeId/reopen`: rejected → pending. Error: `CITY_NOT_REJECTED` (409).
+- `POST /v1/admin/cities/:placeId/same-as` body `{ targetPlaceId }`: safe combine of a pending or rejected city into an approved one. Errors: `CITY_INVALID_TARGET` (400), `CITY_NOT_PENDING` / `CITY_ALREADY_COMBINED` (409).
+- `GET /v1/admin/cities/history?limit=` and `GET /v1/admin/cities/:placeId/history`: `{ history: [{ id, placeId, city, country, action, actorName, targetPlaceId, targetCity, reason, detail, summary, at }] }`, newest first. Admin only.
+- All of the above: 404 `NOT_FOUND` when the switch is off; 401/403 for signed-out/non-admin.
+- Changed regardless of the switch:
+  - `POST /v1/admin/places/merge`, Location cleanup `combine-cities` and `combine-with-city` are the **safe combine**: people's current and previous city, newcomer arrivals and Wall city tags move to the kept city; spellings are copied (the other city's label becomes one); the other city becomes a redirect (`status: combined`); cities already redirected to it point straight at the kept city. Nothing is deleted and members' typed text is never changed. The kept city must be approved.
+  - Renames (`rename-display-city`) no longer overwrite members' typed text.
+  - `GET /v1/cities/:placeId` for a pending or rejected city: only members linked to it, and admins (else 404). It carries `review: { status, message, rejectionReason }`; the reason only for the member who typed it and admins. A combined city's id opens the city it points at.
+  - `GET /v1/cities` lists approved cities only; `viewerCity` may carry `status` (your own pending/rejected city). City search, directory city filters, `residence-cities`, Ask/WhatsApp place matching and analytics use approved cities only.
+  - `POST /v1/intentcasts` with `placeId`: approved cities only (else 400 `INTENTCAST_BAD_REQUEST`).
+  - Profiles show an approved city's name; otherwise what the member typed.
+  - `PATCH /v1/me/profile`: `residenceCountry` is saved as one name per country (`USA` → `United States`); unknown countries are kept as typed.
+
 ## WhatsApp pilot (off unless `WHATSAPP_ENABLED=true`; see docs/whatsapp-setup.md)
 
 - `GET /v1/whatsapp/webhook`: Meta's one-time verification (`hub.verify_token` must equal `WA_VERIFY_TOKEN`).
