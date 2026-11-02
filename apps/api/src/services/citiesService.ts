@@ -710,4 +710,4 @@ export function nudgeSubject(city: string, arrivals: number, askCount: number | 
 function firstLine(text: string): string {
   const line = text.trim().split(/\n/)[0]!.trim();
   return line.length > 90 ? `${line.slice(0, 89)}…` : line;
-      }
+  }
