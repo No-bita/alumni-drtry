@@ -1,6 +1,7 @@
 import type { PublicProfileView } from "../../api/client";
 import { profileShowsAboutSection } from "../../lib/profileAbout";
 import { Input } from "../Input";
+import { RESIDENCE_COUNTRY_LIST_ID, RESIDENCE_COUNTRY_NAMES } from "../../lib/countries";
 
 type ProfileAboutProps = {
   loading: boolean;
@@ -80,7 +81,13 @@ export function ProfileAbout({
             value={draftResidenceCountry}
             onChange={(e) => onDraftResidenceCountry(e.target.value)}
             autoComplete="country-name"
+            list={RESIDENCE_COUNTRY_LIST_ID}
           />
+          <datalist id={RESIDENCE_COUNTRY_LIST_ID}>
+            {RESIDENCE_COUNTRY_NAMES.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <Input
             id="profile-residence-city"
             label="City of residence (optional)"
