@@ -19,6 +19,7 @@ import type { ReplyStatsView } from "./contactRequestService.js";
 import type { ArrivalPrompt, ResidenceSync } from "./profileService.js";
 import type { EmailSender } from "./emailSender.js";
 import { clearResidenceCitiesCache } from "./discoveryService.js";
+import { PlaceReviewService } from "./placeReviewService.js";
 
 /* ---------------------------------------------------------------------- */
 /* Rules (SPEC §11 "proposed", confirmed)                                  */
@@ -50,6 +51,14 @@ export type HelpKind = (typeof HELP_KINDS)[number];
 /* ---------------------------------------------------------------------- */
 
 export type CityRef = { placeId: string; city: string; country: string; slug: string };
+export type CityViewer = { personId: string; isDemo: boolean; isAdmin?: boolean };
+/** Shown on the page of a city that isn't approved (only its members and admins can open it). */
+export type CityReviewState = {
+  status: "pending" | "rejected";
+  message: string;
+  /** Only for the member who first typed the city, and admins. */
+  rejectionReason: string | null;
+};
 export type CityPerson = {
   id: string;
   fullName: string;
@@ -153,6 +162,7 @@ function parseChapterLinks(raw: string | undefined): ChapterLinks {
 export class CitiesService implements ResidenceSync {
   private readonly repo: CitiesRepo;
   private readonly matchRepo: MatchRepo;
+  private readonly placeReview: PlaceReviewService;
   private v1Cache: { ids: string[]; at: number } | null = null;
   private readonly chapterLinks: ChapterLinks;
 
@@ -164,6 +174,7 @@ export class CitiesService implements ResidenceSync {
   ) {
     this.repo = new CitiesRepo(pool);
     this.matchRepo = new MatchRepo(pool);
+    this.placeReview = new PlaceReviewService(pool, clearResidenceCitiesCache);
     this.chapterLinks = parseChapterLinks(env.CITY_CHAPTER_LINKS);
   }
 
@@ -200,14 +211,16 @@ export class CitiesService implements ResidenceSync {
     if (!res) return null;
     const same = (a: string | null, b: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
     const textChanged = !same(before.city, res.city) || !same(before.country, res.country);
-    const next = res.city?.trim()
-      ? ((await this.repo.findPlaceByName(res.city, res.country)) ?? (await this.repo.findPlaceByName(res.city, null)))
-      : null;
-    const nextId = next?.id ?? null;
-    if (nextId === res.placeId) return null;
     // The form sends the city on every save. When the typed city didn't change, only fill in a missing
     // place: never clear or move one (an admin may have mapped a spelling the lookup doesn't know).
-    if (!textChanged && (res.placeId !== null || nextId === null)) return null;
+    if (!textChanged && res.placeId !== null) return null;
+    // City review: only inside the country they picked; approved or pending links, rejected never does,
+    // nothing found becomes a pending city (when review is on).
+    const resolution = res.city?.trim() ? await this.placeReview.resolveResidence(personId, res.city, res.country) : null;
+    const next = resolution?.kind === "linked" ? { id: resolution.place.id, city: resolution.place.city } : null;
+    const nextId = next?.id ?? null;
+    if (nextId === res.placeId) return null;
+    if (!textChanged && nextId === null) return null;
 
     const moved = res.placeId !== null && nextId !== null;
     await this.repo.setResidencePlace(personId, nextId, moved ? { from: res.placeId! } : null);
@@ -230,10 +243,11 @@ export class CitiesService implements ResidenceSync {
     const res = await this.repo.residence(viewer.personId);
     const [rows, mine] = await Promise.all([
       this.repo.listCities(viewer.isDemo, CITIES_LIST_MAX, res?.placeId ?? null),
-      res?.placeId ? this.repo.placeById(res.placeId) : Promise.resolve(null)
+      res?.placeId ? this.placeReview.place(res.placeId) : Promise.resolve(null)
     ]);
+    // Your own city stays yours even while it waits for review (only approved cities are listed).
     return {
-      viewerCity: mine ? cityRef(mine) : null,
+      viewerCity: mine && mine.status !== "combined" ? { ...cityRef(mine), status: mine.status } : null,
       cities: rows.map((r) => ({ ...cityRef(r), count: r.count }))
     };
   }
@@ -242,9 +256,39 @@ export class CitiesService implements ResidenceSync {
     return { places: (await this.repo.searchPlaces(q, 8)).map(cityRef) };
   }
 
-  async city(placeId: string, viewer: { personId: string; isDemo: boolean }) {
-    const place = await this.repo.placeById(placeId);
-    if (!place) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+  /**
+   * The city a page is about, if this viewer may see it. A combined city opens the city it now points
+   * at. Pending and rejected cities: only members linked to them, and admins; everyone else gets 404.
+   */
+  private async visiblePlace(placeId: string, viewer: CityViewer): Promise<{ place: PlaceRow; review: CityReviewState | null }> {
+    let row = await this.placeReview.place(placeId);
+    if (row?.status === "combined") row = await this.placeReview.final(row);
+    if (!row) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+    const place: PlaceRow = { id: row.id, city: row.city, country: row.country };
+    if (row.status === "approved") return { place, review: null };
+    const isAdmin = Boolean(viewer.isAdmin);
+    if (!isAdmin && !(await this.placeReview.isLinked(viewer.personId, row.id))) {
+      throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+    }
+    if (row.status === "pending") {
+      return {
+        place,
+        review: {
+          status: "pending",
+          message: "This city is waiting for review. Until then only the people who live here and admins can see this page.",
+          rejectionReason: null
+        }
+      };
+    }
+    const canSeeReason = isAdmin || row.submitted_by_person_id === viewer.personId;
+    return {
+      place,
+      review: { status: "rejected", message: "This city wasn't added.", rejectionReason: canSeeReason ? row.rejection_reason : null }
+    };
+  }
+
+  async city(placeId: string, viewer: CityViewer) {
+    const { place, review } = await this.visiblePlace(placeId, viewer);
 
     const [res, v1, counts, arrival, nudgeFrequency] = await Promise.all([
       this.repo.residence(viewer.personId),
@@ -264,6 +308,7 @@ export class CitiesService implements ResidenceSync {
 
     const payload = {
       place: cityRef(place),
+      review,
       viewerRole,
       viewerCity: viewerPlace ? cityRef(viewerPlace) : null,
       v1Enabled: v1,
@@ -397,18 +442,18 @@ export class CitiesService implements ResidenceSync {
     if (counts.alumni === 0) {
       payload.country = { name: place.country, alumni: await this.repo.countAlumniInCountry(place.country, viewer.isDemo) };
     }
-    await this.logDemand(place, viewer, helpers.length);
+    if (!review) await this.logDemand(place, viewer, helpers.length);
     return payload;
   }
 
   async alumni(
     placeId: string,
-    viewer: { personId: string; isDemo: boolean },
+    viewer: CityViewer,
     filter: Exclude<CityAlumniFilter, "shared" | "all">,
     offset: number
   ) {
-    const place = await this.repo.placeById(placeId);
-    if (!place) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+    const { place } = await this.visiblePlace(placeId, viewer);
+    placeId = place.id;
     const facts = await this.repo.viewerFacts(viewer.personId);
     const page = await this.repo.listCityAlumni({
       placeId,
@@ -665,4 +710,4 @@ export function nudgeSubject(city: string, arrivals: number, askCount: number | 
 function firstLine(text: string): string {
   const line = text.trim().split(/\n/)[0]!.trim();
   return line.length > 90 ? `${line.slice(0, 89)}…` : line;
-  }
+      }
