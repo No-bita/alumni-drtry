@@ -1,13 +1,13 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
-import { ConsoleEmailSender, EmailDeliveryUnconfirmedError, neverConnected } from "../src/services/emailSender.js";
+import { ConsoleEmailSender, EmailDeliveryUnconfirmedError, TestCaptureEmailSender, neverConnected, testEmailCapture } from "../src/services/emailSender.js";
 
 describe("auth", () => {
   let app: Awaited<ReturnType<typeof createApp>>;
   const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
-  let sendAuthEmailSpy: ReturnType<typeof vi.spyOn<ConsoleEmailSender, "sendAuthEmail">>;
+  let sendAuthEmailSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(async () => {
     app = await createApp();
@@ -19,8 +19,8 @@ describe("auth", () => {
   });
 
   beforeEach(() => {
-    // Calls through to the console sender; the spy only counts/intercepts dispatches.
-    sendAuthEmailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendAuthEmail");
+    // Calls through to the test capture sender; the spy only counts/intercepts dispatches.
+    sendAuthEmailSpy = vi.spyOn(TestCaptureEmailSender.prototype, "sendAuthEmail");
   });
 
   afterEach(() => {
@@ -153,12 +153,11 @@ describe("auth", () => {
     const body = res.json();
     expect(body.challengeId).toBeDefined();
     expect(body.sentTo).toBe(email);
-    if (process.env.SHOW_AUTH_SECRETS_IN_RESPONSE === "true") {
-      expect(body.debug?.otp).toBeDefined();
-      expect(body.debug?.magicLinkUrl).toContain("auth/verify");
-      expect(body.debug?.magicLinkUrl).toContain("challengeId=");
-      expect(body.debug?.magicLinkUrl).toContain("magicLinkToken=");
-    }
+    const mail = testEmailCapture.lastAuthEmail(email);
+    expect(mail?.otp).toBeDefined();
+    expect(mail?.magicLinkUrl).toContain("auth/verify");
+    expect(mail?.magicLinkUrl).toContain("challengeId=");
+    expect(mail?.magicLinkUrl).toContain("magicLinkToken=");
   });
 
   it("returns 429 and Retry-After when per-email auth start limit exceeded (requires DB)", async () => {
@@ -292,8 +291,12 @@ describe("auth", () => {
 
   const verifyOtp = (challengeId: string, otp: string) =>
     app.inject({ method: "POST", url: "/v1/auth/verify", payload: { challengeId, otp } });
-  const debugOf = (res: { json: () => unknown }) =>
-    (res.json() as { challengeId: string; debug: { otp: string; magicLinkUrl: string } });
+  const debugOf = (res: { json: () => unknown }, email: string) => {
+    const body = res.json() as { challengeId: string };
+    const mail = testEmailCapture.authEmailsFor(email).find((m) => m.magicLinkUrl.includes(body.challengeId));
+    if (!mail) throw new Error(`No captured auth email for ${email} challenge ${body.challengeId}`);
+    return { challengeId: body.challengeId, debug: { otp: mail.otp, magicLinkUrl: mail.magicLinkUrl } };
+  };
   const ageChallenge = (id: string) =>
     db.query("UPDATE auth_challenges SET created_at = now() - interval '3 minutes' WHERE id = $1", [id]);
 
@@ -302,21 +305,24 @@ describe("auth", () => {
     const first = (await startAuth(email)).json() as { delivery: string; resendAfterSeconds: number };
     expect(first.delivery).toBe("sent");
     expect(first.resendAfterSeconds).toBe(120);
-    const again = (await startAuth(email)).json() as { delivery: string; resendAfterSeconds: number; debug?: unknown };
+    const again = (await startAuth(email)).json() as { delivery: string; resendAfterSeconds: number };
     expect(again.delivery).toBe("already_sent");
     expect(again.resendAfterSeconds).toBeGreaterThan(100);
     expect(again.resendAfterSeconds).toBeLessThanOrEqual(120);
-    expect(again.debug).toBeUndefined();
     expect(sendAuthEmailSpy).toHaveBeenCalledTimes(1);
   });
 
   it("no answer from the provider keeps the code, and retries send no second email (requires DB)", async () => {
     const email = `unconfirmed-${Date.now()}@iitbhu.ac.in`;
-    sendAuthEmailSpy.mockRejectedValueOnce(new EmailDeliveryUnconfirmedError("Resend did not answer: timeout"));
+    // Capture the dispatched email, then report the provider as unconfirmed: the send happened.
+    sendAuthEmailSpy.mockImplementationOnce(async (payload) => {
+      testEmailCapture.authEmails.push(payload);
+      throw new EmailDeliveryUnconfirmedError("Resend did not answer: timeout");
+    });
     const first = await startAuth(email);
     expect(first.statusCode, first.body).toBe(200);
     expect((first.json() as { delivery: string }).delivery).toBe("unconfirmed");
-    const { challengeId, debug } = debugOf(first);
+    const { challengeId, debug } = debugOf(first, email);
 
     // The client retrying (or the user tapping again) reuses it: still exactly one email.
     const retry = await startAuth(email);
@@ -332,9 +338,9 @@ describe("auth", () => {
 
   it("a newer code retires older ones: old code says 'use the latest email', new code works (requires DB)", async () => {
     const email = `supersede-${Date.now()}@iitbhu.ac.in`;
-    const first = debugOf(await startAuth(email));
+    const first = debugOf(await startAuth(email), email);
     await ageChallenge(first.challengeId);
-    const second = debugOf(await startAuth(email));
+    const second = debugOf(await startAuth(email), email);
     expect(second.challengeId).not.toBe(first.challengeId);
 
     // Old code typed into the screen (which holds the newest challenge id).
@@ -359,7 +365,7 @@ describe("auth", () => {
 
   it("a rejected send keeps the previous code valid (requires DB)", async () => {
     const email = `supersede-reject-${Date.now()}@iitbhu.ac.in`;
-    const first = debugOf(await startAuth(email));
+    const first = debugOf(await startAuth(email), email);
     await ageChallenge(first.challengeId);
     sendAuthEmailSpy.mockRejectedValueOnce(new Error("Resend delivery failed (422): bad"));
     const rejected = await startAuth(email);

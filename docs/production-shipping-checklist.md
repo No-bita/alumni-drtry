@@ -40,7 +40,6 @@ Configure on the API host (e.g. Railway). Source of truth: `apps/api/src/config/
 - [ ] **`APP_BASE_URL`** is the public HTTPS API origin (no stray path segments).
 - [ ] **`MAGIC_LINK_BASE_URL`**, if used, matches the exact HTTPS origin users open for the web app (magic-link redirects).
 - [ ] **`AUTH_BYPASS_SUPER_ADMIN`** is **off** (blocked when **`NODE_ENV=production`** anyway); **`AUTH_BYPASS`** likewise **off**.
-- [ ] **`SHOW_AUTH_SECRETS_IN_RESPONSE=false`** (or unset).
 - [ ] **`CORS_ORIGIN`** lists real web origin(s); **not** **`*`** in production (**`credentials: true`** requires explicit origins; **`validateProductionCorsOrigin`** enforces this).
 - [ ] **`COOKIE_DOMAIN`** set only when API + web share a parent domain and cross-subdomain cookies are intentional ([`deployment.md`](./deployment.md) §6 — cookies / CORS); otherwise leave unset until deliberate.
 - [ ] **`EMAIL_PROVIDER=resend`** (or your provider); **`RESEND_API_KEY`**, **`EMAIL_FROM`** verified; DNS (**SPF/DKIM**) per provider; optional **`EMAIL_REPLY_TO`**, **`EMAIL_BRAND_NAME`**.

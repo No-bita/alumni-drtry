@@ -43,10 +43,6 @@ export interface StartAuthResult {
   delivery: AuthStartDelivery;
   /** Seconds until another start would email a new code (the duplicate window). */
   resendAfterSeconds: number;
-  debug?: {
-    otp: string;
-    magicLinkUrl: string;
-  };
 }
 
 export interface VerifyAuthInput {
@@ -281,15 +277,7 @@ export class AuthService {
       challengeId: challenge.id,
       sentTo: institutionalEmail,
       delivery,
-      resendAfterSeconds: env.AUTH_START_DUPLICATE_WINDOW_SECONDS,
-      ...(env.SHOW_AUTH_SECRETS_IN_RESPONSE
-        ? {
-            debug: {
-              otp,
-              magicLinkUrl
-            }
-          }
-        : {})
+      resendAfterSeconds: env.AUTH_START_DUPLICATE_WINDOW_SECONDS
     };
   }
 

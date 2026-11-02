@@ -229,6 +229,34 @@ export class ConsoleEmailSender implements EmailSender {
   }
 }
 
+/**
+ * Test-only sender (selected when NODE_ENV === "test"): captures auth emails in memory so tests
+ * complete sign-in flows without a secrets-in-response field or log scraping. Other email types
+ * keep ConsoleEmailSender behavior, so existing prototype spies keep working.
+ */
+export class TestCaptureEmailSender extends ConsoleEmailSender {
+  readonly authEmails: AuthEmailPayload[] = [];
+
+  override async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
+    this.authEmails.push(payload);
+  }
+
+  authEmailsFor(to: string): AuthEmailPayload[] {
+    return this.authEmails.filter((m) => m.to === to);
+  }
+
+  lastAuthEmail(to: string): AuthEmailPayload | undefined {
+    for (let i = this.authEmails.length - 1; i >= 0; i--) {
+      const mail = this.authEmails[i]!;
+      if (mail.to === to) return mail;
+    }
+    return undefined;
+  }
+}
+
+/** Shared instance for the test app and test helpers (each test file has its own module graph). */
+export const testEmailCapture = new TestCaptureEmailSender();
+
 export interface ResendEmailSenderOptions {
   apiKey: string;
   from: string;

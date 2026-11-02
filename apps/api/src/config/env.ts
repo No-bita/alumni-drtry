@@ -104,7 +104,6 @@ const envSchema = z.object({
   EMAIL_BRAND_NAME: z.string().min(1).default("Alma Mater"),
   RESEND_API_KEY: optionalStringSchema,
   COOKIE_DOMAIN: optionalStringSchema,
-  SHOW_AUTH_SECRETS_IN_RESPONSE: environmentBoolean.default(false),
   CORS_ORIGIN: z.string().default("*"),
   SENTRY_DSN: optionalStringSchema,
   /**

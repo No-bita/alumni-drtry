@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
-import { ConsoleEmailSender, EmailDeliveryUnconfirmedError } from "../src/services/emailSender.js";
+import { EmailDeliveryUnconfirmedError, TestCaptureEmailSender, testEmailCapture } from "../src/services/emailSender.js";
 import { sanitizeEventMetadata, UsageEventRateLimiter } from "../src/lib/betaUsageEventTypes.js";
 import type { AnalyticsReport } from "../src/repos/analyticsRepo.js";
 import { loginForTest } from "./helpers/login.js";
@@ -91,7 +91,7 @@ describe("GET /v1/admin/analytics (integration)", () => {
     expect((await post("/v1/me/invited-by", newcomer.cookie, { ref: alum.personId, channel: "whatsapp" })).statusCode).toBe(204);
 
     // A sign-in email that was clearly rejected.
-    const spy = vi.spyOn(ConsoleEmailSender.prototype, "sendAuthEmail").mockRejectedValueOnce(new Error("Resend delivery failed (422)"));
+    const spy = vi.spyOn(TestCaptureEmailSender.prototype, "sendAuthEmail").mockRejectedValueOnce(new Error("Resend delivery failed (422)"));
     expect((await post("/v1/auth/start", "", { institutionalEmail: `an-fail-${run}@iitbhu.ac.in` })).statusCode).toBe(503);
     spy.mockRestore();
 
@@ -220,15 +220,16 @@ describe("sign-in records how the email went", () => {
     const sentEmail = `del-sent-${run}@iitbhu.ac.in`;
     const start = await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: sentEmail } });
     expect(await delivery(sentEmail)).toBe("sent");
-    const { challengeId, debug } = start.json() as { challengeId: string; debug: { otp: string } };
-    const verified = await app.inject({ method: "POST", url: "/v1/auth/verify", payload: { challengeId, otp: debug.otp } });
+    const { challengeId } = start.json() as { challengeId: string };
+    const otp = testEmailCapture.lastAuthEmail(sentEmail)!.otp;
+    const verified = await app.inject({ method: "POST", url: "/v1/auth/verify", payload: { challengeId, otp } });
     expect(verified.statusCode, verified.body).toBe(200);
     const method = (await db.query<{ auth_method: string }>(
       `SELECT s.auth_method FROM sessions s JOIN people p ON p.id = s.person_id WHERE p.institutional_email = $1`, [sentEmail])).rows[0]!;
     expect(method.auth_method).toBe("otp");
 
     const slowEmail = `del-slow-${run}@iitbhu.ac.in`;
-    const spy = vi.spyOn(ConsoleEmailSender.prototype, "sendAuthEmail").mockRejectedValueOnce(new EmailDeliveryUnconfirmedError("timeout"));
+    const spy = vi.spyOn(TestCaptureEmailSender.prototype, "sendAuthEmail").mockRejectedValueOnce(new EmailDeliveryUnconfirmedError("timeout"));
     await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: slowEmail } });
     spy.mockRestore();
     expect(await delivery(slowEmail)).toBe("unconfirmed");
