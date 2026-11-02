@@ -193,6 +193,17 @@ export function LocationPage() {
             </button>
           </div>
         ) : null}
+        {data?.review ? (
+          <div className={`cities__review cities__review--${data.review.status}`} role="status">
+            <p className="cities__review-title">{data.review.message}</p>
+            {data.review.rejectionReason ? <p className="cities__review-reason">Reason: {data.review.rejectionReason}</p> : null}
+            {data.review.status === "rejected" ? (
+              <p className="cities__review-reason">
+                You can <Link to={profileId ? `/profiles/${profileId}?edit=city` : "/onboarding"}>change your city</Link> on your profile.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {emailsOpen ? <CityEmailsControl current={data?.nudgeFrequency ?? "weekly"} onClose={closeEmails} /> : null}
         {body}
       </main>

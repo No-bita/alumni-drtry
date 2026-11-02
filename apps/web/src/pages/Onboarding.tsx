@@ -25,6 +25,7 @@ import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
 import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCountries";
+import { RESIDENCE_COUNTRY_LIST_ID, RESIDENCE_COUNTRY_NAMES } from "../lib/countries";
 import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { OnboardingAnswerKey } from "../components/onboarding/OnboardingAnswerKey";
@@ -1190,7 +1191,16 @@ export function Onboarding() {
                     </div>
                   ) : null}
                   {step2CurrentQuestion?.id === "followup" ? <input className="onboarding-welcome__inline-input" autoComplete={step2CurrentQuestion.field === "company" || step2CurrentQuestion.field === "university" ? "organization" : "off"} value={activeOccupationCode ? (occupationFollowUps[activeOccupationCode] ?? emptyFollowUp())[step2CurrentQuestion.field] : ""} onChange={(e) => { if (!activeOccupationCode) return; updateOccupationFollowUp(activeOccupationCode, step2CurrentQuestion.field, e.target.value); }} onKeyDown={handleStep2FieldEnter} /> : null}
-                  {step2CurrentQuestion?.id === "residenceCountry" ? <input className="onboarding-welcome__inline-input" autoComplete="country-name" value={residenceCountry} onChange={(e) => setResidenceCountry(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {step2CurrentQuestion?.id === "residenceCountry" ? (
+                    <>
+                      <input className="onboarding-welcome__inline-input" autoComplete="country-name" list={RESIDENCE_COUNTRY_LIST_ID} value={residenceCountry} onChange={(e) => setResidenceCountry(e.target.value)} onKeyDown={handleStep2FieldEnter} />
+                      <datalist id={RESIDENCE_COUNTRY_LIST_ID}>
+                        {RESIDENCE_COUNTRY_NAMES.map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                    </>
+                  ) : null}
                   {step2CurrentQuestion?.id === "residenceCity" ? <input className="onboarding-welcome__inline-input" autoComplete="address-level2" value={residenceCity} onChange={(e) => setResidenceCity(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
                   {step2CurrentQuestion?.id === "mobilePhone" ? (
                     <div className="onboarding-occupation__mobile-row" style={{ gridTemplateColumns: "140px minmax(0, 1fr)" }} role="group" aria-label="Mobile number">

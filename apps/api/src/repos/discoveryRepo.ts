@@ -261,7 +261,7 @@ export class DiscoveryRepo {
           cp.country AS country,
           count(*)::int AS cnt
         FROM people p
-        INNER JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id
+        INNER JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id AND cp.status = 'approved'
         WHERE p.deleted_at IS NULL
           AND p.suspended_at IS NULL
           AND p.full_name IS NOT NULL
@@ -286,6 +286,13 @@ export class DiscoveryRepo {
           AND btrim(p.residence_city) <> ''
           AND p.residence_country IS NOT NULL
           AND btrim(p.residence_country) <> ''
+          -- City review: typed text that is a pending or rejected city stays out of browse.
+          AND NOT EXISTS (
+            SELECT 1 FROM canonical_places nr
+            WHERE nr.status IN ('pending', 'rejected')
+              AND lower(btrim(nr.city_label)) = lower(btrim(p.residence_city))
+              AND lower(btrim(nr.country)) = lower(btrim(p.residence_country))
+          )
         GROUP BY lower(btrim(p.residence_city)), lower(btrim(p.residence_country))
       ) combined
       ORDER BY cnt DESC, city ASC, country ASC
@@ -361,6 +368,7 @@ export class DiscoveryRepo {
         OR EXISTS (
           SELECT 1 FROM canonical_places cp
           WHERE cp.id = p.residence_canonical_place_id
+            AND cp.status = 'approved'
             AND strpos(lower(trim(COALESCE(cp.country, ''))), ${ph}) > 0
         )
       )`);
@@ -373,10 +381,12 @@ export class DiscoveryRepo {
         OR EXISTS (
           SELECT 1 FROM canonical_places cp
           WHERE cp.id = p.residence_canonical_place_id
+            AND cp.status = 'approved'
             AND strpos(lower(trim(COALESCE(cp.city_label, ''))), ${ph}) > 0
         )
         OR EXISTS (
           SELECT 1 FROM place_aliases pa
+          JOIN canonical_places cpa ON cpa.id = pa.canonical_place_id AND cpa.status = 'approved'
           WHERE pa.canonical_place_id = p.residence_canonical_place_id
             AND strpos(pa.alias_normalized, ${ph}) > 0
         )
@@ -534,8 +544,9 @@ export class DiscoveryRepo {
           p.bio,
           occ.role_title AS headline_role_title,
           occ.organization_name AS headline_organization_name,
-          p.residence_country,
-          p.residence_city,
+          -- Linked to an approved city: its name; otherwise what the member typed (pending/rejected too).
+          COALESCE((SELECT cpd.country FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_country) AS residence_country,
+          COALESCE((SELECT cpd.city_label FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_city) AS residence_city,
           lower(COALESCE(p.full_name, '')) COLLATE "C" AS sort_name,
           (${rankTierSql})::integer AS rank_tier,
           ${completenessSql} AS completeness_score,
@@ -612,8 +623,8 @@ export class DiscoveryRepo {
         g.code AS degree_code,
         g.name AS degree_name,
         p.bio,
-        p.residence_country,
-        p.residence_city,
+        COALESCE((SELECT cpd.country FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_country) AS residence_country,
+        COALESCE((SELECT cpd.city_label FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_city) AS residence_city,
         p.open_to_preferences,
         p.profile_completed_at,
         p.created_at,

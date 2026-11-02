@@ -9,6 +9,7 @@ import { pool } from "./db/pool.js";
 import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
 import { adminLocationCleanupRoutes } from "./routes/adminLocationCleanupRoutes.js";
 import { adminPlacesRoutes } from "./routes/adminPlacesRoutes.js";
+import { adminCityReviewRoutes } from "./routes/adminCityReviewRoutes.js";
 import { campusMonthlyRoutes } from "./routes/campusMonthlyRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
@@ -218,6 +219,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(adminPeopleRoutes);
   await app.register(adminPlacesRoutes);
   await app.register(adminLocationCleanupRoutes);
+  await app.register(adminCityReviewRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 

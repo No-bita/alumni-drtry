@@ -702,6 +702,9 @@ export function Profile() {
                         ? ` · ${pendingCompaniesQuery.data.length >= PENDING_LIMIT ? `${PENDING_LIMIT}+` : pendingCompaniesQuery.data.length} waiting`
                         : ""}
                     </Link>
+                    <Link to="/admin/cities" className="nav__profile-edit nav__profile-edit--ghost">
+                      City review
+                    </Link>
                   </div>
                 </div>
                   <div className="profile-page__analytics-grid">

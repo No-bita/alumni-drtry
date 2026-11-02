@@ -494,7 +494,7 @@ export class AnalyticsRepo {
     if (row.city) {
       const ph = bind(row.city.toLowerCase());
       conds.push(`(lower(p.residence_city) = ${ph}
-                   OR EXISTS (SELECT 1 FROM canonical_places cp WHERE cp.id = p.residence_canonical_place_id AND lower(cp.city_label) = ${ph}))`);
+                   OR EXISTS (SELECT 1 FROM canonical_places cp WHERE cp.id = p.residence_canonical_place_id AND cp.status = 'approved' AND lower(cp.city_label) = ${ph}))`);
     } else if (row.country) {
       const names = countryMatchNames(row.country);
       const ph = bind(names.length > 0 ? names : [row.country.toLowerCase()]);

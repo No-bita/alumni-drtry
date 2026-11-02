@@ -54,7 +54,7 @@ export const adminPlacesRoutes: FastifyPluginAsync = async (app) => {
       if (!body.success) {
         throw new AppError(400, "ADMIN_PLACES_BAD_REQUEST", "Invalid create-place payload.");
       }
-      const place = await app.adminPlacesService.createPlace(body.data.country, body.data.cityLabel);
+      const place = await app.adminPlacesService.createPlace(body.data.country, body.data.cityLabel, request.actor.personId);
       return reply.code(201).send({ place });
     }
   );
@@ -67,7 +67,7 @@ export const adminPlacesRoutes: FastifyPluginAsync = async (app) => {
       if (!body.success) {
         throw new AppError(400, "ADMIN_PLACES_BAD_REQUEST", "Invalid merge payload.");
       }
-      await app.adminPlacesService.mergePlaces(body.data.winnerId, body.data.loserId);
+      await app.adminPlacesService.mergePlaces(body.data.winnerId, body.data.loserId, request.actor.personId);
       return reply.code(204).send();
     }
   );
@@ -97,7 +97,7 @@ export const adminPlacesRoutes: FastifyPluginAsync = async (app) => {
       if (!params.success || !body.success) {
         throw new AppError(400, "ADMIN_PLACES_BAD_REQUEST", "Invalid alias payload.");
       }
-      await app.adminPlacesService.addAlias(params.data.placeId, body.data.aliasRaw);
+      await app.adminPlacesService.addAlias(params.data.placeId, body.data.aliasRaw, request.actor.personId);
       return reply.code(204).send();
     }
   );

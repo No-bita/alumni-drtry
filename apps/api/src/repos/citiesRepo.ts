@@ -1,6 +1,7 @@
 import type { DbExecutor } from "../db/types.js";
 import { personIsDiscoverableAlumniSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { normalizePlaceAlias } from "../lib/canonicalPlacesNormalize.js";
+import { countryMatchKeys } from "../lib/countries.js";
 
 /** Monday 00:00 Asia/Kolkata of the current week, as a timestamptz. */
 export const COFFEE_WEEK_START_SQL = `(date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')`;
@@ -168,15 +169,20 @@ export class CitiesRepo {
     return r.rows[0] ?? null;
   }
 
-  /** Bengaluru, India by its label or a known spelling (the default Cities v1 city). */
-  async findPlaceByName(city: string, country: string | null): Promise<PlaceRow | null> {
+  /**
+   * An approved city by its label or a known spelling, inside one country (any of the country's
+   * spellings). Used for the default Cities v1 city (Bengaluru, India).
+   */
+  async findPlaceByName(city: string, country: string): Promise<PlaceRow | null> {
     const norm = normalizePlaceAlias(city);
-    if (!norm) return null;
+    const keys = countryMatchKeys(country);
+    if (!norm || keys.length === 0) return null;
     const r = await this.db.query<PlaceRow>(
       `
       SELECT cp.id, cp.city_label AS city, cp.country
       FROM canonical_places cp
-      WHERE ($2::text IS NULL OR lower(btrim(cp.country)) = lower(btrim($2)))
+      WHERE cp.status = 'approved'
+        AND lower(btrim(cp.country)) = ANY($2::text[])
         AND (
           lower(regexp_replace(btrim(cp.city_label), '\\s+', ' ', 'g')) = $1
           OR EXISTS (SELECT 1 FROM place_aliases pa WHERE pa.canonical_place_id = cp.id AND pa.alias_normalized = $1)
@@ -184,7 +190,7 @@ export class CitiesRepo {
       ORDER BY (lower(regexp_replace(btrim(cp.city_label), '\\s+', ' ', 'g')) = $1) DESC, cp.created_at ASC
       LIMIT 1
       `,
-      [norm, country?.trim() ? country.trim() : null]
+      [norm, keys]
     );
     return r.rows[0] ?? null;
   }
@@ -206,6 +212,7 @@ export class CitiesRepo {
       SELECT cp.id, cp.city_label AS city, cp.country, COUNT(p.id)::int AS count
       FROM canonical_places cp
       LEFT JOIN people p ON p.residence_canonical_place_id = cp.id AND ${listablePersonSql("p", viewerIsDemo)}
+      WHERE cp.status = 'approved'
       GROUP BY cp.id
       HAVING COUNT(p.id) > 0 OR cp.id = $2::uuid
       ORDER BY COUNT(p.id) DESC, cp.city_label ASC
@@ -223,8 +230,9 @@ export class CitiesRepo {
       `
       SELECT cp.id, cp.city_label AS city, cp.country
       FROM canonical_places cp
-      WHERE strpos(lower(cp.city_label), $1) = 1
-         OR EXISTS (SELECT 1 FROM place_aliases pa WHERE pa.canonical_place_id = cp.id AND strpos(pa.alias_normalized, $1) = 1)
+      WHERE cp.status = 'approved'
+        AND (strpos(lower(cp.city_label), $1) = 1
+         OR EXISTS (SELECT 1 FROM place_aliases pa WHERE pa.canonical_place_id = cp.id AND strpos(pa.alias_normalized, $1) = 1))
       ORDER BY (lower(cp.city_label) = $1) DESC,
                (SELECT COUNT(*) FROM people p WHERE p.residence_canonical_place_id = cp.id AND p.deleted_at IS NULL) DESC,
                cp.city_label ASC
@@ -248,7 +256,7 @@ export class CitiesRepo {
     const r = await this.db.query<{ c: number }>(
       `SELECT COUNT(*)::int AS c FROM people p
        JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id
-       WHERE lower(btrim(cp.country)) = lower(btrim($1)) AND ${listablePersonSql("p", viewerIsDemo)}`,
+       WHERE cp.status = 'approved' AND lower(btrim(cp.country)) = lower(btrim($1)) AND ${listablePersonSql("p", viewerIsDemo)}`,
       [country]
     );
     return r.rows[0]?.c ?? 0;

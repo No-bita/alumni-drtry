@@ -30,9 +30,10 @@ const offerBody = z.object({
   line: z.string().transform(stripControl).pipe(z.string().max(OFFER_LINE_MAX)).nullable().optional()
 });
 
-const viewerOf = (request: { actor: { personId: string; isDemo?: boolean } }) => ({
+const viewerOf = (request: { actor: { personId: string; isDemo?: boolean; role?: string } }) => ({
   personId: request.actor.personId,
-  isDemo: Boolean(request.actor.isDemo)
+  isDemo: Boolean(request.actor.isDemo),
+  isAdmin: request.actor.role === "admin" || request.actor.role === "super_admin"
 });
 
 /** Cities v1 (SPEC: cities-v1-handoff). Every one-to-one path still goes through POST /v1/contact-requests. */

@@ -4,6 +4,19 @@ import { fingerprintCanonicalMerge, fingerprintUnmapped } from "../lib/locationC
 import { CanonicalPlacesRepo } from "../repos/canonicalPlacesRepo.js";
 import { LocationCleanupRepo } from "../repos/locationCleanupRepo.js";
 import { AdminPlacesService } from "./adminPlacesService.js";
+import type { HistoryView } from "./placeReviewService.js";
+
+type Activity = { summary: string; at: string };
+
+/** City history (place_history, from city review on) plus the older Location cleanup log (read-only), newest first. */
+function mergeActivity(history: HistoryView[], legacy: Array<{ summary: string; created_at: Date }>, limit: number): Activity[] {
+  return [
+    ...history.map((h) => ({ summary: h.summary, at: h.at })),
+    ...legacy.map((r) => ({ summary: r.summary, at: r.created_at.toISOString() }))
+  ]
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+    .slice(0, limit);
+}
 
 export type CleanupConfidence = "high" | "medium" | "low";
 
@@ -77,10 +90,11 @@ export class LocationCleanupService {
   }
 
   async getInbox() {
-    const [mergeRows, unmappedRows, auditRows] = await Promise.all([
+    const [mergeRows, unmappedRows, auditRows, history] = await Promise.all([
       this.cleanupRepo.listMergeSuggestions(),
       this.cleanupRepo.listUnmappedClusters(),
-      this.cleanupRepo.listRecentAudit(25)
+      this.cleanupRepo.listRecentAudit(25),
+      this.adminPlaces.review.history(null, 25)
     ]);
 
     const suggestedMerges = mergeRows.map((row) => {
@@ -119,10 +133,7 @@ export class LocationCleanupService {
       };
     });
 
-    const recentActivity = auditRows.map((r) => ({
-      summary: r.summary,
-      at: r.created_at.toISOString()
-    }));
+    const recentActivity = mergeActivity(history, auditRows, 25);
 
     return { suggestedMerges, unmappedClusters, recentActivity };
   }
@@ -138,34 +149,19 @@ export class LocationCleanupService {
     await this.cleanupRepo.insertIgnore("unmapped_raw", fp, actorPersonId);
   }
 
+  /** Safe combine: everything moves to the kept city and the other one stays as a redirect (history written with it). */
   async combineCities(actorPersonId: string, keepCityId: string, combineCityId: string): Promise<void> {
     if (keepCityId === combineCityId) {
       throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Pick two different cities to combine.");
     }
-    const winner = await this.placesRepo.findById(keepCityId);
-    const loser = await this.placesRepo.findById(combineCityId);
-    if (!winner || !loser) {
-      throw new AppError(404, "PLACE_NOT_FOUND", "One or both cities were not found.");
-    }
-    const moved = await this.cleanupRepo.countDirectoryEligibleForCanonical(combineCityId);
-
     try {
-      await this.adminPlaces.addAlias(keepCityId, loser.city_label);
+      await this.adminPlaces.review.combine(actorPersonId, keepCityId, combineCityId);
     } catch (error) {
-      if (!(error instanceof AppError && error.code === "PLACE_ALIAS_DUPLICATE")) {
-        throw error;
+      if (error instanceof AppError && error.code === "CITY_NOT_FOUND") {
+        throw new AppError(404, "PLACE_NOT_FOUND", "One or both cities were not found.");
       }
+      throw error;
     }
-
-    await this.adminPlaces.mergePlaces(keepCityId, combineCityId);
-
-    await this.cleanupRepo.insertAudit(actorPersonId, `Combined «${loser.city_label}» into «${winner.city_label}». ${moved} profiles updated automatically.`, {
-      canonicalPlaceId: keepCityId,
-      kind: "combine_cities",
-      mergedAwayLabel: loser.city_label,
-      keeperLabel: winner.city_label,
-      profilesRemapped: moved
-    });
   }
 
   async mapFreeTextToCity(
@@ -174,41 +170,9 @@ export class LocationCleanupService {
     displayCity: string,
     treatAsCityId: string
   ): Promise<{ profilesUpdated: number }> {
-    const canonical = await this.placesRepo.findById(treatAsCityId);
-    if (!canonical) {
-      throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
-    }
-    const { normCountry, normCity } = this.normCluster(displayCountry, displayCity);
-
-    try {
-      await this.adminPlaces.addAlias(treatAsCityId, displayCity);
-    } catch (error) {
-      if (!(error instanceof AppError && error.code === "PLACE_ALIAS_DUPLICATE")) {
-        throw error;
-      }
-    }
-
-    const profilesUpdated = await this.cleanupRepo.remapUnmappedClusterToCanonical({
-      normCountry,
-      normCity,
-      canonicalPlaceId: canonical.id,
-      canonicalCityLabel: canonical.city_label,
-      canonicalCountry: canonical.country
-    });
-
-    await this.cleanupRepo.insertAudit(
-      actorPersonId,
-      `Treating «${displayCity.trim()}» as «${canonical.city_label}». Added spelling and linked ${profilesUpdated} profiles.`,
-      {
-        canonicalPlaceId: canonical.id,
-        kind: "map_free_text",
-        rawCity: displayCity.trim(),
-        rawCountry: displayCountry.trim(),
-        profilesRemapped: profilesUpdated
-      }
-    );
-
-    return { profilesUpdated };
+    const norm = this.normCluster(displayCountry, displayCity);
+    const { linked } = await this.adminPlaces.review.mapTypedText(actorPersonId, treatAsCityId, displayCity, norm);
+    return { profilesUpdated: linked };
   }
 
   async createCityFromFreeText(
@@ -221,25 +185,13 @@ export class LocationCleanupService {
     if (!country || !city) {
       throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Country and city text are required.");
     }
-
-    const place = await this.adminPlaces.createPlace(country, city);
-    const { normCountry, normCity } = this.normCluster(displayCountry, displayCity);
-
-    const profilesUpdated = await this.cleanupRepo.remapUnmappedClusterToCanonical({
-      normCountry,
-      normCity,
-      canonicalPlaceId: place.id,
-      canonicalCityLabel: place.city_label,
-      canonicalCountry: place.country
-    });
-
-    await this.cleanupRepo.insertAudit(actorPersonId, `Created «${place.city_label}, ${place.country}» and linked ${profilesUpdated} profiles.`, {
-      canonicalPlaceId: place.id,
-      kind: "create_city_from_text",
-      profilesRemapped: profilesUpdated
-    });
-
-    return { profilesUpdated, cityLabel: place.city_label, country: place.country };
+    const { place, linked } = await this.adminPlaces.review.createFromTypedText(
+      actorPersonId,
+      country,
+      city,
+      this.normCluster(displayCountry, displayCity)
+    );
+    return { profilesUpdated: linked, cityLabel: place.city, country: place.country };
   }
 
   async getPlaceDetail(placeId: string) {
@@ -247,58 +199,37 @@ export class LocationCleanupService {
     if (!row) {
       throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
     }
-    const [aliases, linkedProfiles, recentNotes] = await Promise.all([
+    const [aliases, linkedProfiles, recentNotes, history, review] = await Promise.all([
       this.placesRepo.listAliasNormalizedForPlace(placeId),
       this.cleanupRepo.countDirectoryEligibleForCanonical(placeId),
-      this.cleanupRepo.listAuditForPlace(placeId, 20)
+      this.cleanupRepo.listAuditForPlace(placeId, 20),
+      this.adminPlaces.review.history(placeId, 20),
+      this.adminPlaces.review.place(placeId)
     ]);
 
     return {
       place: {
         id: row.id,
         displayCountry: row.country.trim(),
-        displayCity: row.city_label.trim()
+        displayCity: row.city_label.trim(),
+        status: review?.status ?? "approved",
+        combinedIntoPlaceId: review?.combined_into_place_id ?? null
       },
       aliases,
       linkedProfiles,
-      recentNotes: recentNotes.map((n) => ({
-        summary: n.summary,
-        at: n.created_at.toISOString()
-      }))
+      recentNotes: mergeActivity(history, recentNotes, 20)
     };
   }
 
   async renameCanonicalCity(actorPersonId: string, placeId: string, newCityLabel: string): Promise<void> {
-    const before = await this.placesRepo.findById(placeId);
-    if (!before) {
-      throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
-    }
-    const trimmed = newCityLabel.trim();
-    if (!trimmed) {
+    if (!newCityLabel.trim()) {
       throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "City name cannot be empty.");
     }
-
-    await this.adminPlaces.renameCityLabel(placeId, trimmed);
-
-    await this.cleanupRepo.insertAudit(actorPersonId, `Renamed «${before.city_label.trim()}» to «${trimmed}».`, {
-      canonicalPlaceId: placeId,
-      kind: "rename_city",
-      previousLabel: before.city_label.trim(),
-      nextLabel: trimmed
-    });
+    await this.adminPlaces.renameCityLabel(placeId, newCityLabel, actorPersonId);
   }
 
   async addAliasForPlace(actorPersonId: string, placeId: string, aliasRaw: string): Promise<void> {
-    const row = await this.placesRepo.findById(placeId);
-    if (!row) {
-      throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
-    }
-    await this.adminPlaces.addAlias(placeId, aliasRaw);
-    await this.cleanupRepo.insertAudit(actorPersonId, `Added spelling «${aliasRaw.trim()}» for «${row.city_label.trim()}».`, {
-      canonicalPlaceId: placeId,
-      kind: "add_alias",
-      alias: aliasRaw.trim()
-    });
+    await this.adminPlaces.addAlias(placeId, aliasRaw, actorPersonId);
   }
 
   async combineIntoPlace(actorPersonId: string, keeperPlaceId: string, otherPlaceId: string): Promise<void> {
