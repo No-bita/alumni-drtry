@@ -344,9 +344,12 @@ describe("WhatsApp bot (integration)", () => {
       note: adviceNote(),
     });
     const id2 = (res2.json() as { contactRequest: { id: string } }).contactRequest.id;
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Email pause (2026-11-02): email fallback disabled; original assertion kept commented.
+    // expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
     const row2 = await db.query<{ delivery_channel: string }>(`SELECT delivery_channel FROM contact_requests WHERE id = $1`, [id2]);
-    expect(row2.rows[0]!.delivery_channel).toBe("email");
+    // Email pause: no channel recorded for an unsent email. Original: .toBe("email")
+    expect(row2.rows[0]!.delivery_channel).toBeNull();
   });
 
   it("alum taps 'Accept, share WhatsApp': note accepted with their number; both told for free (asker's window is open)", async () => {
@@ -366,13 +369,15 @@ describe("WhatsApp bot (integration)", () => {
     expect(body(again[0]!.message)).toContain("already answered");
   });
 
-  it("pause sends the next note by email; stop silences the bot until start", async () => {
+  it("pause silences the next note while email is paused; stop silences the bot until start", async () => {
     await hear(buttonMsg(ALUM, MENU.pause));
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     const before = sender.sent.length;
     await req("POST", "/v1/contact-requests", other.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     expect(sender.sent.slice(before).some((s) => s.message.kind === "template")).toBe(false);
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Email pause (2026-11-02): email fallback disabled; original assertion kept commented.
+    // expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
 
     expect(body((await hear(textMsg(OTHER, "STOP")))[0]!.message)).toContain("won't get WhatsApp messages");
     expect(await hear(textMsg(OTHER, "hi"))).toHaveLength(0);
@@ -397,7 +402,7 @@ describe("WhatsApp bot (integration)", () => {
     await db.query(`DELETE FROM wa_messages WHERE wa_id = $1`, [`cap${run}`]);
   });
 
-  it("a note WhatsApp later reports as failed goes to the alum by email, once", async () => {
+  it("a note WhatsApp later reports as failed keeps its WhatsApp record while email is paused", async () => {
     const s2 = await loginForTest(app, `wa-s2-${run}@iitbhu.ac.in`);
     await onboard(s2, "Sana Second");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
@@ -412,22 +417,27 @@ describe("WhatsApp bot (integration)", () => {
     const failed = { id: tpl.id, status: "failed", biz_opaque_callback_data: `cr:${noteId}`, errors: [{ code: 131026 }] };
     await app.whatsappService.handleWebhook({ entry: [{ changes: [{ value: { statuses: [failed] } }] }] });
     await app.whatsappService.handleWebhook({ entry: [{ changes: [{ value: { statuses: [failed] } }] }] });
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Email pause (2026-11-02): email fallback disabled; original assertion kept commented. The channel switch is not performed either (no false "email" record).
+    // expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
     const row = await db.query<{ delivery_channel: string }>(`SELECT delivery_channel FROM contact_requests WHERE id = $1`, [noteId]);
-    expect(row.rows[0]!.delivery_channel).toBe("email");
+    // Original: .toBe("email")
+    expect(row.rows[0]!.delivery_channel).toBe("whatsapp");
     // A late "delivered" never un-fails it.
     await app.whatsappService.handleWebhook({ entry: [{ changes: [{ value: { statuses: [{ id: tpl.id, status: "delivered" }] } }] }] });
     expect((await db.query<{ status: string }>(`SELECT status FROM wa_messages WHERE wa_message_id = $1`, [tpl.id])).rows[0]!.status).toBe("failed");
   });
 
-  it("no answer from WhatsApp in time: email at once, count it toward the cap, attach Meta's later status", async () => {
+  it("no answer from WhatsApp in time: no email while paused, count it toward the cap, attach Meta's later status", async () => {
     const s3 = await loginForTest(app, `wa-s3-${run}@iitbhu.ac.in`);
     await onboard(s3, "Sid Third");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     vi.spyOn(sender, "send").mockRejectedValueOnce(new Error("The operation was aborted due to timeout"));
     const res = await req("POST", "/v1/contact-requests", s3.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     const noteId = (res.json() as { contactRequest: { id: string } }).contactRequest.id;
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Email pause (2026-11-02): email fallback disabled; original assertion kept commented.
+    // expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
     const rec = async () =>
       (await db.query<{ status: string; wa_message_id: string | null }>(`SELECT status, wa_message_id FROM wa_messages WHERE contact_request_id = $1`, [noteId])).rows[0]!;
     expect(await rec()).toEqual({ status: "uncertain", wa_message_id: null });
@@ -436,19 +446,22 @@ describe("WhatsApp bot (integration)", () => {
     const late = `wamid.late.${run}`;
     await app.whatsappService.handleWebhook({ entry: [{ changes: [{ value: { statuses: [{ id: late, status: "sent", biz_opaque_callback_data: `cr:${noteId}` }] } }] }] });
     expect(await rec()).toEqual({ status: "sent", wa_message_id: late });
-    // Already emailed: a later failure doesn't email again.
+    // Email pause: a later failure sends nothing while the fallback email is paused.
     await app.whatsappService.handleWebhook({ entry: [{ changes: [{ value: { statuses: [{ id: late, status: "failed", biz_opaque_callback_data: `cr:${noteId}` }] } }] }] });
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Original: expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
   });
 
-  it("Meta refusing a note outright is recorded as failed (not counted toward the cap); the alum is emailed", async () => {
+  it("Meta refusing a note outright is recorded as failed (not counted toward the cap); no email while email is paused", async () => {
     const s4 = await loginForTest(app, `wa-s4-${run}@iitbhu.ac.in`);
     await onboard(s4, "Sam Fourth");
     const emailSpy = vi.spyOn(ConsoleEmailSender.prototype, "sendContactRequestReceivedEmail");
     vi.spyOn(sender, "send").mockRejectedValueOnce(new WhatsAppRejectedError("WhatsApp send failed (400): 132001"));
     const res = await req("POST", "/v1/contact-requests", s4.cookie, { recipientPersonId: alum.personId, note: adviceNote() });
     const noteId = (res.json() as { contactRequest: { id: string } }).contactRequest.id;
-    expect(emailSpy).toHaveBeenCalledTimes(1);
+    // Email pause (2026-11-02): email fallback disabled; original assertion kept commented.
+    // expect(emailSpy).toHaveBeenCalledTimes(1);
+    expect(emailSpy).toHaveBeenCalledTimes(0);
     expect((await db.query<{ status: string }>(`SELECT status FROM wa_messages WHERE contact_request_id = $1`, [noteId])).rows[0]!.status).toBe("failed");
   });
 
@@ -479,7 +492,9 @@ describe("WhatsApp bot (integration)", () => {
     const wa = r.byChannel.find((c) => c.channel === "whatsapp")!;
     expect(wa.notes).toBeGreaterThanOrEqual(1);
     expect(wa.accepted).toBeGreaterThanOrEqual(1);
-    expect(r.byChannel.find((c) => c.channel === "email")!.notes).toBeGreaterThanOrEqual(2);
+    // Email pause (2026-11-02): email sends disabled; original assertion kept commented.
+    // expect(r.byChannel.find((c) => c.channel === "email")!.notes).toBeGreaterThanOrEqual(2);
+    expect(r.byChannel.find((c) => c.channel === "email")?.notes ?? 0).toBe(0);
     expect(r.onboardingByArrival.find((a) => a.arrival === "whatsapp")!.started).toBeGreaterThanOrEqual(1);
     expect(r.month.templates).toBeGreaterThanOrEqual(1);
     expect(r.month.templateCap).toBe(300);

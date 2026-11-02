@@ -225,21 +225,31 @@ export class ContactRequestService {
     }
 
     let notificationDelivered = true;
+    // Email pause (2026-11-02): the email fallback below is commented out at the user's
+    // request (commented, not deleted - re-enable by uncommenting). WhatsApp-first delivery
+    // above is unchanged. When WhatsApp didn't deliver, no notification goes out during the
+    // pause, so delivery is honestly reported as not delivered.
     if (channel === "email") {
-      try {
-        await this.emailSender.sendContactRequestReceivedEmail({
-          to: recipient.institutional_email,
-          recipientName: recipient.full_name ?? "there",
-          senderName: sender.full_name ?? sender.institutional_email,
-          message,
-          lead: input.source === "cities" ? citiesEmailLead(input.sourceCategory) : undefined
-        });
-      } catch (err) {
-        notificationDelivered = false;
-        console.error("[contact-request] recipient notification email failed (request still saved):", err);
-      }
+      notificationDelivered = false;
+      // try {
+      //   await this.emailSender.sendContactRequestReceivedEmail({
+      //     to: recipient.institutional_email,
+      //     recipientName: recipient.full_name ?? "there",
+      //     senderName: sender.full_name ?? sender.institutional_email,
+      //     message,
+      //     lead: input.source === "cities" ? citiesEmailLead(input.sourceCategory) : undefined
+      //   });
+      // } catch (err) {
+      //   notificationDelivered = false;
+      //   console.error("[contact-request] recipient notification email failed (request still saved):", err);
+      // }
     }
-    await this.contactRequestRepo.setDeliveryChannel(created.id, channel);
+    // Email pause: record a delivery channel only when WhatsApp actually delivered. An email
+    // that was never sent must not be recorded as channel "email".
+    // Original: await this.contactRequestRepo.setDeliveryChannel(created.id, channel);
+    if (channel === "whatsapp") {
+      await this.contactRequestRepo.setDeliveryChannel(created.id, channel);
+    }
 
     return {
       contactRequest: created,
@@ -333,22 +343,28 @@ export class ContactRequestService {
 
   /** WhatsApp reported the note as failed after taking it: tell the alum by email instead (once). */
   async emailNoteAfterWhatsAppFailure(contactRequestId: string): Promise<boolean> {
-    if (!(await this.contactRequestRepo.switchPendingWhatsAppToEmail(contactRequestId))) return false;
-    const note = await this.contactRequestRepo.findByIdWithPeople(contactRequestId);
-    if (!note) return false;
-    try {
-      await this.emailSender.sendContactRequestReceivedEmail({
-        to: note.forwardedToInstitutionalEmail,
-        recipientName: note.recipientFullName ?? "there",
-        senderName: note.senderFullName ?? note.senderInstitutionalEmail,
-        message: note.message
-      });
-      return true;
-    } catch (err) {
-      // Same as a first-time email failure: the note is still on the website and the reminder still runs.
-      console.error("[contact-request] fallback email after WhatsApp failure did not send:", err);
-      return false;
-    }
+    // Email pause (2026-11-02): the fallback email is disabled. The channel switch is
+    // intentionally NOT performed either - recording "email" without sending anything would
+    // be a false delivery record. The note stays on the website. Re-enable by restoring the
+    // original body, kept commented below.
+    void contactRequestId;
+    return false;
+    // if (!(await this.contactRequestRepo.switchPendingWhatsAppToEmail(contactRequestId))) return false;
+    // const note = await this.contactRequestRepo.findByIdWithPeople(contactRequestId);
+    // if (!note) return false;
+    // try {
+    //   await this.emailSender.sendContactRequestReceivedEmail({
+    //     to: note.forwardedToInstitutionalEmail,
+    //     recipientName: note.recipientFullName ?? "there",
+    //     senderName: note.senderFullName ?? note.senderInstitutionalEmail,
+    //     message: note.message
+    //   });
+    //   return true;
+    // } catch (err) {
+    //   // Same as a first-time email failure: the note is still on the website and the reminder still runs.
+    //   console.error("[contact-request] fallback email after WhatsApp failure did not send:", err);
+    //   return false;
+    // }
   }
 
   async listSentForSender(senderPersonId: string): Promise<ContactRequestSentView[]> {
@@ -440,17 +456,19 @@ export class ContactRequestService {
         throw new AppError(409, "CONTACT_REQUEST_ALREADY_RESOLVED", "Contact request is already resolved.");
       }
 
-      let notificationDelivered = true;
-      try {
-        await this.emailSender.sendContactRequestAcceptedEmail({
-          to: existing.senderInstitutionalEmail,
-          senderName: existing.senderFullName ?? existing.senderInstitutionalEmail,
-          recipientName: existing.recipientFullName ?? existing.recipientInstitutionalEmail,
-          sharedContact
-        });
-      } catch {
-        notificationDelivered = false;
-      }
+      // Email pause (2026-11-02): acceptance email commented out (not deleted - re-enable by
+      // uncommenting). Nothing is sent during the pause, so delivery reports not delivered.
+      const notificationDelivered = false;
+      // try {
+      //   await this.emailSender.sendContactRequestAcceptedEmail({
+      //     to: existing.senderInstitutionalEmail,
+      //     senderName: existing.senderFullName ?? existing.senderInstitutionalEmail,
+      //     recipientName: existing.recipientFullName ?? existing.recipientInstitutionalEmail,
+      //     sharedContact
+      //   });
+      // } catch {
+      //   notificationDelivered = false;
+      // }
 
       return {
         contactRequest: updated,
@@ -463,16 +481,18 @@ export class ContactRequestService {
       throw new AppError(409, "CONTACT_REQUEST_ALREADY_RESOLVED", "Contact request is already resolved.");
     }
 
-    let notificationDelivered = true;
-    try {
-      await this.emailSender.sendContactRequestDeclinedEmail({
-        to: existing.senderInstitutionalEmail,
-        senderName: existing.senderFullName ?? existing.senderInstitutionalEmail,
-        recipientName: existing.recipientFullName ?? existing.recipientInstitutionalEmail
-      });
-    } catch {
-      notificationDelivered = false;
-    }
+    // Email pause (2026-11-02): decline email commented out (not deleted - re-enable by
+    // uncommenting). Nothing is sent during the pause, so delivery reports not delivered.
+    const notificationDelivered = false;
+    // try {
+    //   await this.emailSender.sendContactRequestDeclinedEmail({
+    //     to: existing.senderInstitutionalEmail,
+    //     senderName: existing.senderFullName ?? existing.senderInstitutionalEmail,
+    //     recipientName: existing.recipientFullName ?? existing.recipientInstitutionalEmail
+    //   });
+    // } catch {
+    //   notificationDelivered = false;
+    // }
 
     return {
       contactRequest: updated,
