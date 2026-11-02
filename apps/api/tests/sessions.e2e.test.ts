@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { env } from "../src/config/env.js";
 import { generateOpaqueToken, hashSecret } from "../src/lib/crypto.js";
 import { SessionRepo } from "../src/repos/sessionRepo.js";
+import { testEmailCapture } from "../src/services/emailSender.js";
 import { loginForTest, SESSION_COOKIE } from "./helpers/login.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -68,7 +69,7 @@ describe("sessions: stay signed in, sign out of all devices (integration)", () =
   it("issues the actual 30-day HttpOnly cookie at sign-in", async () => {
     const start = await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: `sess-cookie-${run}@iitbhu.ac.in` } });
     expect(start.statusCode).toBe(200);
-    const link = new URL(start.json().debug.magicLinkUrl);
+    const link = new URL(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verify = await app.inject({ method: "GET", url: `/v1/auth/verify?challengeId=${encodeURIComponent(link.searchParams.get("challengeId")!)}&magicLinkToken=${encodeURIComponent(link.searchParams.get("magicLinkToken")!)}` });
     expect(verify.statusCode).toBe(200);
     const header = String(verify.headers["set-cookie"]);

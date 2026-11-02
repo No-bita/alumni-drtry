@@ -40,7 +40,6 @@ Configure on the API host (e.g. Railway). Source of truth: `apps/api/src/config/
 - [ ] **`APP_BASE_URL`** is the public HTTPS API origin (no stray path segments).
 - [ ] **`MAGIC_LINK_BASE_URL`**, if used, matches the exact HTTPS origin users open for the web app (magic-link redirects).
 - [ ] **`AUTH_BYPASS_SUPER_ADMIN`** is **off** (blocked when **`NODE_ENV=production`** anyway); **`AUTH_BYPASS`** likewise **off**.
-- [ ] **`SHOW_AUTH_SECRETS_IN_RESPONSE=false`** (or unset).
 - [ ] **`CORS_ORIGIN`** lists real web origin(s); **not** **`*`** in production (**`credentials: true`** requires explicit origins; **`validateProductionCorsOrigin`** enforces this).
 - [ ] **`COOKIE_DOMAIN`** set only when API + web share a parent domain and cross-subdomain cookies are intentional ([`deployment.md`](./deployment.md) §6 — cookies / CORS); otherwise leave unset until deliberate.
 - [ ] **`EMAIL_PROVIDER=resend`** (or your provider); **`RESEND_API_KEY`**, **`EMAIL_FROM`** verified; DNS (**SPF/DKIM**) per provider; optional **`EMAIL_REPLY_TO`**, **`EMAIL_BRAND_NAME`**.
@@ -54,7 +53,6 @@ Template: `apps/web/.env.example`. Match repo reality: **canonical production** 
 
 - [ ] **Canonical:** **`VITE_API_URL`** unset or empty; [`apps/web/vercel.json`](../apps/web/vercel.json) **`rewrites[].destination`** matches the **current** production API URL (`/v1/$1` proxy path).
 - [ ] **If** the browser calls the API **directly** (non-canonical): **`VITE_API_URL`** is the API HTTPS origin **and** **`CORS_ORIGIN`** on the API includes the web origin.
-- [ ] Beta invite UI: **`VITE_BETA_INVITE_AUTH_ENABLED=true`** on production builds that **should** expose invite-code login (aligned with API beta flags).
 
 ### Database
 
@@ -100,20 +98,17 @@ Run against **production** URLs.
 
 - [ ] **`curl -fsS https://<api-host>/healthz`** → **200** and JSON **`status`** / **`db`** ok ([`observability-checklist.md`](./observability-checklist.md)).
 - [ ] Browser network tab: **`/v1/*`** hits expected host (same-origin rewrite vs direct API).
-- [ ] Sign-in path you ship (OTP/magic link, Google, beta invite): no CORS errors; session cookie present.
+- [ ] Sign-in path you ship (OTP/magic link, Google): no CORS errors; session cookie present.
 - [ ] **`GET /v1/me`** returns expected profile when authenticated.
 
 ### Beta-specific (blocking when beta paths are enabled)
 
 **API** (`apps/api/src/config/env.ts`):
 
-- [ ] **`BETA_INVITE_AUTH_ENABLED`** — if **`true`**, **`BETA_SHARED_INVITE_CODE_HASH`** required (generate via **`npm run beta:hash-invite-code`** in **`apps/api`**).
 - [ ] **`BETA_REQUIRE_ALLOWLIST`** — when **`true`**, intended emails exist in **`beta_allowed_emails`** (and admin allowlist flows you rely on).
-- [ ] **`BETA_SHARED_INVITE_CODE_ID`** matches campaign if non-default.
 
 **Web:**
 
-- [ ] **`VITE_BETA_INVITE_AUTH_ENABLED=true`** on production builds that expose invite-code UX (must match API intent).
 
 ### Ownership — minimum release discipline
 
@@ -133,7 +128,7 @@ Strongly recommended before launch; not strict blockers if you consciously accep
 ### Environment tuning — API
 
 - [ ] **Session:** **`SESSION_COOKIE_NAME`**, **`SESSION_SLIDING_HOURS`**, **`SESSION_HARD_CAP_HOURS`**, **`SESSION_TOUCH_MIN_INTERVAL_SECONDS`** reviewed for UX ([Implementation reference](#implementation-reference)).
-- [ ] **Rate limits:** **`AUTH_START_*`**, **`OTP_TTL_MINUTES`**, **`MAGIC_LINK_TTL_MINUTES`**, **`AUTH_CHALLENGE_MAX_ATTEMPTS`**, **`CONTACT_REQUEST_*`**, **`DISCOVERY_READ_*`**, **`BETA_INVITE_*`** reviewed vs traffic ([Abuse limits and scaling](#abuse-limits-and-scaling) below).
+- [ ] **Rate limits:** **`AUTH_START_*`**, **`OTP_TTL_MINUTES`**, **`MAGIC_LINK_TTL_MINUTES`**, **`AUTH_CHALLENGE_MAX_ATTEMPTS`**, **`CONTACT_REQUEST_*`**, **`DISCOVERY_READ_*`** reviewed vs traffic ([Abuse limits and scaling](#abuse-limits-and-scaling) below).
 - [ ] **Discovery:** **`DISCOVERY_SEARCH_STATEMENT_TIMEOUT_MS`**, **`DISCOVERY_NORMALIZE_QUERY`**, **`DISCOVERY_ANALYTICS_ENABLED`** set intentionally.
 - [ ] **`SENTRY_DSN`** set when using Sentry ([`observability-checklist.md`](./observability-checklist.md)).
 
@@ -170,10 +165,6 @@ Strongly recommended before launch; not strict blockers if you consciously accep
 
 - [ ] Cadence aligned with [`beta-analytics-launch.md`](./beta-analytics-launch.md).
 - [ ] **`@vercel/analytics`** events visible for production domain if enabled.
-
-**Invite QA:**
-
-- [ ] Outcomes predictable when **`BETA_INVITE_AUTH_ENABLED`** varies: **`AUTH_INVITE_DISABLED`** vs **`AUTH_BETA_NOT_ALLOWED`** vs success.
 
 ### Ownership and operations
 

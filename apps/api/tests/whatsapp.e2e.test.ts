@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
-import { ConsoleEmailSender } from "../src/services/emailSender.js";
+import { ConsoleEmailSender, testEmailCapture } from "../src/services/emailSender.js";
 import { RecordingSender, WhatsAppRejectedError, toGraphPayload, type OutboundMessage } from "../src/whatsapp/client.js";
 import { signLinkToken, verifyLinkToken, verifyWebhookSignature } from "../src/whatsapp/linkToken.js";
 import { MAX_ASKS_PER_DAY, MENU, companyFromReply } from "../src/whatsapp/service.js";
@@ -210,12 +210,10 @@ describe("WhatsApp bot (integration)", () => {
 
   it("sign-in started from a WhatsApp link: the email's sign-in link carries the WhatsApp step", async () => {
     const t = signLinkToken(wa(13));
-    const start = async (whatsappEntry: object) =>
-      new URL(
-        ((await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: `wa-mail-${run}-${Math.random().toString(36).slice(2, 7)}@iitbhu.ac.in`, whatsappEntry } })).json() as {
-          debug: { magicLinkUrl: string };
-        }).debug.magicLinkUrl,
-      );
+    const start = async (whatsappEntry: object) => {
+      await app.inject({ method: "POST", url: "/v1/auth/start", payload: { institutionalEmail: `wa-mail-${run}-${Math.random().toString(36).slice(2, 7)}@iitbhu.ac.in`, whatsappEntry } });
+      return new URL(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
+    };
     const link = await start({ token: t, next: "/match?q=x" });
     expect(link.searchParams.get("wa")).toBe(t);
     expect(link.searchParams.get("waNext")).toBe("/match?q=x");

@@ -32,7 +32,7 @@ import { ConnectionThreadService } from "./services/connectionThreadService.js";
 import { ContactRequestService } from "./services/contactRequestService.js";
 import { DiscoveryService, clearResidenceCitiesCache } from "./services/discoveryService.js";
 import { MatchService } from "./services/matchService.js";
-import { ConsoleEmailSender, ResendEmailSender, type EmailSender } from "./services/emailSender.js";
+import { ConsoleEmailSender, ResendEmailSender, testEmailCapture, type EmailSender } from "./services/emailSender.js";
 import { IntentcastService } from "./services/intentcastService.js";
 import { NotificationService } from "./services/notificationService.js";
 import { LinkService } from "./services/linkService.js";
@@ -52,6 +52,10 @@ import { ProfileService } from "./services/profileService.js";
 import { verifyCsrfOrigin } from "./lib/csrfProtection.js";
 
 function buildEmailSender(): EmailSender {
+  if (env.NODE_ENV === "test") {
+    // Tests capture auth emails in memory; no sign-in secrets in logs or API responses.
+    return testEmailCapture;
+  }
   if (env.EMAIL_PROVIDER === "resend") {
     return new ResendEmailSender({
       apiKey: env.RESEND_API_KEY!,
