@@ -106,10 +106,11 @@ describe("The Wall", () => {
 });
 
 describe("Small lines", () => {
-  it("feedback panel opens the form in a new tab", () => {
+  it("feedback panel opens WhatsApp in a new tab", () => {
     wrap(<HomeFeedbackSection />);
     const link = screen.getByRole("link", { name: /Give feedback/ });
     expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("href")).toContain("https://wa.me/919137839907");
     expect(screen.getByText(/Something missing or confusing\?/)).toBeTruthy();
   });
   it("top search says what it finds", () => {
