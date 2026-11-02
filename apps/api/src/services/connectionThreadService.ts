@@ -190,16 +190,18 @@ export class ConnectionThreadService {
 
     const { thread } = await this.threadRepo.createThreadWithFirstMessage(initiatorId, recipientPersonId, body, kind);
 
-    try {
-      await this.emailSender.sendContactRequestReceivedEmail({
-        to: recipient.institutional_email,
-        recipientName: recipient.full_name ?? "there",
-        senderName: initiator.full_name ?? initiator.institutional_email,
-        message: body
-      });
-    } catch (err) {
-      console.error("[connection-thread] notify recipient email failed (thread still created):", err);
-    }
+    // Email pause (2026-11-02): thread notification email commented out at the user's request
+    // (not deleted - re-enable by uncommenting). The thread is still created and visible in-app.
+    // try {
+    //   await this.emailSender.sendContactRequestReceivedEmail({
+    //     to: recipient.institutional_email,
+    //     recipientName: recipient.full_name ?? "there",
+    //     senderName: initiator.full_name ?? initiator.institutional_email,
+    //     message: body
+    //   });
+    // } catch (err) {
+    //   console.error("[connection-thread] notify recipient email failed (thread still created):", err);
+    // }
 
     return { threadId: thread.id, reusedThread: false };
   }

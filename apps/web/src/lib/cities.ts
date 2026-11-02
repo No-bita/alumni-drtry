@@ -4,7 +4,16 @@ import { normalizeCityIntentSlug } from "./cityIntentFromToolbar";
 
 /* Wire shapes: docs/cities-v1-contract.md */
 
-export type CityRef = { placeId: string; city: string; country: string; slug: string };
+export type CityRef = {
+  placeId: string;
+  city: string;
+  country: string;
+  slug: string;
+  /** City review: only on your own city when it isn't approved yet. */
+  status?: "pending" | "approved" | "rejected";
+};
+/** City review: on the page of a city that isn't approved (seen only by its members and admins). */
+export type CityReviewState = { status: "pending" | "rejected"; message: string; rejectionReason: string | null };
 export type CityListItem = CityRef & { count: number };
 
 export type CityPerson = {
@@ -71,6 +80,7 @@ export type NudgeFrequency = "weekly" | "monthly" | "never";
 
 export type CityPayload = {
   place: CityRef;
+  review?: CityReviewState | null;
   viewerRole: ViewerRole;
   viewerCity: CityRef | null;
   v1Enabled: boolean;
@@ -95,7 +105,10 @@ export type CityPayload = {
   country: { name: string; alumni: number } | null;
 };
 
-export type CitiesList = { viewerCity: CityRef | null; cities: CityListItem[] };
+/** What the member saved on their profile, linked to a city or not (null when neither part is saved). */
+export type SavedResidence = { city: string | null; country: string | null };
+
+export type CitiesList = { viewerCity: CityRef | null; viewerResidence?: SavedResidence | null; cities: CityListItem[] };
 
 export const ALUMNI_FILTERS = [
   { id: "batch", label: "Near your batch" },
@@ -121,7 +134,6 @@ export const citiesKeys = {
   list: () => ["cities", "list"] as const,
   city: (placeId: string) => ["cities", "city", placeId] as const,
   alumni: (placeId: string, filter: AlumniFilter) => ["cities", "alumni", placeId, filter] as const,
-  search: (q: string) => ["cities", "search", q.trim().toLowerCase()] as const,
 };
 
 /* Reads */
@@ -142,11 +154,6 @@ export function fetchCityAlumni(
   const params = new URLSearchParams({ filter });
   if (cursor) params.set("cursor", cursor);
   return assertApiGet<AlumniPage>(`/v1/cities/${encodeURIComponent(placeId)}/alumni?${params.toString()}`, signal);
-}
-
-export async function searchCities(q: string, signal: AbortSignal): Promise<CityRef[]> {
-  const params = new URLSearchParams({ q: q.trim() });
-  return (await assertApiGet<{ places: CityRef[] }>(`/v1/cities/search?${params.toString()}`, signal)).places;
 }
 
 /* Writes. Each returns the API error (or null) so sheets can show their own copy. */

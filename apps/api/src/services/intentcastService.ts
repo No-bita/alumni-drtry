@@ -136,6 +136,15 @@ export class IntentcastService {
     }
     assertGeneralIntentcastHeadlineDetails(content, input.category);
 
+    if (input.placeId) {
+      // City review: only an approved city can tag a Wall post (pending and rejected cities stay hidden).
+      const place = await this.pool.query(`SELECT 1 FROM canonical_places WHERE id = $1::uuid AND status = 'approved'`, [
+        input.placeId
+      ]);
+      if ((place.rowCount ?? 0) === 0) {
+        throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Unknown city.");
+      }
+    }
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -461,19 +470,22 @@ export class IntentcastService {
     response: IntentcastResponseView,
     postContent: string
   ): Promise<void> {
-    const author = await this.personRepo.findById(authorPersonId);
-    if (!author) return;
-    try {
-      await this.emailSender.sendIntentcastResponseReceivedEmail({
-        to: author.institutional_email,
-        authorName: author.full_name ?? "there",
-        responderName: response.responderFullName,
-        postContent,
-        responseMessage: response.message
-      });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      console.error("[intentcast] response email delivery failed:", detail);
-    }
+    // Email pause (2026-11-02): bulletin-response email commented out at the user's request
+    // (not deleted - re-enable by restoring the body below).
+    void authorPersonId; void response; void postContent;
+    // const author = await this.personRepo.findById(authorPersonId);
+    // if (!author) return;
+    // try {
+    //   await this.emailSender.sendIntentcastResponseReceivedEmail({
+    //     to: author.institutional_email,
+    //     authorName: author.full_name ?? "there",
+    //     responderName: response.responderFullName,
+    //     postContent,
+    //     responseMessage: response.message
+    //   });
+    // } catch (err) {
+    //   const detail = err instanceof Error ? err.message : String(err);
+    //   console.error("[intentcast] response email delivery failed:", detail);
+    // }
   }
 }

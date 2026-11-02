@@ -586,9 +586,14 @@ export function AdminAnalyticsPage() {
                       : `${compact(query.data.operations.orgsPending)} company ${query.data.operations.orgsPending === 1 ? "name is" : "names are"} waiting for approval.`}
                   </p>
                 </div>
-                <Link to="/admin/companies" className="aa-review__btn">
-                  Review companies
-                </Link>
+                <div className="aa-review__actions">
+                  <Link to="/admin/companies" className="aa-review__btn">
+                    Review companies
+                  </Link>
+                  <Link to="/admin/cities" className="aa-link">
+                    City review
+                  </Link>
+                </div>
               </section>
             ) : null}
             <div className="aa-controls">

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { testEmailCapture } from "../src/services/emailSender.js";
 import { adviceNote } from "./helpers/note.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -48,11 +49,12 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode).toBe(200);
-    const startBody = startRes.json() as { challengeId?: string; debug?: { magicLinkUrl?: string } };
+    const startBody = startRes.json() as { challengeId?: string };
     expect(startBody.challengeId).toBeDefined();
-    expect(startBody.debug?.magicLinkUrl).toBeDefined();
 
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const mail = testEmailCapture.lastAuthEmail(email);
+    expect(mail?.magicLinkUrl).toBeDefined();
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(mail!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -87,8 +89,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.lastAuthEmail(email)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -124,8 +125,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -154,8 +154,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -188,8 +187,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -235,8 +233,7 @@ describe("e2e: full flow", () => {
         payload: { institutionalEmail: email },
       });
       expect(startRes.statusCode, startRes.body).toBe(200);
-      const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-      const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+      const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -278,8 +275,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -309,8 +305,7 @@ describe("e2e: full flow", () => {
         payload: { institutionalEmail: e },
       });
       expect(startRes.statusCode, startRes.body).toBe(200);
-      const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
-      const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
+      const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -371,8 +366,7 @@ describe("e2e: full flow", () => {
         payload: { institutionalEmail: `${label.toLowerCase()}-${marker}@iitbhu.ac.in` },
       });
       expect(start.statusCode, start.body).toBe(200);
-      const link = start.json() as { debug?: { magicLinkUrl?: string } };
-      const query = parseMagicLinkQuery(link.debug!.magicLinkUrl!);
+      const query = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
       const verify = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(query.challengeId)}&magicLinkToken=${encodeURIComponent(query.magicLinkToken)}`,
@@ -393,8 +387,7 @@ describe("e2e: full flow", () => {
       payload: { institutionalEmail: email },
     });
     expect(startRes.statusCode, startRes.body).toBe(200);
-    const startBody = startRes.json() as { debug?: { magicLinkUrl?: string } };
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(startBody.debug!.magicLinkUrl!);
+    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
     const verifyRes = await app.inject({
       method: "GET",
       url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
@@ -446,8 +439,7 @@ describe("e2e: full flow", () => {
         payload: { institutionalEmail: e },
       });
       expect(startRes.statusCode, startRes.body).toBe(200);
-      const sb = startRes.json() as { debug?: { magicLinkUrl?: string } };
-      const { challengeId, magicLinkToken } = parseMagicLinkQuery(sb.debug!.magicLinkUrl!);
+      const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
       const verifyRes = await app.inject({
         method: "GET",
         url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,

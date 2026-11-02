@@ -28,7 +28,7 @@ Render uses root directory `apps/api`, build command `npm ci --include=dev && np
 
 This is a pilot, not an always-on production guarantee. Render Free sleeps after 15 minutes idle and cold starts can take about a minute. The API's built-in hourly intentcast-expiry job also pauses while the instance sleeps.
 
-The current login UI uses email OTP/magic-link mode: `Login.tsx` sets `BETA_INVITE_AUTH_ENABLED = false`. The existing Vercel `VITE_BETA_INVITE_AUTH_ENABLED` variable does not control this override. This is separate from the API institutional-domain allowlist, which must remain unchanged. The Resend testing sender `onboarding@resend.dev` can deliver only to the Resend account email, not all institutional users.
+The login UI uses email OTP/magic-link mode; the shared invite-code sign-in path has been removed from the code. This is separate from the API institutional-domain allowlist, which must remain unchanged. The Resend testing sender `onboarding@resend.dev` can deliver only to the Resend account email, not all institutional users.
 
 The older Railway workflow below remains in the repo. It is not the current deployment route. Do not delete old services or workflows without approval.
 

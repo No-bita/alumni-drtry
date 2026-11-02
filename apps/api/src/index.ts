@@ -61,14 +61,18 @@ async function main() {
   let reminderStartupTimer: ReturnType<typeof setTimeout> | undefined;
   if (reminderMs > 0) {
     const remind = () => {
-      void app.contactRequestService
-        .sendDueReminders()
-        .then(({ sent, failed }) => {
-          app.log.info({ sent, failed }, "contact request reminder tick");
-        })
-        .catch((err: unknown) => {
-          app.log.error({ err }, "contact request reminder tick failed");
-        });
+      // Email pause (2026-11-02): reminder emails are temporarily disabled at the user's
+      // request. The scheduler call is commented out, not deleted: due reminders stay
+      // pending and unclaimed, and nothing is marked sent. Re-enable by uncommenting.
+      // Note for re-enable: notes still inside their 3-14 day window will send then.
+      // void app.contactRequestService
+      //   .sendDueReminders()
+      //   .then(({ sent, failed }) => {
+      //     app.log.info({ sent, failed }, "contact request reminder tick");
+      //   })
+      //   .catch((err: unknown) => {
+      //     app.log.error({ err }, "contact request reminder tick failed");
+      //   });
       // Same hourly tick: drop usage events past their 12-month retention.
       void app.adminMetricsService
         .purgeOldUsageEvents()
