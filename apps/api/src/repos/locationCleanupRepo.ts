@@ -27,16 +27,6 @@ export interface UnmappedClusterRow {
 export class LocationCleanupRepo {
   constructor(private readonly pool: Pool) {}
 
-  async insertAudit(actorPersonId: string, summary: string, detail: Record<string, unknown>): Promise<void> {
-    await this.pool.query(
-      `
-      INSERT INTO location_cleanup_audit (actor_person_id, summary, detail)
-      VALUES ($1::uuid, $2, $3::jsonb)
-      `,
-      [actorPersonId, summary, detail]
-    );
-  }
-
   async listRecentAudit(limit: number): Promise<Array<{ summary: string; created_at: Date; detail: unknown }>> {
     const lim = Math.min(Math.max(limit, 1), 100);
     const r = await this.pool.query<{ summary: string; created_at: Date; detail: unknown }>(
@@ -93,33 +83,6 @@ export class LocationCleanupRepo {
     return Number(r.rows[0]?.c ?? 0);
   }
 
-  async remapUnmappedClusterToCanonical(args: {
-    normCountry: string;
-    normCity: string;
-    canonicalPlaceId: string;
-    canonicalCityLabel: string;
-    canonicalCountry: string;
-  }): Promise<number> {
-    const result = await this.pool.query(
-      `
-      UPDATE people p
-      SET
-        residence_canonical_place_id = $3::uuid,
-        residence_city = $4,
-        residence_country = $5
-      WHERE p.residence_canonical_place_id IS NULL
-        AND p.deleted_at IS NULL
-        AND p.suspended_at IS NULL
-        AND p.full_name IS NOT NULL
-        AND p.profile_completed_at IS NOT NULL
-        AND lower(trim(regexp_replace(COALESCE(p.residence_country, ''), '\\s+', ' ', 'g'))) = $1
-        AND lower(trim(regexp_replace(COALESCE(p.residence_city, ''), '\\s+', ' ', 'g'))) = $2
-      `,
-      [args.normCountry, args.normCity, args.canonicalPlaceId, args.canonicalCityLabel, args.canonicalCountry]
-    );
-    return result.rowCount ?? 0;
-  }
-
   async listMergeSuggestions(): Promise<MergeSuggestionRow[]> {
     const result = await this.pool.query<MergeSuggestionRow>(
       `
@@ -156,6 +119,8 @@ export class LocationCleanupRepo {
         INNER JOIN canonical_places c2
           ON lower(trim(c1.country)) = lower(trim(c2.country))
          AND c1.id < c2.id
+         AND c1.status = 'approved'
+         AND c2.status = 'approved'
         LEFT JOIN elig e1 ON e1.pid = c1.id
         LEFT JOIN elig e2 ON e2.pid = c2.id
         WHERE NOT EXISTS (
@@ -206,6 +171,13 @@ export class LocationCleanupRepo {
           AND trim(residence_city) <> ''
           AND residence_country IS NOT NULL
           AND trim(residence_country) <> ''
+          -- Already decided in City review (a pending or rejected city with this name): not "unmapped".
+          AND NOT EXISTS (
+            SELECT 1 FROM canonical_places nr
+            WHERE nr.status IN ('pending', 'rejected')
+              AND lower(trim(nr.city_label)) = lower(trim(regexp_replace(p.residence_city, '\\s+', ' ', 'g')))
+              AND lower(trim(nr.country)) = lower(trim(regexp_replace(p.residence_country, '\\s+', ' ', 'g')))
+          )
         GROUP BY 1, 2
       ),
       scored AS (
@@ -238,8 +210,9 @@ export class LocationCleanupRepo {
               )
             ) AS suggestion_similarity
           FROM canonical_places cp2
-          WHERE lower(trim(cp2.country)) = c.norm_country
-             OR similarity(lower(trim(cp2.country)), c.norm_country) > 0.55
+          WHERE cp2.status = 'approved'
+            AND (lower(trim(cp2.country)) = c.norm_country
+             OR similarity(lower(trim(cp2.country)), c.norm_country) > 0.55)
           ORDER BY GREATEST(
             similarity(c.norm_city, lower(trim(cp2.city_label))),
             COALESCE(
