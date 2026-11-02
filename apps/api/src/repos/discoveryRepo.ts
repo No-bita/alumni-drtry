@@ -742,4 +742,4 @@ export class DiscoveryRepo {
       client.release();
     }
   }
-}
+  }
