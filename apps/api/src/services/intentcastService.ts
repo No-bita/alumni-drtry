@@ -470,19 +470,22 @@ export class IntentcastService {
     response: IntentcastResponseView,
     postContent: string
   ): Promise<void> {
-    const author = await this.personRepo.findById(authorPersonId);
-    if (!author) return;
-    try {
-      await this.emailSender.sendIntentcastResponseReceivedEmail({
-        to: author.institutional_email,
-        authorName: author.full_name ?? "there",
-        responderName: response.responderFullName,
-        postContent,
-        responseMessage: response.message
-      });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      console.error("[intentcast] response email delivery failed:", detail);
-    }
+    // Email pause (2026-11-02): bulletin-response email commented out at the user's request
+    // (not deleted - re-enable by restoring the body below).
+    void authorPersonId; void response; void postContent;
+    // const author = await this.personRepo.findById(authorPersonId);
+    // if (!author) return;
+    // try {
+    //   await this.emailSender.sendIntentcastResponseReceivedEmail({
+    //     to: author.institutional_email,
+    //     authorName: author.full_name ?? "there",
+    //     responderName: response.responderFullName,
+    //     postContent,
+    //     responseMessage: response.message
+    //   });
+    // } catch (err) {
+    //   const detail = err instanceof Error ? err.message : String(err);
+    //   console.error("[intentcast] response email delivery failed:", detail);
+    // }
   }
 }
