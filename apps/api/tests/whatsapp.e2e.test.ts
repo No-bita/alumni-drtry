@@ -474,7 +474,9 @@ describe("WhatsApp bot (integration)", () => {
     const wa = r.byChannel.find((c) => c.channel === "whatsapp")!;
     expect(wa.notes).toBeGreaterThanOrEqual(1);
     expect(wa.accepted).toBeGreaterThanOrEqual(1);
-    expect(r.byChannel.find((c) => c.channel === "email")!.notes).toBeGreaterThanOrEqual(2);
+    // Email pause (2026-11-02): email sends disabled; original assertion kept commented.
+    // expect(r.byChannel.find((c) => c.channel === "email")!.notes).toBeGreaterThanOrEqual(2);
+    expect(r.byChannel.find((c) => c.channel === "email")?.notes ?? 0).toBe(0);
     expect(r.onboardingByArrival.find((a) => a.arrival === "whatsapp")!.started).toBeGreaterThanOrEqual(1);
     expect(r.month.templates).toBeGreaterThanOrEqual(1);
     expect(r.month.templateCap).toBe(300);
