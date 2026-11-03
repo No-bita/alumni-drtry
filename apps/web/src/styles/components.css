@@ -18099,6 +18099,16 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   border: 1px solid var(--home-ideal-warm-rule);
 }
 
+@media (max-width: 380px) {
+  .home-ideal__panel-actions {
+    flex-wrap: wrap;
+  }
+
+  .home-ideal__panel-actions .btn {
+    flex-basis: 100%;
+  }
+}
+
 .home-ideal__campus-card {
   border: 1px solid var(--home-ideal-warm-rule-strong);
   border-radius: 16px;
