@@ -60,7 +60,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs) var(--space-sm);
+  /* 14px between rows: each chip's ::after reaches 7px out, so 7+7=14 keeps tap areas apart. */
+  gap: 14px var(--space-sm);
   font-size: 13px;
   color: var(--ink-muted);
 }
@@ -73,6 +74,17 @@
   font: inherit;
   color: var(--ink);
   cursor: pointer;
+}
+
+/* Same look; invisible ::after gives a 44px+ tap area. */
+.home-ask__example {
+  position: relative;
+}
+
+.home-ask__example::after {
+  content: "";
+  position: absolute;
+  inset: -7px 0;
 }
 
 .home-ask__example:hover,

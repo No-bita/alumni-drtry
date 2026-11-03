@@ -1415,6 +1415,17 @@ textarea {
   white-space: nowrap;
 }
 
+/* Same look; invisible ::after gives a 44px-tall tap area. */
+.directory-search-bar__inline-action {
+  position: relative;
+}
+
+.directory-search-bar__inline-action::after {
+  content: "";
+  position: absolute;
+  inset: -15px -4px;
+}
+
 .directory-search-bar__inline-action:hover:not(:disabled) {
   color: var(--brick-light);
 }
@@ -10752,6 +10763,17 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Keeps the 37px look; the invisible ::after brings the tap area to 44px+. */
+.notifications-page__back {
+  position: relative;
+}
+
+.notifications-page__back::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
 }
 
 .notifications-page__back:hover {
@@ -20693,7 +20715,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 /* One button primitive on Home: filled, medium radius, no sharp corners. */
 .home-dashboard--ideal .btn {
   border-radius: var(--home-radius-md);
-  min-height: 40px;
+  min-height: var(--chrome-min-touch-target);
   padding: 0 var(--home-space-3);
   font-family: var(--font-body);
 }
