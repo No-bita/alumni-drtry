@@ -3083,9 +3083,8 @@ textarea {
 .career-feed-rows__row {
   padding: clamp(20px, 2.4vw, 28px) clamp(18px, 2.2vw, 28px);
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border: 1px solid #dccfbc;
   background: #fff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
@@ -17313,7 +17312,7 @@ button.home-ideal__quick-action-card {
 }
 
 .home-ideal__opportunities {
-  border: 1px solid var(--home-ideal-warm-rule-strong);
+  border: 1px solid #dccfbc;
   background: transparent;
   border-radius: 14px;
   padding: 14px;
@@ -18029,7 +18028,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 .home-ideal__panel {
-  border: 1px solid var(--home-ideal-warm-rule-strong);
+  border: 1px solid #dccfbc;
   border-radius: 16px;
   background: transparent;
   padding: 14px;
@@ -18040,7 +18039,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .home-ideal__panel-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1.22;
   font-family: var(--font-display);
   letter-spacing: -0.02em;
