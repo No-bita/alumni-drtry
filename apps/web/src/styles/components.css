@@ -321,37 +321,38 @@ input[type="reset"]:not(:disabled) {
   width: var(--chrome-min-touch-target);
   height: var(--chrome-min-touch-target);
   border-radius: 999px;
-  border: 1px solid rgba(26, 20, 15, 0.1);
+  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.86);
+  background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
   font: inherit;
 }
 
 .nav__notif-icon {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
   stroke-width: 2;
 }
 
 .nav__notif-link--active {
   color: var(--ink);
-  border-color: rgba(197, 160, 89, 0.55);
+  border-color: transparent;
 }
 
 .nav__count-badge--nav {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 1rem;
-  height: 1rem;
-  font-size: 9px;
-  padding: 0 3px;
+  top: 8px;
+  right: 10px;
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
 }
 
 .nav__profile-edit {
@@ -701,6 +702,11 @@ input[type="reset"]:not(:disabled) {
 .nav-app-toolbar--search-lead .nav__notif-link--active {
   border-color: transparent;
   background: transparent;
+}
+
+/* Keyboard focus gets a visible ring on every screen (the shell itself is transparent). */
+.nav__notif-link:focus-visible {
+  border-color: var(--brick);
 }
 
 /* Home top bar (approved follow-up): unread indicator is a plain dot, no count. */
