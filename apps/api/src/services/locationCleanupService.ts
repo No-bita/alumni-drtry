@@ -90,11 +90,12 @@ export class LocationCleanupService {
   }
 
   async getInbox() {
-    const [mergeRows, unmappedRows, auditRows, history] = await Promise.all([
+    const [mergeRows, unmappedRows, auditRows, history, cities] = await Promise.all([
       this.cleanupRepo.listMergeSuggestions(),
       this.cleanupRepo.listUnmappedClusters(),
       this.cleanupRepo.listRecentAudit(25),
-      this.adminPlaces.review.history(null, 25)
+      this.adminPlaces.review.history(null, 25),
+      this.cleanupRepo.listApprovedCities(200)
     ]);
 
     const suggestedMerges = mergeRows.map((row) => {
@@ -135,7 +136,9 @@ export class LocationCleanupService {
 
     const recentActivity = mergeActivity(history, auditRows, 25);
 
-    return { suggestedMerges, unmappedClusters, recentActivity };
+    const approvedCities = cities.map((c) => ({ id: c.id, city: c.city, country: c.country, linkedMembers: c.linked_members }));
+
+    return { suggestedMerges, unmappedClusters, recentActivity, approvedCities };
   }
 
   async ignoreMergeSuggestion(actorPersonId: string, cityIdOne: string, cityIdTwo: string): Promise<void> {
@@ -150,12 +153,13 @@ export class LocationCleanupService {
   }
 
   /** Safe combine: everything moves to the kept city and the other one stays as a redirect (history written with it). */
-  async combineCities(actorPersonId: string, keepCityId: string, combineCityId: string): Promise<void> {
+  async combineCities(actorPersonId: string, keepCityId: string, combineCityId: string): Promise<{ linkedMembers: number }> {
     if (keepCityId === combineCityId) {
       throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Pick two different cities to combine.");
     }
     try {
-      await this.adminPlaces.review.combine(actorPersonId, keepCityId, combineCityId);
+      const out = await this.adminPlaces.review.combine(actorPersonId, keepCityId, combineCityId);
+      return { linkedMembers: out.linkedMembers };
     } catch (error) {
       if (error instanceof AppError && error.code === "CITY_NOT_FOUND") {
         throw new AppError(404, "PLACE_NOT_FOUND", "One or both cities were not found.");
@@ -178,8 +182,9 @@ export class LocationCleanupService {
   async createCityFromFreeText(
     actorPersonId: string,
     displayCountry: string,
-    displayCity: string
-  ): Promise<{ profilesUpdated: number; cityLabel: string; country: string }> {
+    displayCity: string,
+    opts: { cityLabel?: string | null; extraSpellings?: string[] } = {}
+  ): Promise<{ profilesUpdated: number; cityLabel: string; country: string; placeId: string }> {
     const country = displayCountry.trim();
     const city = displayCity.trim();
     if (!country || !city) {
@@ -189,9 +194,10 @@ export class LocationCleanupService {
       actorPersonId,
       country,
       city,
-      this.normCluster(displayCountry, displayCity)
+      this.normCluster(displayCountry, displayCity),
+      { label: opts.cityLabel ?? null, extraSpellings: opts.extraSpellings ?? [] }
     );
-    return { profilesUpdated: linked, cityLabel: place.city, country: place.country };
+    return { profilesUpdated: linked, cityLabel: place.city, country: place.country, placeId: place.id };
   }
 
   async getPlaceDetail(placeId: string) {
@@ -221,18 +227,25 @@ export class LocationCleanupService {
     };
   }
 
-  async renameCanonicalCity(actorPersonId: string, placeId: string, newCityLabel: string): Promise<void> {
+  async renameCanonicalCity(actorPersonId: string, placeId: string, newCityLabel: string): Promise<{ linkedMembers: number }> {
     if (!newCityLabel.trim()) {
       throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "City name cannot be empty.");
     }
-    await this.adminPlaces.renameCityLabel(placeId, newCityLabel, actorPersonId);
+    const row = await this.adminPlaces.renameCityLabel(placeId, newCityLabel, actorPersonId);
+    return { linkedMembers: row.linkedMembers };
   }
 
-  async addAliasForPlace(actorPersonId: string, placeId: string, aliasRaw: string): Promise<void> {
-    await this.adminPlaces.addAlias(placeId, aliasRaw, actorPersonId);
+  async addAliasForPlace(actorPersonId: string, placeId: string, aliasRaw: string): Promise<{ linkedMembers: number }> {
+    return this.adminPlaces.addAlias(placeId, aliasRaw, actorPersonId);
   }
 
-  async combineIntoPlace(actorPersonId: string, keeperPlaceId: string, otherPlaceId: string): Promise<void> {
-    await this.combineCities(actorPersonId, keeperPlaceId, otherPlaceId);
+  async combineIntoPlace(actorPersonId: string, keeperPlaceId: string, otherPlaceId: string): Promise<{ linkedMembers: number }> {
+    return this.combineCities(actorPersonId, keeperPlaceId, otherPlaceId);
+  }
+
+  /** Create a city from scratch (approved, with spellings); members who typed it are linked in the same step. */
+  async createCity(actorPersonId: string, country: string, cityLabel: string, spellings: string[]) {
+    const place = await this.adminPlaces.createPlace(country, cityLabel, actorPersonId, spellings);
+    return { placeId: place.id, cityLabel: place.city_label, country: place.country, linkedMembers: place.linkedMembers };
   }
 }

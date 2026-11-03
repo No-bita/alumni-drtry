@@ -48,6 +48,12 @@ export type HistoryView = {
 };
 
 export function historySummary(h: Pick<HistoryRow, "action" | "place_city" | "target_city" | "reason" | "detail">): string {
+  const base = historyBase(h);
+  const linked = Number((h.detail ?? {}).linkedMembers ?? 0);
+  return linked > 0 ? `${base} Linked ${linked} ${linked === 1 ? "member" : "members"}.` : base;
+}
+
+function historyBase(h: Pick<HistoryRow, "action" | "place_city" | "target_city" | "reason" | "detail">): string {
   const d = h.detail ?? {};
   switch (h.action) {
     case "submitted":
@@ -66,6 +72,9 @@ export function historySummary(h: Pick<HistoryRow, "action" | "place_city" | "ta
       return `Renamed «${String(d.previousLabel ?? "")}» to «${String(d.nextLabel ?? h.place_city)}».`;
     case "alias_added": {
       const list = Array.isArray(d.aliases) ? (d.aliases as string[]) : [];
+      if (list.length === 0) {
+        return d.typedCity ? `Linked members who typed «${String(d.typedCity)}» to «${h.place_city}».` : `Updated spellings for «${h.place_city}».`;
+      }
       return `Added spelling${list.length === 1 ? "" : "s"} ${list.map((a) => `«${a}»`).join(", ")} for «${h.place_city}».`;
     }
     case "alias_removed":
@@ -162,6 +171,29 @@ export class PlaceReviewService {
     });
   }
 
+  /**
+   * Auto-link for an approved city: unlinked members whose typed city is its label or any spelling, inside
+   * the same country (the country-key rules members use). Never moves anyone already linked; never runs
+   * for pending, rejected or combined cities. Runs inside the caller's transaction.
+   */
+  private async autoLink(repo: PlaceReviewRepo, placeId: string): Promise<number> {
+    const place = await repo.byId(placeId);
+    if (!place || place.status !== "approved") return 0;
+    const names = [place.city, ...(await repo.aliases(placeId))];
+    return repo.linkMatching(placeId, names, countryMatchKeys(place.country));
+  }
+
+  /** An approved city by name or spelling inside one country (Cities v1 lookup). */
+  async approvedCity(cityRaw: string, countryRaw: string): Promise<ReviewPlaceRow | null> {
+    const keys = countryMatchKeys(countryRaw);
+    const city = tidyCityLabel(cityRaw);
+    if (!city || keys.length === 0) return null;
+    const found = await this.reader.findInCountry(city, keys);
+    if (!found) return null;
+    const final = found.status === "combined" ? await this.reader.final(found) : found;
+    return final && final.status === "approved" ? final : null;
+  }
+
   private async linkRule(place: ReviewPlaceRow, repo: PlaceReviewRepo = this.reader): Promise<ResidenceResolution> {
     const final = place.status === "combined" ? await repo.final(place) : place;
     if (!final) return { kind: "unlinked", reason: "not_found" };
@@ -223,11 +255,17 @@ export class PlaceReviewService {
           });
           if (added) await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: [normalizePlaceAlias(label!)] } });
         }
-        await repo.insertHistory({ placeId, action: "approved", actorPersonId: actorId, detail: renamed ? { previousLabel: place.city } : {} });
-        return next;
+        const linkedMembers = await this.autoLink(repo, placeId);
+        await repo.insertHistory({
+          placeId,
+          action: "approved",
+          actorPersonId: actorId,
+          detail: { ...(renamed ? { previousLabel: place.city } : {}), linkedMembers }
+        });
+        return { next, linkedMembers };
       });
       this.invalidateCaches();
-      return { id: out.id, city: out.city, country: out.country, status: out.status };
+      return { id: out.next.id, city: out.next.city, country: out.next.country, status: out.next.status, linkedMembers: out.linkedMembers };
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new AppError(409, "CITY_NAME_TAKEN", "A city with that name already exists in this country. Use “Same city as…” instead.");
@@ -289,7 +327,12 @@ export class PlaceReviewService {
     keepId: string,
     otherId: string,
     opts: { from?: ReadonlyArray<ReviewPlaceRow["status"]> } = {}
-  ): Promise<{ keep: { id: string; city: string }; combined: { id: string; city: string }; moved: Record<string, number> }> {
+  ): Promise<{
+    keep: { id: string; city: string };
+    combined: { id: string; city: string };
+    moved: Record<string, number>;
+    linkedMembers: number;
+  }> {
     if (keepId === otherId) throw new AppError(400, "CITY_INVALID_TARGET", "Pick two different cities.");
     const out = await this.tx(async (repo) => {
       const rows = await repo.lock([keepId, otherId]);
@@ -308,13 +351,15 @@ export class PlaceReviewService {
       const newAliases = await repo.copyAliases(otherId, keepId);
       if (await repo.addAlias(keepId, other.city)) newAliases.push(normalizePlaceAlias(other.city));
       const repointed = await repo.markCombined(otherId, keepId, actorId);
+      // The kept city now has the other city's spellings: members who typed one of them get linked too.
+      const linkedMembers = await this.autoLink(repo, keepId);
 
       await repo.insertHistory({
         placeId: otherId,
         action: "combined",
         actorPersonId: actorId,
         targetPlaceId: keepId,
-        detail: { fromLabel: other.city, toLabel: keep.city, previousStatus: other.status, moved, repointedRedirects: repointed }
+        detail: { fromLabel: other.city, toLabel: keep.city, previousStatus: other.status, moved, repointedRedirects: repointed, linkedMembers }
       });
       const uniqueAliases = [...new Set(newAliases)];
       if (uniqueAliases.length > 0) {
@@ -325,7 +370,7 @@ export class PlaceReviewService {
           detail: { aliases: uniqueAliases, via: "combine", fromPlaceId: otherId }
         });
       }
-      return { keep: { id: keep.id, city: keep.city }, combined: { id: other.id, city: other.city }, moved };
+      return { keep: { id: keep.id, city: keep.city }, combined: { id: other.id, city: other.city }, moved, linkedMembers };
     });
     this.invalidateCaches();
     return out;
@@ -335,7 +380,13 @@ export class PlaceReviewService {
   /* Admin edits that also write history (Location cleanup, admin places) */
   /* ------------------------------------------------------------------ */
 
-  private async createApprovedIn(repo: PlaceReviewRepo, actorId: string | null, countryRaw: string, cityRaw: string): Promise<ReviewPlaceRow> {
+  private async createApprovedIn(
+    repo: PlaceReviewRepo,
+    actorId: string | null,
+    countryRaw: string,
+    cityRaw: string,
+    extraSpellings: string[] = []
+  ): Promise<{ place: ReviewPlaceRow; linkedMembers: number }> {
     const country = normalizeCountry(countryRaw);
     const city = tidyCityLabel(cityRaw);
     if (!country || !city) throw new AppError(400, "CITY_REVIEW_BAD_REQUEST", "Country and city are required.");
@@ -348,31 +399,57 @@ export class PlaceReviewService {
       throw new AppError(409, "CANONICAL_PLACE_EXISTS", "A city with this country and name already exists.");
     }
     await repo.addAlias(inserted.id, inserted.city);
+    const spellings: string[] = [];
+    for (const raw of extraSpellings) {
+      if (await repo.addAlias(inserted.id, raw)) spellings.push(normalizePlaceAlias(raw));
+    }
     await repo.insertHistory({ placeId: inserted.id, action: "submitted", actorPersonId: actorId, detail: { source: "admin" } });
-    await repo.insertHistory({ placeId: inserted.id, action: "approved", actorPersonId: actorId, detail: { source: "admin" } });
-    return inserted;
+    if (spellings.length > 0) {
+      await repo.insertHistory({ placeId: inserted.id, action: "alias_added", actorPersonId: actorId, detail: { aliases: spellings, via: "create" } });
+    }
+    const linkedMembers = await this.autoLink(repo, inserted.id);
+    await repo.insertHistory({ placeId: inserted.id, action: "approved", actorPersonId: actorId, detail: { source: "admin", linkedMembers } });
+    return { place: inserted, linkedMembers };
   }
 
-  async createApproved(actorId: string | null, countryRaw: string, cityRaw: string): Promise<ReviewPlaceRow> {
-    const row = await this.tx((repo) => this.createApprovedIn(repo, actorId, countryRaw, cityRaw));
+  async createApproved(
+    actorId: string | null,
+    countryRaw: string,
+    cityRaw: string,
+    extraSpellings: string[] = []
+  ): Promise<{ place: ReviewPlaceRow; linkedMembers: number }> {
+    const out = await this.tx((repo) => this.createApprovedIn(repo, actorId, countryRaw, cityRaw, extraSpellings));
     this.invalidateCaches();
-    return row;
+    return out;
   }
 
-  /** Create an approved city from typed text and link the members who typed it (one transaction). */
-  async createFromTypedText(actorId: string, countryRaw: string, cityRaw: string, norm: { normCountry: string; normCity: string }) {
+  /**
+   * Create an approved city from typed text and link the members who typed it (one transaction). The admin
+   * may give the city a proper name (`label`, e.g. "bangalore" -> "Bengaluru") and extra spellings; the
+   * typed text is always kept as a spelling.
+   */
+  async createFromTypedText(
+    actorId: string,
+    countryRaw: string,
+    cityRaw: string,
+    norm: { normCountry: string; normCity: string },
+    opts: { label?: string | null; extraSpellings?: string[] } = {}
+  ) {
+    const label = opts.label?.trim() ? opts.label : cityRaw;
+    const spellings = [cityRaw, ...(opts.extraSpellings ?? [])];
     const out = await this.tx(async (repo) => {
-      const place = await this.createApprovedIn(repo, actorId, countryRaw, cityRaw);
-      const linked = await repo.linkUnmapped(norm.normCountry, norm.normCity, place.id);
-      if (linked > 0) {
+      const { place, linkedMembers } = await this.createApprovedIn(repo, actorId, countryRaw, label, spellings);
+      // The typed cluster itself, even if its country is spelled in a way the country rules don't know.
+      const extra = await repo.linkUnmapped(norm.normCountry, norm.normCity, place.id);
+      if (extra > 0) {
         await repo.insertHistory({
           placeId: place.id,
           action: "alias_added",
           actorPersonId: actorId,
-          detail: { aliases: [], via: "typed_text", typedCity: cityRaw.trim(), linkedMembers: linked }
+          detail: { aliases: [], via: "typed_text", typedCity: cityRaw.trim(), linkedMembers: extra }
         });
       }
-      return { place, linked };
+      return { place, linked: linkedMembers + extra };
     });
     this.invalidateCaches();
     return out;
@@ -385,7 +462,7 @@ export class PlaceReviewService {
       if (!place) throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
       if (place.status !== "approved") throw new AppError(400, "CITY_INVALID_TARGET", "Pick an approved city.");
       const added = await repo.addAlias(placeId, typedCity);
-      const linked = await repo.linkUnmapped(norm.normCountry, norm.normCity, placeId);
+      const linked = (await repo.linkUnmapped(norm.normCountry, norm.normCity, placeId)) + (await this.autoLink(repo, placeId));
       await repo.insertHistory({
         placeId,
         action: "alias_added",
@@ -407,15 +484,18 @@ export class PlaceReviewService {
         const place = (await repo.lock([placeId])).get(placeId);
         if (!place) throw new AppError(404, "PLACE_NOT_FOUND", "Canonical place was not found.");
         if (place.status === "combined") throw new AppError(409, "CITY_ALREADY_COMBINED", "That city was combined into another.");
-        if (label === place.city) return place;
+        if (label === place.city) return { ...place, linkedMembers: 0 };
         await repo.rename(placeId, label);
         await repo.insertHistory({ placeId, action: "renamed", actorPersonId: actorId, detail: { previousLabel: place.city, nextLabel: label } });
         // Both names keep matching what members type.
         const added = [place.city, label].filter(Boolean);
         const fresh: string[] = [];
         for (const a of added) if (await repo.addAlias(placeId, a)) fresh.push(normalizePlaceAlias(a));
-        if (fresh.length > 0) await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: fresh, via: "rename" } });
-        return { ...place, city: label };
+        const linkedMembers = await this.autoLink(repo, placeId);
+        if (fresh.length > 0 || linkedMembers > 0) {
+          await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: fresh, via: "rename", linkedMembers } });
+        }
+        return { ...place, city: label, linkedMembers };
       });
       this.invalidateCaches();
       return out;
@@ -427,18 +507,20 @@ export class PlaceReviewService {
     }
   }
 
-  async addAlias(actorId: string | null, placeId: string, aliasRaw: string): Promise<boolean> {
+  async addAlias(actorId: string | null, placeId: string, aliasRaw: string): Promise<{ added: boolean; linkedMembers: number }> {
     const alias = normalizePlaceAlias(aliasRaw);
     if (!alias) throw new AppError(400, "PLACE_ALIAS_BAD_REQUEST", "Alias cannot be empty.");
-    const added = await this.tx(async (repo) => {
+    const out = await this.tx(async (repo) => {
       const place = (await repo.lock([placeId])).get(placeId);
       if (!place) throw new AppError(404, "PLACE_NOT_FOUND", "That city was not found.");
       const isNew = await repo.addAlias(placeId, aliasRaw);
-      if (isNew) await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: [alias] } });
-      return isNew;
+      if (!isNew) return { added: false, linkedMembers: 0 };
+      const linkedMembers = await this.autoLink(repo, placeId);
+      await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: [alias], linkedMembers } });
+      return { added: true, linkedMembers };
     });
-    if (added) this.invalidateCaches();
-    return added;
+    if (out.added) this.invalidateCaches();
+    return out;
   }
 
   /* ------------------------------------------------------------------ */

@@ -40,6 +40,8 @@ const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
 );
 const AdminCityReviewPage = lazy(() => import("./pages/AdminCityReviewPage").then((m) => ({ default: m.AdminCityReviewPage })));
+const AdminLocationCleanup = lazy(() => import("./pages/AdminLocationCleanup").then((m) => ({ default: m.AdminLocationCleanup })));
+const AdminPlaceDetail = lazy(() => import("./pages/AdminPlaceDetail").then((m) => ({ default: m.AdminPlaceDetail })));
 const AdminCompanyReviewPage = lazy(() =>
   import("./pages/AdminCompanyReviewPage").then((m) => ({ default: m.AdminCompanyReviewPage }))
 );
@@ -377,6 +379,23 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        <Route
+          path="/admin/locations"
+          element={
+            <RequireAuth>
+              <AdminLocationCleanup />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/locations/places/:placeId"
+          element={
+            <RequireAuth>
+              <AdminPlaceDetail />
+            </RequireAuth>
+          }
+        />
+        <Route path="/admin/locations/cleanup" element={<Navigate to="/admin/locations" replace />} />
         <Route path="/directory" element={<Navigate to="/search" replace />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>

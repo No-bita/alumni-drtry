@@ -130,6 +130,10 @@ function daysBetween(from: Date, to: Date): number {
   return Math.max(0, Math.floor((to.getTime() - from.getTime()) / 86_400_000));
 }
 
+/** How long the Cities v1 city lookup is cached: a found city 10 minutes, "not found" 30 seconds. */
+export const V1_CACHE_MS = 600_000;
+export const V1_EMPTY_CACHE_MS = 30_000;
+
 /** Monday 10:00 Asia/Kolkata or later in the week (the nudge goes out from then). */
 export function isNudgeTime(now: Date): boolean {
   const ist = new Date(now.getTime() + 330 * 60_000);
@@ -182,20 +186,31 @@ export class CitiesService implements ResidenceSync {
   /* Which cities have the full v1 page                                  */
   /* ------------------------------------------------------------------ */
 
-  /** CITIES_V1_PLACE_IDS, or Bengaluru (India) looked up by name when unset. Cached for 10 minutes. */
+  /**
+   * CITIES_V1_PLACE_IDS, or Bengaluru (India) looked up when unset: approved only, by name or spelling
+   * ("Bangalore"), inside India under the same country rules members use. A found city is cached for
+   * 10 minutes; "not found" only for 30 seconds, so a newly added Bengaluru switches Cities v1 on quickly.
+   */
   async v1PlaceIds(): Promise<string[]> {
-    if (this.v1Cache && Date.now() - this.v1Cache.at < 600_000) return this.v1Cache.ids;
+    if (this.v1Cache && Date.now() - this.v1Cache.at < (this.v1Cache.ids.length > 0 ? V1_CACHE_MS : V1_EMPTY_CACHE_MS)) {
+      return this.v1Cache.ids;
+    }
     const configured = (env.CITIES_V1_PLACE_IDS ?? "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     let ids = configured;
     if (ids.length === 0) {
-      const blr = await this.repo.findPlaceByName("Bengaluru", "India");
+      const blr = await this.placeReview.approvedCity("Bengaluru", "India");
       ids = blr ? [blr.id] : [];
     }
     this.v1Cache = { ids, at: Date.now() };
     return ids;
+  }
+
+  /** Forget the Cities v1 lookup (after cities change). */
+  clearV1Cache(): void {
+    this.v1Cache = null;
   }
 
   async isV1(placeId: string): Promise<boolean> {

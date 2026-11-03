@@ -593,6 +593,9 @@ export function AdminAnalyticsPage() {
                   <Link to="/admin/cities" className="aa-link">
                     City review
                   </Link>
+                  <Link to="/admin/locations" className="aa-link">
+                    Location cleanup
+                  </Link>
                 </div>
               </section>
             ) : null}
