@@ -315,11 +315,6 @@
   color: inherit;
 }
 
-.search-result-row .avatar {
-  background: var(--search-result-brand-fill);
-  color: var(--cream);
-}
-
 .search-result-row .avatar.avatar--sm {
   width: 54px;
   height: 54px;
