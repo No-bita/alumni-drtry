@@ -1,0 +1,96 @@
+/* Location cleanup (/admin/locations). Builds on admin-analytics.css, admin-companies.css and admin-cities.css. 390px first. */
+.lc-muted {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.lc-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.lc-head-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.lc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .lc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lc-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lc-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.lc-rows > li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.lc-row {
+  min-height: 52px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lc-row:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.lc-row__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lc-row__meta {
+  flex: none;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.lc-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lc-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}

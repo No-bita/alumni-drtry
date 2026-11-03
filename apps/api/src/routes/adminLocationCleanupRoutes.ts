@@ -20,9 +20,21 @@ const mapFreeTextBody = z.object({
   treatAsCityId: uuid
 });
 
+const spellingsSchema = z.array(z.string().trim().min(1).max(120)).max(20).optional();
+
 const createCityFromTextBody = z.object({
   displayCountry: z.string().trim().min(1).max(120),
-  displayCity: z.string().trim().min(1).max(120)
+  displayCity: z.string().trim().min(1).max(120),
+  /** The city's proper name when it differs from what was typed (e.g. "bangalore" -> "Bengaluru"). */
+  cityLabel: z.string().trim().min(2).max(120).optional(),
+  /** Other spellings to save with the city; the typed text is always kept as one. */
+  extraSpellings: spellingsSchema
+});
+
+const createCityBody = z.object({
+  country: z.string().trim().min(1).max(120),
+  cityLabel: z.string().trim().min(2).max(120),
+  spellings: spellingsSchema
 });
 
 const ignoreUnmappedBody = z.object({
@@ -66,12 +78,12 @@ export const adminLocationCleanupRoutes: FastifyPluginAsync = async (app) => {
       if (!body.success) {
         throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Invalid combine request.");
       }
-      await app.locationCleanupService.combineCities(
+      const result = await app.locationCleanupService.combineCities(
         request.actor.personId,
         body.data.keepCityId,
         body.data.combineCityId
       );
-      return reply.code(204).send();
+      return reply.code(200).send(result);
     }
   );
 
@@ -121,7 +133,27 @@ export const adminLocationCleanupRoutes: FastifyPluginAsync = async (app) => {
       const result = await app.locationCleanupService.createCityFromFreeText(
         request.actor.personId,
         body.data.displayCountry,
-        body.data.displayCity
+        body.data.displayCity,
+        { cityLabel: body.data.cityLabel ?? null, extraSpellings: body.data.extraSpellings ?? [] }
+      );
+      return reply.code(201).send(result);
+    }
+  );
+
+  /** Add a city from scratch (approved). Members who already typed it, or one of its spellings, are linked. */
+  app.post(
+    "/v1/admin/locations/cities",
+    { preHandler: adminHandlers },
+    async (request, reply) => {
+      const body = createCityBody.safeParse(request.body);
+      if (!body.success) {
+        throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Invalid create-city payload.");
+      }
+      const result = await app.locationCleanupService.createCity(
+        request.actor.personId,
+        body.data.country,
+        body.data.cityLabel,
+        body.data.spellings ?? []
       );
       return reply.code(201).send(result);
     }
@@ -166,8 +198,8 @@ export const adminLocationCleanupRoutes: FastifyPluginAsync = async (app) => {
       if (!params.success || !body.success) {
         throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Invalid rename payload.");
       }
-      await app.locationCleanupService.renameCanonicalCity(request.actor.personId, params.data.placeId, body.data.displayCity);
-      return reply.code(204).send();
+      const result = await app.locationCleanupService.renameCanonicalCity(request.actor.personId, params.data.placeId, body.data.displayCity);
+      return reply.code(200).send(result);
     }
   );
 
@@ -180,8 +212,8 @@ export const adminLocationCleanupRoutes: FastifyPluginAsync = async (app) => {
       if (!params.success || !body.success) {
         throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Invalid alias payload.");
       }
-      await app.locationCleanupService.addAliasForPlace(request.actor.personId, params.data.placeId, body.data.spelling);
-      return reply.code(204).send();
+      const result = await app.locationCleanupService.addAliasForPlace(request.actor.personId, params.data.placeId, body.data.spelling);
+      return reply.code(200).send(result);
     }
   );
 
@@ -194,12 +226,12 @@ export const adminLocationCleanupRoutes: FastifyPluginAsync = async (app) => {
       if (!params.success || !body.success) {
         throw new AppError(400, "LOCATION_CLEANUP_BAD_REQUEST", "Invalid combine payload.");
       }
-      await app.locationCleanupService.combineIntoPlace(
+      const result = await app.locationCleanupService.combineIntoPlace(
         request.actor.personId,
         params.data.placeId,
         body.data.combineCityId
       );
-      return reply.code(204).send();
+      return reply.code(200).send(result);
     }
   );
 };

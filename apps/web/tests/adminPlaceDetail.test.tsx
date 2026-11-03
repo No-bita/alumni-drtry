@@ -1,114 +1,99 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const get = vi.hoisted(() => vi.fn());
-vi.mock("../src/api/client", () => ({ api: { get, post: vi.fn() } }));
-// This legacy admin page is excluded from the app build; isolate its search behavior.
-vi.mock("../src/lib/queryKeys", () => ({ queryKeys: { admin: { locationCleanup: {
-  placeDetail: (id: string) => ["admin", "place", id],
-  inbox: () => ["admin", "inbox"],
-} } } }));
+const apiGet = vi.hoisted(() => vi.fn());
+const apiPost = vi.hoisted(() => vi.fn());
+const authState = vi.hoisted(() => ({ value: null as unknown }));
+vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { get: apiGet, post: apiPost } }));
+vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 
 import { AdminPlaceDetail } from "../src/pages/AdminPlaceDetail";
 
-function deferred() {
-  let resolve!: (value: unknown) => void;
-  const promise = new Promise((done) => { resolve = done; });
-  return { promise, resolve };
-}
+const admin = { status: "authenticated", person: { personId: "p1", role: "admin" }, myProfile: { fullName: "Admin" } };
+const detail = {
+  place: { id: "b1", displayCountry: "India", displayCity: "Bengaluru", status: "approved", combinedIntoPlaceId: null },
+  aliases: ["bengaluru", "bangalore"],
+  linkedProfiles: 50,
+  recentNotes: [{ summary: "Approved «Bengaluru». Linked 53 members.", at: "2026-11-02T10:00:00Z" }],
+};
 
-function hits(label: string) {
-  return { data: { places: [{ id: label, city_label: label, country: "India" }] }, error: null };
-}
-
-function ChangePlace() {
-  const navigate = useNavigate();
-  return <button onClick={() => navigate("/admin/places/other")}>Change place</button>;
-}
-
-async function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const view = render(
-    <MemoryRouter initialEntries={["/admin/places/current"]}>
-      <QueryClientProvider client={client}>
-        <ChangePlace />
+function mount(path = "/admin/locations/places/b1") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <QueryClientProvider client={qc}>
         <Routes>
-          <Route path="/admin/places/:placeId" element={<AdminPlaceDetail />} />
+          <Route path="/admin/locations/places/:placeId" element={<AdminPlaceDetail />} />
         </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
   );
-  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  return view;
-}
-
-async function search(value: string) {
-  fireEvent.change(screen.getByLabelText("Search cities"), { target: { value } });
-  await act(async () => { await vi.advanceTimersByTimeAsync(320); });
 }
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  get.mockReset();
-  get.mockImplementation((url: string) => {
-    if (url.startsWith("/v1/admin/locations/places/")) {
-      return Promise.resolve({ data: {
-        place: { displayCity: "Current", displayCountry: "India" },
-        linkedProfiles: 0, aliases: [], recentNotes: [],
-      }, error: null });
+  authState.value = admin;
+  apiGet.mockReset();
+  apiPost.mockReset();
+  apiGet.mockImplementation(async (path: string) => {
+    if (path === "/v1/admin/locations/places/b1") return { data: detail };
+    if (path.startsWith("/v1/admin/places")) {
+      return { data: { places: [{ id: "b1", city_label: "Bengaluru", country: "India" }, { id: "x2", city_label: "Bangalore", country: "India" }] } };
     }
-    throw new Error(`Unexpected request: ${url}`);
+    return { error: { code: "UNKNOWN" } };
   });
 });
+afterEach(() => cleanup());
 
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-});
-
-describe("AdminPlaceDetail combine search", () => {
-  it("ignores an in-flight response after input becomes too short", async () => {
-    const old = deferred();
-    await mount();
-    get.mockImplementationOnce(() => old.promise);
-    await search("Delhi");
-    await search("D");
-    await act(async () => { old.resolve(hits("Stale Delhi")); });
-    expect(screen.queryByText("Stale Delhi")).toBeNull();
-    expect(screen.queryByRole("listbox")).toBeNull();
+describe("Location cleanup: one city", () => {
+  it("shows the city, its spellings and history", async () => {
+    mount();
+    expect(await screen.findByRole("heading", { name: "Bengaluru, India" })).toBeTruthy();
+    expect(screen.getByText(/Approved · 50 members/)).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "Saved spellings" })).getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText("Approved «Bengaluru». Linked 53 members.")).toBeTruthy();
   });
 
-  it("keeps newer results when requests resolve out of order", async () => {
-    const old = deferred();
-    const latest = deferred();
-    await mount();
-    get.mockImplementationOnce(() => old.promise).mockImplementationOnce(() => latest.promise);
-    await search("Delhi");
-    await search("Mumbai");
-    await act(async () => { latest.resolve(hits("Fresh Mumbai")); });
-    expect(screen.getByText("Fresh Mumbai")).toBeTruthy();
-    await act(async () => { old.resolve(hits("Stale Delhi")); });
-    expect(screen.getByText("Fresh Mumbai")).toBeTruthy();
-    expect(screen.queryByText("Stale Delhi")).toBeNull();
+  it("adding a spelling reports who was linked", async () => {
+    apiPost.mockResolvedValue({ data: { linkedMembers: 3 } });
+    mount();
+    const form = await screen.findByRole("form", { name: "Add a spelling" });
+    fireEvent.change(within(form).getByLabelText("Add a spelling people type"), { target: { value: "BLR" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Add spelling" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/admin/locations/places/b1/spelling-alias", { spelling: "BLR" }));
+    expect(await screen.findByText("Saved ‘BLR’. Linked 3 members.")).toBeTruthy();
   });
 
-  it("cancels the debounce when input becomes too short", async () => {
-    await mount();
-    fireEvent.change(screen.getByLabelText("Search cities"), { target: { value: "Delhi" } });
-    await search("D");
-    expect(get.mock.calls.filter(([url]) => String(url).startsWith("/v1/admin/places?"))).toHaveLength(0);
+  it("rename keeps typed text and says so", async () => {
+    apiPost.mockResolvedValue({ data: { linkedMembers: 0 } });
+    mount();
+    const form = await screen.findByRole("form", { name: "Rename the city" });
+    expect(form.textContent).toContain("typed text isn't changed");
+    fireEvent.change(within(form).getByLabelText("City name"), { target: { value: "Bengaluru City" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save name" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/admin/locations/places/b1/rename-display-city", { displayCity: "Bengaluru City" }));
   });
 
-  it("ignores responses for the previous place after route changes", async () => {
-    const old = deferred();
-    await mount();
-    get.mockImplementationOnce(() => old.promise);
-    await search("Delhi");
-    fireEvent.click(screen.getByRole("button", { name: "Change place" }));
-    await act(async () => { old.resolve(hits("Stale Delhi")); });
-    expect(screen.queryByText("Stale Delhi")).toBeNull();
+  it("combine: pick a duplicate (never itself), confirm, then it's combined", async () => {
+    apiPost.mockResolvedValue({ data: { linkedMembers: 2 } });
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Find the duplicate…" }));
+    fireEvent.change(screen.getByLabelText("Search cities"), { target: { value: "bang" } });
+    const pick = await screen.findByRole("button", { name: /Bangalore/ });
+    expect(screen.queryByRole("button", { name: /^Bengaluru/ })).toBeNull();
+    fireEvent.click(pick);
+    expect(screen.getByRole("group", { name: "Confirm combining Bangalore" }).textContent).toContain("Nothing is deleted");
+    fireEvent.click(screen.getByRole("button", { name: "Yes, combine" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/admin/locations/places/b1/combine-with-city", { combineCityId: "x2" }));
+    expect(await screen.findByText("Combined Bangalore into Bengaluru. Linked 2 members.")).toBeTruthy();
+  });
+
+  it("non-admins don't load anything", () => {
+    authState.value = { ...admin, person: { personId: "p2", role: "alumni" } };
+    mount();
+    expect(screen.getByRole("alert").textContent).toBe("This page is for admins.");
+    expect(apiGet).not.toHaveBeenCalled();
   });
 });

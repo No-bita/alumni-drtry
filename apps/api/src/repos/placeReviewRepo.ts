@@ -269,12 +269,44 @@ export class PlaceReviewRepo {
   async linkUnmapped(normCountry: string, normCity: string, placeId: string): Promise<number> {
     const r = await this.db.query(
       `UPDATE people p SET residence_canonical_place_id = $3::uuid
-       WHERE p.residence_canonical_place_id IS NULL AND ${LISTED_PERSON_SQL}
+       WHERE p.residence_canonical_place_id IS NULL AND p.deleted_at IS NULL
          AND ${LABEL_NORM_SQL("COALESCE(p.residence_country, '')")} = $1
          AND ${LABEL_NORM_SQL("COALESCE(p.residence_city, '')")} = $2`,
       [normCountry, normCity, placeId]
     );
     return r.rowCount ?? 0;
+  }
+
+  /**
+   * Auto-link: every unlinked member whose typed city is one of `names` (already normalised the same
+   * way as `findInCountry`) and whose typed country is one of `countryKeys`. Already-linked members are
+   * never moved and typed text is never changed. Returns how many were linked.
+   */
+  async linkMatching(placeId: string, names: string[], countryKeys: string[]): Promise<number> {
+    const cityNames = [...new Set(names.map((n) => normalizePlaceAlias(n)).filter(Boolean))];
+    if (cityNames.length === 0 || countryKeys.length === 0) return 0;
+    const r = await this.db.query(
+      `UPDATE people p SET residence_canonical_place_id = $1::uuid
+       WHERE p.residence_canonical_place_id IS NULL AND p.deleted_at IS NULL
+         AND ${LABEL_NORM_SQL("COALESCE(p.residence_city, '')")} = ANY($2::text[])
+         AND ${LABEL_NORM_SQL("COALESCE(p.residence_country, '')")} = ANY($3::text[])`,
+      [placeId, cityNames, countryKeys]
+    );
+    return r.rowCount ?? 0;
+  }
+
+  /** What `linkMatching` would link, without changing anything (counts only). */
+  async countMatching(names: string[], countryKeys: string[]): Promise<number> {
+    const cityNames = [...new Set(names.map((n) => normalizePlaceAlias(n)).filter(Boolean))];
+    if (cityNames.length === 0 || countryKeys.length === 0) return 0;
+    const r = await this.db.query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM people p
+       WHERE p.residence_canonical_place_id IS NULL AND p.deleted_at IS NULL
+         AND ${LABEL_NORM_SQL("COALESCE(p.residence_city, '')")} = ANY($1::text[])
+         AND ${LABEL_NORM_SQL("COALESCE(p.residence_country, '')")} = ANY($2::text[])`,
+      [cityNames, countryKeys]
+    );
+    return r.rows[0]?.c ?? 0;
   }
 
   async linkedMembers(placeId: string): Promise<number> {

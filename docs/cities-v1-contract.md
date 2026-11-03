@@ -177,7 +177,7 @@ In-app only for offers (no email per offer — decided).
 
 ## Env
 
-- `CITIES_V1_PLACE_IDS`: comma-separated canonical place ids. Unset → Bengaluru, India looked up by name.
+- `CITIES_V1_PLACE_IDS`: comma-separated canonical place ids. Unset → Bengaluru, India looked up among **approved** cities by name or spelling ("Bangalore" works once it's a saved spelling), inside India under the members' country rules. A found city is cached for 10 minutes; "not found" only for 30 seconds, so adding Bengaluru in Location cleanup switches Cities v1 on within half a minute. If no approved Bengaluru exists, Cities v1 is off everywhere.
 - `CITY_CHAPTER_LINKS`: JSON `{ "<placeId>": { "url": "...", "label": "..." } }`.
 - City-update email rollout is parked. The production reminder scheduler does not call it. Email code remains for later approval and isolated testing; no `CITY_NUDGE_SCHEDULER` setting exists.
 - Daily Cities-view deduplication keys are retained; `purgeDemandKeys()` does not delete records. Passive views never contribute to the moving-help search count.
