@@ -371,9 +371,9 @@
   font-weight: 500;
   line-height: 1.2;
   color: #221a15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 
@@ -381,9 +381,9 @@
   font-size: 13px;
   line-height: 1.5;
   color: #5e544a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .search-result-row__meta--role {
