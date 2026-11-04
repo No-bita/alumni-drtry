@@ -311,6 +311,8 @@ export type NotificationItem =
       kind: "contact_request_received";
       id: string;
       occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
       contactRequestId: string;
       senderPersonId: string;
       senderFullName: string | null;
@@ -326,6 +328,8 @@ export type NotificationItem =
       kind: "city_help_offer_received";
       id: string;
       occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
       offerId: string;
       offererPersonId: string;
       offererFullName: string | null;
@@ -336,6 +340,8 @@ export type NotificationItem =
       kind: "contact_request_resolved";
       id: string;
       occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
       contactRequestId: string;
       outcome: "accepted" | "declined";
       recipientPersonId: string;
@@ -345,6 +351,8 @@ export type NotificationItem =
       kind: "bulletin_response";
       id: string;
       occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
       responseId: string;
       intentcastId: string;
       postPreview: string;
@@ -356,6 +364,8 @@ export type NotificationItem =
       kind: "connection_thread_reply";
       id: string;
       occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
       threadId: string;
       counterpartyPersonId: string;
       counterpartyFullName: string | null;
@@ -364,8 +374,8 @@ export type NotificationItem =
 
 export type NotificationsResponse = { items: NotificationItem[] };
 
-/** GET /v1/notifications/summary — badge count */
-export type NotificationsSummaryResponse = { count: number };
+/** GET /v1/notifications/summary — badge counts */
+export type NotificationsSummaryResponse = { count: number; unseenCount: number };
 
 /** GET /v1/intentcasts */
 export type IntentcastFeedItem = {

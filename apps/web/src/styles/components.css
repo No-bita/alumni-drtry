@@ -346,13 +346,13 @@ input[type="reset"]:not(:disabled) {
 
 .nav__count-badge--nav {
   position: absolute;
-  top: 8px;
-  right: 10px;
-  min-width: 0;
-  width: 8px;
-  height: 8px;
-  padding: 0;
-  font-size: 0;
+  top: 5px;
+  right: 5px;
+  min-width: 15px;
+  width: auto;
+  height: 15px;
+  padding: 0 4px;
+  font-size: 10px;
 }
 
 .nav__profile-edit {
@@ -10969,6 +10969,95 @@ button.career-referrals-v3__matching-pill--editable:active {
   white-space: nowrap;
 }
 
+/* Type tiles: color identifies the notification kind, nothing else (tints from the platform palette). */
+.notifications-page__kind-tile {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #efe9e2;
+  color: #5f5a56;
+}
+
+.notifications-page__kind-tile--request {
+  background: #e8f0fe;
+  color: #3b1f14;
+}
+
+.notifications-page__kind-tile--bulletin {
+  background: #fbe9d7;
+  color: #c65d3b;
+}
+
+.notifications-page__kind-tile--city {
+  background: #dff3e6;
+  color: #2e6b41;
+}
+
+/* Unseen emphasis: accent dot + stronger title + faint tint. Seen state never removes the row. */
+.notifications-page__item {
+  position: relative;
+}
+
+.notifications-page__item--unseen {
+  background: rgba(194, 90, 46, 0.06);
+  padding-left: calc(var(--space-lg) + 14px);
+}
+
+.notifications-page__item--unseen::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-lg) - 6px);
+  top: calc(var(--space-md-lg) + 10px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--palette-accent);
+}
+
+.notifications-page__item--unseen .notifications-page__item-title {
+  font-weight: 700;
+}
+
+.notifications-mark-seen {
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: var(--ochre);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.notifications-mark-seen:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.notifications-mark-seen:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.notifications-page__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.global-notifications-widget__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+
 /* Connection requests inbox (home sidebar) — matches bulletin frosted panel */
 
 .home-dashboard__inbox {
@@ -21152,3 +21241,60 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   }
 }
 
+
+/* ===== Desktop (≥640px) - notifications quick view is an anchored popover under the bell ===== */
+
+@media (min-width: 640px) {
+  .global-notifications-widget__backdrop {
+    background: transparent;
+  }
+
+  .global-notifications-widget__panel {
+    left: auto;
+    right: var(--notif-anchor-right, 28px);
+    bottom: auto;
+    top: var(--notif-anchor-top, calc(var(--nav-height, 64px) + 8px));
+    width: 420px;
+    max-width: calc(100vw - 48px);
+    max-height: min(82vh, calc(100dvh - var(--notif-anchor-top, 72px) - 16px));
+    border-bottom: 1px solid rgba(26, 20, 15, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(20, 14, 10, 0.22);
+    padding: 12px 14px 14px;
+  }
+
+  .global-notifications-widget__grab {
+    display: none;
+  }
+}
+
+/* ===== Phone (≤639px) - compact type tiles ===== */
+
+@media (max-width: 639px) {
+  /* Owner-approved 5 Nov 2026: clear the floating bottom dock so the last row scrolls fully into view. */
+  .notifications-page {
+    padding-bottom: calc(3rem + var(--nav-bottom-dock-height));
+  }
+
+  .notifications-page__item {
+    gap: 10px;
+  }
+
+  .notifications-page__kind-tile {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    margin-top: 1px;
+  }
+
+  .notifications-page__kind-tile svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* The tile column is narrow, so the action buttons span it to stay side by side. */
+  .notifications-page__item-actions {
+    width: calc(100% + 34px);
+    margin-left: -34px;
+  }
+}
