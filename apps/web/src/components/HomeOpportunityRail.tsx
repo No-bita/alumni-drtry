@@ -8,6 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
+import { HomeWallTopicsFilter } from "./HomeWallTopicsFilter";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
@@ -215,26 +216,12 @@ export function HomeOpportunityRail({
           ))}
         </div>
         {chipCategories.length > 0 ? (
-          <details className="home-wall-topics">
-            <summary>Topics</summary>
-            <div className="home-wall-topics__menu" aria-label="Opportunity filters">
-              {chipCategories.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  aria-pressed={activeCategory === category.id}
-                  onClick={(event) => {
-                    onCategoryChange(activeCategory === category.id ? "all" : category.id);
-                    event.currentTarget.closest("details")?.removeAttribute("open");
-                    event.currentTarget.closest("details")?.querySelector("summary")?.focus();
-                  }}
-                >
-                  <span>{category.label}</span>
-                  <span>{categoryCounts[category.id]}</span>
-                </button>
-              ))}
-            </div>
-          </details>
+          <HomeWallTopicsFilter
+            topics={chipCategories}
+            counts={categoryCounts}
+            activeCategory={activeCategory}
+            onCategoryChange={onCategoryChange}
+          />
         ) : null}
       </div>
       {railDeleteError ? (

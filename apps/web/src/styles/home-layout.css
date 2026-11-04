@@ -223,15 +223,22 @@
   flex: 0 0 auto;
   margin: 0 0 0 auto;
 }
-.home-wall-topics > summary {
+.home-wall-topics__trigger {
   cursor: pointer;
   border: 1px solid var(--border, #d9cec0);
   border-radius: 6px;
   padding: 10px 14px;
   min-height: 44px;
   box-sizing: border-box;
+  font: inherit;
   font-size: 14px;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
+.home-wall-topics__caret { font-size: 11px; }
 .home-wall-topics__menu {
   position: absolute;
   z-index: 10;
@@ -263,5 +270,18 @@
 .home-wall-topics__menu > button + button { border-top: 1px solid var(--border, #d9cec0); }
 .home-wall-topics__menu > button[aria-pressed="true"] { font-weight: 700; }
 .home-wall-topics__menu > button:hover { background: #38291f08; }
-.home-wall-topics > summary:focus-visible,
+.home-wall-topics__trigger:focus-visible,
 .home-wall-topics__menu > button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Detached viewport-aware popover: fixed to the body, above the phone dock
+   (z 196) and toolbar (z 190); placement + max-height come from inline styles
+   computed against the usable band between them. */
+.home-wall-topics__menu--floating {
+  position: fixed;
+  z-index: 2600;
+  top: auto;
+  right: auto;
+  width: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

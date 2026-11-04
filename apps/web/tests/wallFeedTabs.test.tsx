@@ -31,16 +31,16 @@ describe("Wall feed scope tabs", () => {
         />
       </QueryClientProvider></MemoryRouter>,
     );
-    const topics = screen.getByText("Topics");
-    const details = topics.closest("details");
+    const topics = screen.getByRole("button", { name: /Topics/ });
     const tablist = screen.getByRole("tablist", { name: "Wall feeds" });
     expect(tablist.contains(topics)).toBe(false);
-    expect(details?.parentElement).toBe(tablist.parentElement);
+    expect(topics.parentElement?.parentElement).toBe(tablist.parentElement);
     expect(tablist.parentElement?.classList.contains("home-wall-toolbar")).toBe(true);
-    details?.setAttribute("open", "");
+    fireEvent.click(topics);
+    expect(topics.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: /^Careers\s*1$/ }));
     expect(onCategoryChange).toHaveBeenCalledWith("careers");
-    expect(details?.hasAttribute("open")).toBe(false);
+    expect(topics.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(topics);
     const all = screen.getByRole("tab", { name: "All posts" });
     const personal = screen.getByRole("tab", { name: "For you" });
@@ -68,16 +68,15 @@ describe("Wall feed scope tabs", () => {
       <HomeOpportunityRail intentcasts={[]} activeCategory="careers" onCategoryChange={onCategoryChange}
         categoryCounts={{ careers: 1, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 }} />
     </MemoryRouter></QueryClientProvider>);
-    const summary = screen.getByText("Topics");
-    const details = summary.closest("details")!;
-    details.setAttribute("open", "");
+    const trigger = screen.getByRole("button", { name: /Topics/ });
+    fireEvent.click(trigger);
     const careers = screen.getByRole("button", { name: /^Careers\s*1$/ });
     expect(careers.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^Relocation\s*0$/ })).toBeTruthy();
     fireEvent.click(careers);
     expect(onCategoryChange).toHaveBeenCalledWith("all");
-    expect(details.hasAttribute("open")).toBe(false);
-    expect(document.activeElement).toBe(summary);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
   });
   it("keeps Topics absent for a fully empty feed", () => {
     render(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
