@@ -57,7 +57,8 @@ async function reachAnswerKey() {
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   fireEvent.change(view.container.querySelector("input")!, { target: { value: "Mumbai" } });
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
-  fireEvent.click(screen.getByRole("button", { name: "OK" })); // phone (prefilled)
+  // PHONE_QUESTION_PARKED(2026-11-05): phone question parked, so this step no longer appears.
+  //  fireEvent.click(screen.getByRole("button", { name: "OK" })); // phone (prefilled)
   await screen.findByText("What can you help juniors with?");
   return view;
 }
