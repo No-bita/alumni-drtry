@@ -291,12 +291,12 @@ describe("Cities v1 API (integration, local test database only)", () => {
     expect((await db.query(`SELECT COUNT(*)::int AS c FROM city_demand_view_keys`)).rows[0].c).toBe(keysBefore);
   });
 
-  it("other cities show only the header, alumni list and arriver view (check 13)", async () => {
+  it("other approved cities get the full city page too; pages no longer wait for CITIES_V1_PLACE_IDS (check 13)", async () => {
     const own = await city(who.punelocal!, pune);
     expect(own.viewerRole).toBe("local");
-    expect(own.v1Enabled).toBe(false);
-    expect(own.arrivals).toBeNull();
-    expect(own.helpPanel).toBeNull();
+    expect(own.v1Enabled).toBe(true);
+    expect(own.arrivals).not.toBeNull();
+    expect(own.helpPanel).not.toBeNull();
     expect(own.posts).toEqual([]);
     expect(own.alumni.items.map((i: any) => i.person.id)).toContain(who.arriver!.personId);
     const visiting = await city(who.local!, pune);

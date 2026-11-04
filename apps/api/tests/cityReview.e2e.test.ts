@@ -103,15 +103,20 @@ describe("city review (integration, local test database only)", () => {
     expect((await req("GET", "/v1/admin/cities/review", admin)).statusCode).toBe(404);
   });
 
-  it("switch on: an unknown city becomes pending, linked, with a 'submitted' history row; hidden from browse and search", async () => {
+  it("switch on: an unknown city becomes approved, linked, with submitted+approved history rows; visible in browse and search", async () => {
     on();
     expect((await setCity(who.sub!, `  Leedsy${R} `)).statusCode).toBe(200);
     const link = await linkOf(who.sub!);
     expect(link.place_id).toBeTruthy();
-    expect(await placeRow(link.place_id!)).toMatchObject({ status: "pending", city_label: `Leedsy${R}`, country: "India" });
+    expect(await placeRow(link.place_id!)).toMatchObject({ status: "approved", city_label: `Leedsy${R}`, country: "India" });
     const h = await history(link.place_id!);
-    expect(h).toEqual([expect.objectContaining({ action: "submitted", actor_person_id: who.sub!.personId })]);
+    expect(h).toEqual([
+      expect.objectContaining({ action: "submitted", actor_person_id: who.sub!.personId }),
+      expect.objectContaining({ action: "approved", actor_person_id: who.sub!.personId })
+    ]);
     expect(h[0]!.detail.source).toBe("member");
+    expect(h[0]!.detail.auto).toBe(true);
+    expect(h[1]!.detail.source).toBe("member_auto");
 
     // A second member typing the same city joins it (no new city).
     expect((await setCity(who.join!, `leedsy${R}`)).statusCode).toBe(200);

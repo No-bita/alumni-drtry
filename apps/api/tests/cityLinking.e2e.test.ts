@@ -176,7 +176,7 @@ describe("city linking (integration, local test database only)", () => {
     expect(ok.statusCode, ok.body).toBe(200);
     expect((ok.json() as { city: { linkedMembers: number } }).city.linkedMembers).toBe(1);
     expect((await linkOf(who.p2!)).place_id).toBe(pendingId);
-    expect((await history(pendingId)).find((x) => x.action === "approved")!.detail.linkedMembers).toBe(1);
+    expect((await history(pendingId)).find((x) => x.action === "approved" && x.detail.linkedMembers !== undefined)!.detail.linkedMembers).toBe(1);
 
     // A rejected city: someone who typed it stays unlinked.
     expect((await req("PATCH", "/v1/me/profile", who.r1!, { residenceCity: `Nowhere${R}`, residenceCountry: "India" })).statusCode).toBe(200);
