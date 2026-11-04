@@ -227,14 +227,17 @@ export class ConnectionThreadService {
     assertActivePerson(counterparty);
 
     const counterpartyProfile = await this.personRepo.findProfileById(counterparty.id);
-    const counterpartyDeptCode =
+    const rawDeptCode =
       counterpartyProfile?.departmentCode ??
       counterpartyProfile?.parsedDepartmentCode ??
       counterparty.department_code;
-    const counterpartyDeptName =
+    const rawDeptName =
       counterpartyProfile?.departmentName ??
       counterpartyProfile?.parsedDepartmentName ??
       counterparty.department_name;
+    // "Other" never renders publicly; typed specifications live on the profile page only.
+    const counterpartyDeptCode = rawDeptCode?.toLowerCase() === "other" ? null : rawDeptCode;
+    const counterpartyDeptName = rawDeptCode?.toLowerCase() === "other" ? null : rawDeptName;
     const counterpartyYear =
       counterpartyProfile?.batchYear ??
       counterparty.batch_year ??

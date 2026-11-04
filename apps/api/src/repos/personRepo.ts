@@ -1,4 +1,5 @@
 import type { DbExecutor } from "../db/types.js";
+import { isBhuInstitutionalEmail } from "../lib/domainAllowlist.js";
 import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 
 export type PersonRole = "alumni" | "admin" | "super_admin";
@@ -55,6 +56,11 @@ export interface PersonProfileView {
   fullName: string | null;
   departmentCode: string | null;
   departmentName: string | null;
+  /** Member-entered specification when departmentCode is "other"; never the email guess. */
+  departmentOtherText: string | null;
+  /** Review state of departmentOtherText; "approved" only means it may be shown publicly. */
+  departmentOtherStatus: "pending" | "approved" | "rejected";
+  departmentOtherRejectionReason: string | null;
   parsedDepartmentCode: string | null;
   parsedDepartmentName: string | null;
   batchYear: number | null;
@@ -81,6 +87,9 @@ interface PersonProfileRow {
   full_name: string | null;
   department_code: string | null;
   department_name: string | null;
+  department_other_text: string | null;
+  department_other_status: "pending" | "approved" | "rejected";
+  department_other_rejection_reason: string | null;
   joining_year: number | null;
   batch_year: number | null;
   personal_email: string | null;
@@ -104,6 +113,7 @@ export interface UpdateProfileInput {
   personId: string;
   fullName: string | null;
   departmentId: string | null;
+  departmentOtherText: string | null;
   degreeId: string | null;
   batchYear: number | null;
   personalEmail: string | null;
@@ -115,6 +125,8 @@ export interface UpdateProfileInput {
   profileCompletedAt: Date | null;
   onboardingCompletedAt: Date | null;
   expectedOnboardingCompleted?: boolean;
+  /** Set when the member (re)submitted the typed other-department text: status resets to pending and history is written. */
+  departmentOtherResubmitted?: boolean;
 }
 
 export interface PersonProfileIds {
@@ -251,6 +263,9 @@ export class PersonRepo {
         p.full_name,
         p.department_code,
         p.department_name,
+        p.department_other_text,
+        p.department_other_status,
+        p.department_other_rejection_reason,
         p.joining_year,
         p.batch_year,
         p.personal_email,
@@ -280,6 +295,9 @@ export class PersonRepo {
     if (!row) {
       return null;
     }
+    // people.department_code/department_name/joining_year hold signup-parser output. It is only
+    // meaningful for BHU emails; suppress it elsewhere so stale guesses never surface as identity.
+    const parsedIdentityVisible = isBhuInstitutionalEmail(row.institutional_email);
     return {
       id: row.id,
       institutionalEmail: row.institutional_email,
@@ -287,10 +305,13 @@ export class PersonRepo {
       fullName: row.full_name,
       departmentCode: row.department_vocab_code,
       departmentName: row.department_vocab_name,
-      parsedDepartmentCode: row.department_code,
-      parsedDepartmentName: row.department_name,
+      departmentOtherText: row.department_other_text,
+      departmentOtherStatus: row.department_other_status,
+      departmentOtherRejectionReason: row.department_other_rejection_reason,
+      parsedDepartmentCode: parsedIdentityVisible ? row.department_code : null,
+      parsedDepartmentName: parsedIdentityVisible ? row.department_name : null,
       batchYear: row.batch_year,
-      parsedJoiningYear: row.joining_year,
+      parsedJoiningYear: parsedIdentityVisible ? row.joining_year : null,
       degreeCode: row.degree_vocab_code,
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,
@@ -441,54 +462,70 @@ export class PersonRepo {
 
     const result = await this.db.query<PersonProfileRow>(
       `
-      UPDATE people
-      SET
-        full_name = $2,
-        department_id = $3,
-        degree_id = $4,
-        batch_year = $5,
-        personal_email = $6,
-        bio = $7,
-        mobile_phone = $8,
-        profile_completed_at = $9,
-        onboarding_completed_at = $10,
-        residence_country = $11,
-        residence_city = $12,
-        open_to_preferences = $13
-      WHERE id = $1
-        ${onboardingClause}
-      RETURNING
-        id,
-        institutional_email,
-        role,
-        full_name,
-        department_code,
-        department_name,
-        joining_year,
-        batch_year,
-        personal_email,
-        bio,
-        mobile_phone,
-        residence_country,
-        residence_city,
-        open_to_preferences,
-        profile_completed_at,
-        onboarding_completed_at,
-        app_login_count,
-        created_at,
-        updated_at,
-        (
-          SELECT d.code FROM departments d WHERE d.id = people.department_id
-        ) AS department_vocab_code,
-        (
-          SELECT d.name FROM departments d WHERE d.id = people.department_id
-        ) AS department_vocab_name,
-        (
-          SELECT g.code FROM degrees g WHERE g.id = people.degree_id
-        ) AS degree_vocab_code,
-        (
-          SELECT g.name FROM degrees g WHERE g.id = people.degree_id
-        ) AS degree_vocab_name
+      WITH updated AS (
+        UPDATE people
+        SET
+          full_name = $2,
+          department_id = $3,
+          department_other_text = $14,
+          department_other_status = CASE WHEN $15 THEN 'pending' ELSE department_other_status END,
+          department_other_reviewed_by = CASE WHEN $15 THEN NULL ELSE department_other_reviewed_by END,
+          department_other_reviewed_at = CASE WHEN $15 THEN NULL ELSE department_other_reviewed_at END,
+          department_other_rejection_reason = CASE WHEN $15 THEN NULL ELSE department_other_rejection_reason END,
+          degree_id = $4,
+          batch_year = $5,
+          personal_email = $6,
+          bio = $7,
+          mobile_phone = $8,
+          profile_completed_at = $9,
+          onboarding_completed_at = $10,
+          residence_country = $11,
+          residence_city = $12,
+          open_to_preferences = $13
+        WHERE id = $1
+          ${onboardingClause}
+        RETURNING
+          id,
+          institutional_email,
+          role,
+          full_name,
+          department_code,
+          department_name,
+          department_other_text,
+          department_other_status,
+          department_other_rejection_reason,
+          joining_year,
+          batch_year,
+          personal_email,
+          bio,
+          mobile_phone,
+          residence_country,
+          residence_city,
+          open_to_preferences,
+          profile_completed_at,
+          onboarding_completed_at,
+          app_login_count,
+          created_at,
+          updated_at,
+          (
+            SELECT d.code FROM departments d WHERE d.id = people.department_id
+          ) AS department_vocab_code,
+          (
+            SELECT d.name FROM departments d WHERE d.id = people.department_id
+          ) AS department_vocab_name,
+          (
+            SELECT g.code FROM degrees g WHERE g.id = people.degree_id
+          ) AS degree_vocab_code,
+          (
+            SELECT g.name FROM degrees g WHERE g.id = people.degree_id
+          ) AS degree_vocab_name
+      ),
+      history AS (
+        INSERT INTO department_other_history (person_id, action, submitted_text)
+        SELECT $1, 'submitted', $14 WHERE $15::boolean AND EXISTS (SELECT 1 FROM updated)
+        RETURNING id
+      )
+      SELECT * FROM updated
       `,
       [
         input.personId,
@@ -503,13 +540,18 @@ export class PersonRepo {
         input.onboardingCompletedAt,
         input.residenceCountry,
         input.residenceCity,
-        input.openToPreferences
+        input.openToPreferences,
+        input.departmentOtherText,
+        input.departmentOtherResubmitted === true
       ]
     );
     const row = result.rows[0];
     if (!row) {
       return null;
     }
+    // people.department_code/department_name/joining_year hold signup-parser output. It is only
+    // meaningful for BHU emails; suppress it elsewhere so stale guesses never surface as identity.
+    const parsedIdentityVisible = isBhuInstitutionalEmail(row.institutional_email);
     return {
       id: row.id,
       institutionalEmail: row.institutional_email,
@@ -517,10 +559,13 @@ export class PersonRepo {
       fullName: row.full_name,
       departmentCode: row.department_vocab_code,
       departmentName: row.department_vocab_name,
-      parsedDepartmentCode: row.department_code,
-      parsedDepartmentName: row.department_name,
+      departmentOtherText: row.department_other_text,
+      departmentOtherStatus: row.department_other_status,
+      departmentOtherRejectionReason: row.department_other_rejection_reason,
+      parsedDepartmentCode: parsedIdentityVisible ? row.department_code : null,
+      parsedDepartmentName: parsedIdentityVisible ? row.department_name : null,
       batchYear: row.batch_year,
-      parsedJoiningYear: row.joining_year,
+      parsedJoiningYear: parsedIdentityVisible ? row.joining_year : null,
       degreeCode: row.degree_vocab_code,
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,

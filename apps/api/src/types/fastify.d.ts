@@ -2,6 +2,7 @@ import "fastify";
 import type { AdminMetricsService } from "../services/adminMetricsService.js";
 import type { AdminPeopleService } from "../services/adminPeopleService.js";
 import type { AdminPlacesService } from "../services/adminPlacesService.js";
+import type { DepartmentOtherReviewRepo } from "../repos/departmentOtherReviewRepo.js";
 import type { LocationCleanupService } from "../services/locationCleanupService.js";
 import type { AuthService, SessionActor } from "../services/authService.js";
 import type { CampusMonthlyService } from "../services/campusMonthlyService.js";
@@ -25,6 +26,7 @@ declare module "fastify" {
   interface FastifyInstance {
     adminMetricsService: AdminMetricsService;
     adminPeopleService: AdminPeopleService;
+    departmentOtherReview: DepartmentOtherReviewRepo;
     adminPlacesService: AdminPlacesService;
     locationCleanupService: LocationCleanupService;
     authService: AuthService;

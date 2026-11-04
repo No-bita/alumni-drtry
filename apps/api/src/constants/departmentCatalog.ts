@@ -23,6 +23,7 @@ export const DEPARTMENTS = [
   { code: "mnc", label: "Mathematics and Computing" },
   { code: "dse", label: "Decision Science and Engineering" },
   { code: "hum", label: "Humanities" },
+  { code: "other", label: "Other" },
 ] as const;
 
 export type DepartmentCode = (typeof DEPARTMENTS)[number]["code"];

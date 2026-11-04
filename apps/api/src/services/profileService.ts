@@ -12,6 +12,7 @@ import { PersonRepo, type PersonProfileView } from "../repos/personRepo.js";
 export interface UpdateMyProfileInput {
   fullName?: string;
   departmentCode?: string;
+  departmentOtherText?: string | null;
   batchYear?: number | null;
   degreeCode?: string | null;
   institutionalEmail?: string;
@@ -210,6 +211,36 @@ export class ProfileService {
       nextDepartmentId = currentIds.departmentId;
     }
 
+    // "Other" department requires the member's own specification (1-80 chars plain text).
+    // The text stays editable after onboarding while the department choice itself is frozen.
+    // An empty value is never allowed to silently clear saved text.
+    let nextDepartmentOtherText = current.departmentOtherText;
+    if (input.departmentOtherText !== undefined) {
+      const specified = (input.departmentOtherText ?? "").trim();
+      if (specified.length > 80) {
+        throw new AppError(
+          400,
+          "PROFILE_INVALID_DEPARTMENT_OTHER_TEXT",
+          "Department specification must be 80 characters or fewer."
+        );
+      }
+      if (specified) {
+        nextDepartmentOtherText = specified;
+      } else if ((nextDepartmentCode ?? "").toLowerCase() === "other") {
+        throw new AppError(400, "PROFILE_INVALID_DEPARTMENT_OTHER_TEXT", "Please specify your department.");
+      }
+    }
+    if ((nextDepartmentCode ?? "").toLowerCase() === "other" && !nextDepartmentOtherText) {
+      throw new AppError(400, "PROFILE_INVALID_DEPARTMENT_OTHER_TEXT", "Please specify your department.");
+    }
+
+    // Changing the typed other-department text is a new submission: it goes back to pending
+    // review and is hidden publicly until an admin approves it again.
+    const departmentOtherResubmitted =
+      (nextDepartmentCode ?? "").toLowerCase() === "other" &&
+      nextDepartmentOtherText != null &&
+      nextDepartmentOtherText !== current.departmentOtherText;
+
     if (input.degreeCode !== undefined) {
       if (input.degreeCode === null) {
         nextDegreeId = null;
@@ -308,6 +339,7 @@ export class ProfileService {
         personId,
         fullName: nextFullName,
         departmentId: nextDepartmentId,
+        departmentOtherText: nextDepartmentOtherText,
         degreeId: nextDegreeId,
         batchYear: nextBatchYear,
         personalEmail: nextPersonalEmail,
@@ -318,7 +350,8 @@ export class ProfileService {
         openToPreferences: nextOpenToPreferences,
         profileCompletedAt: nextProfileCompletedAt,
         onboardingCompletedAt: nextOnboardingCompletedAt,
-        expectedOnboardingCompleted: current.onboardingCompletedAt != null
+        expectedOnboardingCompleted: current.onboardingCompletedAt != null,
+        departmentOtherResubmitted
       });
       if (!updated) {
         throw new AppError(

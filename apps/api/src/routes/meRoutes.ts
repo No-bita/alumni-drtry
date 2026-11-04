@@ -54,6 +54,7 @@ const patchProfileSchema = z
   .object({
     fullName: z.string().trim().min(1).max(120).optional(),
     departmentCode: z.string().trim().min(2).max(16).regex(/^[a-zA-Z0-9]+$/).optional(),
+    departmentOtherText: z.string().trim().min(1).max(80).nullable().optional(),
     batchYear: z.union([z.number().int().min(1960).max(maxProfileBatchYear), z.null()]).optional(),
     degreeCode: z.string().trim().min(2).max(24).regex(/^[a-zA-Z0-9_]+$/).nullable().optional(),
     institutionalEmail: z.string().trim().optional(),

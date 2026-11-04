@@ -16,6 +16,7 @@ describe("ProfileService - frozen identity fields guard", () => {
     fullName: "Aaryan Shah",
     departmentCode: "cse",
     departmentName: "Computer Science and Engineering",
+    departmentOtherText: null,
     parsedDepartmentCode: "cse",
     parsedDepartmentName: "Computer Science and Engineering",
     batchYear: 2020,
