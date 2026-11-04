@@ -159,10 +159,12 @@ describe("city linking (integration, local test database only)", () => {
 
   it("approving a pending city links the others who typed it; pending and rejected cities never auto-link", async () => {
     (env as { CITY_REVIEW_ENABLED: boolean }).CITY_REVIEW_ENABLED = true;
-    // r1 types a new city: it becomes pending and r1 is linked to it.
+    // r1 types a new city: it is created approved and r1 is linked to it. The queue mechanics below
+    // still take pending rows, so this one is held pending the way older rows exist.
     expect((await req("PATCH", "/v1/me/profile", who.r1!, { residenceCity: `Kanpurx${R}`, residenceCountry: "India" })).statusCode).toBe(200);
     const pendingId = (await linkOf(who.r1!)).place_id!;
     expect(pendingId).toBeTruthy();
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [pendingId]);
     // p2's same text is from before (unlinked).
     await typed(who.p2!, `KANPURX${R}`, "India");
     // A spelling on a pending city does not link anyone.
@@ -174,11 +176,12 @@ describe("city linking (integration, local test database only)", () => {
     expect(ok.statusCode, ok.body).toBe(200);
     expect((ok.json() as { city: { linkedMembers: number } }).city.linkedMembers).toBe(1);
     expect((await linkOf(who.p2!)).place_id).toBe(pendingId);
-    expect((await history(pendingId)).find((x) => x.action === "approved")!.detail.linkedMembers).toBe(1);
+    expect((await history(pendingId)).find((x) => x.action === "approved" && x.detail.linkedMembers !== undefined)!.detail.linkedMembers).toBe(1);
 
     // A rejected city: someone who typed it stays unlinked.
     expect((await req("PATCH", "/v1/me/profile", who.r1!, { residenceCity: `Nowhere${R}`, residenceCountry: "India" })).statusCode).toBe(200);
     const rejectId = (await linkOf(who.r1!)).place_id!;
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [rejectId]);
     expect((await req("POST", `/v1/admin/cities/${rejectId}/reject`, admin, { reason: "Not a city" })).statusCode).toBe(204);
     await typed(who.p2!, `nowhere${R}`, "India");
     await req("POST", `/v1/admin/locations/places/${rejectId}/spelling-alias`, admin, { spelling: `nwh${R}` });

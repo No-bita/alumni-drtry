@@ -16,6 +16,7 @@ import {
   renameCity,
   type CitySearchHit,
 } from "../lib/adminLocations";
+import { rejectCity } from "../lib/adminCities";
 import { CityPicker } from "./AdminLocationCleanup";
 import "../styles/admin-analytics.css";
 import "../styles/admin-companies.css";
@@ -38,8 +39,11 @@ export function AdminPlaceDetail() {
   const displayName = auth.status === "authenticated" ? auth.myProfile?.fullName?.trim() || undefined : undefined;
   const spellingId = useId();
   const renameId = useId();
+  const hideReasonId = useId();
   const [spelling, setSpelling] = useState("");
   const [rename, setRename] = useState<string | null>(null);
+  const [hiding, setHiding] = useState(false);
+  const [hideReason, setHideReason] = useState("");
   const [picking, setPicking] = useState(false);
   const [target, setTarget] = useState<CitySearchHit | null>(null);
   const [busy, setBusy] = useState(false);
@@ -230,6 +234,59 @@ export function AdminPlaceDetail() {
                       Find the duplicate…
                     </button>
                   </div>
+                )}
+              </section>
+            ) : null}
+
+            {approved ? (
+              <section className="cr-section" aria-labelledby="lc-hide-title">
+                <h2 id="lc-hide-title" className="cr-section__title">
+                  Hide city
+                </h2>
+                {hiding ? (
+                  <form
+                    className="cr-panel"
+                    aria-label={`Hide ${d.place.displayCity}`}
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const reason = hideReason.trim();
+                      if (reason.length < 3 || busy) return;
+                      if (
+                        await act(async () => {
+                          await rejectCity(placeId, reason);
+                          return `Hidden. ${d.linkedProfiles === 1 ? "The linked member stays" : `${d.linkedProfiles} linked members stay`} linked until they change city or the city is restored from the review queue.`;
+                        })
+                      ) {
+                        setHiding(false);
+                        setHideReason("");
+                      }
+                    }}
+                  >
+                    <label htmlFor={hideReasonId} className="cr-panel__label">
+                      Reason
+                    </label>
+                    <input id={hideReasonId} className="cr-search" value={hideReason} minLength={3} maxLength={500} autoComplete="off" onChange={(e) => setHideReason(e.target.value)} />
+                    <p className="cr-panel__note">
+                      Hidden from browse, search and the directory right away. Linked members stay linked and see this reason on their city page. Nothing is deleted; it&apos;s recorded in history and can be restored from the review queue.
+                    </p>
+                    <div className="cr-actions">
+                      <button type="submit" className="cr-btn cr-btn--primary" disabled={busy || hideReason.trim().length < 3}>
+                        {busy ? "Hiding…" : "Hide city"}
+                      </button>
+                      <button type="button" className="cr-btn" disabled={busy} onClick={() => setHiding(false)}>
+                        Back
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <p className="cr-panel__note">For a city that should not be on the platform at all. A duplicate belongs in Combine instead.</p>
+                    <div className="cr-actions">
+                      <button type="button" className="cr-btn" onClick={() => setHiding(true)}>
+                        Hide city…
+                      </button>
+                    </div>
+                  </>
                 )}
               </section>
             ) : null}

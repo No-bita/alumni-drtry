@@ -126,12 +126,14 @@ const envSchema = z.object({
    */
   INTENTCAST_EXPIRY_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
   /**
-   * City review: an unknown typed city becomes a pending city (linked to the member) and the admin
-   * review queue is on. Off: unknown cities stay as typed text and the queue API is 404. Safe combining,
-   * history and hiding non-approved cities apply either way.
+   * Automatic city creation: an unknown typed city becomes an approved city (linked to the member)
+   * and its page exists right away; the admin review queue API is also on for any pending rows.
+   * Off: unknown cities stay as typed text and the queue API is 404. Admin location cleanup is the
+   * fallback for junk or mistyped cities. Safe combining, history and hiding non-approved cities
+   * apply either way.
    */
   CITY_REVIEW_ENABLED: environmentBoolean.default(false),
-  /** Cities v1: canonical place ids with the full city page (comma-separated). Unset → Bengaluru, India by name. */
+  /** City nudge-email eligibility: canonical place ids (comma-separated). Unset → Bengaluru, India by name. Pages no longer read this. */
   CITIES_V1_PLACE_IDS: optionalStringSchema,
   /** Cities v1: chapter group links, JSON {"<placeId>": {"url": "https://…", "label": "…"}}. */
   CITY_CHAPTER_LINKS: optionalStringSchema,
