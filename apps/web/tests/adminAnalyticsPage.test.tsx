@@ -186,3 +186,37 @@ describe("analytics formatting", () => {
     expect(duration(null)).toBe("—");
   });
 });
+
+const citiesMetrics = {
+  windowDays: 30,
+  notes: {
+    overall: { category: "all", sent: 10, accepted: 6, declined: 2, pending: 2, acceptanceRate: 0.75, declineRate: 0.25 },
+    byCategory: [],
+  },
+  arrivals: { promptShown: 5, optedIn: 4, optInRate: 0.8, offers: 6, offersPerArrival: 1.5, withOfferIn7dShare: 0.5, newcomerNotesPerArrival: 1 },
+  coffee: { asksSent: 3, accepted: 1, fullThisWeekImpressions: 2 },
+  cityHelpOnFromPanel: 2,
+  cityUpdatesFromMovedAway: 1,
+  nudge: { sent: 8, visitedIn7d: 3, actedIn7d: 2, stopRate: 0.1 },
+};
+
+describe("Metric help pills", () => {
+  it("renders one i pill per metric box, and pins the definition on click", async () => {
+    apiGet.mockImplementation(async (path: string) =>
+      path.startsWith("/v1/admin/metrics/cities")
+        ? { metrics: citiesMetrics }
+        : { report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) },
+    );
+    mount();
+    expect(await screen.findByText("Cities notes accepted")).toBeTruthy();
+    const pills = screen.getAllByRole("button", { name: /^About this metric: / });
+    expect(pills).toHaveLength(57);
+    const started = screen.getByRole("button", { name: "About this metric: Started onboarding" });
+    fireEvent.click(started);
+    expect(started.getAttribute("aria-expanded")).toBe("true");
+    const bubble = document.getElementById(started.getAttribute("aria-describedby")!) as HTMLElement;
+    expect(bubble.textContent).toContain("onboarding-start event");
+    fireEvent.keyDown(started, { key: "Escape" });
+    expect(started.getAttribute("aria-expanded")).toBe("false");
+  });
+});
