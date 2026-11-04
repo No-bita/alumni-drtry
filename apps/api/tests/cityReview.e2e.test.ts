@@ -119,16 +119,18 @@ describe("city review (integration, local test database only)", () => {
     expect(await placesNamed(`Leedsy${R}`)).toHaveLength(1);
 
     const list = (await req("GET", "/v1/cities", who.sub!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
-    expect(list.viewerCity).toMatchObject({ placeId: link.place_id, status: "pending" });
-    expect(list.cities.some((c) => c.placeId === link.place_id)).toBe(false);
+    expect(list.viewerCity).toMatchObject({ placeId: link.place_id, status: "approved" });
+    expect(list.cities.some((c) => c.placeId === link.place_id)).toBe(true);
     const search = (await req("GET", `/v1/cities/search?q=leedsy${R}`, who.sub!)).json() as { places: unknown[] };
-    expect(search.places).toEqual([]);
+    expect(search.places).toHaveLength(1);
     const agg = (await req("GET", "/v1/directory/residence-cities?limit=120", who.sub!)).json() as { cities: Array<{ city: string }> };
-    expect(agg.cities.some((c) => c.city.toLowerCase() === `leedsy${R}`.toLowerCase())).toBe(false);
+    expect(agg.cities.some((c) => c.city.toLowerCase() === `leedsy${R}`.toLowerCase())).toBe(true);
   });
 
   it("pending page: linked members and admins only; profiles show the typed text", async () => {
+    // Member saves create approved cities now; a pending row is set up the way older ones exist.
     const placeId = (await linkOf(who.sub!)).place_id!;
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [placeId]);
     const mine = await req("GET", `/v1/cities/${placeId}`, who.sub!);
     expect(mine.statusCode).toBe(200);
     expect(mine.json().review).toMatchObject({ status: "pending", rejectionReason: null });
@@ -207,7 +209,7 @@ describe("city review (integration, local test database only)", () => {
     expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin)).statusCode).toBe(204);
     expect(await placeRow(placeId)).toMatchObject({ status: "pending", rejection_reason: null });
     expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin)).json().code).toBe("CITY_NOT_REJECTED");
-    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "rejected", "reopened"]);
+    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "approved", "rejected", "reopened"]);
     const hist = (await req("GET", `/v1/admin/cities/${placeId}/history`, admin)).json().history as Array<{ summary: string }>;
     expect(hist[0]!.summary).toBe(`Reopened «Leedsy${R}» for review.`);
   });
@@ -219,7 +221,7 @@ describe("city review (integration, local test database only)", () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(await placeRow(placeId)).toMatchObject({ status: "approved", city_label: `Leeds Town${R}` });
     expect((await linkOf(who.sub!)).city).toBe(`Leedsy${R}`);
-    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "rejected", "reopened", "renamed", "alias_added", "approved"]);
+    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "approved", "rejected", "reopened", "renamed", "alias_added", "approved"]);
     expect((await req("GET", `/v1/cities/${placeId}`, who.stranger!)).statusCode).toBe(200);
     const list = (await req("GET", "/v1/cities", who.stranger!)).json() as { cities: Array<{ placeId: string }> };
     expect(list.cities.some((c) => c.placeId === placeId)).toBe(true);
@@ -232,6 +234,8 @@ describe("city review (integration, local test database only)", () => {
     on();
     const target = await approvedPlace(`Racetown Proper${R}`);
     const pending = (await placesNamed(`Racetown${R}`))[0]!.id;
+    // Queue actions take pending rows; member saves create approved cities now.
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [pending]);
     expect((await req("POST", `/v1/admin/cities/${pending}/same-as`, admin, { targetPlaceId: pending })).statusCode).toBe(400);
     const res = await req("POST", `/v1/admin/cities/${pending}/same-as`, admin, { targetPlaceId: target });
     expect(res.statusCode, res.body).toBe(200);
@@ -291,6 +295,7 @@ describe("city review (integration, local test database only)", () => {
     on();
     await setCity(who.gone!, `Rollback${R}`);
     const placeId = (await linkOf(who.gone!)).place_id!;
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [placeId]);
     await db.query(`
       CREATE OR REPLACE FUNCTION test_fail_rejected_history() RETURNS trigger AS $$
       BEGIN IF NEW.action = 'rejected' AND NEW.reason = 'fail on purpose' THEN RAISE EXCEPTION 'history write failed'; END IF; RETURN NEW; END;
@@ -321,6 +326,8 @@ describe("city review (integration, local test database only)", () => {
     on();
     await setCity(who.stranger!, `Walltown${R}`);
     const pending = (await linkOf(who.stranger!)).place_id!;
+    // Member saves create approved cities now; hold this one pending to test the gate.
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [pending]);
     const res = await req("POST", "/v1/intentcasts", who.stranger!, {
       content: "Walltown meetup this weekend\nAnyone around for coffee?",
       category: "collaboration",

@@ -6,7 +6,7 @@ import { AppError } from "../lib/errors.js";
 import { maskEmail } from "../repos/organizationRepo.js";
 import { PlaceReviewRepo, type HistoryRow, type ReviewPlaceRow } from "../repos/placeReviewRepo.js";
 
-/** A member may create this many new (pending) cities in CITY_SUBMISSION_WINDOW_DAYS. */
+/** A member may create this many new cities in CITY_SUBMISSION_WINDOW_DAYS. */
 export const CITY_SUBMISSIONS_MAX = 5;
 export const CITY_SUBMISSION_WINDOW_DAYS = 30;
 export const CITY_LABEL_MAX = 120;
@@ -57,7 +57,10 @@ function historyBase(h: Pick<HistoryRow, "action" | "place_city" | "target_city"
   const d = h.detail ?? {};
   switch (h.action) {
     case "submitted":
-      return d.source === "admin" ? `Created «${h.place_city}».` : `«${h.place_city}» was typed by a member and is waiting for review.`;
+      if (d.source === "admin") return `Created «${h.place_city}».`;
+      return d.auto === true
+        ? `«${h.place_city}» was added when a member typed it.`
+        : `«${h.place_city}» was typed by a member and is waiting for review.`;
     case "approved":
       return d.previousLabel && d.previousLabel !== h.place_city
         ? `Approved «${h.place_city}» (typed as «${String(d.previousLabel)}»).`
@@ -102,8 +105,9 @@ function toHistoryView(h: HistoryRow): HistoryView {
 }
 
 /**
- * City review: creating pending cities from what members type, the admin queue, safe combining and the
- * permanent history. Every change and its history row are written in one transaction.
+ * City creation and review: an unknown typed city becomes an approved city right away (when creation
+ * is on), the admin queue handles any pending rows, and combining/history stay permanent. Every change
+ * and its history row are written in one transaction.
  */
 export class PlaceReviewService {
   private readonly reader: PlaceReviewRepo;
@@ -136,8 +140,9 @@ export class PlaceReviewService {
 
   /**
    * The city a member typed, inside the country they picked (no other country). Approved and pending
-   * cities link; a rejected one never links or reopens; nothing found creates a pending city (when
-   * city review is on and the member is under the cap).
+   * cities link; a rejected one never links or reopens; nothing found creates an approved city right
+   * away (when city creation is on and the member is under the cap), so the page exists immediately.
+   * Admin location cleanup is the fallback for junk or mistyped cities.
    */
   async resolveResidence(personId: string, cityRaw: string | null, countryRaw: string | null): Promise<ResidenceResolution> {
     const city = tidyCityLabel(cityRaw ?? "");
@@ -154,15 +159,23 @@ export class PlaceReviewService {
 
     const country = normalizeCountry(countryRaw);
     return this.tx(async (repo) => {
-      const inserted = await repo.insertPending(city.slice(0, CITY_LABEL_MAX), country, personId);
+      const inserted = await repo.insertApproved(city.slice(0, CITY_LABEL_MAX), country, personId);
       if (inserted) {
         await repo.addAlias(inserted.id, inserted.city);
         await repo.insertHistory({
           placeId: inserted.id,
           action: "submitted",
           actorPersonId: personId,
-          detail: { source: "member", typedCity: cityRaw?.trim() ?? city, typedCountry: countryRaw?.trim() ?? country }
+          detail: { source: "member", auto: true, typedCity: cityRaw?.trim() ?? city, typedCountry: countryRaw?.trim() ?? country }
         });
+        await repo.insertHistory({
+          placeId: inserted.id,
+          action: "approved",
+          actorPersonId: personId,
+          detail: { source: "member_auto" }
+        });
+        // Members who typed the same name while creation was off join the new city now.
+        await this.autoLink(repo, inserted.id);
         return { kind: "linked", place: inserted, created: true } as const;
       }
       // Someone else created it a moment ago (or it exists under this exact spelling): same rules.
@@ -181,6 +194,12 @@ export class PlaceReviewService {
     if (!place || place.status !== "approved") return 0;
     const names = [place.city, ...(await repo.aliases(placeId))];
     return repo.linkMatching(placeId, names, countryMatchKeys(place.country));
+  }
+
+  /** Whether this place is an approved city (full city page eligibility). */
+  async approvedById(placeId: string): Promise<boolean> {
+    const place = await this.reader.byId(placeId);
+    return place?.status === "approved";
   }
 
   /** An approved city by name or spelling inside one country (Cities v1 lookup). */

@@ -80,6 +80,9 @@ export function CityAlumniList({
   });
   const data = filter === "batch" ? initial : page.data;
   const items = (data?.items ?? []).slice(0, ALUMNI_PREVIEW);
+  // The resident viewer counts in totalAlumni but is excluded from the list: at most one member
+  // means there is nobody else to list or filter, so the chips and filter-empty note stay hidden.
+  const noOthers = totalAlumni <= 1;
   const searchParams = new URLSearchParams({ residenceCity: place.city });
   if (place.country) searchParams.set("residenceCountry", place.country);
 
@@ -91,19 +94,21 @@ export function CityAlumniList({
         </h2>
         <p className="cities__note">Shared batch, department or company first. Coffee asks only go to people open to them.</p>
       </div>
-      <div className="cities__filters" role="group" aria-label="Filter alumni">
-        {ALUMNI_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className={`cities__chip${filter === f.id ? " cities__chip--on" : ""}`}
-            aria-pressed={filter === f.id}
-            onClick={() => setFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {!noOthers ? (
+        <div className="cities__filters" role="group" aria-label="Filter alumni">
+          {ALUMNI_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`cities__chip${filter === f.id ? " cities__chip--on" : ""}`}
+              aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {filter !== "batch" && page.isPending ? (
         <p className="cities__note" role="status">
           Loading…
@@ -116,7 +121,9 @@ export function CityAlumniList({
           </button>
         </p>
       ) : items.length === 0 ? (
-        <p className="cities__empty">Nobody here matches this filter yet. Try another.</p>
+        <p className="cities__empty">
+          {noOthers ? "No other alumni here yet." : "Nobody here matches this filter yet. Try another."}
+        </p>
       ) : (
         <ul className="cities__list">
           {items.map((a) => (

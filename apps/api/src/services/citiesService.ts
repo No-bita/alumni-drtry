@@ -183,13 +183,14 @@ export class CitiesService implements ResidenceSync {
   }
 
   /* ------------------------------------------------------------------ */
-  /* Which cities have the full v1 page                                  */
+  /* Which cities get city nudge emails                                  */
   /* ------------------------------------------------------------------ */
 
   /**
-   * CITIES_V1_PLACE_IDS, or Bengaluru (India) looked up when unset: approved only, by name or spelling
-   * ("Bangalore"), inside India under the same country rules members use. A found city is cached for
-   * 10 minutes; "not found" only for 30 seconds, so a newly added Bengaluru switches Cities v1 on quickly.
+   * Nudge-email eligibility list: CITIES_V1_PLACE_IDS, or Bengaluru (India) looked up when unset,
+   * approved only, by name or spelling ("Bangalore"), inside India under the same country rules members
+   * use. A found city is cached for 10 minutes; "not found" only for 30 seconds. Page eligibility no
+   * longer reads this list: every approved city gets the full page (isV1).
    */
   async v1PlaceIds(): Promise<string[]> {
     if (this.v1Cache && Date.now() - this.v1Cache.at < (this.v1Cache.ids.length > 0 ? V1_CACHE_MS : V1_EMPTY_CACHE_MS)) {
@@ -214,7 +215,9 @@ export class CitiesService implements ResidenceSync {
   }
 
   async isV1(placeId: string): Promise<boolean> {
-    return (await this.v1PlaceIds()).includes(placeId);
+    // Every approved city gets the full city page. The configured id list below now gates
+    // city nudge-email eligibility only (sendNudges), never page content.
+    return this.placeReview.approvedById(placeId);
   }
 
   /* ------------------------------------------------------------------ */
