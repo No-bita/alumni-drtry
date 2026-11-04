@@ -705,6 +705,9 @@ export function Profile() {
                     <Link to="/admin/cities" className="nav__profile-edit nav__profile-edit--ghost">
                       City review
                     </Link>
+                    <Link to="/admin/locations" className="nav__profile-edit nav__profile-edit--ghost">
+                      Location cleanup
+                    </Link>
                   </div>
                 </div>
                   <div className="profile-page__analytics-grid">

@@ -386,15 +386,16 @@ export function Search() {
               keywordFieldLabel="Alumni directory keyword — prefix with @ and a city to open its hub, or enter any search terms"
               keywordMaxLength={DIRECTORY_KEYWORD_MAX_LENGTH}
               afterFilters={
-                <button
-                  type="button"
-                  className="directory-search-bar__inline-action"
-                  aria-label="Reset directory filters"
-                  onClick={clearAllFilters}
-                  disabled={!canClear}
-                >
-                  Clear all filters
-                </button>
+                filterCount > 0 ? (
+                  <button
+                    type="button"
+                    className="directory-search-bar__inline-action"
+                    aria-label="Reset directory filters"
+                    onClick={clearAllFilters}
+                  >
+                    Clear all filters
+                  </button>
+                ) : undefined
               }
             />
           </section>

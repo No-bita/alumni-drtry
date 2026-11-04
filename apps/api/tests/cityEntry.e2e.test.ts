@@ -82,11 +82,11 @@ describe("city entry: typed text is kept in every outcome (integration, local te
     expect(l.viewerResidence).toEqual({ city: `Off Town ${R}`, country: "India" });
   });
 
-  it("switch on: an unfamiliar city links to a pending city; the typed text is kept", async () => {
+  it("switch on: an unfamiliar city becomes an approved city and links; the typed text is kept", async () => {
     setFlag(true);
     await save(who.fresh!, `Fresh Town ${R}`);
     const l = await list(who.fresh!);
-    expect(l.viewerCity?.status).toBe("pending");
+    expect(l.viewerCity?.status).toBe("approved");
     expect(l.viewerResidence).toEqual({ city: `Fresh Town ${R}`, country: "India" });
   });
 
@@ -105,8 +105,9 @@ describe("city entry: typed text is kept in every outcome (integration, local te
     setFlag(true);
     await save(who.first!, `Nope Town ${R}`);
     const placeId = (await list(who.first!)).viewerCity!.placeId;
-    const rej = await req("POST", `/v1/admin/cities/${placeId}/reject`, admin, { reason: "Not a city" });
-    expect(rej.statusCode, rej.body).toBeLessThan(300);
+    // An auto-created city is approved, so the queue's pending-only reject no longer applies to it;
+    // an admin's cleanup decision lands directly on the row instead.
+    await db.query(`UPDATE canonical_places SET status = 'rejected', rejection_reason = 'Not a city' WHERE id = $1`, [placeId]);
     await save(who.retyper!, `Nope Town ${R}`);
     const l = await list(who.retyper!);
     expect(l.viewerCity).toBeNull();

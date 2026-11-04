@@ -321,37 +321,38 @@ input[type="reset"]:not(:disabled) {
   width: var(--chrome-min-touch-target);
   height: var(--chrome-min-touch-target);
   border-radius: 999px;
-  border: 1px solid rgba(26, 20, 15, 0.1);
+  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.86);
+  background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
   font: inherit;
 }
 
 .nav__notif-icon {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
   stroke-width: 2;
 }
 
 .nav__notif-link--active {
   color: var(--ink);
-  border-color: rgba(197, 160, 89, 0.55);
+  border-color: transparent;
 }
 
 .nav__count-badge--nav {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 1rem;
-  height: 1rem;
-  font-size: 9px;
-  padding: 0 3px;
+  top: 8px;
+  right: 10px;
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
 }
 
 .nav__profile-edit {
@@ -701,6 +702,11 @@ input[type="reset"]:not(:disabled) {
 .nav-app-toolbar--search-lead .nav__notif-link--active {
   border-color: transparent;
   background: transparent;
+}
+
+/* Keyboard focus gets a visible ring on every screen (the shell itself is transparent). */
+.nav__notif-link:focus-visible {
+  border-color: var(--brick);
 }
 
 /* Home top bar (approved follow-up): unread indicator is a plain dot, no count. */
@@ -1413,6 +1419,17 @@ textarea {
   text-decoration: underline;
   text-underline-offset: 3px;
   white-space: nowrap;
+}
+
+/* Same look; invisible ::after gives a 44px-tall tap area. */
+.directory-search-bar__inline-action {
+  position: relative;
+}
+
+.directory-search-bar__inline-action::after {
+  content: "";
+  position: absolute;
+  inset: -15px -4px;
 }
 
 .directory-search-bar__inline-action:hover:not(:disabled) {
@@ -3066,9 +3083,8 @@ textarea {
 .career-feed-rows__row {
   padding: clamp(20px, 2.4vw, 28px) clamp(18px, 2.2vw, 28px);
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border: 1px solid #dccfbc;
   background: #fff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
@@ -10754,6 +10770,17 @@ button.career-referrals-v3__matching-pill--editable:active {
   cursor: pointer;
 }
 
+/* Keeps the 37px look; the invisible ::after brings the tap area to 44px+. */
+.notifications-page__back {
+  position: relative;
+}
+
+.notifications-page__back::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+}
+
 .notifications-page__back:hover {
   color: var(--ochre);
 }
@@ -17285,7 +17312,7 @@ button.home-ideal__quick-action-card {
 }
 
 .home-ideal__opportunities {
-  border: 1px solid var(--home-ideal-warm-rule-strong);
+  border: 1px solid #dccfbc;
   background: transparent;
   border-radius: 14px;
   padding: 14px;
@@ -18001,7 +18028,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 .home-ideal__panel {
-  border: 1px solid var(--home-ideal-warm-rule-strong);
+  border: 1px solid #dccfbc;
   border-radius: 16px;
   background: transparent;
   padding: 14px;
@@ -18012,7 +18039,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 
 .home-ideal__panel-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1.22;
   font-family: var(--font-display);
   letter-spacing: -0.02em;
@@ -18097,6 +18124,16 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   background: var(--home-ideal-warm-paper-input);
   color: var(--ink);
   border: 1px solid var(--home-ideal-warm-rule);
+}
+
+@media (max-width: 380px) {
+  .home-ideal__panel-actions {
+    flex-wrap: wrap;
+  }
+
+  .home-ideal__panel-actions .btn {
+    flex-basis: 100%;
+  }
 }
 
 .home-ideal__campus-card {
@@ -20683,7 +20720,7 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 /* One button primitive on Home: filled, medium radius, no sharp corners. */
 .home-dashboard--ideal .btn {
   border-radius: var(--home-radius-md);
-  min-height: 40px;
+  min-height: var(--chrome-min-touch-target);
   padding: 0 var(--home-space-3);
   font-family: var(--font-body);
 }

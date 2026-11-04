@@ -19,21 +19,24 @@ export class AdminPlacesService {
     this.review = new PlaceReviewService(pool, invalidateResidenceCaches);
   }
 
-  async createPlace(country: string, cityLabel: string, actorPersonId: string | null = null) {
-    const row = await this.review.createApproved(actorPersonId, country, cityLabel);
-    return { id: row.id, country: row.country, city_label: row.city };
+  /** Create an approved city (plus optional spellings); members who typed it are linked in the same step. */
+  async createPlace(country: string, cityLabel: string, actorPersonId: string | null = null, spellings: string[] = []) {
+    const { place, linkedMembers } = await this.review.createApproved(actorPersonId, country, cityLabel, spellings);
+    return { id: place.id, country: place.country, city_label: place.city, linkedMembers };
   }
 
-  async addAlias(canonicalPlaceId: string, aliasRaw: string, actorPersonId: string | null = null) {
-    const added = await this.review.addAlias(actorPersonId, canonicalPlaceId, aliasRaw);
+  /** A spelling for a city; members who typed it are linked when the city is approved. */
+  async addAlias(canonicalPlaceId: string, aliasRaw: string, actorPersonId: string | null = null): Promise<{ linkedMembers: number }> {
+    const { added, linkedMembers } = await this.review.addAlias(actorPersonId, canonicalPlaceId, aliasRaw);
     if (!added) {
       throw new AppError(409, "PLACE_ALIAS_DUPLICATE", "This alias already exists for this canonical place.");
     }
+    return { linkedMembers };
   }
 
   async renameCityLabel(canonicalPlaceId: string, cityLabel: string, actorPersonId: string | null = null) {
     const row = await this.review.rename(actorPersonId, canonicalPlaceId, cityLabel);
-    return { id: row.id, country: row.country, city_label: row.city };
+    return { id: row.id, country: row.country, city_label: row.city, linkedMembers: row.linkedMembers };
   }
 
   /** Safe merge: the loser becomes a redirect to the winner; nothing is deleted. */

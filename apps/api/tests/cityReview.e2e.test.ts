@@ -76,7 +76,7 @@ describe("city review (integration, local test database only)", () => {
     };
     admin = await person("admin", "Admin");
     await db.query(`UPDATE people SET role = 'admin' WHERE id = $1`, [admin.personId]);
-    for (const k of ["sub", "join", "stranger", "late", "racer1", "racer2", "capper", "usa", "gone", "mover"]) await person(k, k);
+    for (const k of ["sub", "join", "stranger", "late", "racer1", "racer2", "capper", "usa", "gone", "mover", "junker", "waiter"]) await person(k, k);
   });
 
   afterEach(() => {
@@ -103,15 +103,20 @@ describe("city review (integration, local test database only)", () => {
     expect((await req("GET", "/v1/admin/cities/review", admin)).statusCode).toBe(404);
   });
 
-  it("switch on: an unknown city becomes pending, linked, with a 'submitted' history row; hidden from browse and search", async () => {
+  it("switch on: an unknown city becomes approved, linked, with submitted+approved history rows; visible in browse and search", async () => {
     on();
     expect((await setCity(who.sub!, `  Leedsy${R} `)).statusCode).toBe(200);
     const link = await linkOf(who.sub!);
     expect(link.place_id).toBeTruthy();
-    expect(await placeRow(link.place_id!)).toMatchObject({ status: "pending", city_label: `Leedsy${R}`, country: "India" });
+    expect(await placeRow(link.place_id!)).toMatchObject({ status: "approved", city_label: `Leedsy${R}`, country: "India" });
     const h = await history(link.place_id!);
-    expect(h).toEqual([expect.objectContaining({ action: "submitted", actor_person_id: who.sub!.personId })]);
+    expect(h).toEqual([
+      expect.objectContaining({ action: "submitted", actor_person_id: who.sub!.personId }),
+      expect.objectContaining({ action: "approved", actor_person_id: who.sub!.personId })
+    ]);
     expect(h[0]!.detail.source).toBe("member");
+    expect(h[0]!.detail.auto).toBe(true);
+    expect(h[1]!.detail.source).toBe("member_auto");
 
     // A second member typing the same city joins it (no new city).
     expect((await setCity(who.join!, `leedsy${R}`)).statusCode).toBe(200);
@@ -119,16 +124,18 @@ describe("city review (integration, local test database only)", () => {
     expect(await placesNamed(`Leedsy${R}`)).toHaveLength(1);
 
     const list = (await req("GET", "/v1/cities", who.sub!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
-    expect(list.viewerCity).toMatchObject({ placeId: link.place_id, status: "pending" });
-    expect(list.cities.some((c) => c.placeId === link.place_id)).toBe(false);
+    expect(list.viewerCity).toMatchObject({ placeId: link.place_id, status: "approved" });
+    expect(list.cities.some((c) => c.placeId === link.place_id)).toBe(true);
     const search = (await req("GET", `/v1/cities/search?q=leedsy${R}`, who.sub!)).json() as { places: unknown[] };
-    expect(search.places).toEqual([]);
+    expect(search.places).toHaveLength(1);
     const agg = (await req("GET", "/v1/directory/residence-cities?limit=120", who.sub!)).json() as { cities: Array<{ city: string }> };
-    expect(agg.cities.some((c) => c.city.toLowerCase() === `leedsy${R}`.toLowerCase())).toBe(false);
+    expect(agg.cities.some((c) => c.city.toLowerCase() === `leedsy${R}`.toLowerCase())).toBe(true);
   });
 
   it("pending page: linked members and admins only; profiles show the typed text", async () => {
+    // Member saves create approved cities now; a pending row is set up the way older ones exist.
     const placeId = (await linkOf(who.sub!)).place_id!;
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [placeId]);
     const mine = await req("GET", `/v1/cities/${placeId}`, who.sub!);
     expect(mine.statusCode).toBe(200);
     expect(mine.json().review).toMatchObject({ status: "pending", rejectionReason: null });
@@ -201,13 +208,58 @@ describe("city review (integration, local test database only)", () => {
     expect((await queue("rejected")).some((c) => c.id === placeId)).toBe(true);
   });
 
+  it("hide: an approved city can be hidden with a reason; members stay linked; restoring re-links waiting typers", async () => {
+    on();
+    expect((await setCity(who.junker!, `Junk${R}`)).statusCode).toBe(200);
+    const placeId = (await linkOf(who.junker!)).place_id!;
+    expect((await placeRow(placeId)).status).toBe("approved");
+
+    const hide = await req("POST", `/v1/admin/cities/${placeId}/reject`, admin, { reason: "Not a real place" });
+    expect(hide.statusCode).toBe(204);
+    expect(await placeRow(placeId)).toMatchObject({ status: "rejected", rejection_reason: "Not a real place" });
+
+    // The member stays linked; their own list shows the city as rejected, and it leaves every approved-only surface.
+    expect((await linkOf(who.junker!)).place_id).toBe(placeId);
+    const list = (await req("GET", "/v1/cities", who.junker!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
+    expect(list.viewerCity).toMatchObject({ placeId, status: "rejected" });
+    expect(list.cities.some((c) => c.placeId === placeId)).toBe(false);
+    const search = (await req("GET", `/v1/cities/search?q=junk${R}`, who.junker!)).json() as { places: unknown[] };
+    expect(search.places).toHaveLength(0);
+    const agg = (await req("GET", `/v1/directory/residence-cities?limit=120`, who.junker!)).json() as { cities: Array<{ city: string }> };
+    expect(agg.cities.some((c) => c.city.toLowerCase() === `junk${R}`.toLowerCase())).toBe(false);
+
+    // The member sees the reason on the city page; outsiders get 404.
+    const mine = await req("GET", `/v1/cities/${placeId}`, who.junker!);
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().review).toMatchObject({ status: "rejected", rejectionReason: "Not a real place" });
+    expect((await req("GET", `/v1/cities/${placeId}`, who.stranger!)).statusCode).toBe(404);
+
+    // While hidden, someone typing the same name stays unlinked (rejected never re-links).
+    expect((await setCity(who.waiter!, `junk${R}`)).statusCode).toBe(200);
+    expect((await linkOf(who.waiter!)).place_id).toBeNull();
+
+    // History records the hide with the previous status; hiding again conflicts.
+    const h = await history(placeId);
+    expect(h[h.length - 1]).toMatchObject({ action: "rejected", actor_person_id: admin.personId, reason: "Not a real place" });
+    expect(h[h.length - 1]!.detail.previousStatus).toBe("approved");
+    expect((await req("POST", `/v1/admin/cities/${placeId}/reject`, admin, { reason: "Twice" })).statusCode).toBe(409);
+
+    // Restore: reopen puts it back in the queue; approving re-links the waiting typer automatically.
+    expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin, {})).statusCode).toBe(204);
+    const ok = await req("POST", `/v1/admin/cities/${placeId}/approve`, admin, {});
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await placeRow(placeId)).status).toBe("approved");
+    expect((await linkOf(who.junker!)).place_id).toBe(placeId);
+    expect((await linkOf(who.waiter!)).place_id).toBe(placeId);
+  });
+
   it("reopen puts a rejected city back in the queue; history records each step", async () => {
     on();
     const placeId = (await linkOf(who.sub!)).place_id!;
     expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin)).statusCode).toBe(204);
     expect(await placeRow(placeId)).toMatchObject({ status: "pending", rejection_reason: null });
     expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin)).json().code).toBe("CITY_NOT_REJECTED");
-    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "rejected", "reopened"]);
+    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "approved", "rejected", "reopened"]);
     const hist = (await req("GET", `/v1/admin/cities/${placeId}/history`, admin)).json().history as Array<{ summary: string }>;
     expect(hist[0]!.summary).toBe(`Reopened «Leedsy${R}» for review.`);
   });
@@ -219,7 +271,7 @@ describe("city review (integration, local test database only)", () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(await placeRow(placeId)).toMatchObject({ status: "approved", city_label: `Leeds Town${R}` });
     expect((await linkOf(who.sub!)).city).toBe(`Leedsy${R}`);
-    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "rejected", "reopened", "renamed", "alias_added", "approved"]);
+    expect((await history(placeId)).map((x) => x.action)).toEqual(["submitted", "approved", "rejected", "reopened", "renamed", "alias_added", "approved"]);
     expect((await req("GET", `/v1/cities/${placeId}`, who.stranger!)).statusCode).toBe(200);
     const list = (await req("GET", "/v1/cities", who.stranger!)).json() as { cities: Array<{ placeId: string }> };
     expect(list.cities.some((c) => c.placeId === placeId)).toBe(true);
@@ -232,6 +284,8 @@ describe("city review (integration, local test database only)", () => {
     on();
     const target = await approvedPlace(`Racetown Proper${R}`);
     const pending = (await placesNamed(`Racetown${R}`))[0]!.id;
+    // Queue actions take pending rows; member saves create approved cities now.
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [pending]);
     expect((await req("POST", `/v1/admin/cities/${pending}/same-as`, admin, { targetPlaceId: pending })).statusCode).toBe(400);
     const res = await req("POST", `/v1/admin/cities/${pending}/same-as`, admin, { targetPlaceId: target });
     expect(res.statusCode, res.body).toBe(200);
@@ -291,6 +345,7 @@ describe("city review (integration, local test database only)", () => {
     on();
     await setCity(who.gone!, `Rollback${R}`);
     const placeId = (await linkOf(who.gone!)).place_id!;
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [placeId]);
     await db.query(`
       CREATE OR REPLACE FUNCTION test_fail_rejected_history() RETURNS trigger AS $$
       BEGIN IF NEW.action = 'rejected' AND NEW.reason = 'fail on purpose' THEN RAISE EXCEPTION 'history write failed'; END IF; RETURN NEW; END;
@@ -321,6 +376,8 @@ describe("city review (integration, local test database only)", () => {
     on();
     await setCity(who.stranger!, `Walltown${R}`);
     const pending = (await linkOf(who.stranger!)).place_id!;
+    // Member saves create approved cities now; hold this one pending to test the gate.
+    await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [pending]);
     const res = await req("POST", "/v1/intentcasts", who.stranger!, {
       content: "Walltown meetup this weekend\nAnyone around for coffee?",
       category: "collaboration",

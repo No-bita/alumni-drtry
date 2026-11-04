@@ -67,6 +67,22 @@ export class LocationCleanupRepo {
     );
   }
 
+  /** Approved cities with how many members are linked to each (any profile state), most linked first. */
+  async listApprovedCities(limit: number): Promise<Array<{ id: string; city: string; country: string; linked_members: number }>> {
+    const r = await this.pool.query<{ id: string; city: string; country: string; linked_members: number }>(
+      `
+      SELECT cp.id, trim(cp.city_label) AS city, trim(cp.country) AS country,
+             (SELECT COUNT(*)::int FROM people p WHERE p.residence_canonical_place_id = cp.id AND p.deleted_at IS NULL) AS linked_members
+      FROM canonical_places cp
+      WHERE cp.status = 'approved'
+      ORDER BY linked_members DESC, lower(trim(cp.city_label)), cp.id
+      LIMIT $1::int
+      `,
+      [limit]
+    );
+    return r.rows;
+  }
+
   async countDirectoryEligibleForCanonical(canonicalPlaceId: string): Promise<number> {
     const r = await this.pool.query<{ c: string }>(
       `
@@ -162,11 +178,9 @@ export class LocationCleanupRepo {
           COUNT(*)::int AS profiles,
           MAX(updated_at) AS last_seen
         FROM people p
+        -- Everyone not deleted, the same people auto-linking and profile saves link (not only directory-listed).
         WHERE p.residence_canonical_place_id IS NULL
           AND p.deleted_at IS NULL
-          AND p.suspended_at IS NULL
-          AND p.full_name IS NOT NULL
-          AND p.profile_completed_at IS NOT NULL
           AND residence_city IS NOT NULL
           AND trim(residence_city) <> ''
           AND residence_country IS NOT NULL

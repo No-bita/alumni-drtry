@@ -315,11 +315,6 @@
   color: inherit;
 }
 
-.search-result-row .avatar {
-  background: var(--search-result-brand-fill);
-  color: var(--cream);
-}
-
 .search-result-row .avatar.avatar--sm {
   width: 54px;
   height: 54px;
@@ -357,8 +352,9 @@
 
 .search-result-row__top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   min-width: 0;
 }
 
@@ -366,7 +362,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  flex: 1 1 0;
+  flex: 1 0 auto;
   min-width: 0;
 }
 
@@ -376,9 +372,9 @@
   font-weight: 500;
   line-height: 1.2;
   color: #221a15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 
@@ -386,9 +382,9 @@
   font-size: 13px;
   line-height: 1.5;
   color: #5e544a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .search-result-row__meta--role {
