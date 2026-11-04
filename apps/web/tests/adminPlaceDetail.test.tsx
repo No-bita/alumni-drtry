@@ -90,6 +90,32 @@ describe("Location cleanup: one city", () => {
     expect(await screen.findByText("Combined Bangalore into Bengaluru. Linked 2 members.")).toBeTruthy();
   });
 
+  it("hide: needs a reason, states what happens, then hides", async () => {
+    apiPost.mockResolvedValue({ data: {} });
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Hide city…" }));
+    const form = screen.getByRole("form", { name: "Hide Bengaluru" });
+    expect(form.textContent).toContain("Nothing is deleted");
+    expect(form.textContent).toContain("restored from the review queue");
+    const confirm = within(form).getByRole("button", { name: "Hide city" }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(form).getByLabelText("Reason"), { target: { value: "Not a real place" } });
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/admin/cities/b1/reject", { reason: "Not a real place" }));
+    expect(await screen.findByText(/Hidden\. 50 linked members stay linked/)).toBeTruthy();
+  });
+
+  it("a hidden (rejected) city has no Hide action", async () => {
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/admin/locations/places/b1") return { data: { ...detail, place: { ...detail.place, status: "rejected" } } };
+      return { error: { code: "UNKNOWN" } };
+    });
+    mount();
+    expect(await screen.findByText(/Rejected · 50 members/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Hide city…" })).toBeNull();
+  });
+
   it("non-admins don't load anything", () => {
     authState.value = { ...admin, person: { personId: "p2", role: "alumni" } };
     mount();

@@ -302,9 +302,13 @@ export class PlaceReviewService {
     await this.tx(async (repo) => {
       const place = (await repo.lock([placeId])).get(placeId);
       if (!place) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
-      if (place.status !== "pending") throw new AppError(409, "CITY_NOT_PENDING", "This city isn't waiting for review any more.");
+      // Pending queue reject, and "hide" for an approved city that should not exist (junk): same
+      // mechanics - members stay linked, the city leaves every approved-only surface, reopen restores.
+      if (place.status !== "pending" && place.status !== "approved") {
+        throw new AppError(409, "CITY_NOT_PENDING", "This city isn't waiting for review any more.");
+      }
       await repo.setStatus(placeId, { status: "rejected", reviewerId: actorId, reason });
-      await repo.insertHistory({ placeId, action: "rejected", actorPersonId: actorId, reason });
+      await repo.insertHistory({ placeId, action: "rejected", actorPersonId: actorId, reason, detail: { previousStatus: place.status } });
     });
     this.invalidateCaches();
   }

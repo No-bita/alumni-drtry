@@ -76,7 +76,7 @@ describe("city review (integration, local test database only)", () => {
     };
     admin = await person("admin", "Admin");
     await db.query(`UPDATE people SET role = 'admin' WHERE id = $1`, [admin.personId]);
-    for (const k of ["sub", "join", "stranger", "late", "racer1", "racer2", "capper", "usa", "gone", "mover"]) await person(k, k);
+    for (const k of ["sub", "join", "stranger", "late", "racer1", "racer2", "capper", "usa", "gone", "mover", "junker", "waiter"]) await person(k, k);
   });
 
   afterEach(() => {
@@ -206,6 +206,51 @@ describe("city review (integration, local test database only)", () => {
     expect((await placeRow(placeId)).status).toBe("rejected");
     expect(await placesNamed(`Leedsy${R}`)).toHaveLength(1);
     expect((await queue("rejected")).some((c) => c.id === placeId)).toBe(true);
+  });
+
+  it("hide: an approved city can be hidden with a reason; members stay linked; restoring re-links waiting typers", async () => {
+    on();
+    expect((await setCity(who.junker!, `Junk${R}`)).statusCode).toBe(200);
+    const placeId = (await linkOf(who.junker!)).place_id!;
+    expect((await placeRow(placeId)).status).toBe("approved");
+
+    const hide = await req("POST", `/v1/admin/cities/${placeId}/reject`, admin, { reason: "Not a real place" });
+    expect(hide.statusCode).toBe(204);
+    expect(await placeRow(placeId)).toMatchObject({ status: "rejected", rejection_reason: "Not a real place" });
+
+    // The member stays linked; their own list shows the city as rejected, and it leaves every approved-only surface.
+    expect((await linkOf(who.junker!)).place_id).toBe(placeId);
+    const list = (await req("GET", "/v1/cities", who.junker!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
+    expect(list.viewerCity).toMatchObject({ placeId, status: "rejected" });
+    expect(list.cities.some((c) => c.placeId === placeId)).toBe(false);
+    const search = (await req("GET", `/v1/cities/search?q=junk${R}`, who.junker!)).json() as { places: unknown[] };
+    expect(search.places).toHaveLength(0);
+    const agg = (await req("GET", `/v1/directory/residence-cities?limit=120`, who.junker!)).json() as { cities: Array<{ city: string }> };
+    expect(agg.cities.some((c) => c.city.toLowerCase() === `junk${R}`.toLowerCase())).toBe(false);
+
+    // The member sees the reason on the city page; outsiders get 404.
+    const mine = await req("GET", `/v1/cities/${placeId}`, who.junker!);
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().review).toMatchObject({ status: "rejected", rejectionReason: "Not a real place" });
+    expect((await req("GET", `/v1/cities/${placeId}`, who.stranger!)).statusCode).toBe(404);
+
+    // While hidden, someone typing the same name stays unlinked (rejected never re-links).
+    expect((await setCity(who.waiter!, `junk${R}`)).statusCode).toBe(200);
+    expect((await linkOf(who.waiter!)).place_id).toBeNull();
+
+    // History records the hide with the previous status; hiding again conflicts.
+    const h = await history(placeId);
+    expect(h[h.length - 1]).toMatchObject({ action: "rejected", actor_person_id: admin.personId, reason: "Not a real place" });
+    expect(h[h.length - 1]!.detail.previousStatus).toBe("approved");
+    expect((await req("POST", `/v1/admin/cities/${placeId}/reject`, admin, { reason: "Twice" })).statusCode).toBe(409);
+
+    // Restore: reopen puts it back in the queue; approving re-links the waiting typer automatically.
+    expect((await req("POST", `/v1/admin/cities/${placeId}/reopen`, admin, {})).statusCode).toBe(204);
+    const ok = await req("POST", `/v1/admin/cities/${placeId}/approve`, admin, {});
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await placeRow(placeId)).status).toBe("approved");
+    expect((await linkOf(who.junker!)).place_id).toBe(placeId);
+    expect((await linkOf(who.waiter!)).place_id).toBe(placeId);
   });
 
   it("reopen puts a rejected city back in the queue; history records each step", async () => {
