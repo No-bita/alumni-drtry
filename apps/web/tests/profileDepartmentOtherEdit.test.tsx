@@ -44,7 +44,7 @@ const h = vi.hoisted(() => {
     },
   };
 });
-const { apiGet, apiPatch, publicProfile, authState } = h;
+const { apiGet, apiPatch, publicProfile } = h;
 
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => h.authState.value }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: h.apiGet }));

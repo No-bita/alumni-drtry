@@ -407,6 +407,7 @@ export function Profile() {
     if (patched?.arrivalPrompt) setArrivalPrompt(patched.arrivalPrompt);
   }, [
     data,
+    draftDepartmentOtherText,
     draftPersonalEmail,
     draftMobilePhone,
     draftResidenceCountry,
