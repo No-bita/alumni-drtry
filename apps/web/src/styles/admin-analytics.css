@@ -130,6 +130,10 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .aa-tile__value {
@@ -368,4 +372,101 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+/* Metric help "i" pill: sits beside the value; hover/focus previews, click/tap pins, Escape closes. */
+.aa-info {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.aa-info__btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--ink-soft);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.aa-info__btn:hover,
+.aa-info__btn:focus-visible {
+  opacity: 1;
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.aa-info__bubble {
+  display: none;
+  position: absolute;
+  z-index: 220;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(300px, 78vw);
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(64, 43, 32, 0.18);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink);
+  text-align: left;
+  white-space: pre-line;
+}
+
+.aa-info:hover .aa-info__bubble,
+.aa-info:focus-within .aa-info__bubble,
+.aa-info--pinned .aa-info__bubble {
+  display: block;
+}
+
+@media (max-width: 639px) {
+  /* Phone: explanations open below their tile, spanning the full section width. */
+  .aa-tile {
+    position: relative;
+  }
+
+  .aa-info {
+    position: static;
+  }
+
+  .aa-info__bubble {
+    top: calc(100% + 6px);
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
+    max-width: none;
+  }
+
+  /* While an explanation is pinned, keep its tail clear of the floating dock. */
+  .aa-page:has(.aa-info--pinned) {
+    padding-bottom: calc(var(--nav-bottom-dock-height) + var(--space-lg) + 75vh);
+  }
+}
+
+@media (min-width: 340px) and (max-width: 639px) {
+  /* Two tile columns: stretch the bubble across both, flush with the grid edges. */
+  .aa-tiles > .aa-tile:nth-child(odd) .aa-info__bubble {
+    left: 0;
+    right: calc(-100% - 10px);
+  }
+
+  .aa-tiles > .aa-tile:nth-child(even) .aa-info__bubble {
+    left: calc(-100% - 10px);
+    right: 0;
+  }
 }

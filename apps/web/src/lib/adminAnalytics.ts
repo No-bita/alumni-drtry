@@ -46,7 +46,10 @@ export interface AnalyticsReport {
     failedRejected: number;
     failedUnreachable: number;
     superseded: number;
-    sessionsByMethod: Record<string, number>;
+    /** Distinct members who signed in with each method in the window; a multi-method member counts once per row. */
+    membersByMethod: Record<string, number>;
+    /** Distinct members who signed in at all in the window, counted once across every method. */
+    uniqueMembers: number;
     newMembers: number;
     trendNewMembers: WeeklyPoint[];
   };

@@ -55,7 +55,10 @@ export interface AnalyticsReport {
     failedRejected: number;
     failedUnreachable: number;
     superseded: number;
-    sessionsByMethod: Record<string, number>;
+    /** Distinct members who signed in with each method in the window. A member using several methods counts once in each row. */
+    membersByMethod: Record<string, number>;
+    /** Distinct members who signed in at all in the window: each member counts once, across every method. */
+    uniqueMembers: number;
     newMembers: number;
     trendNewMembers: WeeklyPoint[];
   };
@@ -294,7 +297,7 @@ export class AnalyticsRepo {
   }
 
   private async signIn(days: number): Promise<AnalyticsReport["signIn"]> {
-    const [ch, fails, methods, members, trendNewMembers] = await Promise.all([
+    const [ch, fails, methods, uniqueMembersRow, members, trendNewMembers] = await Promise.all([
       this.one<Record<string, string>>(
         `
         SELECT COUNT(*) FILTER (WHERE ${inWindow("created_at")})::text AS starts,
@@ -314,17 +317,23 @@ export class AnalyticsRepo {
         [days]
       ),
       this.rows<{ method: string | null; c: string }>(
-        `SELECT s.auth_method AS method, COUNT(*)::text AS c
+        `SELECT s.auth_method AS method, COUNT(DISTINCT s.person_id)::text AS c
          FROM sessions s JOIN people p ON p.id = s.person_id
          WHERE ${inWindow("s.created_at")} AND s.rotated_from IS NULL AND ${live("p")}
          GROUP BY s.auth_method`,
         [days]
       ),
+      this.one<{ c: string }>(
+        `SELECT COUNT(DISTINCT s.person_id)::text AS c
+         FROM sessions s JOIN people p ON p.id = s.person_id
+         WHERE ${inWindow("s.created_at")} AND s.rotated_from IS NULL AND ${live("p")}`,
+        [days]
+      ),
       this.one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM people p WHERE ${inWindow("p.created_at")} AND ${live("p")}`, [days]),
       this.trend(`SELECT p.created_at AS ts FROM people p WHERE ${live("p")}`)
     ]);
-    const sessionsByMethod: Record<string, number> = {};
-    for (const m of methods) sessionsByMethod[m.method ?? "unknown"] = n(m.c);
+    const membersByMethod: Record<string, number> = {};
+    for (const m of methods) membersByMethod[m.method ?? "unknown"] = n(m.c);
     return {
       starts: n(ch.starts),
       completed: n(ch.completed),
@@ -334,7 +343,8 @@ export class AnalyticsRepo {
       failedRejected: n(fails.rejected),
       failedUnreachable: n(fails.unreachable),
       superseded: n(ch.superseded),
-      sessionsByMethod,
+      membersByMethod,
+      uniqueMembers: n(uniqueMembersRow.c),
       newMembers: n(members.c),
       trendNewMembers
     };

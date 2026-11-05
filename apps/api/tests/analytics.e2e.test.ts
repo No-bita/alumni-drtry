@@ -160,9 +160,44 @@ describe("GET /v1/admin/analytics (integration)", () => {
   it("growth: invited sign-ups by channel; sign-in: failed sends and methods", () => {
     expect(after.growth.invitedSignups.whatsapp - before.growth.invitedSignups.whatsapp).toBe(1);
     expect(after.signIn.failedRejected - before.signIn.failedRejected).toBe(1);
-    expect((after.signIn.sessionsByMethod.magic_link ?? 0) - (before.signIn.sessionsByMethod.magic_link ?? 0)).toBe(1);
+    expect((after.signIn.membersByMethod.magic_link ?? 0) - (before.signIn.membersByMethod.magic_link ?? 0)).toBe(1);
+    expect(after.signIn.uniqueMembers - before.signIn.uniqueMembers).toBe(1);
+    expect(after.signIn.uniqueMembers).toBeLessThanOrEqual(
+      Object.values(after.signIn.membersByMethod).reduce((a, v) => a + v, 0));
     expect(after.signIn.newMembers - before.signIn.newMembers).toBe(1);
     expect(after.engagement.activeMembers).toBeGreaterThan(before.engagement.activeMembers);
+  });
+
+  it("sign-in methods count each member once per method, and once in the total", async () => {
+    // Two fresh members; their login sessions land in the "mid" snapshot, so they are
+    // already inside its unique-member total. Extra same-window sessions for them must
+    // move the per-method rows (deduped) but leave the unique-member total unchanged.
+    const multi = await loginForTest(app, `an-multi-${run}@iitbhu.ac.in`);
+    const repeat = await loginForTest(app, `an-repeat-${run}@iitbhu.ac.in`);
+    const mid = await report();
+
+    const session = (personId: string, method: string) =>
+      db.query(
+        `INSERT INTO sessions (person_id, session_hash, expires_at, auth_method)
+         VALUES ($1, gen_random_uuid()::text, now() + interval '1 day', $2)`,
+        [personId, method]
+      );
+    // Same member, same method, three sign-ins: must dedupe to one member.
+    await session(repeat.personId, "google");
+    await session(repeat.personId, "google");
+    await session(repeat.personId, "google");
+    // Same member, two methods: counts once in each row but once in the total.
+    await session(multi.personId, "google");
+    await session(multi.personId, "otp");
+
+    const next = await report();
+    const methodDelta = (r: AnalyticsReport, m: string) => r.signIn.membersByMethod[m] ?? 0;
+    expect(methodDelta(next, "google") - methodDelta(mid, "google")).toBe(2);
+    expect(methodDelta(next, "otp") - methodDelta(mid, "otp")).toBe(1);
+    // Already counted via their login sessions: repeated and multi-method sign-ins add nothing.
+    expect(next.signIn.uniqueMembers - mid.signIn.uniqueMembers).toBe(0);
+    expect(next.signIn.uniqueMembers).toBeLessThanOrEqual(
+      Object.values(next.signIn.membersByMethod).reduce((a, v) => a + v, 0));
   });
 });
 
