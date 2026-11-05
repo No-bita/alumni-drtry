@@ -169,8 +169,9 @@ describe("GET /v1/admin/analytics (integration)", () => {
   });
 
   it("sign-in methods count each member once per method, and once in the total", async () => {
-    // Two fresh members; their login sessions land in the "mid" snapshot, so only
-    // the sessions inserted below count toward the deltas.
+    // Two fresh members; their login sessions land in the "mid" snapshot, so they are
+    // already inside its unique-member total. Extra same-window sessions for them must
+    // move the per-method rows (deduped) but leave the unique-member total unchanged.
     const multi = await loginForTest(app, `an-multi-${run}@iitbhu.ac.in`);
     const repeat = await loginForTest(app, `an-repeat-${run}@iitbhu.ac.in`);
     const mid = await report();
@@ -193,7 +194,8 @@ describe("GET /v1/admin/analytics (integration)", () => {
     const methodDelta = (r: AnalyticsReport, m: string) => r.signIn.membersByMethod[m] ?? 0;
     expect(methodDelta(next, "google") - methodDelta(mid, "google")).toBe(2);
     expect(methodDelta(next, "otp") - methodDelta(mid, "otp")).toBe(1);
-    expect(next.signIn.uniqueMembers - mid.signIn.uniqueMembers).toBe(2);
+    // Already counted via their login sessions: repeated and multi-method sign-ins add nothing.
+    expect(next.signIn.uniqueMembers - mid.signIn.uniqueMembers).toBe(0);
     expect(next.signIn.uniqueMembers).toBeLessThanOrEqual(
       Object.values(next.signIn.membersByMethod).reduce((a, v) => a + v, 0));
   });
