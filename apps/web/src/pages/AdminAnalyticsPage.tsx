@@ -172,8 +172,7 @@ function Report({ r }: { r: AnalyticsReport }) {
   const out = r.outcomes;
   const pr = ob.profiles;
   const failed = si.failedRejected + si.failedUnreachable;
-  const methods = Object.entries(si.sessionsByMethod).sort((a, b) => b[1] - a[1]);
-  const totalSessions = methods.reduce((a, [, v]) => a + v, 0);
+  const methods = Object.entries(si.membersByMethod).sort((a, b) => b[1] - a[1]);
 
   return (
     <>
@@ -211,8 +210,11 @@ function Report({ r }: { r: AnalyticsReport }) {
           <WeeklyBars title="New members per week" points={si.trendNewMembers} />
           <Table
             caption="How people signed in"
-            head={["Method", "Sign-ins", "Share"]}
-            rows={methods.map(([m, v]) => [METHOD_LABELS[m] ?? m, compact(v), pct(v, totalSessions)])}
+            head={["Method", "Members", "Share"]}
+            rows={[
+              ...methods.map(([m, v]): [string, string, string] => [METHOD_LABELS[m] ?? m, compact(v), pct(v, si.uniqueMembers)]),
+              ["Total (unique members)", compact(si.uniqueMembers), "100%"],
+            ]}
             empty="No sign-ins in this window."
           />
         </div>

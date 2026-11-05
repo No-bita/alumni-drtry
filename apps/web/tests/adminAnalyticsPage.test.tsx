@@ -24,7 +24,7 @@ function report(days = 30): AnalyticsReport {
     northStar: { acceptedNotes: 42, askers: 20, helpedWithin7Days: 9, stillWithin7Days: 3, trendAccepted: w, trendSent: w },
     signIn: {
       starts: 100, completed: 80, emailSent: 90, emailUnconfirmed: 4, emailUnknown: 6, failedRejected: 2, failedUnreachable: 1,
-      superseded: 5, sessionsByMethod: { otp: 50, magic_link: 25, google: 5 }, newMembers: 12, trendNewMembers: w,
+      superseded: 5, membersByMethod: { otp: 50, magic_link: 25, google: 5 }, uniqueMembers: 72, newMembers: 12, trendNewMembers: w,
     },
     onboarding: {
       startedPeople: 15, completedPeople: 10, completedOnboardingProfiles: 11, validationErrors: 2,

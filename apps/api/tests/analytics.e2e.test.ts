@@ -160,7 +160,10 @@ describe("GET /v1/admin/analytics (integration)", () => {
   it("growth: invited sign-ups by channel; sign-in: failed sends and methods", () => {
     expect(after.growth.invitedSignups.whatsapp - before.growth.invitedSignups.whatsapp).toBe(1);
     expect(after.signIn.failedRejected - before.signIn.failedRejected).toBe(1);
-    expect((after.signIn.sessionsByMethod.magic_link ?? 0) - (before.signIn.sessionsByMethod.magic_link ?? 0)).toBe(1);
+    expect((after.signIn.membersByMethod.magic_link ?? 0) - (before.signIn.membersByMethod.magic_link ?? 0)).toBe(1);
+    expect(after.signIn.uniqueMembers - before.signIn.uniqueMembers).toBe(1);
+    expect(after.signIn.uniqueMembers).toBeLessThanOrEqual(
+      Object.values(after.signIn.membersByMethod).reduce((a, v) => a + v, 0));
     expect(after.signIn.newMembers - before.signIn.newMembers).toBe(1);
     expect(after.engagement.activeMembers).toBeGreaterThan(before.engagement.activeMembers);
   });
