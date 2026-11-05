@@ -434,7 +434,7 @@
 }
 
 @media (max-width: 639px) {
-  /* Phone: pin the bubble to the tile so it can never clip past the viewport edge. */
+  /* Phone: explanations open below their tile, spanning the full section width. */
   .aa-tile {
     position: relative;
   }
@@ -450,5 +450,23 @@
     transform: none;
     width: auto;
     max-width: none;
+  }
+
+  /* While an explanation is pinned, keep its tail clear of the floating dock. */
+  .aa-page:has(.aa-info--pinned) {
+    padding-bottom: calc(var(--nav-bottom-dock-height) + var(--space-lg) + 75vh);
+  }
+}
+
+@media (min-width: 340px) and (max-width: 639px) {
+  /* Two tile columns: stretch the bubble across both, flush with the grid edges. */
+  .aa-tiles > .aa-tile:nth-child(odd) .aa-info__bubble {
+    left: 0;
+    right: calc(-100% - 10px);
+  }
+
+  .aa-tiles > .aa-tile:nth-child(even) .aa-info__bubble {
+    left: calc(-100% - 10px);
+    right: 0;
   }
 }
