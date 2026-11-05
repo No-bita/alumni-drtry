@@ -133,6 +133,11 @@ export type MyProfileView = {
   institutionalEmail?: string;
   departmentCode: string | null;
   departmentName: string | null;
+  /** Member-entered specification when departmentCode is "other"; never the email guess. */
+  departmentOtherText: string | null;
+  /** Review state of the typed other-department text. */
+  departmentOtherStatus: "pending" | "approved" | "rejected";
+  departmentOtherRejectionReason: string | null;
   parsedDepartmentCode: string | null;
   parsedDepartmentName: string | null;
   batchYear: number | null;
@@ -454,6 +459,12 @@ export type PublicProfileView = {
   fullName: string;
   departmentCode: string | null;
   departmentName: string | null;
+  /** Member-entered specification when departmentCode is "other"; null publicly until approved. */
+  departmentOtherText: string | null;
+  /** Review state; present only on the owner's own view. */
+  departmentOtherStatus: "pending" | "approved" | "rejected" | null;
+  /** Rejection feedback; present only on the owner's own view. */
+  departmentOtherRejectionReason?: string | null;
   degreeCode?: string | null;
   degreeName?: string | null;
   batchYear: number | null;

@@ -36,18 +36,22 @@ export function roleOrgLineFromSearchProfile(profile: SearchProfileView): string
 export function profileEducationHeadlineLine(
   profile: Pick<
     PublicProfileView,
-    "degreeCode" | "degreeName" | "departmentCode" | "departmentName" | "batchYear"
+    "degreeCode" | "degreeName" | "departmentCode" | "departmentName" | "departmentOtherText" | "batchYear"
   > | null | undefined,
   departmentCodeFallback?: string | null,
 ): string | null {
   if (!profile) return null;
 
   const degree = profile.degreeName?.trim() || profile.degreeCode?.trim() || null;
+  // "Other" departments display what the member actually typed, and only that: the API gates
+  // the typed text until review approves it, and "OTHER" must never render as a fallback.
   const department =
-    profile.departmentName?.trim() ||
-    departmentCodeFallback?.trim().toUpperCase() ||
-    profile.departmentCode?.trim().toUpperCase() ||
-    null;
+    profile.departmentCode === "other"
+      ? profile.departmentOtherText?.trim() || null
+      : profile.departmentName?.trim() ||
+        departmentCodeFallback?.trim().toUpperCase() ||
+        profile.departmentCode?.trim().toUpperCase() ||
+        null;
 
   const studyParts: string[] = [];
   if (degree && department) studyParts.push(`${degree}, ${department}`);

@@ -10,6 +10,7 @@ import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
 import { adminLocationCleanupRoutes } from "./routes/adminLocationCleanupRoutes.js";
 import { adminPlacesRoutes } from "./routes/adminPlacesRoutes.js";
 import { adminCityReviewRoutes } from "./routes/adminCityReviewRoutes.js";
+import { adminDepartmentOtherRoutes } from "./routes/adminDepartmentOtherRoutes.js";
 import { campusMonthlyRoutes } from "./routes/campusMonthlyRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
@@ -39,6 +40,7 @@ import { LinkService } from "./services/linkService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
+import { DepartmentOtherReviewRepo } from "./repos/departmentOtherReviewRepo.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
@@ -143,6 +145,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("contactRequestService", contactRequestService);
   app.decorate("connectionThreadService", connectionThreadService);
   app.decorate("notificationService", notificationService);
+  app.decorate("departmentOtherReview", new DepartmentOtherReviewRepo(pool));
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
@@ -224,6 +227,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(adminPlacesRoutes);
   await app.register(adminLocationCleanupRoutes);
   await app.register(adminCityReviewRoutes);
+  await app.register(adminDepartmentOtherRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 

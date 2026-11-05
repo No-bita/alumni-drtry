@@ -1,5 +1,5 @@
 import { DEPARTMENT_LABEL_BY_CODE } from "../constants/departmentCatalog.js";
-import { normalizeEmail } from "./domainAllowlist.js";
+import { isBhuInstitutionalEmail, normalizeEmail } from "./domainAllowlist.js";
 
 export interface ParsedIdentity {
   normalizedEmail: string;
@@ -117,6 +117,21 @@ function normalizeYear(rawYear: string): number | null {
 
 export function parseInstitutionalIdentity(email: string): ParsedIdentity {
   const normalizedEmail = normalizeEmail(email);
+
+  // Inference is only defined for IIT (BHU) locals (firstname[.middles].lastname.deptYY).
+  // Other allowed institutes use free-form locals; guessing there stored name fragments
+  // as department codes (e.g. "aarav" from aarav.mehta@iitgn.ac.in).
+  if (!isBhuInstitutionalEmail(normalizedEmail)) {
+    return {
+      normalizedEmail,
+      departmentCode: null,
+      departmentName: null,
+      joiningYear: null,
+      parsedFirstName: null,
+      parsedLastName: null
+    };
+  }
+
   const localPart = normalizedEmail.split("@")[0] ?? "";
 
   const deptYear = tryParseDeptYearBeforeFirstDigit(localPart);

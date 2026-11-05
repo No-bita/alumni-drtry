@@ -104,6 +104,9 @@ interface PublicProfileBaseRow {
   full_name: string;
   department_code: string | null;
   department_name: string | null;
+  department_other_text: string | null;
+  department_other_status: "pending" | "approved" | "rejected" | null;
+  department_other_rejection_reason: string | null;
   parsed_department_code: string | null;
   parsed_department_name: string | null;
   batch_year: number | null;
@@ -124,6 +127,12 @@ export interface PublicProfileBaseView {
   fullName: string;
   departmentCode: string | null;
   departmentName: string | null;
+  /** Member-entered specification when departmentCode is "other"; only present when approved or for the owner. */
+  departmentOtherText: string | null;
+  /** Review state; owner-only (null for any other viewer). */
+  departmentOtherStatus: "pending" | "approved" | "rejected" | null;
+  /** Rejection feedback, owner-only. */
+  departmentOtherRejectionReason: string | null;
   parsedDepartmentCode: string | null;
   parsedDepartmentName: string | null;
   batchYear: number | null;
@@ -177,6 +186,9 @@ function mapPublicRow(row: PublicProfileBaseRow): PublicProfileBaseView {
     fullName: row.full_name,
     departmentCode: row.department_code,
     departmentName: row.department_name,
+    departmentOtherText: row.department_other_text,
+    departmentOtherStatus: row.department_other_status,
+    departmentOtherRejectionReason: row.department_other_rejection_reason,
     parsedDepartmentCode: row.parsed_department_code,
     parsedDepartmentName: row.parsed_department_name,
     batchYear: row.batch_year,
@@ -340,7 +352,8 @@ export class DiscoveryRepo {
 
     if (input.dept) {
       const ph = bind(input.dept.toLowerCase());
-      whereInner.push(`lower(COALESCE(d.code, p.department_code, '')) = ${ph}`);
+      // "other" is not a real department: it is never a valid filter value.
+      whereInner.push(`(${ph} <> 'other' AND lower(COALESCE(d.code, p.department_code, '')) = ${ph})`);
     }
 
     let companySoftPh: string | null = null;
@@ -533,8 +546,9 @@ export class DiscoveryRepo {
         SELECT
           p.id,
           p.full_name,
-          d.code AS department_code,
-          d.name AS department_name,
+          -- "Other" is never a public department label; the typed text is profile-only and review-gated.
+          CASE WHEN d.code = 'other' THEN NULL ELSE d.code END AS department_code,
+          CASE WHEN d.code = 'other' THEN NULL ELSE d.name END AS department_name,
           p.department_code AS parsed_department_code,
           p.department_name AS parsed_department_name,
           p.batch_year,
@@ -614,8 +628,16 @@ export class DiscoveryRepo {
       SELECT
         p.id,
         p.full_name,
-        d.code AS department_code,
-        d.name AS department_name,
+        -- "Other" never surfaces as a public department; unapproved typed text is owner-only.
+        CASE WHEN d.code = 'other' AND NOT ($2::uuid IS NOT NULL AND p.id = $2::uuid) THEN NULL ELSE d.code END AS department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE d.name END AS department_name,
+        CASE WHEN d.code = 'other'
+                  AND (p.department_other_status = 'approved' OR ($2::uuid IS NOT NULL AND p.id = $2::uuid))
+             THEN p.department_other_text ELSE NULL END AS department_other_text,
+        CASE WHEN $2::uuid IS NOT NULL AND p.id = $2::uuid
+             THEN p.department_other_status ELSE NULL END AS department_other_status,
+        CASE WHEN $2::uuid IS NOT NULL AND p.id = $2::uuid
+             THEN p.department_other_rejection_reason ELSE NULL END AS department_other_rejection_reason,
         p.department_code AS parsed_department_code,
         p.department_name AS parsed_department_name,
         p.batch_year,

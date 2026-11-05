@@ -21,6 +21,7 @@ import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { ALREADY_SET_UP_NOTICE, noticeState } from "../lib/routeNotices";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
+import { isBhuInstitutionalEmail } from "../lib/institutionalEmail";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
@@ -301,12 +302,14 @@ export function Onboarding() {
   const [lastName, setLastName] = useState("");
   const [batchYear, setBatchYear] = useState<number | null>(null);
   const [departmentCode, setDepartmentCode] = useState<string | null>(null);
+  const [departmentOtherText, setDepartmentOtherText] = useState("");
   const [degreeCode, setDegreeCode] = useState<string | null>("btech");
   const [joinYearStable, setJoinYearStable] = useState<number | null>(null);
   const [joinYearText, setJoinYearText] = useState("");
   const [parsedDeptLabel, setParsedDeptLabel] = useState<string | null>(null);
   /** When false, show parsed department as a summary; user taps to open the vocab dropdown. */
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(true);
+  /** "Other" stays a dropdown option; picking it reveals an inline field for the member's own words. */
   const departmentSelectRef = useRef<HTMLInputElement>(null);
   const [selectedOccupationCodes, setSelectedOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationCodes, setExistingOccupationCodes] = useState<Set<string>>(new Set());
@@ -443,6 +446,10 @@ export function Onboarding() {
       setSavedAnswerKey(saved);
       setAnswerKey(saved);
       const email = (p.institutionalEmail ?? "").trim();
+      // Email-parsed identity is only meaningful for BHU addresses. Other institutes get
+      // the plain manual choices, and stale signup-parser guesses stored before inference
+      // was gated must not prefill anything either.
+      const isBhuEmail = email ? isBhuInstitutionalEmail(email) : false;
       const parsed = email
         ? parseInstitutionalEmailForOnboarding(email)
         : {
@@ -462,12 +469,24 @@ export function Onboarding() {
         setLastName(parsed.lastName);
       }
 
-      const dept = p.departmentCode ?? parsed.departmentCode ?? p.parsedDepartmentCode;
+      // Inferred departments prefill only for BHU emails and only when the parsed code is
+      // a recognized vocabulary code; anything else starts blank for a manual dropdown pick.
+      const inferredDepartment = isBhuEmail
+        ? [parsed.departmentCode, p.parsedDepartmentCode].find(
+            (code) => code != null && departmentInVocab(code.toLowerCase())
+          ) ?? null
+        : null;
+      const dept = p.departmentCode ?? inferredDepartment;
       if (dept) {
         setDepartmentCode(dept.toLowerCase());
         setDepartmentPickerOpen(false);
       } else {
         setDepartmentPickerOpen(true);
+      }
+      if ((dept ?? "").toLowerCase() === "other") {
+        if (p.departmentOtherText) {
+          setDepartmentOtherText(p.departmentOtherText);
+        }
       }
       // if (p.bio) setBio(p.bio);
       if (p.degreeCode) setDegreeCode(p.degreeCode);
@@ -488,11 +507,12 @@ export function Onboarding() {
       //   setMobilePhone(rawMobile);
       // }
       setParsedDeptLabel(
-        p.parsedDepartmentName ?? p.departmentName ?? parsed.departmentDisplayName ?? null
+        isBhuEmail
+          ? p.parsedDepartmentName ?? p.departmentName ?? parsed.departmentDisplayName ?? null
+          : null
       );
       const inferredJoin =
-        p.parsedJoiningYear ??
-        parsed.joiningYear ??
+        (isBhuEmail ? p.parsedJoiningYear ?? parsed.joiningYear : null) ??
         (p.batchYear != null ? p.batchYear - 4 : null);
       setJoinYearStable(inferredJoin);
       setJoinYearText(inferredJoin != null ? String(inferredJoin) : "");
@@ -551,7 +571,7 @@ export function Onboarding() {
       value: department.code,
       label: department.label,
     }));
-    if (normalized && !departmentInVocab(normalized)) {
+    if (normalized && normalized !== "other" && !departmentInVocab(normalized)) {
       return [
         { value: normalized, label: `${parsedDeptLabel ?? normalized} (from email)` },
         ...vocabOptions,
@@ -632,6 +652,7 @@ export function Onboarding() {
     fullName?: string;
     batchYear?: number;
     departmentCode?: string;
+    departmentOtherText?: string;
     degreeCode?: string | null;
     bio?: string | null;
     mobilePhone?: string | null;
@@ -685,6 +706,10 @@ export function Onboarding() {
       setSaveError("Please select your department.");
       return;
     }
+    if (departmentCode === "other" && !departmentOtherText.trim()) {
+      setSaveError("Please specify your department.");
+      return;
+    }
     if (!degreeCode) {
       setSaveError("Please select your degree.");
       return;
@@ -709,6 +734,7 @@ export function Onboarding() {
       fullName,
       batchYear: batchYear ?? undefined,
       departmentCode: departmentCode ?? undefined,
+      departmentOtherText: departmentCode === "other" ? departmentOtherText.trim() : undefined,
       degreeCode: degreeCode ?? undefined,
     });
     if (err) return;
@@ -722,7 +748,9 @@ export function Onboarding() {
       case 1:
         return lastName.trim() ? null : "Please enter your last name.";
       case 2:
-        return departmentCode ? null : "Please select your department.";
+        if (!departmentCode) return "Please select your department.";
+        if (departmentCode === "other" && !departmentOtherText.trim()) return "Please specify your department.";
+        return null;
       case 3:
         return degreeCode ? null : "Please select your degree.";
       case 4: {
@@ -1147,14 +1175,32 @@ export function Onboarding() {
                   {step1QuestionIndex === 0 ? <input className="onboarding-welcome__inline-input" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 1 ? <input className="onboarding-welcome__inline-input" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 2 ? (
-                    <OnboardingSearchSelect
-                      inputRef={departmentSelectRef}
-                      value={departmentCode}
-                      options={departmentOptions}
-                      placeholder="Type or select an option"
-                      onChange={setDepartmentCode}
-                      onAdvanceEnter={advanceStep1Question}
-                    />
+                    <>
+                      <OnboardingSearchSelect
+                        inputRef={departmentSelectRef}
+                        value={departmentCode}
+                        options={departmentOptions}
+                        placeholder="Type or select an option"
+                        onChange={setDepartmentCode}
+                        onAdvanceEnter={advanceStep1Question}
+                      />
+                      {departmentCode === "other" ? (
+                        <>
+                          <input
+                            className="onboarding-welcome__inline-input"
+                            value={departmentOtherText}
+                            onChange={(e) => setDepartmentOtherText(e.target.value.slice(0, 80))}
+                            onKeyDown={handleStep1FieldEnter}
+                            placeholder="Please specify"
+                            maxLength={80}
+                            autoComplete="off"
+                          />
+                          <span className="onboarding-welcome__inline-note">
+                            We review it before it shows on your profile.
+                          </span>
+                        </>
+                      ) : null}
+                    </>
                   ) : null}
                   {step1QuestionIndex === 3 ? (
                     <OnboardingSearchSelect

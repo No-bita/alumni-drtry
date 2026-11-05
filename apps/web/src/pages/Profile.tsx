@@ -8,6 +8,7 @@ import { Nav } from "../components/Nav";
 import { PersonProfileView } from "../components/profile/PersonProfileView";
 import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileAbout } from "../components/profile/ProfileAbout";
+import { ProfileDepartmentEdit } from "../components/profile/ProfileDepartmentEdit";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
 import { ProfileEngagementCards } from "../components/profile/ProfileEngagementCards";
 import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
@@ -74,6 +75,7 @@ export function Profile() {
   const [draftMobilePhone, setDraftMobilePhone] = useState("");
   const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
   const [draftResidenceCity, setDraftResidenceCity] = useState("");
+  const [draftDepartmentOtherText, setDraftDepartmentOtherText] = useState("");
   const [draftOpenTo, setDraftOpenTo] = useState<OpenToPreferences>(() =>
     openToPreferencesForEdit(null),
   );
@@ -174,6 +176,7 @@ export function Profile() {
       setDraftMobilePhone(me?.mobilePhone ?? "");
       setDraftResidenceCountry(p.residenceCountry ?? "");
       setDraftResidenceCity(p.residenceCity ?? "");
+      setDraftDepartmentOtherText(p.departmentOtherText ?? "");
       setDraftOpenTo(openToPreferencesForEdit(parseOpenToPreferences(p.openToPreferences) ?? null));
     }
     setDraftOccupations(occupationsToDrafts(profileQuery.data?.occupations ?? []));
@@ -312,6 +315,11 @@ export function Profile() {
     clearOrganizationIdCache();
 
     // Check everything BEFORE the first write, so a typo can't leave a half-saved profile.
+    if (data.profile.departmentCode === "other" && !draftDepartmentOtherText.trim()) {
+      setSaving(false);
+      setEditError("Please specify your department.");
+      return;
+    }
     const preflightError = preflightProfileEdits(draftOccupations, draftSocialLinks, draftPersonalEmail);
     if (preflightError) {
       setSaving(false);
@@ -321,6 +329,7 @@ export function Profile() {
 
     const { data: patched, error: profileError } = await api.patch<ProfilePatchResponse>("/v1/me/profile", {
       personalEmail: draftPersonalEmail.trim() || null,
+      departmentOtherText: data.profile.departmentCode === "other" ? draftDepartmentOtherText.trim() : undefined,
       mobilePhone: draftMobilePhone.trim() || null,
       residenceCountry: draftResidenceCountry.trim() || null,
       residenceCity: draftResidenceCity.trim() || null,
@@ -398,6 +407,7 @@ export function Profile() {
     if (patched?.arrivalPrompt) setArrivalPrompt(patched.arrivalPrompt);
   }, [
     data,
+    draftDepartmentOtherText,
     draftPersonalEmail,
     draftMobilePhone,
     draftResidenceCountry,
@@ -687,6 +697,14 @@ export function Profile() {
               onDraftResidenceCity={setDraftResidenceCity}
             />
 
+            {isEditing ? (
+              <ProfileDepartmentEdit
+                profile={profile}
+                draftDepartmentOtherText={draftDepartmentOtherText}
+                onDraftDepartmentOtherText={setDraftDepartmentOtherText}
+              />
+            ) : null}
+
             </> : null}
             {isOwnProfile && isAdminViewer && !previewProfile ? (
               <article id="admin-tools" className="home-dashboard__card profile-page__analytics-card">
@@ -704,6 +722,9 @@ export function Profile() {
                     </Link>
                     <Link to="/admin/cities" className="nav__profile-edit nav__profile-edit--ghost">
                       City review
+                    </Link>
+                    <Link to="/admin/department-other" className="nav__profile-edit nav__profile-edit--ghost">
+                      Department review
                     </Link>
                     <Link to="/admin/locations" className="nav__profile-edit nav__profile-edit--ghost">
                       Location cleanup

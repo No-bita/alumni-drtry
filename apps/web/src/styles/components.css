@@ -14336,6 +14336,16 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   }
 }
 
+.profile-about__review-note {
+  margin: var(--space-xs, 6px) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #6b6455);
+}
+
+.profile-about__review-note--rejected {
+  color: var(--color-danger, #b3261e);
+}
+
 .profile-page__links-editor {
   list-style: none;
   margin: 0 0 var(--space-lg);
@@ -15704,6 +15714,31 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .onboarding-welcome__inline-input--narrow {
   max-width: 220px;
+}
+
+.onboarding-welcome__inline-note {
+  display: block;
+  margin-top: var(--space-xs, 6px);
+  font-size: 0.8125rem;
+  color: rgba(252, 248, 240, 0.6);
+}
+
+.onboarding-welcome__inline-link {
+  display: inline-block;
+  margin-top: var(--space-xs, 6px);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgba(252, 248, 240, 0.75);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.onboarding-welcome__inline-link:hover {
+  color: rgba(252, 248, 240, 0.95);
 }
 
 .onboarding-welcome__inline-options {
