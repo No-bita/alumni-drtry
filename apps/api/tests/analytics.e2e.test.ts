@@ -167,6 +167,36 @@ describe("GET /v1/admin/analytics (integration)", () => {
     expect(after.signIn.newMembers - before.signIn.newMembers).toBe(1);
     expect(after.engagement.activeMembers).toBeGreaterThan(before.engagement.activeMembers);
   });
+
+  it("sign-in methods count each member once per method, and once in the total", async () => {
+    // Two fresh members; their login sessions land in the "mid" snapshot, so only
+    // the sessions inserted below count toward the deltas.
+    const multi = await loginForTest(app, `an-multi-${run}@iitbhu.ac.in`);
+    const repeat = await loginForTest(app, `an-repeat-${run}@iitbhu.ac.in`);
+    const mid = await report();
+
+    const session = (personId: string, method: string) =>
+      db.query(
+        `INSERT INTO sessions (person_id, session_hash, expires_at, auth_method)
+         VALUES ($1, gen_random_uuid()::text, now() + interval '1 day', $2)`,
+        [personId, method]
+      );
+    // Same member, same method, three sign-ins: must dedupe to one member.
+    await session(repeat.personId, "google");
+    await session(repeat.personId, "google");
+    await session(repeat.personId, "google");
+    // Same member, two methods: counts once in each row but once in the total.
+    await session(multi.personId, "google");
+    await session(multi.personId, "otp");
+
+    const next = await report();
+    const methodDelta = (r: AnalyticsReport, m: string) => r.signIn.membersByMethod[m] ?? 0;
+    expect(methodDelta(next, "google") - methodDelta(mid, "google")).toBe(2);
+    expect(methodDelta(next, "otp") - methodDelta(mid, "otp")).toBe(1);
+    expect(next.signIn.uniqueMembers - mid.signIn.uniqueMembers).toBe(2);
+    expect(next.signIn.uniqueMembers).toBeLessThanOrEqual(
+      Object.values(next.signIn.membersByMethod).reduce((a, v) => a + v, 0));
+  });
 });
 
 describe("invite attribution rules", () => {
