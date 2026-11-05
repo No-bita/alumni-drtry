@@ -89,6 +89,7 @@ function mapBulletinReplyToActivityRow(reply: ReceivedBulletinReplyFeedItem): Ca
     companySubtitle: null,
     summary: reply.responseMessage,
     chips: [chip],
+    kindLabel: null,
     employmentType: null,
     compensation: null,
     experience: null,

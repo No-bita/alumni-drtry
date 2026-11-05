@@ -306,13 +306,37 @@ describe("Cities v1 API (integration, local test database only)", () => {
   it("Wall posts can carry the city; Get together lists them", async () => {
     const post = await req("POST", "/v1/intentcasts", who.poster!, {
       category: "collaboration",
+      kind: "invitation",
       content: "Sunday morning cricket near HSR\nNeed 6 more. Anyone in?",
       placeId: blr
     });
     expect(post.statusCode).toBe(201);
     const posts = (await city(who.local!)).posts as Array<{ authorPersonId: string; content: string }>;
     expect(posts[0]).toMatchObject({ authorPersonId: who.poster!.personId });
-    expect((await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", content: "Another plan for the weekend", placeId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
+    expect((await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", kind: "invitation", content: "Another plan for the weekend", placeId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
+  });
+
+  it("View all requests: the posts endpoint pages every open post tagged with the city", async () => {
+    for (let i = 0; i < 21; i++) {
+      const r = await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", kind: "ask", content: `Request ${i + 1} about Bengaluru`, placeId: blr });
+      expect(r.statusCode).toBe(201);
+    }
+    const payload = await city(who.local!);
+    expect(payload.posts.length).toBe(3);
+    expect(payload.postsHasMore).toBe(true);
+
+    const page1 = await req("GET", "/v1/cities/" + blr + "/posts", who.local!);
+    expect(page1.statusCode).toBe(200);
+    expect(page1.json().posts.length).toBe(20);
+    expect(page1.json().nextCursor).toBe("20");
+    // Newest first: the preview's first card is the page's first row.
+    expect(page1.json().posts[0].id).toBe(payload.posts[0].id);
+
+    const page2 = await req("GET", "/v1/cities/" + blr + "/posts?cursor=20", who.local!);
+    expect(page2.statusCode).toBe(200);
+    // 1 from the previous test + 21 here = 22 open posts.
+    expect(page2.json().posts.length).toBe(2);
+    expect(page2.json().nextCursor).toBeNull();
   });
 
   it("the nudge goes only when something is new, once a week (check 11)", async () => {

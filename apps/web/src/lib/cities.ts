@@ -70,6 +70,7 @@ export type CityPost = {
   authorFullName: string;
   authorBatchYear: number | null;
   content: string;
+  kind: "ask" | "offer" | "invitation" | null;
   createdAt: string;
   viewerHasResponded: boolean;
   isMine: boolean;
@@ -98,6 +99,8 @@ export type CityPayload = {
   } | null;
   alumni: { total: number; items: CityAlum[] } | null;
   posts: CityPost[];
+  /** True when the city has more open Wall posts than the `posts` preview shows. */
+  postsHasMore: boolean;
   chapterLink: { url: string; label: string } | null;
   helpers: CityHelper[];
   others: CityAlum[];
@@ -118,6 +121,7 @@ export const ALUMNI_FILTERS = [
 ] as const;
 export type AlumniFilter = (typeof ALUMNI_FILTERS)[number]["id"];
 export type AlumniPage = { items: CityAlum[]; total: number; nextCursor: string | null };
+export type CityPostsPage = { posts: CityPost[]; nextCursor: string | null };
 
 /* Limits (mirrors the API; the server re-checks every one). */
 export const COFFEE_REASON_MIN = 40;
@@ -134,6 +138,7 @@ export const citiesKeys = {
   list: () => ["cities", "list"] as const,
   city: (placeId: string) => ["cities", "city", placeId] as const,
   alumni: (placeId: string, filter: AlumniFilter) => ["cities", "alumni", placeId, filter] as const,
+  posts: (placeId: string) => ["cities", "posts", placeId] as const,
 };
 
 /* Reads */
@@ -154,6 +159,13 @@ export function fetchCityAlumni(
   const params = new URLSearchParams({ filter });
   if (cursor) params.set("cursor", cursor);
   return assertApiGet<AlumniPage>(`/v1/cities/${encodeURIComponent(placeId)}/alumni?${params.toString()}`, signal);
+}
+
+export function fetchCityPosts(placeId: string, cursor: string | null, signal: AbortSignal): Promise<CityPostsPage> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  const qs = params.toString();
+  return assertApiGet<CityPostsPage>(`/v1/cities/${encodeURIComponent(placeId)}/posts${qs ? `?${qs}` : ""}`, signal);
 }
 
 /* Writes. Each returns the API error (or null) so sheets can show their own copy. */

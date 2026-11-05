@@ -380,6 +380,8 @@ export type IntentcastFeedItem = {
   authorCurrentRoleTitle?: string | null;
   authorCurrentOrganizationName?: string | null;
   category: "hiring" | "mentorship" | "collaboration" | "guidance";
+  /** Ask / Offer / Invitation: the author's own statement (null on posts that predate the choice). */
+  kind?: "ask" | "offer" | "invitation" | null;
   content: string;
   status: string;
   expiresAt: string;

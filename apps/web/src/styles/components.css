@@ -3135,6 +3135,24 @@ textarea {
   border: 1px solid transparent;
 }
 
+/* Ask / Offer / Invitation: the author's own label next to the lane badge (absent on posts that predate the choice). */
+.career-feed-rows__kind {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: 0 0 6px 6px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: var(--ink-soft, #5b4636);
+  background: color-mix(in srgb, var(--brick, #b35a3c) 10%, #fff);
+  border: 1px solid color-mix(in srgb, var(--brick, #b35a3c) 26%, transparent);
+  vertical-align: top;
+}
+
 .career-feed-rows__lane-badge--hiring {
   background: color-mix(in srgb, #22c55e 16%, #fff);
   color: #166534;

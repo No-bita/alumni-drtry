@@ -9,6 +9,7 @@ import {
   CitiesRepo,
   type CityAlumniFilter,
   type CityAlumRow,
+  type CityPostRow,
   type PersonCardRow,
   type PlaceRow,
   type ViewerFacts
@@ -39,6 +40,7 @@ export const ARRIVALS_LISTED_MAX = 50;
 export const ALUMNI_PREVIEW = 4;
 export const ALUMNI_PAGE = 20;
 export const POSTS_PREVIEW = 3;
+export const CITY_POSTS_PAGE = 20;
 export const HELPERS_MAX = 20;
 export const OTHERS_PREVIEW = 4;
 export const CITIES_LIST_MAX = 120;
@@ -349,6 +351,7 @@ export class CitiesService implements ResidenceSync {
       },
       alumni: null as null | { total: number; items: CityAlum[] },
       posts: [] as unknown[],
+      postsHasMore: false,
       chapterLink: v1 ? (this.chapterLinks[place.id] ?? null) : null,
       helpers: [] as CityHelper[],
       others: [] as CityAlum[],
@@ -380,7 +383,7 @@ export class CitiesService implements ResidenceSync {
           this.repo.placeNames(place.id),
           this.repo.pendingNotesFor(viewer.personId),
           this.repo.openToPreferences([viewer.personId]),
-          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW)
+          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW + 1)
         ]);
         const now = new Date();
         if (arrivals) {
@@ -426,16 +429,8 @@ export class CitiesService implements ResidenceSync {
           cityHelpOn: Boolean(prefs?.selected.includes("city_help")),
           openToCount: prefs?.selected.length ?? 0
         };
-        payload.posts = posts.map((p) => ({
-          id: p.id,
-          authorPersonId: p.author_person_id,
-          authorFullName: p.author_full_name,
-          authorBatchYear: p.author_batch_year,
-          content: p.content,
-          createdAt: p.created_at.toISOString(),
-          viewerHasResponded: p.viewer_has_responded,
-          isMine: p.author_person_id === viewer.personId
-        }));
+        payload.postsHasMore = posts.length > POSTS_PREVIEW;
+        payload.posts = posts.slice(0, POSTS_PREVIEW).map((p) => this.toPost(p, viewer.personId));
         payload.arrivalPrompt =
           viewerRole === "local" &&
           res?.changedAt != null &&
@@ -493,6 +488,30 @@ export class CitiesService implements ResidenceSync {
       items: await this.toAlumni(page.rows, facts, viewer.personId),
       total: page.total,
       nextCursor: next < page.total ? String(next) : null
+    };
+  }
+
+  private toPost(p: CityPostRow, viewerPersonId: string) {
+    return {
+      id: p.id,
+      authorPersonId: p.author_person_id,
+      authorFullName: p.author_full_name,
+      authorBatchYear: p.author_batch_year,
+      content: p.content,
+      kind: p.kind ?? null,
+      createdAt: p.created_at.toISOString(),
+      viewerHasResponded: p.viewer_has_responded,
+      isMine: p.author_person_id === viewerPersonId
+    };
+  }
+
+  /** "View all posts": every open Wall post tagged with this city, newest first, paged. */
+  async posts(placeId: string, viewer: CityViewer, offset: number) {
+    const { place } = await this.visiblePlace(placeId, viewer);
+    const rows = await this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, CITY_POSTS_PAGE + 1, null, offset);
+    return {
+      posts: rows.slice(0, CITY_POSTS_PAGE).map((p) => this.toPost(p, viewer.personId)),
+      nextCursor: rows.length > CITY_POSTS_PAGE ? String(offset + CITY_POSTS_PAGE) : null
     };
   }
 

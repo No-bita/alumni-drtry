@@ -9,6 +9,7 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
   const [postOpen, setPostOpen] = useState(false);
   const [postSubmitting, setPostSubmitting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [kind, setKind] = useState<"" | "ask" | "offer" | "invitation">("");
   const [hiringCompany, setHiringCompany] = useState("");
   const [hiringTitle, setHiringTitle] = useState("");
   const [hiringTrackChoice, setHiringTrackChoice] = useState("");
@@ -22,6 +23,7 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
 
   const resetComposeFields = useCallback(() => {
     setPostError(null);
+    setKind("");
     setHiringCompany("");
     setHiringTitle("");
     setHiringTrackChoice("");
@@ -115,6 +117,7 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
       details: hiringComposeDetails,
     });
     if (fieldErr) return fieldErr;
+    if (!kind) return "Choose what this post is: an ask, an offer or an invitation.";
     if (!hiringTrackChoice.trim()) return "Select a track.";
     if (!hiringExperience.trim()) return "Add experience in years.";
     if (hiringTrackChoice === "other" && !hiringTrackOther.trim()) {
@@ -127,6 +130,7 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
     if (hiringComposeBody.length > maxLength) return `Post must be at most ${maxLength} characters.`;
     return null;
   }, [
+    kind,
     hiringCompany,
     hiringTitle,
     hiringLocation,
@@ -143,6 +147,8 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
   ]);
 
   return {
+    kind,
+    setKind,
     postOpen,
     setPostOpen,
     postSubmitting,

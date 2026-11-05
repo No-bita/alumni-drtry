@@ -130,6 +130,7 @@ export interface CityPostRow {
   author_full_name: string;
   author_batch_year: number | null;
   content: string;
+  kind: "ask" | "offer" | "invitation" | null;
   created_at: Date;
   viewer_has_responded: boolean;
 }
@@ -747,11 +748,11 @@ export class CitiesRepo {
   /* Wall posts tagged with a city                                       */
   /* ------------------------------------------------------------------ */
 
-  async cityPosts(placeId: string, viewerPersonId: string, viewerIsDemo: boolean, limit: number, since: Date | null = null): Promise<CityPostRow[]> {
+  async cityPosts(placeId: string, viewerPersonId: string, viewerIsDemo: boolean, limit: number, since: Date | null = null, offset = 0): Promise<CityPostRow[]> {
     const r = await this.db.query<CityPostRow>(
       `
       SELECT i.id, i.author_person_id, p.full_name AS author_full_name,
-             COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year, i.content, i.created_at,
+             COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year, i.content, i.kind, i.created_at,
              EXISTS (SELECT 1 FROM intentcast_responses r WHERE r.intentcast_id = i.id AND r.responder_person_id = $2::uuid) AS viewer_has_responded
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
@@ -760,10 +761,11 @@ export class CitiesRepo {
         AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
         AND (${personIsDiscoverableForViewerSql("p", viewerIsDemo)} OR p.id = $2::uuid)
         AND ($4::timestamptz IS NULL OR i.created_at > $4)
-      ORDER BY i.created_at DESC
+      ORDER BY i.created_at DESC, i.id DESC
       LIMIT $3
+      OFFSET $5
       `,
-      [placeId, viewerPersonId, limit, since]
+      [placeId, viewerPersonId, limit, since, offset]
     );
     return r.rows;
   }
