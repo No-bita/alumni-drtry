@@ -53,7 +53,6 @@ function payload(over: Partial<CityPayload> = {}): CityPayload {
     v1Enabled: true,
     counts: { alumni: 41, openToCityHelp: 6 },
     arrivalPrompt: false,
-    nudgeFrequency: "weekly",
     arrivals: { total: 1, items: [{ id: "arr1", person: person("riya", "Riya Kapoor", { batchYear: 2022 }), arrivedDaysAgo: 6, previousCity: "Pune", myOffer: null, wroteToMe: null }] },
     myArrival: null,
     offers: [],
@@ -518,20 +517,6 @@ describe("Cities page: other cities (check 13)", () => {
   });
 });
 
-
-it.each(["/intent/location?emails=manage", "/intent/location/bengaluru?emails=manage", "/intent/location"])("keeps all City email controls hidden at %s without changing preferences", async path => {
-  world(lists, payload({ nudgeFrequency: "monthly" }));
-  mount(path);
-  await screen.findByRole("heading", { name: "What do you need in Bengaluru?" });
-  expect(screen.queryByText("City emails")).toBeNull();
-  expect(screen.queryByText("Stop city emails")).toBeNull();
-  expect(screen.queryByRole("radio")).toBeNull();
-  expect(screen.queryByText("Weekly")).toBeNull();
-  expect(screen.queryByText("Monthly")).toBeNull();
-  expect(screen.queryByText("Never")).toBeNull();
-  expect(screen.queryByRole("switch", { name: "Open to city help" })).toBeNull();
-  expect(apiPatch).not.toHaveBeenCalled();
-});
 
 describe("Cities page: city review", () => {
   const LEEDS = { placeId: "leeds-1", city: "Leedsy", country: "United Kingdom", slug: "leedsy" };

@@ -268,20 +268,6 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /** Cities v1 nudge email: how often (weekly, monthly, never). */
-  app.patch(
-    "/v1/me/city-nudge",
-    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
-    async (request, reply) => {
-      const parsed = z.object({ frequency: z.enum(["weekly", "monthly", "never"]) }).safeParse(request.body);
-      if (!parsed.success) {
-        throw new AppError(400, "CITY_NUDGE_BAD_REQUEST", "Choose weekly, monthly or never.");
-      }
-      const frequency = await app.citiesService.setNudgeFrequency(request.actor.personId, parsed.data.frequency);
-      return reply.code(200).send({ frequency });
-    }
-  );
-
   /**
    * Invite attribution: the web app sends the invite link's ref once, right after a new member's
    * first sign-in (works for email and Google). Always 204, so it reveals nothing about people.

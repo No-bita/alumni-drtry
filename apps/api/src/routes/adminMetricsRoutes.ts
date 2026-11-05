@@ -98,7 +98,7 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /** Cities v1 (SPEC §8): acceptance of Cities notes by category, arrivals, coffee and the nudge email. */
+  /** Cities v1 (SPEC §8): acceptance of Cities notes by category, arrivals and coffee. */
   app.get(
     "/v1/admin/metrics/cities",
     { preHandler: adminPreHandlers },

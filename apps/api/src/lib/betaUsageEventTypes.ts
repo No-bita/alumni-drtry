@@ -44,7 +44,6 @@ export const BETA_USAGE_EVENT_TYPES = [
   "cities_coffee_full_shown",
   "cities_city_help_on",
   "cities_city_updated",
-  "cities_nudge_sent",
 ] as const;
 
 export type BetaUsageEventType = (typeof BETA_USAGE_EVENT_TYPES)[number];
@@ -81,7 +80,6 @@ export const RECORDED_EVENT_TYPES: ReadonlySet<BetaUsageEventType> = new Set<Bet
   "cities_coffee_full_shown",
   "cities_city_help_on",
   "cities_city_updated",
-  "cities_nudge_sent",
 ]);
 
 /** Metadata keys we keep; everything else (free text such as a search query) is dropped. */

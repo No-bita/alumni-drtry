@@ -254,7 +254,6 @@ export type CitiesMetrics = {
   coffee: { asksSent: number; accepted: number; fullThisWeekImpressions: number };
   cityHelpOnFromPanel: number;
   cityUpdatesFromMovedAway: number;
-  nudge: { sent: number; visitedIn7d: number; actedIn7d: number; stopRate: number | null };
 };
 
 export const citiesMetricsQueryKey = (days: AnalyticsWindow) => ["admin", "analytics", "cities", days] as const;

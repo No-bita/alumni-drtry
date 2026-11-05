@@ -77,8 +77,6 @@ export type CityPost = {
 };
 
 export type ViewerRole = "local" | "newcomer" | "arriver" | "no_city";
-export type NudgeFrequency = "weekly" | "monthly" | "never";
-
 export type CityPayload = {
   place: CityRef;
   review?: CityReviewState | null;
@@ -87,7 +85,6 @@ export type CityPayload = {
   v1Enabled: boolean;
   counts: { alumni: number; openToCityHelp: number };
   arrivalPrompt: boolean;
-  nudgeFrequency: NudgeFrequency;
   arrivals: { total: number; items: CityArrival[] } | null;
   myArrival: { id: string; visibleUntil: string; daysLeft: number; previousCity: string | null } | null;
   offers: NewcomerOffer[];
@@ -185,8 +182,6 @@ export const sendOffer = async (arrivalId: string, kinds: HelpKind[], line: stri
 export const withdrawOffer = async (offerId: string) =>
   done(await api.delete(`/v1/cities/offers/${encodeURIComponent(offerId)}`));
 export const markOffersSeen = async () => done(await api.post("/v1/cities/offers/seen"));
-export const setNudgeFrequency = async (frequency: NudgeFrequency) =>
-  done(await api.patch<{ frequency: NudgeFrequency }>("/v1/me/city-nudge", { frequency }));
 
 export type CityNoteCategory = "coffee" | "relocation" | "visiting" | "newcomer";
 export const sendCityNote = async (input: {

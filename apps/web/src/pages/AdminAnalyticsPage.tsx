@@ -492,11 +492,6 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
         <Tile label="Coffee asks" value={compact(m.coffee.asksSent)} hint={`${compact(m.coffee.accepted)} accepted · “Full this week” shown ${compact(m.coffee.fullThisWeekImpressions)}×`} />
         <Tile label="City help turned on from the panel" value={compact(m.cityHelpOnFromPanel)} />
         <Tile label="City updated from “Moved away?”" value={compact(m.cityUpdatesFromMovedAway)} />
-        <Tile
-          label="Nudge emails"
-          value={compact(m.nudge.sent)}
-          hint={`${compact(m.nudge.visitedIn7d)} visited within 7 days · ${compact(m.nudge.actedIn7d)} acted · ${rate(m.nudge.stopRate)} stopped`}
-        />
       </div>
       <Table
         caption="Cities notes by category"

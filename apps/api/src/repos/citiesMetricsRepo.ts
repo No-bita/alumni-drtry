@@ -31,15 +31,6 @@ export interface CitiesMetrics {
   coffee: { asksSent: number; accepted: number; fullThisWeekImpressions: number };
   cityHelpOnFromPanel: number;
   cityUpdatesFromMovedAway: number;
-  nudge: {
-    sent: number;
-    /** Distinct nudged people who opened Cities within 7 days of a nudge. */
-    visitedIn7d: number;
-    /** …and did something: offer, coffee/city ask, city post, reply to a city post, or city help on. */
-    actedIn7d: number;
-    /** Guardrail: share of nudged people who now have the emails off. */
-    stopRate: number | null;
-  };
 }
 
 const ratio = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 1000 : null);
@@ -58,7 +49,7 @@ export class CitiesMetricsRepo {
         )
         .then((r) => r.rows[0] ?? { c: 0, people: 0 });
 
-    const [notes, arrivals, prompt, full, helpOn, updated, nudge] = await Promise.all([
+    const [notes, arrivals, prompt, full, helpOn, updated] = await Promise.all([
       this.db.query<{ category: string | null; sent: number; accepted: number; declined: number; pending: number }>(
         `SELECT source_category AS category, COUNT(*)::int AS sent,
                 COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted,
@@ -82,41 +73,7 @@ export class CitiesMetricsRepo {
       events("cities_arrival_prompt_shown"),
       events("cities_coffee_full_shown"),
       events("cities_city_help_on"),
-      events("cities_city_updated"),
-      this.db.query<{ sent: number; nudged: number; visited: number; acted: number; stopped: number }>(
-        `
-        WITH sends AS (
-          SELECT person_id, occurred_at FROM beta_usage_events
-          WHERE event_type = 'cities_nudge_sent' AND ${win("occurred_at")} AND person_id IS NOT NULL
-        ),
-        visited AS (
-          SELECT DISTINCT s.person_id, s.occurred_at FROM sends s
-          JOIN beta_usage_events v ON v.person_id = s.person_id AND v.event_type = 'cities_viewed'
-            AND v.occurred_at BETWEEN s.occurred_at AND s.occurred_at + interval '7 days'
-        ),
-        acted AS (
-          SELECT DISTINCT v.person_id FROM visited v
-          WHERE EXISTS (SELECT 1 FROM city_help_offers o WHERE o.offerer_person_id = v.person_id
-                          AND o.created_at BETWEEN v.occurred_at AND v.occurred_at + interval '7 days')
-             OR EXISTS (SELECT 1 FROM contact_requests cr WHERE cr.sender_person_id = v.person_id AND cr.source = 'cities'
-                          AND cr.created_at BETWEEN v.occurred_at AND v.occurred_at + interval '7 days')
-             OR EXISTS (SELECT 1 FROM intentcasts i WHERE i.author_person_id = v.person_id AND i.place_id IS NOT NULL
-                          AND i.created_at BETWEEN v.occurred_at AND v.occurred_at + interval '7 days')
-             OR EXISTS (SELECT 1 FROM intentcast_responses r JOIN intentcasts i ON i.id = r.intentcast_id
-                          WHERE r.responder_person_id = v.person_id AND i.place_id IS NOT NULL
-                          AND r.created_at BETWEEN v.occurred_at AND v.occurred_at + interval '7 days')
-             OR EXISTS (SELECT 1 FROM beta_usage_events e WHERE e.person_id = v.person_id AND e.event_type = 'cities_city_help_on'
-                          AND e.occurred_at BETWEEN v.occurred_at AND v.occurred_at + interval '7 days')
-        )
-        SELECT (SELECT COUNT(*) FROM sends)::int AS sent,
-               (SELECT COUNT(DISTINCT person_id) FROM sends)::int AS nudged,
-               (SELECT COUNT(DISTINCT person_id) FROM visited)::int AS visited,
-               (SELECT COUNT(*) FROM acted)::int AS acted,
-               (SELECT COUNT(DISTINCT s.person_id) FROM sends s JOIN people p ON p.id = s.person_id
-                 WHERE p.city_nudge_frequency = 'never')::int AS stopped
-        `,
-        [days]
-      )
+      events("cities_city_updated")
     ]);
 
     const toMetrics = (r: { category: string | null; sent: number; accepted: number; declined: number; pending: number }, label: string) => ({
@@ -134,7 +91,6 @@ export class CitiesMetricsRepo {
       toMetrics(notes.rows.find((r) => r.category === c) ?? { category: c, sent: 0, accepted: 0, declined: 0, pending: 0 }, c)
     );
     const a = arrivals.rows[0] ?? { arrivals: 0, offers: 0, with_offer_7d: 0, newcomer_notes: 0 };
-    const n = nudge.rows[0] ?? { sent: 0, nudged: 0, visited: 0, acted: 0, stopped: 0 };
     const coffee = byCategory.find((c) => c.category === "coffee")!;
 
     return {
@@ -151,8 +107,7 @@ export class CitiesMetricsRepo {
       },
       coffee: { asksSent: coffee.sent, accepted: coffee.accepted, fullThisWeekImpressions: full.c },
       cityHelpOnFromPanel: helpOn.c,
-      cityUpdatesFromMovedAway: updated.c,
-      nudge: { sent: n.sent, visitedIn7d: n.visited, actedIn7d: n.acted, stopRate: ratio(n.stopped, n.nudged) }
+      cityUpdatesFromMovedAway: updated.c
     };
   }
 }

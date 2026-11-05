@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/cities.css";
 import { Nav } from "../components/Nav";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
-import { CityEmailsControl } from "../components/cities/CityEmailsControl";
 import { CityHome } from "../components/cities/CityHome";
 import { CitySwitcherSheet } from "../components/cities/CitySwitcherSheet";
 import { NoCityPrompt, SavedCityCard } from "../components/cities/NoCityPrompt";
@@ -33,7 +32,6 @@ export function LocationPage() {
   const { citySlug } = useParams();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
   const flowRef = useRef<PostBulletinFlowHandle>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [optIn, setOptIn] = useState<ArrivalPrompt | null>(null);
@@ -52,13 +50,12 @@ export function LocationPage() {
     enabled: signedIn && placeId !== null,
   });
 
-  // One "viewed" event per city opened (and whether the nudge email brought them), for the nudge funnel.
+  // One "viewed" event per city opened.
   const viewedRole = city.data?.viewerRole ?? null;
-  const via = searchParams.get("via");
   useEffect(() => {
     if (!placeId || !viewedRole) return;
-    trackBetaUsageEvent("cities_viewed", { role: viewedRole, ...(via === "nudge" ? { via: "nudge" } : {}) });
-  }, [placeId, viewedRole, via]);
+    trackBetaUsageEvent("cities_viewed", { role: viewedRole });
+  }, [placeId, viewedRole]);
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: CITIES_KEY });
@@ -71,19 +68,6 @@ export function LocationPage() {
 
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
   const profileId = auth.myProfile?.id ?? null;
-  // City emails is parked, including controls reached through older email links.
-  const cityEmailsVisible = false;
-  const emailsOpen = cityEmailsVisible && searchParams.get("emails") === "manage";
-  const closeEmails = () =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("emails");
-        return next;
-      },
-      { replace: true },
-    );
-
   const openWall = (options: { headline?: string; body?: string; placeId?: string | null }) =>
     flowRef.current?.open({
       category: "relocation",
@@ -212,7 +196,6 @@ export function LocationPage() {
             ) : null}
           </div>
         ) : null}
-        {emailsOpen ? <CityEmailsControl current={data?.nudgeFrequency ?? "weekly"} onClose={closeEmails} /> : null}
         {body}
       </main>
 
