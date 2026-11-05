@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useNotificationsList } from "../lib/notificationsQueries";
+import { useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "../components/NotificationsList";
 import { SentNotesSection } from "../components/SentNotesSection";
 import "../styles/sent-notes.css";
@@ -12,6 +12,7 @@ export function NotificationsPage() {
   const location = useLocation();
   const authenticated = auth.status === "authenticated";
   const listQuery = useNotificationsList(authenticated);
+  const markAllSeen = useMarkAllNotificationsSeen();
   // Messaging paused: message reply notifications stay hidden, same as the quick-view sheet.
   const items = (listQuery.data?.items ?? []).filter((item) => item.kind !== "connection_thread_reply");
 
@@ -30,7 +31,19 @@ export function NotificationsPage() {
           Back
         </button>
       </div>
-      <h1 className="notifications-page__heading">Notifications</h1>
+      <div className="notifications-page__title-row">
+        <h1 className="notifications-page__heading">Notifications</h1>
+        {items.some((item) => item.unseen) ? (
+          <button
+            type="button"
+            className="notifications-mark-seen"
+            disabled={markAllSeen.isPending}
+            onClick={() => markAllSeen.mutate()}
+          >
+            {markAllSeen.isPending ? "Marking…" : "Mark all as seen"}
+          </button>
+        ) : null}
+      </div>
       {/* Messaging paused: message notifications are hidden while messaging is off. Original: Connection requests, bulletin replies, and new messages */}
       <p className="notifications-page__sub">Connection requests and bulletin replies</p>
 

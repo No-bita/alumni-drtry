@@ -22,6 +22,8 @@ export type NotificationItemDto =
       kind: "contact_request_received";
       id: string;
       occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
       contactRequestId: string;
       senderPersonId: string;
       senderFullName: string | null;
@@ -37,6 +39,8 @@ export type NotificationItemDto =
       kind: "city_help_offer_received";
       id: string;
       occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
       offerId: string;
       offererPersonId: string;
       offererFullName: string | null;
@@ -47,6 +51,8 @@ export type NotificationItemDto =
       kind: "contact_request_resolved";
       id: string;
       occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
       contactRequestId: string;
       outcome: "accepted" | "declined";
       recipientPersonId: string;
@@ -56,6 +62,8 @@ export type NotificationItemDto =
       kind: "bulletin_response";
       id: string;
       occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
       responseId: string;
       intentcastId: string;
       postPreview: string;
@@ -67,6 +75,8 @@ export type NotificationItemDto =
       kind: "connection_thread_reply";
       id: string;
       occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
       threadId: string;
       counterpartyPersonId: string;
       counterpartyFullName: string | null;
@@ -74,19 +84,47 @@ export type NotificationItemDto =
     };
 
 export class NotificationService {
+  private readonly pool: Pool;
   private readonly contactRequestRepo: ContactRequestRepo;
   private readonly connectionThreadRepo: ConnectionThreadRepo;
   private readonly intentcastRepo: IntentcastRepo;
   private readonly citiesRepo: CitiesRepo;
 
   constructor(pool: Pool) {
+    this.pool = pool;
     this.citiesRepo = new CitiesRepo(pool);
     this.contactRequestRepo = new ContactRequestRepo(pool);
     this.connectionThreadRepo = new ConnectionThreadRepo(pool);
     this.intentcastRepo = new IntentcastRepo(pool);
   }
 
+  /** The person's seen watermark; a missing row means nothing has ever been marked seen. */
+  private async getSeenWatermark(personId: string): Promise<Date> {
+    const { rows } = await this.pool.query<{ seen_watermark: Date }>(
+      `SELECT seen_watermark FROM person_notification_state WHERE person_id = $1`,
+      [personId]
+    );
+    return rows[0]?.seen_watermark ?? new Date(0);
+  }
+
+  /** Mark every current notification as seen. Moves the watermark only; no history is touched. */
+  async markAllSeen(personId: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO person_notification_state (person_id, seen_watermark) VALUES ($1, clock_timestamp())
+       ON CONFLICT (person_id) DO UPDATE SET seen_watermark = EXCLUDED.seen_watermark`,
+      [personId]
+    );
+  }
+
+  /** Unseen count from the same aggregation the list uses, so the badge and the list always agree. */
+  async unseenCountForPerson(personId: string): Promise<number> {
+    const items = await this.listForPerson(personId);
+    return items.reduce((n, item) => n + (item.unseen ? 1 : 0), 0);
+  }
+
   async listForPerson(personId: string): Promise<NotificationItemDto[]> {
+    const watermark = await this.getSeenWatermark(personId);
+    const unseen = (occurredAt: string) => Date.parse(occurredAt) > watermark.getTime();
     const [pendingIncoming, resolvedOutgoing, bulletinResponses, threadReplies, cityOffers] = await Promise.all([
       this.contactRequestRepo.listPendingIncomingForRecipient(personId),
       this.contactRequestRepo.listResolvedOutgoingForSender(personId, OUTGOING_RESOLVED_LIMIT),
@@ -102,6 +140,7 @@ export class NotificationService {
         kind: "contact_request_received",
         id: `cr-in:${p.id}`,
         occurredAt: p.createdAt.toISOString(),
+        unseen: unseen(p.createdAt.toISOString()),
         contactRequestId: p.id,
         senderPersonId: p.senderPersonId,
         senderFullName: p.senderFullName,
@@ -117,6 +156,7 @@ export class NotificationService {
         kind: "city_help_offer_received",
         id: `city-offer:${o.offer_id}`,
         occurredAt: o.created_at.toISOString(),
+        unseen: unseen(o.created_at.toISOString()),
         offerId: o.offer_id,
         offererPersonId: o.offerer_person_id,
         offererFullName: o.offerer_full_name,
@@ -130,6 +170,7 @@ export class NotificationService {
         kind: "contact_request_resolved",
         id: `cr-out:${r.id}`,
         occurredAt: r.respondedAt.toISOString(),
+        unseen: unseen(r.respondedAt.toISOString()),
         contactRequestId: r.id,
         outcome: r.status,
         recipientPersonId: r.recipientPersonId,
@@ -142,6 +183,7 @@ export class NotificationService {
         kind: "bulletin_response",
         id: `ir:${b.responseId}`,
         occurredAt: b.responseCreatedAt.toISOString(),
+        unseen: unseen(b.responseCreatedAt.toISOString()),
         responseId: b.responseId,
         intentcastId: b.intentcastId,
         postPreview: truncatePreview(b.intentcastContent, POST_PREVIEW_MAX),
@@ -156,6 +198,7 @@ export class NotificationService {
         kind: "connection_thread_reply",
         id: `ct:${tr.threadId}`,
         occurredAt: tr.lastCreatedAt.toISOString(),
+        unseen: unseen(tr.lastCreatedAt.toISOString()),
         threadId: tr.threadId,
         counterpartyPersonId: tr.counterpartyPersonId,
         counterpartyFullName: tr.counterpartyFullName,
