@@ -164,4 +164,15 @@ describe("Careers company screen", () => {
     expect(screen.getByText(/to see who's there/)).toBeTruthy();
     expect(apiGet).toHaveBeenCalledTimes(2);
   });
+
+  it("daily browsing limit: shows the friendly message instead of a generic failure", async () => {
+    const { ApiRequestError } = await import("../src/lib/apiRequestError");
+    apiGet.mockRejectedValueOnce(
+      new ApiRequestError("DISCOVERY_DAILY_LIMIT", "You've looked at a lot of profiles today. Try again tomorrow.", 429),
+    );
+    mount("/intent/career/company?name=Razorpay");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("You've looked at a lot of profiles today. Try again tomorrow.");
+    expect(alert.textContent).not.toContain("Couldn't load alumni");
+  });
 });

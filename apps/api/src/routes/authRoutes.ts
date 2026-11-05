@@ -4,6 +4,8 @@ import { env } from "../config/env.js";
 import { generateOpaqueToken } from "../lib/crypto.js";
 import { buildGoogleAuthorizationUrl } from "../lib/googleOAuth.js";
 import { AppError, isAppError } from "../lib/errors.js";
+import { assertSameSiteAuthRequest } from "../lib/csrfProtection.js";
+import { assertIpAllowed } from "../lib/directoryAbuseLimiter.js";
 
 import {
   setSessionCookie,
@@ -229,7 +231,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  // Preferred: the token travels in the body, so it never sits in URLs, proxies or request logs.
   app.post("/v1/auth/verify", async (request, reply) => {
+    assertIpAllowed("auth-verify", request.ip, env.AUTH_VERIFY_MAX_PER_IP_WINDOW, 10, "AUTH_RATE_LIMITED", "Too many sign-in attempts. Try again in a few minutes.");
+    assertSameSiteAuthRequest(request);
     const parsed = verifyAuthBodySchema.safeParse(request.body);
     if (!parsed.success) {
       throw new AppError(400, "AUTH_BAD_REQUEST", "Invalid auth verification payload.");
@@ -323,7 +328,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  /**
+   * Deprecated: kept so pages loaded before the switch to POST still work. The query string (token) is
+   * never logged. Same-site requests only, like POST. Remove once no old web bundle can call it
+   * (see docs/security-hardening.md).
+   */
   app.get("/v1/auth/verify", async (request, reply) => {
+    assertIpAllowed("auth-verify", request.ip, env.AUTH_VERIFY_MAX_PER_IP_WINDOW, 10, "AUTH_RATE_LIMITED", "Too many sign-in attempts. Try again in a few minutes.");
+    assertSameSiteAuthRequest(request);
+    reply.header("Cache-Control", "no-store");
     const parsed = verifyAuthQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       throw new AppError(400, "AUTH_BAD_REQUEST", "Invalid magic link parameters.");

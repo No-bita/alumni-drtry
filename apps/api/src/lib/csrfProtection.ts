@@ -82,3 +82,29 @@ export function verifyCsrfOrigin(request: FastifyRequest): void {
     }
   }
 }
+
+/**
+ * Sign-in verification (GET and POST /v1/auth/verify) sets a session cookie, so a hostile page could
+ * otherwise sign a visitor into the attacker's account ("login CSRF"), e.g. with an <img> pointing at
+ * the GET link. Allow it only from our own pages: an allowed Origin or Referer, or a browser-stated
+ * same-origin / same-site fetch (Sec-Fetch-Site). Enforced in production; elsewhere it only rejects an
+ * explicitly foreign origin, so local tools and tests keep working.
+ */
+export function assertSameSiteAuthRequest(request: FastifyRequest, nodeEnv: string = env.NODE_ENV): void {
+  const fetchSite = String(request.headers["sec-fetch-site"] ?? "").toLowerCase();
+  const origin =
+    parseOrigin(request.headers.origin as string | undefined) ??
+    parseOrigin((request.headers.referer ?? request.headers.referrer) as string | undefined);
+
+  if (origin) {
+    if (getAllowedOrigins().has(origin)) return;
+    throw new AppError(403, "CSRF_FORBIDDEN", "Sign-in links only work from the Alma Mater website.");
+  }
+  if (fetchSite === "same-origin" || fetchSite === "same-site") return;
+  if (fetchSite === "cross-site") {
+    throw new AppError(403, "CSRF_FORBIDDEN", "Sign-in links only work from the Alma Mater website.");
+  }
+  if (nodeEnv === "production") {
+    throw new AppError(403, "CSRF_FORBIDDEN", "Missing Origin or Referer header.");
+  }
+}

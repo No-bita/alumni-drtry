@@ -297,12 +297,14 @@ type CareerIntentFeedRowsProps = {
   loading: boolean;
   /** True when the feed request failed and there is nothing cached to show. */
   error?: boolean;
+  /** Shown instead of the generic failure text (e.g. the daily browsing limit). */
+  errorMessage?: string | null;
   viewerPersonId: string | null;
   /** Extra class on root `<section>` */
   className?: string;
 };
 
-export function CareerIntentFeedRows({ intentcasts, loading, error = false, viewerPersonId, className }: CareerIntentFeedRowsProps) {
+export function CareerIntentFeedRows({ intentcasts, loading, error = false, errorMessage = null, viewerPersonId, className }: CareerIntentFeedRowsProps) {
   const queryClient = useQueryClient();
   const [selectedTab, setActiveTab] = useState<CareerFeedTabId>("all");
   const activeTab = !CAREER_FEED_INCLUDE_GUIDANCE && selectedTab === "can_help" ? "all" : selectedTab;
@@ -515,8 +517,8 @@ export function CareerIntentFeedRows({ intentcasts, loading, error = false, view
         </p>
       ) : error && baseRows.length === 0 ? (
         <PageStateBlock
-          title="Couldn’t load activity"
-          description="Something went wrong on our side. Please try again in a moment."
+          title={errorMessage ? "Browsing paused" : "Couldn’t load activity"}
+          description={errorMessage ?? "Something went wrong on our side. Please try again in a moment."}
           tone="error"
         />
       ) : filteredRows.length === 0 ? (

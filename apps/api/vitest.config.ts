@@ -20,6 +20,11 @@ export default defineConfig({
       AUTH_START_MAX_PER_IP_WINDOW: "200",
       // In-memory directory read limiter is shared across test files in one worker; keep high for CI.
       DISCOVERY_READ_MAX_PER_USER_WINDOW: "5000",
+      // Database-backed daily cap: the suite reads far more than a member would. Limit tests pass their own.
+      DISCOVERY_READ_MAX_PER_USER_DAY: "1000000",
+      // Every test request comes from one address.
+      DISCOVERY_READ_MAX_PER_IP_WINDOW: "0",
+      AUTH_VERIFY_MAX_PER_IP_WINDOW: "0",
     }
   }
 });

@@ -21,6 +21,7 @@ import type { LinkService } from "../services/linkService.js";
 import type { OccupationService } from "../services/occupationService.js";
 import type { OrganizationService } from "../services/organizationService.js";
 import type { ProfileService } from "../services/profileService.js";
+import type { DiscoveryReadLimiter } from "../lib/directoryAbuseLimiter.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -41,6 +42,7 @@ declare module "fastify" {
     homeSummaryService: HomeSummaryService;
     analyticsService: AnalyticsService;
     whatsappService: WhatsAppService;
+    discoveryLimiter: DiscoveryReadLimiter;
     intentcastService: IntentcastService;
     contactRequestService: ContactRequestService;
     connectionThreadService: ConnectionThreadService;

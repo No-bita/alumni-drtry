@@ -9,6 +9,7 @@ import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/Pos
 import { useAuth } from "../contexts/AuthContext";
 import { careersKeys, fetchCareersCompany, type CareersPerson } from "../lib/careers";
 import { queryKeys } from "../lib/queryKeys";
+import { browsingLimitFromError } from "../lib/browsingLimits";
 
 const yy = (y: number | null) => (y ? ` · Batch '${String(y).slice(-2)}` : "");
 
@@ -125,7 +126,7 @@ export function CareerCompanyPage() {
         ) : query.isError ? (
           <CareersFeedback tone="error">
             <p className="careers__note">
-            Couldn&apos;t load alumni at {name}.{" "}
+            {browsingLimitFromError(query.error) ?? <>Couldn&apos;t load alumni at {name}.</>}{" "}
             <button type="button" className="careers__textbtn" onClick={() => void query.refetch()}>
               Try again
             </button>

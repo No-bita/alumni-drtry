@@ -17,6 +17,7 @@ import {
 import { trackBetaUsageEvent } from "../../lib/betaAnalytics";
 import { Initials } from "./CitySheet";
 import { CoffeeAskSheet } from "./CoffeeAskSheet";
+import { browsingLimitFromError } from "../../lib/browsingLimits";
 
 /**
  * One person in a Cities list. The action depends on them, never on the viewer's wish to message:
@@ -115,7 +116,7 @@ export function CityAlumniList({
         </p>
       ) : filter !== "batch" && page.isError ? (
         <p className="cities__note" role="alert">
-          Couldn’t load alumni.{" "}
+          {browsingLimitFromError(page.error) ?? "Couldn’t load alumni."}{" "}
           <button type="button" className="cities__textbtn" onClick={() => void page.refetch()}>
             Try again
           </button>
