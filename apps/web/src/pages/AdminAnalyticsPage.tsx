@@ -83,11 +83,11 @@ function categoryLabel(c: string | null): string {
 function Tile({ label, value, hint, hero = false, info }: { label: string; value: ReactNode; hint?: ReactNode; hero?: boolean; info?: string }) {
   return (
     <div className={`aa-tile${hero ? " aa-tile--hero" : ""}`}>
-      <p className="aa-tile__label">{label}</p>
-      <p className="aa-tile__value">
-        {value}
+      <p className="aa-tile__label">
+        <span>{label}</span>
         {info ? <MetricInfoPill label={label} text={info} /> : null}
       </p>
+      <p className="aa-tile__value">{value}</p>
       {hint ? <p className="aa-tile__hint">{hint}</p> : null}
     </div>
   );

@@ -130,6 +130,10 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .aa-tile__value {
@@ -406,7 +410,8 @@
   position: absolute;
   z-index: 220;
   top: calc(100% + 8px);
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: max-content;
   max-width: min(300px, 78vw);
   padding: 12px 14px;
@@ -442,6 +447,7 @@
     top: calc(100% + 6px);
     left: 10px;
     right: 10px;
+    transform: none;
     width: auto;
     max-width: none;
   }
