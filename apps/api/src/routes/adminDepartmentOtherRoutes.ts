@@ -12,6 +12,8 @@ const queueQuery = z.object({
 const rejectBody = z.object({
   reason: z.string().transform(stripControl).pipe(z.string().trim().min(1).max(500))
 });
+// The exact text the admin reviewed; approval only applies if the stored text still matches it.
+const expectedBody = z.object({ expectedText: z.string().min(1).max(500) });
 const linkBody = z.object({ departmentId: z.string().uuid() });
 const historyQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) });
 
@@ -58,11 +60,20 @@ export const adminDepartmentOtherRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(200).send({ history });
   });
 
+  const changed = () =>
+    new AppError(409, "DEPARTMENT_OTHER_CHANGED", "The member changed this text after you opened it. Review the new text.");
+  const expectedTextOr400 = (body: unknown) => {
+    const parsed = expectedBody.safeParse(body);
+    if (!parsed.success) throw bad("Say which submission text you reviewed.");
+    return parsed.data.expectedText;
+  };
+
   app.post("/v1/admin/department-other/:personId/approve", admin, async (request, reply) => {
     const params = idParams.safeParse(request.params);
     if (!params.success) throw new AppError(404, "DEPARTMENT_OTHER_NOT_FOUND", "Submission not found.");
-    const sub = await submissionOr404(params.data.personId);
-    await review().approve(params.data.personId, request.actor.personId, sub.department_other_text);
+    await submissionOr404(params.data.personId);
+    const expectedText = expectedTextOr400(request.body);
+    if (!(await review().approve(params.data.personId, request.actor.personId, expectedText))) throw changed();
     return reply.code(204).send();
   });
 
@@ -71,8 +82,9 @@ export const adminDepartmentOtherRoutes: FastifyPluginAsync = async (app) => {
     const body = rejectBody.safeParse(request.body);
     if (!params.success) throw new AppError(404, "DEPARTMENT_OTHER_NOT_FOUND", "Submission not found.");
     if (!body.success) throw new AppError(400, "DEPARTMENT_OTHER_REJECT_REASON_REQUIRED", "Give a reason.");
-    const sub = await submissionOr404(params.data.personId);
-    await review().reject(params.data.personId, request.actor.personId, body.data.reason, sub.department_other_text);
+    await submissionOr404(params.data.personId);
+    const expectedText = expectedTextOr400(request.body);
+    if (!(await review().reject(params.data.personId, request.actor.personId, body.data.reason, expectedText))) throw changed();
     return reply.code(204).send();
   });
 
@@ -81,10 +93,11 @@ export const adminDepartmentOtherRoutes: FastifyPluginAsync = async (app) => {
     const body = linkBody.safeParse(request.body);
     if (!params.success) throw new AppError(404, "DEPARTMENT_OTHER_NOT_FOUND", "Submission not found.");
     if (!body.success) throw bad("Pick a department.");
-    const sub = await submissionOr404(params.data.personId);
+    await submissionOr404(params.data.personId);
+    const expectedText = expectedTextOr400(request.body);
     const target = await review().findDepartmentById(body.data.departmentId);
     if (!target || target.code === "other") throw bad("Pick an existing catalog department.");
-    await review().link(params.data.personId, request.actor.personId, body.data.departmentId, sub.department_other_text);
+    if (!(await review().link(params.data.personId, request.actor.personId, body.data.departmentId, expectedText))) throw changed();
     return reply.code(204).send();
   });
 };

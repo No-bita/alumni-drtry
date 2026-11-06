@@ -118,18 +118,18 @@ export async function fetchHistory(personId: string | null, signal?: AbortSignal
   return data.history.map(mapHistory);
 }
 
-export async function approveSubmission(personId: string): Promise<void> {
-  const { error } = await api.post(`/v1/admin/department-other/${personId}/approve`, {});
+export async function approveSubmission(personId: string, expectedText: string): Promise<void> {
+  const { error } = await api.post(`/v1/admin/department-other/${personId}/approve`, { expectedText });
   if (error) fail(error, "That didn't go through. Try again.");
 }
 
-export async function rejectSubmission(personId: string, reason: string): Promise<void> {
-  const { error } = await api.post(`/v1/admin/department-other/${personId}/reject`, { reason });
+export async function rejectSubmission(personId: string, reason: string, expectedText: string): Promise<void> {
+  const { error } = await api.post(`/v1/admin/department-other/${personId}/reject`, { reason, expectedText });
   if (error) fail(error, "That didn't go through. Try again.");
 }
 
-export async function linkSubmission(personId: string, departmentId: string): Promise<void> {
-  const { error } = await api.post(`/v1/admin/department-other/${personId}/link`, { departmentId });
+export async function linkSubmission(personId: string, departmentId: string, expectedText: string): Promise<void> {
+  const { error } = await api.post(`/v1/admin/department-other/${personId}/link`, { departmentId, expectedText });
   if (error) fail(error, "That didn't go through. Try again.");
 }
 
@@ -151,6 +151,9 @@ export function reviewErrorMessage(err: unknown): { message: string; refresh: bo
   const code = err instanceof AdminDepartmentOtherError ? err.code : "UNKNOWN";
   if (code === "DEPARTMENT_OTHER_NOT_FOUND") {
     return { message: "This submission no longer exists. Refreshing the list.", refresh: true };
+  }
+  if (code === "DEPARTMENT_OTHER_CHANGED") {
+    return { message: "The member changed this text, so it was not approved. Review the updated text.", refresh: true };
   }
   if (code === "DEPARTMENT_OTHER_REJECT_REASON_REQUIRED") {
     return { message: `Give a reason (up to ${REJECT_REASON_MAX} characters).`, refresh: false };
