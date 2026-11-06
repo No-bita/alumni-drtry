@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { isTestInstitutionalEmail } from "../lib/testUser.js";
 import { env } from "../config/env.js";
+import { webAppUrl } from "../lib/webAppUrl.js";
 import { generateOpaqueToken, generateOtp, hashSecret, verifySecret } from "../lib/crypto.js";
 import { isInstitutionalEmailAllowed, normalizeEmail, parseAllowedDomains } from "../lib/domainAllowlist.js";
 import { parseInstitutionalIdentity } from "../lib/emailParser.js";
@@ -227,7 +228,7 @@ export class AuthService {
         ipAddress: input.ipAddress,
         userAgent: input.userAgent
       });
-      const magicLinkBase = env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL;
+      const magicLinkBase = webAppUrl();
       magicLinkUrl = `${magicLinkBase}/auth/verify?challengeId=${encodeURIComponent(challenge.id)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}${whatsappLinkParams(input.whatsappEntry)}`;
       // Only the newest email's code and link should work. Inside the transaction, so a
       // rejected send (rolled back below) leaves the previous code valid.

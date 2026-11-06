@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
 import { env } from "../config/env.js";
+import { webAppUrl } from "../lib/webAppUrl.js";
 import { isAppError } from "../lib/errors.js";
 import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
 import type { ContactRequestService, NoteDeliveryChannel } from "../services/contactRequestService.js";
@@ -91,7 +92,7 @@ export function companyFromReply(text: string, mentionsRole: boolean): string | 
     .join(" ");
 }
 
-const webBase = () => (env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL).replace(/\/+$/, "");
+const webBase = () => webAppUrl();
 const yy = (batch: number | null) => (batch ? `'${String(batch).slice(-2)}` : "");
 const today = () => new Date().toISOString().slice(0, 10);
 

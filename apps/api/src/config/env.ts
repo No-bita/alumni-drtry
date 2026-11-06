@@ -50,6 +50,13 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   APP_BASE_URL: z.string().url(),
+  /**
+   * Where the web app lives, including any path, e.g. https://almamatter.in/app. Every member-facing
+   * link (sign-in emails, Google sign-in return, WhatsApp, city emails) is built from it.
+   * Falls back to MAGIC_LINK_BASE_URL (older name), then APP_BASE_URL.
+   */
+  WEB_APP_URL: z.preprocess(preprocessOptionalHttpOrigin, z.string().url().optional()),
+  /** Older name for WEB_APP_URL; still read when WEB_APP_URL is unset. */
   MAGIC_LINK_BASE_URL: z.preprocess(preprocessOptionalHttpOrigin, z.string().url().optional()),
   DATABASE_URL: z.string().min(1),
   /** Max clients in the process pool. With Neon PgBouncer, keep this modest per instance (e.g. 5–10). */

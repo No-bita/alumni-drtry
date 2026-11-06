@@ -10,7 +10,7 @@ cp .env.example .env   # optional: set VITE_API_URL for production API
 npm run dev
 ```
 
-Runs at `http://localhost:5173`. In development, API requests to `/v1/*` are proxied to `http://localhost:4000` so the backend API must be running for auth and data.
+Runs at `http://localhost:5173/app/` (the app lives under `/app`, as in production). In development, API requests to `/v1/*` are proxied to `http://localhost:4000` so the backend API must be running for auth and data.
 
 ## Build
 

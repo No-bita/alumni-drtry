@@ -4,8 +4,9 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import { API_BASE_URL, type CampusMonthlyCurrentResponse } from "../api/client";
 import { IconFile } from "./HomeIcons";
+import { publicAsset } from "../lib/appBase";
 
-const FALLBACK_PDF = encodeURI("/media/Alma Communique Feb 2026.pdf");
+const FALLBACK_PDF = publicAsset(encodeURI("media/Alma Communique Feb 2026.pdf"));
 
 export function HomeCampusUpdatesPanel() {
   const digestQuery = useQuery({

@@ -24,6 +24,8 @@ import { pendingWhatsAppEntry, whatsappEntryForSignIn } from "../lib/whatsapp";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
+import { publicAsset } from "../lib/appBase";
+import { takeReturnTo } from "../lib/returnTo";
 
 type LoginPhase = "form" | "sending" | "timeout" | "sent";
 type SentAuthMethod = "otp" | "password";
@@ -41,7 +43,7 @@ const AUTH_HERO_STATS = [
 const SUCCESS_VIDEO_STEM = "Gen 4 Turbo Varanasi Aerial";
 
 function successVideoSrc(ext: "webm" | "mp4"): string {
-  return `/media/${encodeURIComponent(SUCCESS_VIDEO_STEM)}.${ext}`;
+  return publicAsset(`media/${encodeURIComponent(SUCCESS_VIDEO_STEM)}.${ext}`);
 }
 
 export function Login() {
@@ -295,7 +297,7 @@ export function Login() {
         return;
       }
       if (p.onboardingCompletedAt) {
-        navigate("/home", { replace: true });
+        navigate(takeReturnTo() ?? "/home", { replace: true });
         return;
       }
       navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });

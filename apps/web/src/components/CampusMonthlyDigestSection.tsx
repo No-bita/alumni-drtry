@@ -11,9 +11,10 @@ import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./Button";
+import { publicAsset } from "../lib/appBase";
 
 /** File: `apps/web/public/media/Alma Communique Feb 2026.pdf` → served at site root in dev/build. */
-const ALMA_COMMUNIQUE_PDF = encodeURI("/media/Alma Communique Feb 2026.pdf");
+const ALMA_COMMUNIQUE_PDF = publicAsset(encodeURI("media/Alma Communique Feb 2026.pdf"));
 
 const DEFAULT_DIGEST_TITLE = "Alma Communique Feb 2026";
 

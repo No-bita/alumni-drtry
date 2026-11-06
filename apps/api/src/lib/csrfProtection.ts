@@ -41,6 +41,12 @@ export function getAllowedOrigins(): Set<string> {
   const appBase = parseOrigin(env.APP_BASE_URL);
   if (appBase) allowed.add(appBase);
 
+  // The web app's origin (origin only: WEB_APP_URL may carry a path such as /app)
+  if (env.WEB_APP_URL) {
+    const webBase = parseOrigin(env.WEB_APP_URL);
+    if (webBase) allowed.add(webBase);
+  }
+
   // Include MAGIC_LINK_BASE_URL origin if configured
   if (env.MAGIC_LINK_BASE_URL) {
     const magicBase = parseOrigin(env.MAGIC_LINK_BASE_URL);
