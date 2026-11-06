@@ -543,3 +543,8 @@
   color: color-mix(in srgb, var(--ink) 46%, transparent);
   white-space: nowrap;
 }
+
+.careers__load-more {
+  padding: 0 var(--page-x) 2rem;
+  text-align: center;
+}

@@ -11,7 +11,12 @@ export type CareersPerson = {
   yourNote: "pending" | "accepted" | "declined" | "expired" | null;
 };
 
-export type CareersCompany = { company: string; current: CareersPerson[]; past: CareersPerson[] };
+export type CareersCompany = {
+  company: string;
+  current: CareersPerson[];
+  past: CareersPerson[];
+  pageInfo: { nextCursor: string | null };
+};
 export type ReferralCompany = { company: string; alumni: number };
 export type CompanyDemand = { company: string; asks: number; days: number } | null;
 
@@ -29,9 +34,10 @@ export function careersCompanyPath(name: string, role?: string | null): string {
   return `/intent/career/company?${params.toString()}`;
 }
 
-export function fetchCareersCompany(name: string, role: string | null, signal: AbortSignal): Promise<CareersCompany> {
+export function fetchCareersCompany(name: string, role: string | null, cursor: string | null, signal: AbortSignal): Promise<CareersCompany> {
   const params = new URLSearchParams({ name: name.trim() });
   if (role?.trim()) params.set("role", role.trim());
+  if (cursor) params.set("cursor", cursor);
   return assertApiGet<CareersCompany>(`/v1/careers/company?${params.toString()}`, signal);
 }
 

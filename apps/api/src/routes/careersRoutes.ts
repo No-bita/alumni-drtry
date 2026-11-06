@@ -17,13 +17,20 @@ export const careersRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) {
       throw new AppError(400, "CAREERS_BAD_REQUEST", "Type a company name (2 to 120 characters).");
     }
+    // "Load more" cursor: the previous page's nextCursor - a row offset, digits only.
+    const cursorRaw = (request.query as { cursor?: string }).cursor;
+    if (cursorRaw !== undefined && !/^\d{1,9}$/.test(cursorRaw)) {
+      throw new AppError(400, "CAREERS_BAD_REQUEST", "Invalid cursor.");
+    }
+    const offset = cursorRaw ? Number(cursorRaw) : 0;
     // Same budget as directory reads: this lists directory rows.
     await app.discoveryLimiter.assert(request.actor, request.ip);
     const result = await app.careersService.company({
       name: parsed.data.name,
       role: parsed.data.role ? parsed.data.role : null,
       viewerPersonId: request.actor.personId,
-      viewerIsDemo: Boolean(request.actor.isDemo)
+      viewerIsDemo: Boolean(request.actor.isDemo),
+      offset
     });
     return reply.code(200).send(result);
   });

@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { CareersRepo, type CompanyPersonRow } from "../repos/careersRepo.js";
+import { CareersRepo, COMPANY_PEOPLE_PAGE_SIZE, type CompanyPersonRow } from "../repos/careersRepo.js";
 import type { ContactRequestStatus } from "../repos/contactRequestRepo.js";
 import { MatchRepo } from "../repos/matchRepo.js";
 
@@ -29,6 +29,8 @@ export interface CareersCompanyResult {
   current: CareersCompanyPerson[];
   /** Worked there before (and not now). */
   past: CareersCompanyPerson[];
+  /** "Load more": pass nextCursor as cursor for the next page; null when everything is loaded. */
+  pageInfo: { nextCursor: string | null };
 }
 
 /** Careers page: who is at a company, where you can get referred, and demand for your company. */
@@ -49,10 +51,12 @@ export class CareersService {
     role: string | null;
     viewerPersonId: string;
     viewerIsDemo: boolean;
+    /** "Load more": rows to skip (the previous page's nextCursor as a number). */
+    offset: number;
   }): Promise<CareersCompanyResult> {
     const typed = input.name.trim().replace(/\s+/g, " ");
-    const [rows, known] = await Promise.all([
-      this.repo.peopleAtCompany(typed, input.viewerPersonId, input.viewerIsDemo),
+    const [{ rows, hasMore }, known] = await Promise.all([
+      this.repo.peopleAtCompany(typed, input.viewerPersonId, input.viewerIsDemo, input.offset),
       this.repo.displayName(typed)
     ]);
     const statuses = await this.notes.latestStatusFromSender(
@@ -71,12 +75,14 @@ export class CareersService {
     const result: CareersCompanyResult = {
       company: known ?? typed,
       current: rows.filter((r) => r.is_current).map(toPerson),
-      past: rows.filter((r) => !r.is_current).map(toPerson)
+      past: rows.filter((r) => !r.is_current).map(toPerson),
+      pageInfo: { nextCursor: hasMore ? String(input.offset + COMPANY_PEOPLE_PAGE_SIZE) : null }
     };
 
     // A company looked up here counts as demand, like an Ask referral question (marked "careers").
+    // Paging through more people is the same lookup, so only the first page is counted.
     // The demo account's lookups are left out of the numbers.
-    if (!input.viewerIsDemo) {
+    if (!input.viewerIsDemo && input.offset === 0) {
       await this.matchRepo
         .logQuery({
           category: "referral",
