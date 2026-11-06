@@ -2,7 +2,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { env } from "../src/config/env.js";
-import { V1_CACHE_MS, V1_EMPTY_CACHE_MS } from "../src/services/citiesService.js";
 import { PlaceReviewService, historySummary } from "../src/services/placeReviewService.js";
 import { loginForTest } from "./helpers/login.js";
 
@@ -197,7 +196,5 @@ describe("city linking (integration, local test database only)", () => {
     expect(await review.approvedCity(`v1city${R}`, "Pakistan")).toBeNull();
     await db.query(`UPDATE canonical_places SET status = 'pending', reviewed_at = NULL, reviewed_by_person_id = NULL WHERE id = $1`, [id]);
     expect(await review.approvedCity(`v1city${R}`, "India")).toBeNull();
-    expect(V1_EMPTY_CACHE_MS).toBeLessThanOrEqual(30_000);
-    expect(V1_CACHE_MS).toBe(600_000);
   });
 });

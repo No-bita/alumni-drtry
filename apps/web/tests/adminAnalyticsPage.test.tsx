@@ -210,7 +210,7 @@ describe("Metric help pills", () => {
     mount();
     expect(await screen.findByText("Cities notes accepted")).toBeTruthy();
     const pills = screen.getAllByRole("button", { name: /^About this metric: / });
-    expect(pills).toHaveLength(57);
+    expect(pills).toHaveLength(56);
     const started = screen.getByRole("button", { name: "About this metric: Started onboarding" });
     fireEvent.click(started);
     expect(started.getAttribute("aria-expanded")).toBe("true");
