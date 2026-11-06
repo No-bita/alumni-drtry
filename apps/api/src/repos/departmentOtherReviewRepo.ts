@@ -87,67 +87,66 @@ export class DepartmentOtherReviewRepo {
     return r.rows[0] ?? null;
   }
 
-  private async insertHistory(entry: {
-    personId: string;
-    action: "submitted" | "approved" | "rejected" | "linked";
-    actorPersonId: string | null;
-    submittedText?: string | null;
-    targetDepartmentId?: string | null;
-    reason?: string | null;
-  }): Promise<void> {
-    await this.db.query(
-      `INSERT INTO department_other_history (person_id, action, actor_person_id, submitted_text, target_department_id, reason)
-       VALUES ($1::uuid, $2, $3::uuid, $4, $5::uuid, $6)`,
-      [
-        entry.personId,
-        entry.action,
-        entry.actorPersonId,
-        entry.submittedText ?? null,
-        entry.targetDepartmentId ?? null,
-        entry.reason ?? null
-      ]
+  /**
+   * Approve exactly the text the admin reviewed. One statement: the status update and the history row
+   * commit together, and only if the stored text still equals `expectedText`. Returns false (nothing
+   * written) when the member changed the text since it was reviewed.
+   */
+  async approve(personId: string, reviewerId: string, expectedText: string): Promise<boolean> {
+    const r = await this.db.query(
+      `WITH approved AS (
+         UPDATE people
+         SET department_other_status = 'approved', department_other_rejection_reason = NULL,
+             department_other_reviewed_by = $2::uuid, department_other_reviewed_at = now(), updated_at = now()
+         WHERE id = $1::uuid AND deleted_at IS NULL AND department_other_text = $3
+           AND department_id = (SELECT id FROM departments WHERE code = 'other')
+         RETURNING id, department_other_text
+       )
+       INSERT INTO department_other_history (person_id, action, actor_person_id, submitted_text)
+       SELECT id, 'approved', $2::uuid, department_other_text FROM approved`,
+      [personId, reviewerId, expectedText]
     );
+    return (r.rowCount ?? 0) > 0;
   }
 
-  async approve(personId: string, reviewerId: string, submittedText: string | null): Promise<void> {
-    await this.db.query(
-      `UPDATE people
-       SET department_other_status = 'approved', department_other_rejection_reason = NULL,
-           department_other_reviewed_by = $2::uuid, department_other_reviewed_at = now(), updated_at = now()
-       WHERE id = $1::uuid`,
-      [personId, reviewerId]
+  /** Reject exactly the text the admin reviewed; same one-statement, text-bound rule as approve. */
+  async reject(personId: string, reviewerId: string, reason: string, expectedText: string): Promise<boolean> {
+    const r = await this.db.query(
+      `WITH rejected AS (
+         UPDATE people
+         SET department_other_status = 'rejected', department_other_rejection_reason = $3,
+             department_other_reviewed_by = $2::uuid, department_other_reviewed_at = now(), updated_at = now()
+         WHERE id = $1::uuid AND deleted_at IS NULL AND department_other_text = $4
+           AND department_id = (SELECT id FROM departments WHERE code = 'other')
+         RETURNING id, department_other_text
+       )
+       INSERT INTO department_other_history (person_id, action, actor_person_id, submitted_text, reason)
+       SELECT id, 'rejected', $2::uuid, department_other_text, $3 FROM rejected`,
+      [personId, reviewerId, reason, expectedText]
     );
-    await this.insertHistory({ personId, action: "approved", actorPersonId: reviewerId, submittedText });
+    return (r.rowCount ?? 0) > 0;
   }
 
-  async reject(personId: string, reviewerId: string, reason: string, submittedText: string | null): Promise<void> {
-    await this.db.query(
-      `UPDATE people
-       SET department_other_status = 'rejected', department_other_rejection_reason = $3,
-           department_other_reviewed_by = $2::uuid, department_other_reviewed_at = now(), updated_at = now()
-       WHERE id = $1::uuid`,
-      [personId, reviewerId, reason]
+  /**
+   * Move the member to an existing canonical department. The typed text stays stored. Only applies if the
+   * stored text still equals `expectedText`; status change and history row are one statement.
+   */
+  async link(personId: string, reviewerId: string, departmentId: string, expectedText: string): Promise<boolean> {
+    const r = await this.db.query(
+      `WITH linked AS (
+         UPDATE people
+         SET department_id = $2::uuid,
+             department_other_status = 'approved', department_other_rejection_reason = NULL,
+             department_other_reviewed_by = $3::uuid, department_other_reviewed_at = now(), updated_at = now()
+         WHERE id = $1::uuid AND deleted_at IS NULL AND department_other_text = $4
+           AND department_id = (SELECT id FROM departments WHERE code = 'other')
+         RETURNING id, department_other_text
+       )
+       INSERT INTO department_other_history (person_id, action, actor_person_id, submitted_text, target_department_id)
+       SELECT id, 'linked', $3::uuid, department_other_text, $2::uuid FROM linked`,
+      [personId, departmentId, reviewerId, expectedText]
     );
-    await this.insertHistory({ personId, action: "rejected", actorPersonId: reviewerId, submittedText, reason });
-  }
-
-  /** Move the member to an existing canonical department. The typed text stays stored. */
-  async link(personId: string, reviewerId: string, departmentId: string, submittedText: string | null): Promise<void> {
-    await this.db.query(
-      `UPDATE people
-       SET department_id = $2::uuid,
-           department_other_status = 'approved', department_other_rejection_reason = NULL,
-           department_other_reviewed_by = $3::uuid, department_other_reviewed_at = now(), updated_at = now()
-       WHERE id = $1::uuid`,
-      [personId, departmentId, reviewerId]
-    );
-    await this.insertHistory({
-      personId,
-      action: "linked",
-      actorPersonId: reviewerId,
-      submittedText,
-      targetDepartmentId: departmentId
-    });
+    return (r.rowCount ?? 0) > 0;
   }
 
   async findDepartmentById(id: string): Promise<{ id: string; code: string; name: string } | null> {
