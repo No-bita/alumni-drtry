@@ -33,7 +33,6 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
@@ -43,6 +42,14 @@
           "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://alma-mater-api.onrender.com https://api.bigdatacloud.net; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; worker-src 'self' blob:; manifest-src 'self'"
         }
       ]
+    },
+    {
+      "source": "/((?!app/media/World_Map_Vns\\.html$).*)",
+      "headers": [{ "key": "X-Frame-Options", "value": "DENY" }]
+    },
+    {
+      "source": "/app/media/World_Map_Vns.html",
+      "headers": [{ "key": "X-Frame-Options", "value": "SAMEORIGIN" }]
     },
     {
       "source": "/app/:path*",
