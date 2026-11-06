@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#1B1F2A"/>
+  <rect x="4" y="4" width="56" height="56" fill="none" stroke="#F3EFE4" stroke-width="2"/>
+  <text x="32" y="42" text-anchor="middle" font-family="'IBM Plex Sans Condensed','Arial Narrow',Arial,sans-serif" font-weight="700" font-size="26" letter-spacing="1" fill="#F3EFE4">AM</text>
+</svg>

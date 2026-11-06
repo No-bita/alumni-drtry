@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "noEmit": false,
+    "incremental": false,
+    "isolatedModules": false,
+    "plugins": [],
+    "allowJs": false,
+    "outDir": ".test-out",
+    "rootDir": ".",
+    "types": [
+      "node"
+    ],
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": [
+    "lib/**/*.ts",
+    "content/**/*.ts",
+    "components/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
