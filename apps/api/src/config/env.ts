@@ -82,7 +82,7 @@ const envSchema = z.object({
   WA_TEMPLATE_LANG: z.string().trim().min(2).default("en"),
   /** Hard cap on paid (template) messages per calendar month; past it notes go by email. */
   /** How long the bot's website links (/w/<code> and their signed token) stay valid. */
-  WA_LINK_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(60),
+  WA_LINK_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(120),
   WA_MONTHLY_TEMPLATE_CAP: z.coerce.number().int().min(0).max(100_000).default(300),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),

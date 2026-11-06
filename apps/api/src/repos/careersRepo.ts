@@ -20,7 +20,7 @@ export interface ReferralCompanyRow {
 }
 
 /** Most people the company screen lists; a company with more can be browsed in the directory. */
-export const COMPANY_PEOPLE_MAX = 50;
+export const COMPANY_PEOPLE_MAX = 100;
 /** Most companies listed under "Companies you can get referred to". */
 export const REFERRAL_COMPANIES_MAX = 50;
 

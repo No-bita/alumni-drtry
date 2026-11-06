@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 
 /**
- * Signed, short-lived token (WA_LINK_TOKEN_TTL_MINUTES, default 1 hour) in the bot's website links. It proves which WhatsApp number the link
+ * Signed, short-lived token (WA_LINK_TOKEN_TTL_MINUTES, default 2 hours) in the bot's website links. It proves which WhatsApp number the link
  * was sent to (WhatsApp already verified that number), so the website can link it to the member
  * after they sign in, without asking them to type it or sending a paid sign-in code.
  * Each token carries a random nonce: it can link a number once (the nonce is recorded on use).

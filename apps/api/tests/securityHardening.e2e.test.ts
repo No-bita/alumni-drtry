@@ -320,11 +320,11 @@ describe("security hardening (local test database only)", () => {
     }
   });
 
-  it("WhatsApp website links last one hour by default", () => {
-    expect(LINK_TTL_MS).toBe(60 * 60 * 1000);
+  it("WhatsApp website links last two hours by default", () => {
+    expect(LINK_TTL_MS).toBe(120 * 60 * 1000);
     const now = Date.now();
     const token = signLinkToken("919999999999", now);
-    expect(verifyLinkToken(token, now + 59 * 60 * 1000)?.waId).toBe("919999999999");
-    expect(verifyLinkToken(token, now + 61 * 60 * 1000)).toBeNull();
+    expect(verifyLinkToken(token, now + 119 * 60 * 1000)?.waId).toBe("919999999999");
+    expect(verifyLinkToken(token, now + 121 * 60 * 1000)).toBeNull();
   });
 });

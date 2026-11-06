@@ -81,7 +81,7 @@ outsiders and bulk copying.
 
 ## Other
 
-- **WhatsApp:** website links (`/w/<code>`) last `WA_LINK_TOKEN_TTL_MINUTES` (default 60, was 24 hours).
+- **WhatsApp:** website links (`/w/<code>`) last `WA_LINK_TOKEN_TTL_MINUTES` (default 120, was 24 hours).
   Expired links say "Text hi to the bot for a new one."
 - **Wall:** deleted or suspended authors never appear, and other members' removed posts are hidden on
   the server. This was already true; the audit item was a false positive.
