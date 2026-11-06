@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { LegalPage } from "../../components/LegalPage.tsx";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/tos" },
   title: "Terms of Service | Alma Mater",
   description: "Terms of Service for the Alma Mater website, app and WhatsApp service.",
 };
