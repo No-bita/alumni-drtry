@@ -151,6 +151,7 @@ export function LocationPage() {
   } else {
     body = (
       <CityHome
+        key={data.place.placeId}
         data={data}
         profileId={profileId}
         onChanged={refresh}
