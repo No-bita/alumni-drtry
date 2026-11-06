@@ -4,6 +4,7 @@ export type InviteChannel = "copy" | "whatsapp";
  * Invite links point at the sign-up page. With an inviter, they carry `ref` and `ch` so a new
  * member's sign-up can be credited to the invite (see lib/inviteAttribution.ts).
  */
+/** `appBase`: where the app lives, e.g. "https://almamatter.in/app" (see lib/appBase.ts appBaseUrl). */
 export function buildInviteLink(origin: string, inviterPersonId?: string | null, channel: InviteChannel = "copy"): string {
   const base = `${origin.replace(/\/+$/, "")}/login`;
   if (!inviterPersonId) return base;

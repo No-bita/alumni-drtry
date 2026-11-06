@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import "./FoldToFlight.css";
+import { stripAppBase } from "../lib/appBase";
 
 const prompts = [
   ["The sheet", "Start with a fold.", "Tap the paper to fold down the middle."],
@@ -82,7 +83,7 @@ function RouteReady({ locationKey, onReady, children }: { locationKey: string; o
   useEffect(() => {
     // A redirect starts navigating in its own effect, before this one runs. The browser URL has already moved on,
     // so a page that rendered for an older location must not count as ready.
-    if (locationKey && `${window.location.pathname}${window.location.search}` !== locationKey) return;
+    if (locationKey && `${stripAppBase(window.location.pathname)}${window.location.search}` !== locationKey) return;
     onReady(locationKey);
   }, [locationKey, onReady]);
   return children;

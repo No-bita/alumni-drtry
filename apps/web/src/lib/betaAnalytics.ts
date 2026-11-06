@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { stripAppBase } from "./appBase";
 
 export const BETA_USAGE_EVENT_TYPES = [
   "search_executed",
@@ -102,7 +103,7 @@ export function setUsageEventSenderForTests(next: Sender | null): void {
 export function trackBetaUsageEvent(eventType: BetaUsageEventType, metadata?: Record<string, unknown>): void {
   if (!RECORDED_EVENT_TYPES.has(eventType) || !sender) return;
   try {
-    const route = typeof window === "undefined" ? "" : window.location.pathname;
+    const route = typeof window === "undefined" ? "" : stripAppBase(window.location.pathname);
     sender({ eventType, route: route || "/", metadata: metadata ?? {} });
   } catch {
     /* analytics must never break the app */

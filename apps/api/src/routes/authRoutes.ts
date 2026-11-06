@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { apiPublicBaseUrl, webAppUrl } from "../lib/webAppUrl.js";
 import { generateOpaqueToken } from "../lib/crypto.js";
 import { buildGoogleAuthorizationUrl } from "../lib/googleOAuth.js";
 import { AppError, isAppError } from "../lib/errors.js";
@@ -15,11 +16,11 @@ import {
 } from "../lib/sessionCookie.js";
 
 function webAppBaseUrl(): string {
-  return (env.MAGIC_LINK_BASE_URL ?? env.APP_BASE_URL).replace(/\/+$/, "");
+  return webAppUrl();
 }
 
 function apiBaseUrl(): string {
-  return env.APP_BASE_URL.replace(/\/+$/, "");
+  return apiPublicBaseUrl();
 }
 
 function googleOAuthRedirectUri(): string {

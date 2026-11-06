@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { pendingWhatsAppEntry, rememberWhatsAppEntry } from "../lib/whatsapp";
 import { queryKeys } from "../lib/queryKeys";
+import { takeReturnTo } from "../lib/returnTo";
 
 export function AuthVerify() {
   const [searchParams] = useSearchParams();
@@ -71,7 +72,7 @@ export function AuthVerify() {
         return;
       }
       if (p.onboardingCompletedAt) {
-        navigate("/home", { replace: true });
+        navigate(takeReturnTo() ?? "/home", { replace: true });
         return;
       }
       navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });

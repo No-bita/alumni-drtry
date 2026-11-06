@@ -1,0 +1,5 @@
+# This file is served by the APP deployment's own hosts (the Vercel alias and, until the cut-over completes,
+# app.almamater.aaryanshah.co.in). The public site is almamatter.in, owned by the landing deployment, which
+# serves its own robots.txt and sitemap. Keep the app deployment's hosts out of search indexes entirely.
+User-agent: *
+Disallow: /
