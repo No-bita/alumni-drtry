@@ -8,6 +8,7 @@ import { colors } from "../../lib/tokens.ts";
 
 export const metadata: Metadata = {
   title: "Component preview | Alma Mater",
+  alternates: { canonical: "/preview" },
   robots: { index: false, follow: false },
 };
 
