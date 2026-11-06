@@ -1,4 +1,7 @@
 import { api } from "../api/client";
+import { ApiRequestError } from "./apiRequestError";
+
+export { ApiRequestError };
 
 /** For TanStack `queryFn`: throws on abort/error so the query error boundary works. */
 export async function assertApiGet<T>(path: string, signal: AbortSignal): Promise<T> {
@@ -7,7 +10,7 @@ export async function assertApiGet<T>(path: string, signal: AbortSignal): Promis
     throw new DOMException("Aborted", "AbortError");
   }
   if (res.error) {
-    throw new Error(res.error.message ?? res.error.code ?? "Request failed");
+    throw new ApiRequestError(res.error.code ?? "UNKNOWN", res.error.message ?? res.error.code ?? "Request failed", res.status);
   }
   if (res.data === undefined) {
     throw new Error("No data");

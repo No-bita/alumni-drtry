@@ -21,6 +21,7 @@ import {
 import { queryKeys } from "../lib/queryKeys";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { SENT_NOTES_QUERY_KEY } from "../lib/sentNotes";
+import { browsingLimitFromError } from "../lib/browsingLimits";
 
 /**
  * Cities (/intent/location and /intent/location/:citySlug). Built around the settled local: what changed in
@@ -91,7 +92,7 @@ export function LocationPage() {
   } else if (list.isError || city.isError) {
     body = (
       <p className="cities__note" role="alert">
-        Couldn’t load this city.{" "}
+        {browsingLimitFromError(list.error ?? city.error) ?? "Couldn’t load this city."}{" "}
         <button
           type="button"
           className="cities__textbtn"

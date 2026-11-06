@@ -54,6 +54,7 @@ import {
   parseOpenToPreferences,
   type OpenToPreferences,
 } from "../lib/openToPreferences";
+import { browsingLimitFromError } from "../lib/browsingLimits";
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -527,6 +528,20 @@ export function Profile() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
     }
   };
+
+  const profileLimit = browsingLimitFromError(profileQuery.error);
+  if (profileLimit) {
+    return (
+      <>
+        <Nav variant="home" avatarName={navAvatarName} />
+        <div className="home-dashboard profile-page">
+          <div className="profile-page__loading">
+            <PageStateBlock title="Browsing paused" description={profileLimit} tone="error" />
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (profileQuery.isError || (!loading && !data)) {
     return (

@@ -50,9 +50,9 @@ describe("email parser", () => {
   });
 
   it("parses firstname.middlename.lastname.deptYY (e.g. MST)", () => {
-    const parsed = parseInstitutionalIdentity("shahaaryan.milan.mst20@iitbhu.ac.in");
-    expect(parsed.parsedFirstName).toBe("shahaaryan");
-    expect(parsed.parsedLastName).toBe("milan");
+    const parsed = parseInstitutionalIdentity("exampleuser.middle.mst20@iitbhu.ac.in");
+    expect(parsed.parsedFirstName).toBe("exampleuser");
+    expect(parsed.parsedLastName).toBe("middle");
     expect(parsed.departmentCode).toBe("mst");
     expect(parsed.departmentName).toBe("Material Sciences and Technology");
     expect(parsed.joiningYear).toBe(2020);

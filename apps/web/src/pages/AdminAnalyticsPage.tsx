@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
+import { AdminBrowsingLimits } from "../components/AdminBrowsingLimits";
 import { WeeklyBars } from "../components/WeeklyBars";
 import { MetricInfoPill } from "../components/MetricInfoPill";
 import { METRIC_HELP } from "../lib/analyticsMetricHelp";
@@ -657,6 +658,7 @@ export function AdminAnalyticsPage() {
                 </div>
               </section>
             ) : null}
+            <AdminBrowsingLimits />
             <div className="aa-controls">
               <div className="aa-range" role="group" aria-label="Time range">
                 {ANALYTICS_WINDOWS.map((d) => (

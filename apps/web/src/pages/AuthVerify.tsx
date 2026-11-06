@@ -35,8 +35,8 @@ export function AuthVerify() {
   const verifyQuery = useQuery({
     queryKey: queryKeys.auth.magicLinkVerify(challengeId ?? "", magicLinkToken ?? ""),
     queryFn: async ({ signal }) => {
-      const verifyUrl = `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId!)}&magicLinkToken=${encodeURIComponent(magicLinkToken!)}`;
-      const res = await api.get(verifyUrl, { signal });
+      // POST: the one-time token travels in the body, never in a URL the server or a proxy could log.
+      const res = await api.post("/v1/auth/verify", { challengeId, magicLinkToken }, { signal });
       if (res.aborted) {
         throw new DOMException("Aborted", "AbortError");
       }

@@ -28,6 +28,7 @@ import {
   type DirectorySearchDraft,
 } from "../lib/directorySearchUrlState";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import { browsingLimitFromError } from "../lib/browsingLimits";
 
 /**
  * Directory grid: 1 col (viewport under 680px) → 2 col (tablet) → 3 col (desktop).
@@ -411,7 +412,11 @@ export function Search() {
 
           {!fetchingMain && errorMessage && results.length === 0 ? (
             <div className="search-page__empty">
-              <PageStateBlock title="Couldn’t load results" description={errorMessage} tone="error" />
+              <PageStateBlock
+                title={browsingLimitFromError(searchQuery.error) ? "Browsing paused" : "Couldn’t load results"}
+                description={errorMessage}
+                tone="error"
+              />
             </div>
           ) : null}
 

@@ -1,8 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { assertDiscoveryReadAllowed } from "../lib/directoryAbuseLimiter.js";
 import { AppError } from "../lib/errors.js";
 
+
+/** Most people one directory search page returns. */
+export const SEARCH_PAGE_MAX = 20;
 const maxDirectoryBatchYear = new Date().getUTCFullYear() + 5;
 
 const searchQuerySchema = z.object({
@@ -15,7 +17,8 @@ const searchQuerySchema = z.object({
   residenceCountry: z.string().trim().max(120).optional(),
   residenceCity: z.string().trim().max(120).optional(),
   requireResidence: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // Anti-scraping: at most SEARCH_PAGE_MAX people per page (larger requests are clamped, not refused).
+  limit: z.coerce.number().int().min(1).max(100).default(SEARCH_PAGE_MAX).transform((v) => Math.min(v, SEARCH_PAGE_MAX)),
   cursor: z.string().max(400).optional()
 });
 
@@ -40,7 +43,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "SEARCH_BAD_REQUEST", "Invalid search query parameters.");
     }
 
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
 
     const result = await app.discoveryService.search({
       ...parsed.data,
@@ -91,7 +94,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "RESIDENCE_CITIES_BAD_REQUEST", "Invalid query parameters.");
     }
 
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
 
     const cities = await app.discoveryService.listResidenceCityAggregates(parsed.data.limit);
     return reply
@@ -106,7 +109,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "PROFILE_BAD_REQUEST", "Invalid profile id.");
     }
 
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
 
     const result = await app.discoveryService.getPublicProfile(
       parsed.data.id,
