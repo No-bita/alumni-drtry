@@ -83,7 +83,7 @@ export const citiesRoutes: FastifyPluginAsync = async (app) => {
     const query = postsQuery.safeParse(request.query);
     if (!params.success) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
     if (!query.success) throw new AppError(400, "CITIES_BAD_REQUEST", "Invalid cursor.");
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
     const offset = query.data.cursor ? Number(query.data.cursor) : 0;
     return reply.code(200).send(await app.citiesService.posts(params.data.placeId, viewerOf(request), offset));
   });
