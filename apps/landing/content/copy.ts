@@ -2,7 +2,7 @@
 // The OG image and favicon are file-based metadata: app/opengraph-image.png and app/icon.svg.
 
 // Live platform entry point. Every landing CTA opens the main platform's login page.
-export const PLATFORM_URL = "https://app.almamater.aaryanshah.co.in/login";
+export const PLATFORM_URL = "https://almamatter.in/app/login";
 
 export const copy = {
   nav: {
