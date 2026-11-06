@@ -53,7 +53,6 @@ function payload(over: Partial<CityPayload> = {}): CityPayload {
     v1Enabled: true,
     counts: { alumni: 41, openToCityHelp: 6 },
     arrivalPrompt: false,
-    nudgeFrequency: "weekly",
     arrivals: { total: 1, items: [{ id: "arr1", person: person("riya", "Riya Kapoor", { batchYear: 2022 }), arrivedDaysAgo: 6, previousCity: "Pune", myOffer: null, wroteToMe: null }] },
     myArrival: null,
     offers: [],
@@ -68,6 +67,7 @@ function payload(over: Partial<CityPayload> = {}): CityPayload {
       ],
     },
     posts: [],
+    postsHasMore: false,
     chapterLink: null,
     helpers: [],
     others: [],
@@ -128,107 +128,117 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("Cities page: local view (screen 1)", () => {
-  it("opens on your own city with the sections in order and no message button for anyone not open to coffee", async () => {
+describe("Cities page: city home (local)", () => {
+  const post = (id: string, content: string, over: Partial<CityPayload["posts"][number]> = {}): CityPayload["posts"][number] => ({
+    id,
+    authorPersonId: `a-${id}`,
+    authorFullName: "Asha Kamath",
+    authorBatchYear: 2019,
+    content,
+    createdAt: new Date().toISOString(),
+    viewerHasResponded: false,
+    isMine: false,
+    ...over,
+  });
+
+  it("needs-first landing: badge, headline, four shortcuts, requests, ask card and secondary links", async () => {
+    world(lists, payload({
+      posts: [post("r1", "Looking for a 2BHK near HSR\n\nMoving in mid-Nov, budget 55-65k. Open to flatmates too.")],
+    }));
+    mount();
+    expect(await screen.findByText("Your city")).toBeTruthy();
+    expect(within(screen.getByRole("main")).getByRole("heading", { level: 1, name: "Bengaluru" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "What do you need in Bengaluru?" })).toBeTruthy();
+
+    expect(screen.getByRole("button", { name: /Housing & flatmates/ })).toBeTruthy();
+    expect(screen.getByText("Flats, flatmates and housing leads")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Neighbourhoods & commute/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Local services/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Meet people & activities/ })).toBeTruthy();
+
+    expect(screen.getByRole("heading", { name: "From the Bengaluru community" })).toBeTruthy();
+    expect(screen.getByText("Open posts from the Wall, filtered to Bengaluru.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Looking for a 2BHK near HSR/ })).toBeTruthy();
+    expect(screen.getByText(/Asha ’19 ·/)).toBeTruthy();
+
+    expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Browse the Bengaluru alumni directory ›" }).getAttribute("href"))
+      .toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
+    expect(screen.getByRole("link", { name: "Moved away? Update your city ›" }).getAttribute("href")).toBe("/profiles/me1?edit=city");
+
+    // Retired sections stay gone: alumni list, helper panel, meetups, arrivals.
+    expect(screen.queryByRole("heading", { name: "Alumni in Bengaluru" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Get together" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Something else?" })).toBeNull();
+  });
+
+  it("a shortcut prefills the Wall composer tagged with this city", async () => {
     world(lists, payload());
     mount();
-    expect(await screen.findByRole("button", { name: "Change city: Bengaluru" })).toBeTruthy();
-    expect(await screen.findByText("41 alumni live here")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "See all 41 alumni in Bengaluru" }).getAttribute("href")).toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
-    expect(screen.getByRole("link", { name: "Moved away? Update your city" }).getAttribute("href")).toBe("/profiles/me1?edit=city");
-
-    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings.indexOf("New in Bengaluru")).toBeLessThan(headings.indexOf("You can help"));
-    expect(headings.indexOf("You can help")).toBeLessThan(headings.indexOf("Alumni in Bengaluru"));
-    expect(headings.indexOf("Alumni in Bengaluru")).toBeLessThan(headings.indexOf("Get together"));
-
-    expect(screen.getByRole("button", { name: "Offer to help Riya" })).toBeTruthy();
-    expect(screen.getByText("12")).toBeTruthy();
-    expect(screen.getByText("moving-help searches for Bengaluru in the last 30 days")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "2 notes waiting for you" })).toBeTruthy();
-
-    const rows = within(screen.getByRole("region", { name: "Alumni in Bengaluru" }).querySelector("ul")!);
-    const vikram = rows.getByText("Vikram Rao").closest("li")!;
-    // Acceptance check 1: someone not open to coffee gets View, never a message/ask button.
-    expect(within(vikram).queryByRole("button")).toBeNull();
-    expect(within(vikram).getByRole("link", { name: "View Vikram Rao’s profile" })).toBeTruthy();
-    const pooja = rows.getByText("Pooja Iyer").closest("li")!;
-    const full = within(pooja).getByRole("button", { name: "Coffee asks full this week, opens Monday" });
-    expect((full as HTMLButtonElement).disabled).toBe(true);
-    expect(within(rows.getByText("Karan Singh").closest("li")!).getByText("Ask sent")).toBeTruthy();
-    expect(within(rows.getByText("Sneha Nair").closest("li")!).getByText(/Coffee: 1 spot left this week/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Housing & flatmates/ }));
+    expect(wallOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ placeId: "blr", category: "relocation", headline: "Housing or flatmates in Bengaluru" }),
+    );
   });
 
-  it("coffee ask: Send stays off until the reason has 40 characters, then sends a cities/coffee note", async () => {
+  it("Ask the community opens the Wall composer tagged with this city, without a prefill", async () => {
     world(lists, payload());
     mount();
-    const sneha = (await screen.findByText("Sneha Nair")).closest("li")!;
-    fireEvent.click(within(sneha).getByRole("button", { name: "Ask for coffee" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Sneha for coffee" });
-    expect(within(dialog).getByText("Sneha takes 2 coffee asks a week · 1 spot left")).toBeTruthy();
-    const send = within(dialog).getByRole("button", { name: "Send ask" }) as HTMLButtonElement;
-    const box = within(dialog).getByLabelText(/Why Sneha\?/);
-    fireEvent.change(box, { target: { value: "x".repeat(39) } });
-    expect(send.disabled).toBe(true);
-    fireEvent.change(box, { target: { value: "Same batch, and I’d love to hear how you moved into data." } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Weekend" }));
-    expect(send.disabled).toBe(false);
-    fireEvent.click(send);
-    await waitFor(() => expect(apiPost).toHaveBeenCalled());
-    const [url, body] = apiPost.mock.calls[0]!;
-    expect(url).toBe("/v1/contact-requests");
-    expect(body).toMatchObject({ recipientPersonId: "sneha", source: "cities", sourceCategory: "coffee" });
-    expect((body as { message: string }).message).toMatch(/When suits me: Weekend$/);
-  });
-
-  it("shows the server’s weekly-limit refusal in plain words", async () => {
-    world(lists, payload());
-    apiPost.mockResolvedValue({ error: { code: "COFFEE_LIMIT_REACHED", message: "full" } });
-    mount();
-    const sneha = (await screen.findByText("Sneha Nair")).closest("li")!;
-    fireEvent.click(within(sneha).getByRole("button", { name: "Ask for coffee" }));
-    const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText(/Why Sneha\?/), { target: { value: "y".repeat(45) } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send ask" }));
-    expect(await within(dialog).findByText("Sneha is full this week. Try again from Monday.")).toBeTruthy();
-  });
-
-  it("offer to help is not a message: needs at least one kind, posts an offer, says nothing is sent", async () => {
-    world(lists, payload());
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Offer to help Riya" }));
-    const dialog = screen.getByRole("dialog", { name: "Offer to help Riya" });
-    expect(within(dialog).getByText(/No message is sent/)).toBeTruthy();
-    const send = within(dialog).getByRole("button", { name: "Send offer" }) as HTMLButtonElement;
-    expect(send.disabled).toBe(true);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Commute" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Areas to live" }));
-    fireEvent.click(send);
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/cities/arrivals/arr1/offers", { kinds: ["areas", "commute"] }));
-  });
-
-  it("after offering: a status row, never a read receipt", async () => {
-    const p = payload();
-    p.arrivals!.items[0] = { ...p.arrivals!.items[0]!, myOffer: { id: "off1" } };
-    world(lists, p);
-    mount();
-    expect(await screen.findByText(/You offered to help · Riya decides/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Offer to help Riya" })).toBeNull();
-    expect(screen.queryByText(/seen|read/i)).toBeNull();
-  });
-
-  it("New in town collapses entirely when nobody opted in", async () => {
-    world(lists, payload({ arrivals: { total: 0, items: [] } }));
-    mount();
-    await screen.findByRole("button", { name: "Change city: Bengaluru" });
-    expect(screen.queryByRole("heading", { name: "New in Bengaluru" })).toBeNull();
-  });
-
-  it("post a meetup idea opens the Wall composer tagged with this city", async () => {
-    world(lists, payload());
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Post a meetup idea" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ask the community" }));
     expect(wallOpen).toHaveBeenCalledWith(expect.objectContaining({ placeId: "blr", category: "relocation" }));
+    expect((wallOpen.mock.calls[0]![0] as { headline?: string }).headline).toBeUndefined();
+  });
+
+  it("request cards carry no reply affordance and open the full request read-only", async () => {
+    world(lists, payload({
+      posts: [post("r1", "Looking for a 2BHK near HSR\n\nMoving in mid-Nov, budget 55-65k. Open to flatmates too.")],
+    }));
+    mount();
+    const card = await screen.findByRole("button", { name: /Looking for a 2BHK near HSR/ });
+    expect(screen.queryByRole("button", { name: /Reply/ })).toBeNull();
+    expect(screen.queryByText(/replies|responded/i)).toBeNull();
+    fireEvent.click(card);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Looking for a 2BHK near HSR")).toBeTruthy();
+    expect(within(dialog).getByText(/Moving in mid-Nov/)).toBeTruthy();
+    expect(within(dialog).getByText(/Asha Kamath/)).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: /Reply|Respond|Send/i })).toBeNull();
+  });
+
+  it("View all posts loads the full list from the posts endpoint, then pages", async () => {
+    world(lists, payload({ posts: [post("r1", "First\n\nOne"), post("r2", "Second"), post("r3", "Third")], postsHasMore: true }));
+    const base = apiGet.getMockImplementation()!;
+    const page1 = Array.from({ length: 20 }, (_, i) => post(`p${i}`, `Request ${i + 1}`));
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/cities/blr/posts") return { posts: page1, nextCursor: "20" };
+      if (path === "/v1/cities/blr/posts?cursor=20") return { posts: [post("p20", "Request 21")], nextCursor: null };
+      return base(path);
+    });
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "View all posts →" }));
+    expect(await screen.findByRole("button", { name: /Request 20/ })).toBeTruthy();
+    expect(apiGet).toHaveBeenCalledWith("/v1/cities/blr/posts", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(await screen.findByRole("button", { name: /Request 21/ })).toBeTruthy();
+    expect(apiGet).toHaveBeenCalledWith("/v1/cities/blr/posts?cursor=20", expect.anything());
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("empty city: the requests section stays useful and offers no View all", async () => {
+    world(lists, payload({ posts: [], postsHasMore: false }));
+    mount();
+    expect(await screen.findByText("Nothing to see here yet.")).toBeTruthy();
+    expect(screen.getByText(/Be the first to ask/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "View all posts →" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
+  });
+
+  it("a recent mover gets the 'show me as new in town' entry", async () => {
+    world(lists, payload({ arrivalPrompt: true }));
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Just moved? Show me as new in town ›" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 });
 
@@ -263,7 +273,7 @@ describe("Cities page: newcomer (screen 6)", () => {
   it("lists offers newest first, marks them seen, and writes a note linked to the offer", async () => {
     world(lists, newcomer());
     mount();
-    expect(await screen.findByText("Your city · new in town")).toBeTruthy();
+    expect(await screen.findByText("Your city")).toBeTruthy();
     expect(screen.getByText("Shown as new to local alumni for 24 more days")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "2 alumni offered to help" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "New in Bengaluru" })).toBeNull();
@@ -292,8 +302,10 @@ describe("Cities page: newcomer (screen 6)", () => {
   });
 });
 
-describe("Cities page: arriver (screen 7)", () => {
-  const arriver = (pending: number) =>
+describe("Cities page: exploring another city", () => {
+  // Approved 19:18 (decision 1): the same needs-first page for every selected city, badge "Exploring"
+  // when the viewed city isn't the member's; helper, coffee-ask and Moving/Visiting entry points removed.
+  const exploring = () =>
     payload({
       viewerRole: "arriver",
       viewerCity: PUNE,
@@ -301,56 +313,31 @@ describe("Cities page: arriver (screen 7)", () => {
       helpPanel: null,
       alumni: null,
       posts: [],
-      helpers: [
-        {
-          ...alum(person("vikram", "Vikram Rao", { batchYear: 2014 }), closed, null),
-          replyStats: { total: 6, replied: 5, medianDays: 2 },
-          yourCityAsk: null,
-        },
-      ],
-      others: [
-        alum(person("sneha", "Sneha Nair"), { open: true, limit: 2, spotsLeft: 1, askedByMe: false }),
-        alum(person("karan", "Karan Singh"), closed, "2 batches apart"),
-      ],
-      pendingCityAsks: pending,
     });
 
-  it("shows helpers with reply stats, Moving/Visiting, Others with Ask only for coffee, and the Wall fallback", async () => {
-    world({ ...lists, viewerCity: PUNE }, arriver(0));
+  it("shows the needs-first landing with the Exploring badge and city-tagged asks", async () => {
+    world({ ...lists, viewerCity: PUNE }, exploring());
     mount("/intent/location/bengaluru");
-    expect(await screen.findByRole("link", { name: "‹ Your city: Pune" })).toBeTruthy();
-    expect(screen.queryByText("41 alumni live here · 6 open to city help")).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "What brings you to Bengaluru?" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Moving here" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("Replied to 5 of 6 notes · usually within 2 days")).toBeTruthy();
-    const others = screen.getByRole("region", { name: "Others in Bengaluru" });
-    expect(within(within(others).getByText("Sneha Nair").closest("li")!).getByRole("button", { name: "Ask" })).toBeTruthy();
-    expect(within(within(others).getByText("Karan Singh").closest("li")!).queryByRole("button")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Ask for help" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Vikram for help" });
-    const send = within(dialog).getByRole("button", { name: "Send ask" }) as HTMLButtonElement;
-    expect(send.disabled).toBe(true);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Commute" }));
-    expect(send.disabled).toBe(false);
-    fireEvent.click(send);
-    await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith(
-        "/v1/contact-requests",
-        expect.objectContaining({ recipientPersonId: "vikram", source: "cities", sourceCategory: "relocation" }),
-      ),
+    expect(await screen.findByText("Exploring")).toBeTruthy();
+    expect(screen.queryByText("Your city")).toBeNull();
+    expect(screen.getByRole("heading", { name: "What do you need in Bengaluru?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Local services/ }));
+    expect(wallOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ placeId: "blr", category: "relocation", headline: "Local services in Bengaluru" }),
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "Not the right people? Ask everyone on the Wall" }));
-    expect(wallOpen).toHaveBeenCalledWith(expect.objectContaining({ placeId: "blr", headline: "Moving to Bengaluru" }));
+    expect(screen.getByRole("link", { name: "Browse the Bengaluru alumni directory ›" }).getAttribute("href"))
+      .toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
   });
 
-  it("at 3 pending city-help asks the button says so and is off", async () => {
-    world({ ...lists, viewerCity: PUNE }, arriver(3));
+  it("old contact entry points are gone from Cities", async () => {
+    world({ ...lists, viewerCity: PUNE }, exploring());
     mount("/intent/location/bengaluru");
-    const btn = (await screen.findByRole("button", { name: "3 asks waiting · send more once they reply" })) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    await screen.findByText("Exploring");
+    expect(screen.queryByRole("heading", { name: "Alumni who help people settle in" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Others in Bengaluru" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ask for help" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Moving here" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Not the right people? Ask everyone on the Wall" })).toBeNull();
   });
 });
 
@@ -469,7 +456,7 @@ describe("Cities page: typing your city (no list to pick from)", () => {
     fireEvent.change(await screen.findByRole("textbox", { name: "City" }), { target: { value: "Bangalore" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Country" }), { target: { value: "India" } });
     fireEvent.click(screen.getByRole("button", { name: "Save to my profile" }));
-    expect(await screen.findByRole("heading", { name: "Alumni in Bengaluru" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "What do you need in Bengaluru?" })).toBeTruthy();
     expect(screen.getByText("Saved to your profile.")).toBeTruthy();
     expect(searched()).toBe(false);
   });
@@ -497,7 +484,7 @@ describe("Cities page: typing your city (no list to pick from)", () => {
 });
 
 describe("Cities page: other cities (check 13)", () => {
-  it("a non-Bengaluru local sees only the header and the alumni list", async () => {
+  it("a non-Bengaluru local gets the same needs-first landing; requests stay empty without v1 posts", async () => {
     const pune = payload({
       place: PUNE,
       viewerCity: PUNE,
@@ -510,8 +497,10 @@ describe("Cities page: other cities (check 13)", () => {
     world({ ...lists, viewerCity: PUNE }, pune);
     mount();
     expect(await screen.findByRole("button", { name: "Change city: Pune" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { name: "Alumni in Pune" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "New in Pune" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "What do you need in Pune?" })).toBeTruthy();
+    expect(screen.getByText("Nothing to see here yet.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Alumni in Pune" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Get together" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Something else?" })).toBeNull();
@@ -528,43 +517,6 @@ describe("Cities page: other cities (check 13)", () => {
   });
 });
 
-
-describe("City help optimistic switch", () => {
-  it("keeps the successful value while old server data waits for refetch", async () => {
-    world(lists, payload());
-    mount();
-    const control = await screen.findByRole("switch", { name: "Open to city help" });
-    expect(control.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(control);
-    await waitFor(() => expect(apiPatch).toHaveBeenCalled());
-    await waitFor(() => expect(control.hasAttribute("disabled")).toBe(false));
-    expect(control.getAttribute("aria-checked")).toBe("true");
-  });
-  it("restores the prior value after a failed save", async () => {
-    world(lists, payload());
-    apiPatch.mockResolvedValue({ error: { code: "FAILED" } });
-    mount();
-    const control = await screen.findByRole("switch", { name: "Open to city help" });
-    fireEvent.click(control);
-    await screen.findByRole("alert");
-    expect(control.getAttribute("aria-checked")).toBe("false");
-  });
-});
-
-
-it.each(["/intent/location?emails=manage", "/intent/location/bengaluru?emails=manage", "/intent/location"])("keeps all City email controls hidden at %s without changing preferences", async path => {
-  world(lists, payload({ nudgeFrequency: "monthly" }));
-  mount(path);
-  await screen.findByText("You can help");
-  expect(screen.queryByText("City emails")).toBeNull();
-  expect(screen.queryByText("Stop city emails")).toBeNull();
-  expect(screen.queryByRole("radio")).toBeNull();
-  expect(screen.queryByText("Weekly")).toBeNull();
-  expect(screen.queryByText("Monthly")).toBeNull();
-  expect(screen.queryByText("Never")).toBeNull();
-  expect(screen.getByRole("switch", { name: "Open to city help" })).toBeTruthy();
-  expect(apiPatch).not.toHaveBeenCalled();
-});
 
 describe("Cities page: city review", () => {
   const LEEDS = { placeId: "leeds-1", city: "Leedsy", country: "United Kingdom", slug: "leedsy" };

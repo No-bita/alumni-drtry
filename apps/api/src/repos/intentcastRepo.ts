@@ -7,6 +7,8 @@ import { personIsDemoSql } from "../lib/demoPersonSql.js";
 
 export type IntentcastStatus = "open" | "closed";
 export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "guidance";
+/** Ask / Offer / Invitation: the author's own statement of what their post is (approved 19:30). */
+export type IntentcastKind = "ask" | "offer" | "invitation";
 
 interface IntentcastFeedRow {
   id: string;
@@ -20,6 +22,7 @@ interface IntentcastFeedRow {
   author_current_organization_name: string | null;
   content: string;
   category: IntentcastCategory;
+  kind: IntentcastKind | null;
   status: IntentcastStatus;
   expires_at: Date;
   closed_at: Date | null;
@@ -46,6 +49,8 @@ export interface IntentcastFeedView {
   authorCurrentOrganizationName: string | null;
   content: string;
   category: IntentcastCategory;
+  /** Null on posts written before the choice existed, and on structured flows that don't ask it. */
+  kind: IntentcastKind | null;
   status: IntentcastStatus;
   expiresAt: Date;
   closedAt: Date | null;
@@ -72,6 +77,7 @@ interface IntentcastRow {
   author_person_id: string;
   content: string;
   category: IntentcastCategory;
+  kind: IntentcastKind | null;
   status: IntentcastStatus;
   expires_at: Date;
   closed_at: Date | null;
@@ -116,6 +122,7 @@ export interface CreateIntentcastInput {
   authorPersonId: string;
   content: string;
   category: IntentcastCategory;
+  kind?: IntentcastKind | null;
   expiresAt: Date;
   /** Cities v1: a post made from a city page carries that city. */
   placeId?: string | null;
@@ -216,6 +223,7 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     authorCurrentOrganizationName: row.author_current_organization_name,
     content: row.content,
     category: row.category,
+    kind: row.kind ?? null,
     status: row.status,
     expiresAt: row.expires_at,
     closedAt: row.closed_at,
@@ -250,11 +258,11 @@ export class IntentcastRepo {
   async create(input: CreateIntentcastInput): Promise<IntentcastRow> {
     const result = await this.db.query<IntentcastRow>(
       `
-      INSERT INTO intentcasts (author_person_id, content, category, expires_at, editable_until, place_id)
-      VALUES ($1, $2, $3, $4, now() + interval '5 minutes', $5::uuid)
+      INSERT INTO intentcasts (author_person_id, content, category, kind, expires_at, editable_until, place_id)
+      VALUES ($1, $2, $3, $4, $5, now() + interval '5 minutes', $6::uuid)
       RETURNING *
       `,
-      [input.authorPersonId, input.content, input.category, input.expiresAt, input.placeId ?? null]
+      [input.authorPersonId, input.content, input.category, input.kind ?? null, input.expiresAt, input.placeId ?? null]
     );
     return result.rows[0]!;
   }
@@ -358,13 +366,14 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.kind,
         i.status,
         i.expires_at,
         i.closed_at,
@@ -439,13 +448,14 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.kind,
         i.status,
         i.expires_at,
         i.closed_at,
@@ -505,13 +515,14 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
         i.content,
         i.category,
+        i.kind,
         i.status,
         i.expires_at,
         i.closed_at,
@@ -726,8 +737,8 @@ export class IntentcastRepo {
         r.created_at,
         r.updated_at,
         p.full_name AS responder_full_name,
-        COALESCE(d.code, p.department_code) AS responder_department_code,
-        COALESCE(d.name, p.department_name) AS responder_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS responder_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS responder_department_name,
         ${personIsDemoSql("p")} AS responder_is_demo
       FROM intentcast_responses r
       JOIN people p ON p.id = r.responder_person_id
@@ -756,7 +767,7 @@ export class IntentcastRepo {
         i.content AS intentcast_content,
         p.id AS responder_person_id,
         p.full_name AS responder_full_name,
-        COALESCE(d.code, p.department_code) AS responder_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS responder_department_code,
         COALESCE(p.batch_year, p.joining_year)::int AS responder_batch_year,
         ${personIsDemoSql("p")} AS responder_is_demo
       FROM intentcast_responses r

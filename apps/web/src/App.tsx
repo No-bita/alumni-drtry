@@ -17,6 +17,8 @@ import { RouteNotice } from "./components/RouteNotice";
 import { FINISH_PROFILE_NOTICE, noticeState } from "./lib/routeNotices";
 import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "./lib/devHubPages";
+import { APP_BASE_PATH } from "./lib/appBase";
+import { rememberReturnTo } from "./lib/returnTo";
 
 /** Each `import()` becomes its own JS chunk; only the current route’s page loads (no static `pages/*` imports here). */
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
@@ -40,6 +42,9 @@ const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
 );
 const AdminCityReviewPage = lazy(() => import("./pages/AdminCityReviewPage").then((m) => ({ default: m.AdminCityReviewPage })));
+const AdminDepartmentOtherPage = lazy(() =>
+  import("./pages/AdminDepartmentOtherPage").then((m) => ({ default: m.AdminDepartmentOtherPage }))
+);
 const AdminLocationCleanup = lazy(() => import("./pages/AdminLocationCleanup").then((m) => ({ default: m.AdminLocationCleanup })));
 const AdminPlaceDetail = lazy(() => import("./pages/AdminPlaceDetail").then((m) => ({ default: m.AdminPlaceDetail })));
 const AdminCompanyReviewPage = lazy(() =>
@@ -60,7 +65,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const location = useLocation();
   const [beganWhileLoading] = useState(auth.status === "loading");
-  if (auth.status === "unauthenticated") return <Navigate to="/login" replace />;
+  if (auth.status === "unauthenticated") {
+    // Come back here after signing in.
+    rememberReturnTo(`${location.pathname}${location.search}`);
+    return <Navigate to="/login" replace />;
+  }
   if (beganWhileLoading && !(auth.status === "authenticated" && auth.myProfileError)) {
     return <FoldToFlightGate sessionReady={auth.status === "authenticated"} locationKey={`${location.pathname}${location.search}`}>{children}</FoldToFlightGate>;
   }
@@ -380,6 +389,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/department-other"
+          element={
+            <RequireAuth>
+              <AdminDepartmentOtherPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/admin/locations"
           element={
             <RequireAuth>
@@ -405,7 +422,7 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={APP_BASE_PATH || undefined}>
       <StagingMarker />
       {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>

@@ -19,8 +19,8 @@ export interface ReferralCompanyRow {
   alumni: number;
 }
 
-/** Most people the company screen lists; a company with more can be browsed in the directory. */
-export const COMPANY_PEOPLE_MAX = 100;
+/** Company screen page size: people load 50 at a time through "Load more". */
+export const COMPANY_PEOPLE_PAGE_SIZE = 50;
 /** Most companies listed under "Companies you can get referred to". */
 export const REFERRAL_COMPANIES_MAX = 50;
 
@@ -34,7 +34,12 @@ export class CareersRepo {
    * or its main company's name contains the typed name as whole words, ignoring capitals. One row
    * per person, preferring a current job there.
    */
-  async peopleAtCompany(name: string, viewerPersonId: string, viewerIsDemo: boolean): Promise<CompanyPersonRow[]> {
+  async peopleAtCompany(
+    name: string,
+    viewerPersonId: string,
+    viewerIsDemo: boolean,
+    offset: number
+  ): Promise<{ rows: CompanyPersonRow[]; hasMore: boolean }> {
     const pattern = wordBoundedPattern(escapeRegexLiteral(name.trim()));
     const r = await this.db.query<CompanyPersonRow>(
       `
@@ -61,12 +66,13 @@ export class CareersRepo {
           AND p.id <> $2::uuid
         ORDER BY p.id, occ.is_current DESC, occ.start_date DESC NULLS LAST, occ.created_at DESC
       ) people
-      ORDER BY is_current DESC, open_to_referrals DESC, batch_year DESC NULLS LAST, full_name
-      LIMIT $3
+      ORDER BY is_current DESC, open_to_referrals DESC, batch_year DESC NULLS LAST, full_name, id
+      LIMIT $3 OFFSET $4
       `,
-      [pattern, viewerPersonId, COMPANY_PEOPLE_MAX]
+      [pattern, viewerPersonId, COMPANY_PEOPLE_PAGE_SIZE + 1, offset]
     );
-    return r.rows;
+    // One extra row tells us whether another page exists; it is never returned.
+    return { rows: r.rows.slice(0, COMPANY_PEOPLE_PAGE_SIZE), hasMore: r.rows.length > COMPANY_PEOPLE_PAGE_SIZE };
   }
 
   /** The directory's own spelling of a company typed in any case (its main company's name if it has one). */

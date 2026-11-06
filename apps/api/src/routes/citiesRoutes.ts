@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { assertDiscoveryReadAllowed } from "../lib/directoryAbuseLimiter.js";
 import { AppError } from "../lib/errors.js";
 import { HELP_KINDS, OFFER_LINE_MAX } from "../services/citiesService.js";
 
@@ -13,6 +12,13 @@ const offerParams = z.object({ offerId: z.string().uuid() });
 
 const alumniQuery = z.object({
   filter: z.enum(["batch", "department", "company", "coffee"]).default("batch"),
+  cursor: z
+    .string()
+    .regex(/^\d{1,6}$/)
+    .optional()
+});
+
+const postsQuery = z.object({
   cursor: z
     .string()
     .regex(/^\d{1,6}$/)
@@ -55,7 +61,7 @@ export const citiesRoutes: FastifyPluginAsync = async (app) => {
     const params = placeParams.safeParse(request.params);
     if (!params.success) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
     // Lists directory rows: same budget as directory reads.
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
     return reply.code(200).send(await app.citiesService.city(params.data.placeId, viewerOf(request)));
   });
 
@@ -64,11 +70,22 @@ export const citiesRoutes: FastifyPluginAsync = async (app) => {
     const query = alumniQuery.safeParse(request.query);
     if (!params.success) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
     if (!query.success) throw new AppError(400, "CITIES_BAD_REQUEST", "Invalid alumni filter.");
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
     const offset = query.data.cursor ? Number(query.data.cursor) : 0;
     return reply
       .code(200)
       .send(await app.citiesService.alumni(params.data.placeId, viewerOf(request), query.data.filter, offset));
+  });
+
+  /** "View all posts" on the city page: every open Wall post tagged with this city, newest first. */
+  app.get("/v1/cities/:placeId/posts", { preHandler: app.authenticate }, async (request, reply) => {
+    const params = placeParams.safeParse(request.params);
+    const query = postsQuery.safeParse(request.query);
+    if (!params.success) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+    if (!query.success) throw new AppError(400, "CITIES_BAD_REQUEST", "Invalid cursor.");
+    await app.discoveryLimiter.assert(request.actor, request.ip);
+    const offset = query.data.cursor ? Number(query.data.cursor) : 0;
+    return reply.code(200).send(await app.citiesService.posts(params.data.placeId, viewerOf(request), offset));
   });
 
   const mutation = { preHandler: [app.authenticate, app.requireNonDemoMutation] };

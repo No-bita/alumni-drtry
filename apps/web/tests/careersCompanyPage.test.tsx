@@ -54,6 +54,7 @@ afterEach(cleanup);
 describe("Careers company screen", () => {
   it("lists who's there now (open to referrals first) and before, and asks the API with the role", async () => {
     apiGet.mockResolvedValue({
+      pageInfo: { nextCursor: null },
       company: "Razorpay",
       current: [person("a", "Asha Rao", { openToReferrals: true }), person("b", "Bilal Khan", { roleTitle: "Engineer" })],
       past: [person("c", "Chirag Jain", { organizationName: "Razorpay", roleTitle: "Analyst" })],
@@ -62,7 +63,6 @@ describe("Careers company screen", () => {
     expect(screen.getByRole("status").textContent).toContain("Finding alumni at razorpay");
     expect(await screen.findByRole("heading", { name: "Razorpay" })).toBeTruthy();
     expect(apiGet).toHaveBeenCalledWith("/v1/careers/company?name=razorpay&role=Product+manager", expect.anything());
-    expect(screen.getByText("2 alumni at Razorpay · 1 open to referrals")).toBeTruthy();
     const open = screen.getByRole("heading", { name: "Open to referrals" }).closest("section")!;
     expect(within(open).getByRole("button", { name: "Ask for a referral" })).toBeTruthy();
     const also = screen.getByRole("heading", { name: "Also at Razorpay" }).closest("section")!;
@@ -75,14 +75,14 @@ describe("Careers company screen", () => {
   });
 
   it("someone you've already asked shows where it stands instead of the button", async () => {
-    apiGet.mockResolvedValue({ company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true, yourNote: "pending" })], past: [] });
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true, yourNote: "pending" })], past: [] });
     mount("/intent/career/company?name=Razorpay");
     expect(await screen.findByText("Note sent · waiting")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ask for a referral" })).toBeNull();
   });
 
   it("referral ask: the referral form, prefilled with role and company; job link checked; preview; sent as a Careers note", async () => {
-    apiGet.mockResolvedValue({ company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true })], past: [] });
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true })], past: [] });
     mount("/intent/career/company?name=Razorpay&role=Product+manager");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for a referral" }));
     const dialog = screen.getByRole("dialog", { name: "Ask Asha for a referral" });
@@ -117,7 +117,7 @@ describe("Careers company screen", () => {
   });
 
   it("past employee: 'Ask for advice' opens advice (interview prep), starting from where they're applying", async () => {
-    apiGet.mockResolvedValue({ company: "Microsoft", current: [], past: [person("c", "Chirag Jain", { organizationName: "Microsoft" })] });
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Microsoft", current: [], past: [person("c", "Chirag Jain", { organizationName: "Microsoft" })] });
     mount("/intent/career/company?name=Microsoft");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for advice" }));
     const dialog = screen.getByRole("dialog", { name: "Ask Chirag for advice" });
@@ -141,7 +141,7 @@ describe("Careers company screen", () => {
   });
 
   it("nobody there now or before: says so, and the Wall is the next step, prefilled; posting closes the loop", async () => {
-    apiGet.mockResolvedValue({ company: "Microsoft", current: [], past: [] });
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Microsoft", current: [], past: [] });
     mount("/intent/career/company?name=Microsoft&role=SDE");
     expect(await screen.findByText("No one at Microsoft on Alma Mater yet.")).toBeTruthy();
     expect(screen.getByText("No one on Alma Mater has worked there either.")).toBeTruthy();
@@ -156,12 +156,46 @@ describe("Careers company screen", () => {
     apiGet.mockRejectedValueOnce(new Error("down"));
     mount("/intent/career/company?name=Razorpay");
     expect((await screen.findByRole("alert")).textContent).toContain("Couldn't load alumni at Razorpay");
-    apiGet.mockResolvedValue({ company: "Razorpay", current: [], past: [] });
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [], past: [] });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("heading", { name: "Razorpay" })).toBeTruthy();
     cleanup();
     mount("/intent/career/company");
     expect(screen.getByText(/to see who's there/)).toBeTruthy();
     expect(apiGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("daily browsing limit: shows the friendly message instead of a generic failure", async () => {
+    const { ApiRequestError } = await import("../src/lib/apiRequestError");
+    apiGet.mockRejectedValueOnce(
+      new ApiRequestError("DISCOVERY_DAILY_LIMIT", "You've looked at a lot of profiles today. Try again tomorrow.", 429),
+    );
+    mount("/intent/career/company?name=Razorpay");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("You've looked at a lot of profiles today. Try again tomorrow.");
+    expect(alert.textContent).not.toContain("Couldn't load alumni");
+  });
+
+  it("Load more asks the API with the returned cursor and appends people", async () => {
+    apiGet
+      .mockResolvedValueOnce({
+        pageInfo: { nextCursor: "50" },
+        company: "Razorpay",
+        current: Array.from({ length: 50 }, (_, i) => person(`pg${i}`, `Page One Person ${i}`)),
+        past: [],
+      })
+      .mockResolvedValueOnce({
+        pageInfo: { nextCursor: null },
+        company: "Razorpay",
+        current: [],
+        past: [person("pg50", "Page Two Person 50")],
+      });
+    mount("/intent/career/company?name=razorpay");
+    expect((await screen.findAllByText("Page One Person 0")).length).toBe(1);
+    const btn = await screen.findByRole("button", { name: "Load more" });
+    fireEvent.click(btn);
+    await screen.findByText("Page Two Person 50");
+    expect(apiGet).toHaveBeenLastCalledWith("/v1/careers/company?name=razorpay&cursor=50", expect.anything());
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
 });

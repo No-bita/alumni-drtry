@@ -366,6 +366,8 @@ function CareerOpportunityPosterRow({
   return <div className="career-opportunity-card__poster">{inner}</div>;
 }
 
+const KIND_LABEL = { ask: "Ask", offer: "Offer", invitation: "Invitation" } as const;
+
 function CareerOpportunityCardBody({
   ic,
   parsed,
@@ -384,7 +386,7 @@ function CareerOpportunityCardBody({
     return (
       <div className={cardClass}>
         <div className="career-opportunity-card__top">
-          <div className="career-opportunity-card__chips" aria-hidden />
+          <div className="career-opportunity-card__chips">{ic.kind ? <span className="career-opportunity-card__chip">{KIND_LABEL[ic.kind]}</span> : null}</div>
           <CareerOpportunityPosterRow ic={ic} composePreview={composePreview} />
         </div>
         <h3 className="career-opportunity-card__headline career-opportunity-card__headline--unparsed">{ic.content.trim()}</h3>
@@ -417,6 +419,7 @@ function CareerOpportunityCardBody({
     <div className={cardClass}>
       <div className="career-opportunity-card__top">
         <div className="career-opportunity-card__chips" aria-label="Role highlights">
+          {ic.kind ? <span className="career-opportunity-card__chip">{KIND_LABEL[ic.kind]}</span> : null}
           {chipTrack ? <span className="career-opportunity-card__chip">{chipTrack}</span> : null}
           {chipYoE ? <span className="career-opportunity-card__chip">{chipYoE}</span> : null}
           {chipComp ? <span className="career-opportunity-card__chip">{chipComp}</span> : null}
@@ -759,6 +762,8 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
     const {
+      kind,
+      setKind,
       postOpen,
       setPostOpen,
       postSubmitting,
@@ -791,6 +796,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       openCompose,
       validatePostInput,
     } = useBulletinComposeState({ maxLength: HIRING_COMPOSE_MAX_LENGTH });
+
     // const [hiringEmploymentType, setHiringEmploymentType] = useState("Full-time");
     const hiringSummaryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
     const hiringApplyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1130,6 +1136,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       const { data, error } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: categoryForApi,
         content: hiringComposeBody,
+        kind: kind || null,
       });
       setPostSubmitting(false);
       const posted = data?.intentcast;
@@ -1215,6 +1222,25 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         <div className="home-dashboard__bulletin-compose home-dashboard__bulletin-compose--modal">
                     <p id={`${domIdPrefix}-compose-title`} className="home-dashboard__bulletin-compose-label">New hiring post</p>
                         <div className="home-dashboard__bulletin-hiring-form">
+                          <div className="home-dashboard__bulletin-hiring-field">
+                            <label className="ui-label" htmlFor={`${domIdPrefix}-post-kind`}>
+                              What is this? *
+                            </label>
+                            <select
+                              id={`${domIdPrefix}-post-kind`}
+                              className="input"
+                              value={kind}
+                              onChange={(e) => setKind(e.target.value as "ask" | "offer" | "invitation")}
+                              disabled={postSubmitting}
+                            >
+                              <option value="" disabled>
+                                Choose one
+                              </option>
+                              <option value="ask">Ask — I need something</option>
+                              <option value="offer">Offer — I’m offering something</option>
+                              <option value="invitation">Invitation — join me for something</option>
+                            </select>
+                          </div>
                           <div className="home-dashboard__bulletin-hiring-field">
                             <label className="ui-label" htmlFor={`${domIdPrefix}-hiring-company`}>
                               Company *

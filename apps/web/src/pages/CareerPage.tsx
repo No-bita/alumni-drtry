@@ -21,6 +21,7 @@ import {
 } from "../lib/careers";
 import { parseOpenToPreferences } from "../lib/openToPreferences";
 import { queryKeys } from "../lib/queryKeys";
+import { browsingLimitFromError } from "../lib/browsingLimits";
 import { SENT_NOTES_QUERY_KEY, fetchSentNotes, sentNoteStatusLabel } from "../lib/sentNotes";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 
@@ -408,6 +409,7 @@ export function CareerPage() {
             intentcasts={posts}
             loading={feed.isPending}
             error={feed.isError}
+            errorMessage={browsingLimitFromError(feed.error)}
             viewerPersonId={auth.person.personId}
             className="career-page-intent-feed__panel"
           />

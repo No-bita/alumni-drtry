@@ -85,6 +85,7 @@ export function BuildPageLegacy() {
   const [filters, setFilters] = useState(DEFAULT_BUILD_FILTERS);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [supportSignalsSent, setSupportSignalsSent] = useState<Array<{ id: string; kind: string; title: string }>>([]);
+  const [kind, setKind] = useState<"" | "ask" | "offer" | "invitation">("");
   const [title, setTitle] = useState("");
   const [industry, setIndustry] = useState("");
   const [description, setDescription] = useState("");
@@ -225,6 +226,10 @@ export function BuildPageLegacy() {
       askDetails,
     });
 
+    if (!kind) {
+      setPostError("Choose what this post is: an ask, an offer or an invitation.");
+      return;
+    }
     if (!t) {
       setPostError("Add a title.");
       return;
@@ -247,6 +252,7 @@ export function BuildPageLegacy() {
     const { data, error } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
       category: BUILD_FEED_CATEGORY,
       content,
+      kind: kind || null,
     });
     setPostSubmitting(false);
 
@@ -526,6 +532,25 @@ export function BuildPageLegacy() {
                 New build post
               </p>
               <div className="home-dashboard__bulletin-hiring-form">
+                <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
+                  <label className="ui-label" htmlFor="build-compose-kind-field">
+                    What is this? *
+                  </label>
+                  <select
+                    id="build-compose-kind-field"
+                    className="input"
+                    value={kind}
+                    onChange={(e) => setKind(e.target.value as "ask" | "offer" | "invitation")}
+                    disabled={postSubmitting}
+                  >
+                    <option value="" disabled>
+                      Choose one
+                    </option>
+                    <option value="ask">Ask — I need something</option>
+                    <option value="offer">Offer — I’m offering something</option>
+                    <option value="invitation">Invitation — join me for something</option>
+                  </select>
+                </div>
                 <div className="home-dashboard__bulletin-hiring-field home-dashboard__bulletin-hiring-field--wide">
                   <label className="ui-label" htmlFor="build-compose-project-name-field">
                     Project name

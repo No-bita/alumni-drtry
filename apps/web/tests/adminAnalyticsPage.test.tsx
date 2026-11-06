@@ -24,7 +24,7 @@ function report(days = 30): AnalyticsReport {
     northStar: { acceptedNotes: 42, askers: 20, helpedWithin7Days: 9, stillWithin7Days: 3, trendAccepted: w, trendSent: w },
     signIn: {
       starts: 100, completed: 80, emailSent: 90, emailUnconfirmed: 4, emailUnknown: 6, failedRejected: 2, failedUnreachable: 1,
-      superseded: 5, sessionsByMethod: { otp: 50, magic_link: 25, google: 5 }, newMembers: 12, trendNewMembers: w,
+      superseded: 5, membersByMethod: { otp: 50, magic_link: 25, google: 5 }, uniqueMembers: 72, newMembers: 12, trendNewMembers: w,
     },
     onboarding: {
       startedPeople: 15, completedPeople: 10, completedOnboardingProfiles: 11, validationErrors: 2,
@@ -184,5 +184,39 @@ describe("analytics formatting", () => {
     expect(duration(5.25)).toBe("5.3 h");
     expect(duration(72)).toBe("3 days");
     expect(duration(null)).toBe("—");
+  });
+});
+
+const citiesMetrics = {
+  windowDays: 30,
+  notes: {
+    overall: { category: "all", sent: 10, accepted: 6, declined: 2, pending: 2, acceptanceRate: 0.75, declineRate: 0.25 },
+    byCategory: [],
+  },
+  arrivals: { promptShown: 5, optedIn: 4, optInRate: 0.8, offers: 6, offersPerArrival: 1.5, withOfferIn7dShare: 0.5, newcomerNotesPerArrival: 1 },
+  coffee: { asksSent: 3, accepted: 1, fullThisWeekImpressions: 2 },
+  cityHelpOnFromPanel: 2,
+  cityUpdatesFromMovedAway: 1,
+  nudge: { sent: 8, visitedIn7d: 3, actedIn7d: 2, stopRate: 0.1 },
+};
+
+describe("Metric help pills", () => {
+  it("renders one i pill per metric box, and pins the definition on click", async () => {
+    apiGet.mockImplementation(async (path: string) =>
+      path.startsWith("/v1/admin/metrics/cities")
+        ? { metrics: citiesMetrics }
+        : { report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) },
+    );
+    mount();
+    expect(await screen.findByText("Cities notes accepted")).toBeTruthy();
+    const pills = screen.getAllByRole("button", { name: /^About this metric: / });
+    expect(pills).toHaveLength(56);
+    const started = screen.getByRole("button", { name: "About this metric: Started onboarding" });
+    fireEvent.click(started);
+    expect(started.getAttribute("aria-expanded")).toBe("true");
+    const bubble = document.getElementById(started.getAttribute("aria-describedby")!) as HTMLElement;
+    expect(bubble.textContent).toContain("onboarding-start event");
+    fireEvent.keyDown(started, { key: "Escape" });
+    expect(started.getAttribute("aria-expanded")).toBe("false");
   });
 });

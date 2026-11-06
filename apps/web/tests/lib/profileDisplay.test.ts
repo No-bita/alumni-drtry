@@ -57,6 +57,24 @@ describe("education and residence", () => {
       profileEducationHeadlineLine({ degreeCode: "btech", degreeName: "BTech", departmentCode: "civ", departmentName: "Civil Engineering", batchYear: 2022 } as never),
     ).toBe("BTech, Civil Engineering · Class of '22");
   });
+  it("shows the member's typed specification for an Other department", () => {
+    expect(
+      profileEducationHeadlineLine({ degreeCode: "btech", degreeName: "BTech", departmentCode: "other", departmentName: "Other", departmentOtherText: "Applied Mechanics", batchYear: 2022 } as never),
+    ).toBe("BTech, Applied Mechanics · Class of '22");
+  });
+  it("never renders Other or its code when no approved specification exists", () => {
+    expect(
+      profileEducationHeadlineLine({ degreeCode: null, degreeName: null, departmentCode: "other", departmentName: "Other", departmentOtherText: null, batchYear: null } as never),
+    ).toBeNull();
+    expect(
+      profileEducationHeadlineLine({ degreeCode: null, degreeName: "BTech", departmentCode: "other", departmentName: "Other", departmentOtherText: null, batchYear: null } as never),
+    ).toBe("BTech");
+  });
+  it("never shows stored specification text for a non-Other department", () => {
+    expect(
+      profileEducationHeadlineLine({ degreeCode: null, degreeName: null, departmentCode: "cse", departmentName: "Computer Science", departmentOtherText: "stale text", batchYear: null } as never),
+    ).toBe("Computer Science");
+  });
   it("degrades gracefully", () => {
     expect(profileEducationHeadlineLine(null)).toBeNull();
     expect(profileEducationHeadlineLine({ degreeName: null, degreeCode: null, departmentName: null, departmentCode: null, batchYear: 2019 } as never)).toBe("Class of '19");

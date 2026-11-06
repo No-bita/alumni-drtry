@@ -9,6 +9,7 @@ import {
   CitiesRepo,
   type CityAlumniFilter,
   type CityAlumRow,
+  type CityPostRow,
   type PersonCardRow,
   type PlaceRow,
   type ViewerFacts
@@ -17,7 +18,6 @@ import { MatchRepo } from "../repos/matchRepo.js";
 import { buildCandidateQuery, MATCH_CANDIDATE_LIMIT } from "./matchService.js";
 import type { ReplyStatsView } from "./contactRequestService.js";
 import type { ArrivalPrompt, ResidenceSync } from "./profileService.js";
-import type { EmailSender } from "./emailSender.js";
 import { clearResidenceCitiesCache } from "./discoveryService.js";
 import { PlaceReviewService } from "./placeReviewService.js";
 
@@ -39,6 +39,7 @@ export const ARRIVALS_LISTED_MAX = 50;
 export const ALUMNI_PREVIEW = 4;
 export const ALUMNI_PAGE = 20;
 export const POSTS_PREVIEW = 3;
+export const CITY_POSTS_PAGE = 20;
 export const HELPERS_MAX = 20;
 export const OTHERS_PREVIEW = 4;
 export const CITIES_LIST_MAX = 120;
@@ -79,10 +80,6 @@ export type ViewerRole = "local" | "newcomer" | "arriver" | "no_city";
 
 export interface CitiesNoteInfo {
   replyStatsForRecipients(recipientPersonIds: readonly string[]): Promise<Map<string, ReplyStatsView>>;
-}
-
-export interface UsageEventLogger {
-  logBetaUsageEvent(input: { eventType: "cities_nudge_sent"; personId: string; route: string; metadata?: Record<string, unknown> }): Promise<boolean>;
 }
 
 /** URL slug for a city: lowercase words joined by hyphens (same as the web's normalizeCityIntentSlug). */
@@ -130,18 +127,6 @@ function daysBetween(from: Date, to: Date): number {
   return Math.max(0, Math.floor((to.getTime() - from.getTime()) / 86_400_000));
 }
 
-/** How long the Cities v1 city lookup is cached: a found city 10 minutes, "not found" 30 seconds. */
-export const V1_CACHE_MS = 600_000;
-export const V1_EMPTY_CACHE_MS = 30_000;
-
-/** Monday 10:00 Asia/Kolkata or later in the week (the nudge goes out from then). */
-export function isNudgeTime(now: Date): boolean {
-  const ist = new Date(now.getTime() + 330 * 60_000);
-  const dow = ist.getUTCDay(); // 0 Sunday … 1 Monday
-  if (dow === 0) return true; // still the same Mon–Sun week
-  return dow > 1 || ist.getUTCHours() >= 10;
-}
-
 type ChapterLinks = Record<string, { url: string; label: string }>;
 
 function parseChapterLinks(raw: string | undefined): ChapterLinks {
@@ -167,14 +152,11 @@ export class CitiesService implements ResidenceSync {
   private readonly repo: CitiesRepo;
   private readonly matchRepo: MatchRepo;
   private readonly placeReview: PlaceReviewService;
-  private v1Cache: { ids: string[]; at: number } | null = null;
   private readonly chapterLinks: ChapterLinks;
 
   constructor(
     pool: Pool,
     private readonly notes: CitiesNoteInfo,
-    private readonly emailSender: EmailSender | null = null,
-    private readonly usage: UsageEventLogger | null = null
   ) {
     this.repo = new CitiesRepo(pool);
     this.matchRepo = new MatchRepo(pool);
@@ -182,41 +164,8 @@ export class CitiesService implements ResidenceSync {
     this.chapterLinks = parseChapterLinks(env.CITY_CHAPTER_LINKS);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Which cities get city nudge emails                                  */
-  /* ------------------------------------------------------------------ */
-
-  /**
-   * Nudge-email eligibility list: CITIES_V1_PLACE_IDS, or Bengaluru (India) looked up when unset,
-   * approved only, by name or spelling ("Bangalore"), inside India under the same country rules members
-   * use. A found city is cached for 10 minutes; "not found" only for 30 seconds. Page eligibility no
-   * longer reads this list: every approved city gets the full page (isV1).
-   */
-  async v1PlaceIds(): Promise<string[]> {
-    if (this.v1Cache && Date.now() - this.v1Cache.at < (this.v1Cache.ids.length > 0 ? V1_CACHE_MS : V1_EMPTY_CACHE_MS)) {
-      return this.v1Cache.ids;
-    }
-    const configured = (env.CITIES_V1_PLACE_IDS ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    let ids = configured;
-    if (ids.length === 0) {
-      const blr = await this.placeReview.approvedCity("Bengaluru", "India");
-      ids = blr ? [blr.id] : [];
-    }
-    this.v1Cache = { ids, at: Date.now() };
-    return ids;
-  }
-
-  /** Forget the Cities v1 lookup (after cities change). */
-  clearV1Cache(): void {
-    this.v1Cache = null;
-  }
-
   async isV1(placeId: string): Promise<boolean> {
-    // Every approved city gets the full city page. The configured id list below now gates
-    // city nudge-email eligibility only (sendNudges), never page content.
+    // Every approved city gets the full city page.
     return this.placeReview.approvedById(placeId);
   }
 
@@ -313,13 +262,13 @@ export class CitiesService implements ResidenceSync {
   async city(placeId: string, viewer: CityViewer) {
     const { place, review } = await this.visiblePlace(placeId, viewer);
 
-    const [res, v1, counts, arrival, nudgeFrequency] = await Promise.all([
+    const [res, v1, counts, arrival] = await Promise.all([
       this.repo.residence(viewer.personId),
       this.isV1(place.id),
       this.repo.countAlumni(place.id, viewer.isDemo),
-      this.repo.activeArrival(viewer.personId),
-      this.repo.nudgeFrequency(viewer.personId)
+      this.repo.activeArrival(viewer.personId)
     ]);
+
     const viewerPlace = res?.placeId ? await this.repo.placeById(res.placeId) : null;
     const viewerRole: ViewerRole = !viewerPlace
       ? "no_city"
@@ -337,7 +286,6 @@ export class CitiesService implements ResidenceSync {
       v1Enabled: v1,
       counts: { alumni: counts.alumni, openToCityHelp: counts.cityHelp },
       arrivalPrompt: false,
-      nudgeFrequency,
       arrivals: null as null | { total: number; items: unknown[] },
       myArrival: null as null | { id: string; visibleUntil: string; daysLeft: number; previousCity: string | null },
       offers: [] as unknown[],
@@ -349,6 +297,7 @@ export class CitiesService implements ResidenceSync {
       },
       alumni: null as null | { total: number; items: CityAlum[] },
       posts: [] as unknown[],
+      postsHasMore: false,
       chapterLink: v1 ? (this.chapterLinks[place.id] ?? null) : null,
       helpers: [] as CityHelper[],
       others: [] as CityAlum[],
@@ -380,7 +329,7 @@ export class CitiesService implements ResidenceSync {
           this.repo.placeNames(place.id),
           this.repo.pendingNotesFor(viewer.personId),
           this.repo.openToPreferences([viewer.personId]),
-          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW)
+          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW + 1)
         ]);
         const now = new Date();
         if (arrivals) {
@@ -426,16 +375,8 @@ export class CitiesService implements ResidenceSync {
           cityHelpOn: Boolean(prefs?.selected.includes("city_help")),
           openToCount: prefs?.selected.length ?? 0
         };
-        payload.posts = posts.map((p) => ({
-          id: p.id,
-          authorPersonId: p.author_person_id,
-          authorFullName: p.author_full_name,
-          authorBatchYear: p.author_batch_year,
-          content: p.content,
-          createdAt: p.created_at.toISOString(),
-          viewerHasResponded: p.viewer_has_responded,
-          isMine: p.author_person_id === viewer.personId
-        }));
+        payload.postsHasMore = posts.length > POSTS_PREVIEW;
+        payload.posts = posts.slice(0, POSTS_PREVIEW).map((p) => this.toPost(p, viewer.personId));
         payload.arrivalPrompt =
           viewerRole === "local" &&
           res?.changedAt != null &&
@@ -493,6 +434,30 @@ export class CitiesService implements ResidenceSync {
       items: await this.toAlumni(page.rows, facts, viewer.personId),
       total: page.total,
       nextCursor: next < page.total ? String(next) : null
+    };
+  }
+
+  private toPost(p: CityPostRow, viewerPersonId: string) {
+    return {
+      id: p.id,
+      authorPersonId: p.author_person_id,
+      authorFullName: p.author_full_name,
+      authorBatchYear: p.author_batch_year,
+      content: p.content,
+      kind: p.kind ?? null,
+      createdAt: p.created_at.toISOString(),
+      viewerHasResponded: p.viewer_has_responded,
+      isMine: p.author_person_id === viewerPersonId
+    };
+  }
+
+  /** "View all posts": every open Wall post tagged with this city, newest first, paged. */
+  async posts(placeId: string, viewer: CityViewer, offset: number) {
+    const { place } = await this.visiblePlace(placeId, viewer);
+    const rows = await this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, CITY_POSTS_PAGE + 1, null, offset);
+    return {
+      posts: rows.slice(0, CITY_POSTS_PAGE).map((p) => this.toPost(p, viewer.personId)),
+      nextCursor: rows.length > CITY_POSTS_PAGE ? String(offset + CITY_POSTS_PAGE) : null
     };
   }
 
@@ -652,85 +617,4 @@ export class CitiesService implements ResidenceSync {
     return this.repo.countOfferNotifications(personId);
   }
 
-  async setNudgeFrequency(personId: string, frequency: "weekly" | "monthly" | "never") {
-    await this.repo.setNudgeFrequency(personId, frequency);
-    return frequency;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Nudge email                                                         */
-  /* ------------------------------------------------------------------ */
-
-  /**
-   * Weekly "what's new in your city" email (Monday from 10:00 IST, on the hourly tick). Sent only when
-   * there is a new opted-in arrival or a new city post since that person's last nudge. Claims are atomic.
-   */
-  async sendNudges(now = new Date()): Promise<{ sent: number; skipped: number; failed: number }> {
-    const totals = { sent: 0, skipped: 0, failed: 0 };
-    if (!this.emailSender || !isNudgeTime(now)) return totals;
-    const placeIds = await this.v1PlaceIds();
-    if (placeIds.length === 0) return totals;
-    await this.repo.purgeDemandKeys().catch(() => undefined);
-
-    const askCounts = new Map<string, number | null>();
-    for (const placeId of placeIds) {
-      const place = await this.repo.placeById(placeId);
-      const n = place ? await this.repo.askCount(await this.repo.placeNames(placeId), place.country, ASK_COUNT_DAYS) : 0;
-      askCounts.set(placeId, n >= ASK_COUNT_MIN_SHOWN ? n : null);
-    }
-
-    const recipients = await this.repo.nudgeRecipients(placeIds, 500);
-    for (const r of recipients) {
-      const arrivals = (await this.repo.arrivalsSince(r.place_id, r.last_sent_at, 4)).filter((a) => a.id !== r.id).slice(0, 3);
-      const posts = (await this.repo.cityPosts(r.place_id, r.id, false, 5, r.last_sent_at)).filter((p) => p.author_person_id !== r.id);
-      if (arrivals.length === 0 && posts.length === 0) {
-        totals.skipped += 1;
-        continue;
-      }
-      if (!(await this.repo.claimNudge(r.id))) continue;
-      const askCount = askCounts.get(r.place_id) ?? null;
-      try {
-        await this.emailSender.sendCityNudgeEmail({
-          to: r.institutional_email,
-          recipientName: r.full_name?.trim() || "there",
-          city: r.city,
-          subject: nudgeSubject(r.city, arrivals.length, askCount),
-          arrivals: arrivals.map((a) => ({
-            name: a.full_name,
-            batchYear: a.batch_year,
-            department: a.department_code?.toUpperCase() ?? null,
-            roleTitle: a.role_title,
-            organizationName: a.org_name,
-            previousCity: a.previous_city
-          })),
-          askCount,
-          showCityHelp: !r.city_help_on,
-          plans: posts.slice(0, 3).map((p) => firstLine(p.content)),
-          pageUrl: `${env.APP_BASE_URL.replace(/\/+$/, "")}/intent/location?via=nudge`,
-          manageUrl: `${env.APP_BASE_URL.replace(/\/+$/, "")}/intent/location?emails=manage`
-        });
-        totals.sent += 1;
-        void this.usage
-          ?.logBetaUsageEvent({ eventType: "cities_nudge_sent", personId: r.id, route: "job:city-nudge" })
-          .catch(() => undefined);
-      } catch (err) {
-        totals.failed += 1;
-        await this.repo.releaseNudge(r.id, r.last_sent_at);
-        console.error("[cities] nudge email failed (will retry next tick):", err);
-      }
-    }
-    return totals;
-  }
 }
-
-/** Subject from the strongest item: arrivals › asked-about count › plans. */
-export function nudgeSubject(city: string, arrivals: number, askCount: number | null): string {
-  if (arrivals > 0) return arrivals === 1 ? `An alum just moved to ${city}` : `${arrivals} alumni just moved to ${city}`;
-  if (askCount !== null) return `${askCount} moving-help searches for ${city}`;
-  return `New plans from ${city} alumni`;
-}
-
-function firstLine(text: string): string {
-  const line = text.trim().split(/\n/)[0]!.trim();
-  return line.length > 90 ? `${line.slice(0, 89)}…` : line;
-  }

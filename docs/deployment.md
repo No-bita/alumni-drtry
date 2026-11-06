@@ -42,11 +42,12 @@ Set these where the API runs (e.g. host env, `.env`, or platform config).
 |----------|----------|--------|
 | `NODE_ENV` | Yes | `production` |
 | `PORT` | No | Default `4000` |
-| `APP_BASE_URL` | Yes | Full API URL, e.g. `https://api.yourdomain.com` |
-| `MAGIC_LINK_BASE_URL` | Yes (with frontend) | Frontend URL for magic links, e.g. `https://app.yourdomain.com` |
+| `APP_BASE_URL` | Yes | Public API base, no path. Production: `https://almamatter.in` (the site forwards `/v1` to the API). Google's sign-in callback is `${APP_BASE_URL}/v1/auth/google/callback` |
+| `WEB_APP_URL` | Yes (with frontend) | Where the web app lives, **including its path**. Production: `https://almamatter.in/app`. Every member-facing link is built from it: sign-in emails, the return from Google sign-in, WhatsApp links, city emails |
+| `MAGIC_LINK_BASE_URL` | Legacy | Older name for `WEB_APP_URL`; read only when `WEB_APP_URL` is unset |
 | `DATABASE_URL` | Yes | Postgres connection string |
 | `AUTH_SECRET_PEPPER` | Yes | Long random secret (≥16 chars); never change after launch |
-| `CORS_ORIGIN` | Yes | Frontend origin(s), e.g. `https://app.yourdomain.com` (comma-separated for multiple) |
+| `CORS_ORIGIN` | Yes | Frontend origin(s), comma-separated, origins only (no path). Production: `https://almamatter.in`; during the move from the old address also `https://app.almamater.aaryanshah.co.in` |
 | `COOKIE_DOMAIN` | Optional | e.g. `.yourdomain.com` if API and web share a parent domain and you want cookies to work across subdomains |
 | `EMAIL_PROVIDER` | Yes (prod) | `resend` for real email |
 | `RESEND_API_KEY` | If Resend | From Resend dashboard |
@@ -63,7 +64,7 @@ To run `npm run dev` in `apps/api` against the **same** Postgres instance as pro
 1. Set `DATABASE_URL` in `apps/api/.env` to the production connection string (from Neon or Railway). Use a **public** reachable host from your machine (e.g. Neon pooler, or Railway `DATABASE_PUBLIC_URL`), not an internal Railway hostname.
 2. Set `AUTH_SECRET_PEPPER` to the **exact** production value. The database stores hashes derived from this pepper; a mismatch breaks logins and sessions.
 3. Keep `DATABASE_POOL_MAX` low (e.g. `5`) so local dev does not open too many connections against the shared cluster.
-4. Set `CORS_ORIGIN` and `MAGIC_LINK_BASE_URL` to your local web origin (e.g. `http://localhost:5173`) while testing from Vite.
+4. Set `CORS_ORIGIN` to your local web origin (e.g. `http://localhost:5173`) and `WEB_APP_URL` to `http://localhost:5173/app` while testing from Vite.
 
 **Risk:** local scripts, bugs, or `npm run migrate` can alter production data. Prefer a database backup or a staging clone unless the whole team intentionally shares one DB.
 
@@ -90,6 +91,15 @@ Use this when you are **not** terminating `/v1` on the SPA host (no rewrite). Po
 **Note:** The bundled client resolves production API requests to same-origin `/v1` by default (`apps/web/src/api/client.ts`). If you rely on a separate API origin without rewrites, ensure your build actually emits requests to that base (for example by adjusting how `API_BASE_URL` is derived for production) so `VITE_API_URL` takes effect.
 
 ---
+
+### The app lives under `/app` (almamatter.in/app)
+
+- The web build uses Vite `base: "/app/"` and React Router `basename="/app"`, so `/login` is `/app/login`.
+- `vite build` writes the app to `apps/web/dist/app/` and `site-root/robots.txt` to `apps/web/dist/`. `vercel.json` sets `outputDirectory` to `dist`.
+- API calls stay at the site root: `/v1/...` (rewritten to Render), never `/app/v1`.
+- Planned topology: the landing deployment owns `almamatter.in` (apex + `www`). It serves the marketing pages and the legal pages at their canonical `/privacy-policy` and `/tos`, and it forwards `/app/*` and `/v1/*` to this app deployment's non-redirecting alias. This project does NOT serve the apex and has no `/` -> `/app/login` redirect and no `/privacy` / `/terms` rewrites; the app links to the canonical legal URLs directly.
+- This project's `vercel.json`, in order: the old domain (`app.almamater.aaryanshah.co.in`) permanently redirects to `https://almamatter.in/app/<same path>` (and `/v1/...` to `https://almamatter.in/v1/...`), keeping the query string; `www.almamatter.in` -> apex; `/v1` -> the API on Render (`alma-staging.onrender.com` on the staging branch, `alma-mater-api.onrender.com` on main - check this line at every staging->main merge); `/app/*` -> the SPA (missing files under `/app/assets/` stay 404s). Security headers on every response; `/app` and `/v1` also send `X-Robots-Tag: noindex`.
+- `site-root/robots.txt` disallows everything: it only applies to this deployment's own hosts (the Vercel alias and the old domain), never to `almamatter.in`. The apex robots.txt and sitemap belong to the landing deployment.
 
 ## 5. Deploy steps (summary)
 

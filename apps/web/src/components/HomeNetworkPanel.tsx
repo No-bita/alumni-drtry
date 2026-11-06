@@ -4,6 +4,7 @@ import type { SearchProfileView } from "../api/client";
 import { buildInviteLink, buildWhatsAppShareUrl, copyText } from "../lib/inviteLink";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/home-network-invite.css";
+import { appBaseUrl } from "../lib/appBase";
 
 type HomeNetworkPanelProps = {
   members: SearchProfileView[];
@@ -35,7 +36,8 @@ export function HomeNetworkPanel({
     },
     []
   );
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  // Invite links open the app's sign-in page, under the app's path (almamatter.in/app/login).
+  const origin = appBaseUrl();
   const link = buildInviteLink(origin, inviterPersonId, "copy");
   const whatsappLink = buildInviteLink(origin, inviterPersonId, "whatsapp");
 

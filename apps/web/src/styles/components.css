@@ -346,13 +346,13 @@ input[type="reset"]:not(:disabled) {
 
 .nav__count-badge--nav {
   position: absolute;
-  top: 8px;
-  right: 10px;
-  min-width: 0;
-  width: 8px;
-  height: 8px;
-  padding: 0;
-  font-size: 0;
+  top: 5px;
+  right: 5px;
+  min-width: 15px;
+  width: auto;
+  height: 15px;
+  padding: 0 4px;
+  font-size: 10px;
 }
 
 .nav__profile-edit {
@@ -3133,6 +3133,24 @@ textarea {
   letter-spacing: 0.02em;
   line-height: 1.2;
   border: 1px solid transparent;
+}
+
+/* Ask / Offer / Invitation: the author's own label next to the lane badge (absent on posts that predate the choice). */
+.career-feed-rows__kind {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: 0 0 6px 6px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: var(--ink-soft, #5b4636);
+  background: color-mix(in srgb, var(--brick, #b35a3c) 10%, #fff);
+  border: 1px solid color-mix(in srgb, var(--brick, #b35a3c) 26%, transparent);
+  vertical-align: top;
 }
 
 .career-feed-rows__lane-badge--hiring {
@@ -10969,6 +10987,95 @@ button.career-referrals-v3__matching-pill--editable:active {
   white-space: nowrap;
 }
 
+/* Type tiles: color identifies the notification kind, nothing else (tints from the platform palette). */
+.notifications-page__kind-tile {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #efe9e2;
+  color: #5f5a56;
+}
+
+.notifications-page__kind-tile--request {
+  background: #e8f0fe;
+  color: #3b1f14;
+}
+
+.notifications-page__kind-tile--bulletin {
+  background: #fbe9d7;
+  color: #c65d3b;
+}
+
+.notifications-page__kind-tile--city {
+  background: #dff3e6;
+  color: #2e6b41;
+}
+
+/* Unseen emphasis: accent dot + stronger title + faint tint. Seen state never removes the row. */
+.notifications-page__item {
+  position: relative;
+}
+
+.notifications-page__item--unseen {
+  background: rgba(194, 90, 46, 0.06);
+  padding-left: calc(var(--space-lg) + 14px);
+}
+
+.notifications-page__item--unseen::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-lg) - 6px);
+  top: calc(var(--space-md-lg) + 10px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--palette-accent);
+}
+
+.notifications-page__item--unseen .notifications-page__item-title {
+  font-weight: 700;
+}
+
+.notifications-mark-seen {
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: var(--ochre);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.notifications-mark-seen:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.notifications-mark-seen:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.notifications-page__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.global-notifications-widget__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+
 /* Connection requests inbox (home sidebar) — matches bulletin frosted panel */
 
 .home-dashboard__inbox {
@@ -14247,6 +14354,16 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   }
 }
 
+.profile-about__review-note {
+  margin: var(--space-xs, 6px) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #6b6455);
+}
+
+.profile-about__review-note--rejected {
+  color: var(--color-danger, #b3261e);
+}
+
 .profile-page__links-editor {
   list-style: none;
   margin: 0 0 var(--space-lg);
@@ -15615,6 +15732,31 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .onboarding-welcome__inline-input--narrow {
   max-width: 220px;
+}
+
+.onboarding-welcome__inline-note {
+  display: block;
+  margin-top: var(--space-xs, 6px);
+  font-size: 0.8125rem;
+  color: rgba(252, 248, 240, 0.6);
+}
+
+.onboarding-welcome__inline-link {
+  display: inline-block;
+  margin-top: var(--space-xs, 6px);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgba(252, 248, 240, 0.75);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.onboarding-welcome__inline-link:hover {
+  color: rgba(252, 248, 240, 0.95);
 }
 
 .onboarding-welcome__inline-options {
@@ -21152,3 +21294,60 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   }
 }
 
+
+/* ===== Desktop (≥640px) - notifications quick view is an anchored popover under the bell ===== */
+
+@media (min-width: 640px) {
+  .global-notifications-widget__backdrop {
+    background: transparent;
+  }
+
+  .global-notifications-widget__panel {
+    left: auto;
+    right: var(--notif-anchor-right, 28px);
+    bottom: auto;
+    top: var(--notif-anchor-top, calc(var(--nav-height, 64px) + 8px));
+    width: 420px;
+    max-width: calc(100vw - 48px);
+    max-height: min(82vh, calc(100dvh - var(--notif-anchor-top, 72px) - 16px));
+    border-bottom: 1px solid rgba(26, 20, 15, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(20, 14, 10, 0.22);
+    padding: 12px 14px 14px;
+  }
+
+  .global-notifications-widget__grab {
+    display: none;
+  }
+}
+
+/* ===== Phone (≤639px) - compact type tiles ===== */
+
+@media (max-width: 639px) {
+  /* Owner-approved 5 Nov 2026: clear the floating bottom dock so the last row scrolls fully into view. */
+  .notifications-page {
+    padding-bottom: calc(3rem + var(--nav-bottom-dock-height));
+  }
+
+  .notifications-page__item {
+    gap: 10px;
+  }
+
+  .notifications-page__kind-tile {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    margin-top: 1px;
+  }
+
+  .notifications-page__kind-tile svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* The tile column is narrow, so the action buttons span it to stay side by side. */
+  .notifications-page__item-actions {
+    width: calc(100% + 34px);
+    margin-left: -34px;
+  }
+}

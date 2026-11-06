@@ -21,8 +21,9 @@ Error responses use:
   - `delivery: "unconfirmed"`: Resend never answered (timeout or dropped connection after connecting). The attempt is kept, because the email may still arrive and its code works; repeats within the window reuse it.
   - `503 AUTH_DELIVERY_FAILED`: Resend clearly rejected the send, or was never reached. Nothing is kept and the previous code stays valid. Clients must show this, not retry it silently; only `AUTH_START_BUSY`, network failures and proxy 502/503/504 pages are safe to retry.
   - Optional `whatsappEntry: { token, next? }` (sign-in started from a WhatsApp bot link): when the token is a valid bot link or a short link code, the email's magic link gets `&wa=<token>&waNext=<same-site path>`, so clicking it in any browser continues to `/wa`. Invalid tokens and off-site paths are left out.
-- `POST /v1/auth/verify`: verifies an OTP challenge. `401 AUTH_CODE_SUPERSEDED` when the code is from an earlier email for the same address.
-- `GET /v1/auth/verify`: verifies a magic-link click. `401 AUTH_CODE_SUPERSEDED` for a link from an earlier email.
+- `POST /v1/auth/verify`: verifies an OTP code (`{ challengeId, otp }`) or a magic link (`{ challengeId, magicLinkToken }`; the web's /auth/verify page uses this, so the token never travels in a URL). `401 AUTH_CODE_SUPERSEDED` when the code is from an earlier email for the same address.
+- `GET /v1/auth/verify` (deprecated): the old magic-link check with the token in the query string. Still works for pages loaded before the switch; its query string is never logged. To be removed (docs/security-hardening.md).
+- Both verify routes only accept requests from the app's own pages (allowed Origin/Referer or `Sec-Fetch-Site: same-origin|same-site`; required in production) → `403 CSRF_FORBIDDEN`, and are limited per client IP (`AUTH_VERIFY_MAX_PER_IP_WINDOW` per 10 minutes) → `429 AUTH_RATE_LIMITED`.
 - `POST /v1/auth/password-login`: password login for supported admin/dev flows.
 - `POST /v1/auth/logout`: clears the session.
 - `POST /v1/auth/logout-all` (signed in, not the demo account): ends every session for this member, including the current one, and clears the cookie. `204`.
@@ -49,7 +50,9 @@ The browser treats `/v1/me` plus `/v1/me/profile` as the session snapshot.
 
 ## Directory And Discovery
 
-- `GET /v1/search`: returns `{ results, pageInfo, ...metadata }`.
+- `GET /v1/search`: returns `{ results, pageInfo, ...metadata }`. `limit` is clamped to 20.
+- **Browsing limits (anti-scraping).** Directory search, profile reads, residence cities, Ask results, Careers company people, Cities pages and alumni lists, and the Wall feed are "discovery reads", counted per member in the database: `DISCOVERY_READ_MAX_PER_USER_WINDOW` per UTC minute (default 60) → `429 DISCOVERY_RATE_LIMITED`, and `DISCOVERY_READ_MAX_PER_USER_DAY` per day, midnight Asia/Kolkata (default 500) → `429 DISCOVERY_DAILY_LIMIT` ("You've looked at a lot of profiles today. Try again tomorrow."). Both send `Retry-After`. Admins aren't counted. A per-IP layer (`DISCOVERY_READ_MAX_PER_IP_WINDOW`, default 300/min) sits in front.
+- `GET /v1/admin/metrics/discovery-limits` (admins): `{ limits: { cap, nearLimit, atLimit, day } }`: how many members are at 80%+ of today's cap and at it. Counts only.
 - `GET /v1/profiles/:id`: returns public profile detail.
 - `GET /v1/directory/residence-cities`: returns residence city suggestions.
 - `POST /v1/discovery/analytics/profile-click`: records a profile click from a search session.
@@ -61,6 +64,8 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
 
 ## Intentcasts And Bulletin
+
+- `GET /v1/intentcasts`: `limit` is clamped to 48; counts as a discovery read (see browsing limits). Deleted or suspended authors never appear, and a post its author removed is visible only to that author.
 
 - `POST /v1/intentcasts`: creates a bulletin post.
 - `GET /v1/intentcasts`: returns `{ intentcasts, pageInfo }`.
@@ -74,7 +79,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 
 ## Careers (signed in)
 
-- `GET /v1/careers/company?name=&role=`: the company screen. `{ company, current, past }`; each person `{ id, fullName, batchYear, roleTitle, organizationName, openToReferrals, yourNote }`. Matches a company the way Ask does (the company's name or its main company's name contains the typed name as whole words, ignoring capitals); current open-to-referrals first; at most 100; never the viewer; demo/test profiles follow Ask's rules. Each lookup is logged in the search log as a referral question with `parser_source = 'careers'` (not for the demo account). Same read budget as the directory.
+- `GET /v1/careers/company?name=&role=&cursor=`: the company screen. `{ company, current, past, pageInfo }`; each person `{ id, fullName, batchYear, roleTitle, organizationName, openToReferrals, yourNote }`. Matches a company the way Ask does (the company's name or its main company's name contains the typed name as whole words, ignoring capitals); current open-to-referrals first; 50 per page - pass the previous page's `pageInfo.nextCursor` as `cursor` for the next page (`null` when everything is loaded, invalid cursor answers 400 `CAREERS_BAD_REQUEST`); never the viewer; demo/test profiles follow Ask's rules. The first page of each lookup is logged in the search log as a referral question with `parser_source = 'careers'` (not for the demo account); later pages are the same lookup and not logged again. Same read budget as the directory, per page.
 - `GET /v1/careers/referral-companies`: `{ companies: [{ company, alumni }] }`: companies (main names) where alumni working there now are open to referrals, most first, at most 50.
 - `GET /v1/careers/my-company-demand`: `{ demand: { company, asks, days } | null }`: asks (Ask questions and Careers lookups) naming your current company, its main name or names linked to it, in the last 30 days; null without a current company.
 - `POST /v1/contact-requests` accepts `source: "careers"` (migration 053).
@@ -84,7 +89,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migration 055.
 
 - `GET /v1/cities`, `GET /v1/cities/search?q=`, `GET /v1/cities/:placeId`, `GET /v1/cities/:placeId/alumni?filter=&cursor=`.
-- `POST /v1/cities/arrivals`, `POST /v1/cities/arrivals/end`, `POST /v1/cities/arrivals/:arrivalId/offers`, `DELETE /v1/cities/offers/:offerId`, `POST /v1/cities/offers/seen`, `PATCH /v1/me/city-nudge`.
+- `POST /v1/cities/arrivals`, `POST /v1/cities/arrivals/end`, `POST /v1/cities/arrivals/:arrivalId/offers`, `DELETE /v1/cities/offers/:offerId`, `POST /v1/cities/offers/seen`.
 - `PATCH /v1/me/profile` returns `arrivalPrompt` and resolves the typed city to a canonical place; `openToPreferences.limits.coffee` (1/2/3/5) is required to turn coffee on.
 - `POST /v1/contact-requests` accepts `source: "cities"` with `coffee`, `relocation`, `visiting`, `newcomer` (+ `cityHelpOfferId`). `POST /v1/intentcasts` accepts `placeId`.
 - `GET /v1/admin/metrics/cities?days=7|30|90` (admins).

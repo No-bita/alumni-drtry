@@ -10,6 +10,7 @@ import { adminMetricsRoutes } from "./routes/adminMetricsRoutes.js";
 import { adminLocationCleanupRoutes } from "./routes/adminLocationCleanupRoutes.js";
 import { adminPlacesRoutes } from "./routes/adminPlacesRoutes.js";
 import { adminCityReviewRoutes } from "./routes/adminCityReviewRoutes.js";
+import { adminDepartmentOtherRoutes } from "./routes/adminDepartmentOtherRoutes.js";
 import { campusMonthlyRoutes } from "./routes/campusMonthlyRoutes.js";
 import { adminOrgRoutes } from "./routes/adminOrgRoutes.js";
 import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
@@ -39,6 +40,7 @@ import { LinkService } from "./services/linkService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
+import { DepartmentOtherReviewRepo } from "./repos/departmentOtherReviewRepo.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
@@ -50,6 +52,15 @@ import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
 import { verifyCsrfOrigin } from "./lib/csrfProtection.js";
+import { DiscoveryReadLimiter, type DiscoveryLimits } from "./lib/directoryAbuseLimiter.js";
+import {
+  LOG_REDACT_PATHS,
+  applySecurityHeaders,
+  pathOnly,
+  requestLogSerializer,
+  resolveTrustProxy,
+  type TrustProxySetting
+} from "./lib/requestHardening.js";
 
 function buildEmailSender(): EmailSender {
   if (env.NODE_ENV === "test") {
@@ -70,13 +81,30 @@ function buildEmailSender(): EmailSender {
 export type CreateAppOptions = {
   /** Tests: override WhatsApp wiring (sender, on/off, secrets) without touching the environment. */
   whatsapp?: { sender?: WhatsAppSender; enabled?: boolean; appSecret?: string; verifyToken?: string };
+  /** Tests: override the discovery read limits (defaults come from the environment). */
+  discoveryLimits?: Partial<DiscoveryLimits>;
+  /** Tests: override TRUST_PROXY. */
+  trustProxy?: TrustProxySetting;
+  /** Tests: capture log lines. */
+  logStream?: { write: (line: string) => void };
 };
 
 export async function createApp(options: CreateAppOptions = {}) {
   const app = Fastify({
+    // Real client IP behind Vercel and Render, so per-IP limits and session IPs aren't the proxy's.
+    trustProxy: options.trustProxy ?? resolveTrustProxy(env.TRUST_PROXY, env.NODE_ENV),
     logger: {
-      level: env.NODE_ENV === "production" ? "info" : "debug"
+      level: env.NODE_ENV === "production" ? "info" : "debug",
+      // Path only (no query string: magic-link tokens, search terms, emails), no headers, no body.
+      serializers: { req: requestLogSerializer },
+      redact: { paths: LOG_REDACT_PATHS, censor: "[redacted]" },
+      ...(options.logStream ? { stream: options.logStream } : {})
     }
+  });
+
+  app.addHook("onSend", async (_request, reply, payload) => {
+    applySecurityHeaders(reply, env.NODE_ENV);
+    return payload;
   });
 
   await app.register(cookie);
@@ -126,7 +154,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const campusMonthlyService = new CampusMonthlyService(pool);
   const homeSummaryService = new HomeSummaryService(pool);
   const analyticsService = new AnalyticsService(pool);
-  const citiesService = new CitiesService(pool, contactRequestService, emailSender, adminMetricsService);
+  const citiesService = new CitiesService(pool, contactRequestService);
   profileService.setResidenceSync(citiesService);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);
@@ -143,12 +171,14 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("contactRequestService", contactRequestService);
   app.decorate("connectionThreadService", connectionThreadService);
   app.decorate("notificationService", notificationService);
+  app.decorate("departmentOtherReview", new DepartmentOtherReviewRepo(pool));
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
   app.decorate("homeSummaryService", homeSummaryService);
   app.decorate("analyticsService", analyticsService);
   app.decorate("whatsappService", whatsappService);
+  app.decorate("discoveryLimiter", new DiscoveryReadLimiter(pool, options.discoveryLimits));
 
   app.decorate("authenticate", async (request, _reply) => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
@@ -201,6 +231,38 @@ export async function createApp(options: CreateAppOptions = {}) {
     }
   });
 
+  // Registered before any route plugin: Fastify gives each plugin the error handler in place when the
+  // plugin is registered, so a handler set at the end never applied to the routes (they used Fastify's
+  // default, which sent internal error text to clients and dropped Retry-After on 429s).
+  app.setErrorHandler((error, request, reply) => {
+    if (isAppError(error)) {
+      const code = error.statusCode;
+      const payload = { code: error.code, message: error.message };
+      if (code === 429 && error.retryAfterSeconds != null) {
+        return reply.code(code).header("Retry-After", String(error.retryAfterSeconds)).send(payload);
+      }
+      return reply.code(code).send(payload);
+    }
+    // Fastify's own client errors (bad JSON, unsupported media type, body too large, ...): keep the status.
+    const status = (error as { statusCode?: number }).statusCode;
+    if (typeof status === "number" && status >= 400 && status < 500) {
+      return reply.code(status).send({
+        code: (error as { code?: string }).code ?? "BAD_REQUEST",
+        message: error instanceof Error ? error.message : "Bad request."
+      });
+    }
+    request.log.error({ err: error }, "Unhandled error");
+    captureException(error, {
+      reqId: request.id,
+      method: request.method,
+      url: pathOnly(request.url)
+    });
+    return reply.code(500).send({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Something went wrong."
+    });
+  });
+
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(discoveryRoutes);
@@ -224,6 +286,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(adminPlacesRoutes);
   await app.register(adminLocationCleanupRoutes);
   await app.register(adminCityReviewRoutes);
+  await app.register(adminDepartmentOtherRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 
@@ -247,27 +310,6 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.get("/healthz", healthHandler);
   // Same check under /v1 so the web app can warm the API through its same-origin /v1 proxy.
   app.get("/v1/healthz", healthHandler);
-
-  app.setErrorHandler((error, request, reply) => {
-    if (isAppError(error)) {
-      const code = error.statusCode;
-      const payload = { code: error.code, message: error.message };
-      if (code === 429 && error.retryAfterSeconds != null) {
-        return reply.code(code).header("Retry-After", String(error.retryAfterSeconds)).send(payload);
-      }
-      return reply.code(code).send(payload);
-    }
-    request.log.error({ err: error }, "Unhandled error");
-    captureException(error, {
-      reqId: request.id,
-      method: request.method,
-      url: request.url
-    });
-    return reply.code(500).send({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Something went wrong."
-    });
-  });
 
   return app;
 }

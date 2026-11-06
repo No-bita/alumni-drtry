@@ -10,11 +10,13 @@ const run = Date.now();
 const MAIN = `Zylo${run} Technologies`;
 const ALIAS = `Zylo${run} Tech`;
 const OTHER = `Otherco${run}`;
+const PAGECO = `Pageco${run}`;
 
 type CompanyResponse = {
   company: string;
   current: Array<{ id: string; fullName: string; openToReferrals: boolean; organizationName: string; yourNote: string | null; roleTitle: string }>;
   past: Array<{ id: string; fullName: string }>;
+  pageInfo: { nextCursor: string | null };
 };
 
 describe("Careers API (integration, local test database only)", () => {
@@ -66,7 +68,7 @@ describe("Careers API (integration, local test database only)", () => {
   });
 
   afterAll(async () => {
-    await db?.query(`DELETE FROM match_queries WHERE company = ANY($1::text[])`, [[MAIN, OTHER]]);
+    await db?.query(`DELETE FROM match_queries WHERE company = ANY($1::text[])`, [[MAIN, OTHER, PAGECO]]);
     await db?.end();
     await app?.close();
   });
@@ -139,5 +141,43 @@ describe("Careers API (integration, local test database only)", () => {
   it("no current company: no demand line", async () => {
     const someone = await loginForTest(app, `car-nojob-${run}@iitbhu.ac.in`);
     expect(((await get("/v1/careers/my-company-demand", someone)).json() as { demand: unknown }).demand).toBeNull();
+  });
+
+  it("pages people 50 at a time with a consistent cursor, and only the first page counts as demand", async () => {
+    const ft = (await db.query<{ id: string }>(`SELECT id FROM occupation_types WHERE code = 'full_time_employment'`)).rows[0]!.id;
+    const orgId = (await db.query<{ id: string }>(
+      `INSERT INTO organizations (name, approval_status) VALUES ($1, 'approved') RETURNING id`, [PAGECO],
+    )).rows[0]!.id;
+    // Direct SQL seeds: 60 real sign-ins would exhaust the suite-wide per-IP auth budget.
+    await db.query(
+      `INSERT INTO people (institutional_email, full_name, batch_year, profile_completed_at, onboarding_completed_at)
+       SELECT $1 || i::text || $2, $3 || lpad(i::text, 3, '0') || $4, 2020, now(), now()
+       FROM generate_series(1, 60) AS i`,
+      [`car-page-`, `-${run}@iitbhu.ac.in`, `Pager `, ` ${run}`],
+    );
+    await db.query(
+      `INSERT INTO occupations (person_id, occupation_type_id, organization_id, role_title, is_current)
+       SELECT p.id, $1, $2, 'Pager', true FROM people p WHERE p.institutional_email LIKE $3`,
+      [ft, orgId, `car-page-%-${run}@iitbhu.ac.in`],
+    );
+
+    const page1 = (await get(`/v1/careers/company?name=${encodeURIComponent(PAGECO)}`, viewer)).json() as CompanyResponse;
+    const page1Ids = [...page1.current, ...page1.past].map((r) => r.id);
+    expect(page1Ids.length).toBe(50);
+    expect(page1.pageInfo.nextCursor).toBe("50");
+
+    const page2 = (await get(`/v1/careers/company?name=${encodeURIComponent(PAGECO)}&cursor=50`, viewer)).json() as CompanyResponse;
+    const page2Ids = [...page2.current, ...page2.past].map((r) => r.id);
+    expect(page2Ids.length).toBe(10);
+    expect(page2.pageInfo.nextCursor).toBeNull();
+    expect(page1Ids.filter((id) => page2Ids.includes(id))).toEqual([]);
+
+    // Demand: the lookup is counted once (first page); loading page 2 does not add another.
+    const demand = await db.query<{ n: string }>(`SELECT count(*) AS n FROM match_queries WHERE company = $1 AND parser_source = 'careers'`, [PAGECO]);
+    expect(Number(demand.rows[0]!.n)).toBe(1);
+
+    const bad = await get(`/v1/careers/company?name=${encodeURIComponent(PAGECO)}&cursor=abc`, viewer);
+    expect(bad.statusCode).toBe(400);
+    expect((bad.json() as { code: string }).code).toBe("CAREERS_BAD_REQUEST");
   });
 });

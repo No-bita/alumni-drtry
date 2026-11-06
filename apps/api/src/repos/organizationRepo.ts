@@ -62,7 +62,7 @@ export interface ApprovedOrganizationListItem {
   linkedNames: number;
 }
 
-/** "shahaaryan.milan.mst20@itbhu.ac.in" → "sh•••@itbhu.ac.in" (one visible letter for very short names). */
+/** "exampleuser.middle.mst20@itbhu.ac.in" → "ex•••@itbhu.ac.in" (one visible letter for very short names). */
 export function maskEmail(email: string | null): string | null {
   if (!email) return null;
   const at = email.lastIndexOf("@");

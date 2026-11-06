@@ -166,7 +166,7 @@ describe("admin company review API (integration, local test database only)", () 
 
 describe("maskEmail", () => {
   it("keeps the first two letters and the domain", () => {
-    expect(maskEmail("shahaaryan.milan.mst20@itbhu.ac.in")).toBe("sh•••@itbhu.ac.in");
+    expect(maskEmail("exampleuser.middle.mst20@itbhu.ac.in")).toBe("ex•••@itbhu.ac.in");
     expect(maskEmail("abc@iitbhu.ac.in")).toBe("a•••@iitbhu.ac.in");
     expect(maskEmail(null)).toBeNull();
     expect(maskEmail("no-at-sign")).toBe("•••");

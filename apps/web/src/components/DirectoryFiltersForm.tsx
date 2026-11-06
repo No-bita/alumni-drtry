@@ -3,7 +3,9 @@ import { DEPARTMENTS } from "../constants/departments";
 import { BATCH_YEARS } from "../constants/batchYears";
 import { OCCUPATION_FILTER_OPTIONS } from "../constants/occupationTypes";
 
-const DEPARTMENTS_SORTED = [...DEPARTMENTS].sort((a, b) => a.label.localeCompare(b.label));
+// The generic "Other" entry is not a real department and is excluded from the filter
+// (catalog data itself is untouched). Free-form departments go through review instead.
+const DEPARTMENTS_SORTED = [...DEPARTMENTS].filter((d) => d.code !== "other").sort((a, b) => a.label.localeCompare(b.label));
 
 export type DirectoryFiltersFormProps = {
   batchYear: number | null;

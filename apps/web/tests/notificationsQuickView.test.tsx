@@ -12,8 +12,10 @@ vi.mock("../src/api/client", async (importOriginal) => {
 });
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ status: "authenticated" }) }));
+const notifMocks = vi.hoisted(() => ({ items: [] as import("../src/api/client").NotificationItem[], markAllMutate: vi.fn() }));
 vi.mock("../src/lib/notificationsQueries", () => ({
-  useNotificationsList: () => ({ data: { items: [] }, isPending: false, isError: false }),
+  useNotificationsList: () => ({ data: { items: notifMocks.items }, isPending: false, isError: false }),
+  useMarkAllNotificationsSeen: () => ({ mutate: notifMocks.markAllMutate, isPending: false }),
 }));
 vi.mock("../src/lib/invalidateAppQueries", () => ({
   invalidateNotificationRelatedQueries: vi.fn(),
@@ -27,6 +29,7 @@ const items: NotificationItem[] = [
     kind: "contact_request_received",
     id: "n1",
     occurredAt: new Date().toISOString(),
+    unseen: true,
     contactRequestId: "cr1",
     senderPersonId: "p1",
     senderFullName: "Rohit Verma",
@@ -36,6 +39,7 @@ const items: NotificationItem[] = [
     kind: "contact_request_resolved",
     id: "n2",
     occurredAt: new Date().toISOString(),
+    unseen: true,
     contactRequestId: "cr2",
     outcome: "accepted",
     recipientPersonId: "p2",
@@ -45,6 +49,7 @@ const items: NotificationItem[] = [
     kind: "bulletin_response",
     id: "n3",
     occurredAt: new Date().toISOString(),
+    unseen: false,
     responseId: "r1",
     intentcastId: "ic1",
     postPreview: "Looking for referral",
@@ -171,7 +176,7 @@ describe("full inbox back control", () => {
 });
 
 describe("incoming notes from the note form", () => {
-  const base = { kind: "contact_request_received" as const, occurredAt: new Date().toISOString(), senderPersonId: "p9" };
+  const base = { kind: "contact_request_received" as const, occurredAt: new Date().toISOString(), unseen: false, senderPersonId: "p9" };
   it("shows the label and fields ('Referral request' / 'Advice · topic'); older notes show just the text", () => {
     wrap(
       <NotificationsList
@@ -190,5 +195,49 @@ describe("incoming notes from the note form", () => {
     expect(screen.getByText("Advice · Moving cities")).toBeTruthy();
     expect(document.querySelectorAll(".note-body").length).toBe(2);
     expect(screen.getByText("An older note")).toBeTruthy();
+  });
+});
+
+describe("type tiles and unseen emphasis", () => {
+  it("every row carries a kind tile keyed to its notification type", () => {
+    const { container } = wrap(<NotificationsList items={items} />);
+    expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(3);
+    expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(1);
+    expect(container.querySelectorAll(".notifications-page__kind-tile--resolved").length).toBe(1);
+    expect(container.querySelectorAll(".notifications-page__kind-tile--bulletin").length).toBe(1);
+  });
+
+  it("unseen rows get the unseen class, seen rows do not", () => {
+    const { container } = wrap(<NotificationsList items={items} />);
+    const rows = container.querySelectorAll("li.notifications-page__item");
+    expect(rows.length).toBe(3);
+    expect(container.querySelectorAll("li.notifications-page__item--unseen").length).toBe(2);
+    expect(rows[2]!.classList.contains("notifications-page__item--unseen")).toBe(false);
+  });
+
+  // Owner-approved 5 Nov 2026: "Mark all as seen" lives in the full inbox header too.
+  it("the inbox offers Mark all as seen only while something is unseen", () => {
+    notifMocks.items = items.filter((i) => !i.unseen);
+    const seenOnly = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/notifications"]}>
+          <Routes><Route path="/notifications" element={<NotificationsPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(seenOnly.queryByRole("button", { name: "Mark all as seen" })).toBeNull();
+    seenOnly.unmount();
+
+    notifMocks.items = items;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/notifications"]}>
+          <Routes><Route path="/notifications" element={<NotificationsPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Mark all as seen" }));
+    expect(notifMocks.markAllMutate).toHaveBeenCalledTimes(1);
+    notifMocks.items = [];
   });
 });

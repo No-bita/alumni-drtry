@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { ConsoleEmailSender } from "../src/services/emailSender.js";
 import { coffeeReasonText } from "../src/services/contactRequestService.js";
-import { isNudgeTime, nudgeSubject, sharedTag } from "../src/services/citiesService.js";
+import { sharedTag } from "../src/services/citiesService.js";
 import { loginForTest } from "./helpers/login.js";
 
 import { assertDisposableCitiesDatabase } from "./helpers/disposableDatabase.js";
@@ -11,15 +11,6 @@ import { assertDisposableCitiesDatabase } from "./helpers/disposableDatabase.js"
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string; email: string };
 const run = Date.now();
-
-/** Monday 11:00 IST in the next week, so the nudge time gate is open. */
-function nextMondayIst(): Date {
-  const d = new Date();
-  const ist = new Date(d.getTime() + 330 * 60_000);
-  const add = (8 - ist.getUTCDay()) % 7 || 7;
-  const m = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + add, 5, 30));
-  return m;
-}
 
 describe("Cities v1 API (integration, local test database only)", () => {
   let app: App;
@@ -61,7 +52,6 @@ describe("Cities v1 API (integration, local test database only)", () => {
     await db.query(`UPDATE city_arrivals SET ended_at = now(), ended_reason = 'stopped' WHERE ended_at IS NULL`);
     await db.query(`UPDATE intentcasts SET place_id = NULL WHERE place_id IS NOT NULL`);
     await db.query(`DELETE FROM match_queries WHERE lower(city) IN ('bengaluru', 'bangalore')`);
-    await db.query(`UPDATE people SET city_nudge_last_sent_at = now() WHERE residence_canonical_place_id = $1`, [blr]);
 
     const person = async (key: string, name: string, batch: number, openTo: string[] = [], limit?: number) => {
       const email = `cty-${key}-${run}@iitbhu.ac.in`;
@@ -306,46 +296,40 @@ describe("Cities v1 API (integration, local test database only)", () => {
   it("Wall posts can carry the city; Get together lists them", async () => {
     const post = await req("POST", "/v1/intentcasts", who.poster!, {
       category: "collaboration",
+      kind: "invitation",
       content: "Sunday morning cricket near HSR\nNeed 6 more. Anyone in?",
       placeId: blr
     });
     expect(post.statusCode).toBe(201);
     const posts = (await city(who.local!)).posts as Array<{ authorPersonId: string; content: string }>;
     expect(posts[0]).toMatchObject({ authorPersonId: who.poster!.personId });
-    expect((await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", content: "Another plan for the weekend", placeId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
+    expect((await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", kind: "invitation", content: "Another plan for the weekend", placeId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
   });
 
-  it("the nudge goes only when something is new, once a week (check 11)", async () => {
-    const send = vi.spyOn(ConsoleEmailSender.prototype, "sendCityNudgeEmail");
-    const monday = nextMondayIst();
-    // Lata: last nudge before this week.
-    await db.query(`UPDATE people SET city_nudge_last_sent_at = now() - interval '8 days' WHERE id = $1`, [who.local!.personId]);
-    // Dev too; the post is older than both of their last nudges, so nothing is new.
-    await db.query(`UPDATE people SET city_nudge_last_sent_at = now() - interval '8 days' WHERE id = $1`, [who.nocoffee!.personId]);
-    await db.query(`UPDATE intentcasts SET created_at = now() - interval '9 days' WHERE place_id = $1`, [blr]);
+  it("View all requests: the posts endpoint pages every open post tagged with the city", async () => {
+    for (let i = 0; i < 21; i++) {
+      const r = await req("POST", "/v1/intentcasts", who.poster!, { category: "collaboration", kind: "ask", content: `Request ${i + 1} about Bengaluru`, placeId: blr });
+      expect(r.statusCode).toBe(201);
+    }
+    const payload = await city(who.local!);
+    expect(payload.posts.length).toBe(3);
+    expect(payload.postsHasMore).toBe(true);
 
-    await app.citiesService.sendNudges(monday);
-    const to = send.mock.calls.map((c) => c[0].to.toLowerCase());
-    expect(to).not.toContain(who.nocoffee!.email);
-    expect(to).not.toContain(who.local!.email);
+    const page1 = await req("GET", "/v1/cities/" + blr + "/posts", who.local!);
+    expect(page1.statusCode).toBe(200);
+    expect(page1.json().posts.length).toBe(20);
+    expect(page1.json().nextCursor).toBe("20");
+    // Newest first: the preview's first card is the page's first row.
+    expect(page1.json().posts[0].id).toBe(payload.posts[0].id);
 
-    await db.query(`UPDATE intentcasts SET created_at = now() WHERE place_id = $1`, [blr]);
-    send.mockClear();
-    await app.citiesService.sendNudges(monday);
-    const mail = send.mock.calls.find((c) => c[0].to.toLowerCase() === who.local!.email);
-    expect(mail?.[0]).toMatchObject({ city: "Bengaluru", subject: "3 moving-help searches for Bengaluru", plans: ["Sunday morning cricket near HSR"] });
-    // The poster never hears about their own post.
-    expect(send.mock.calls.find((c) => c[0].to.toLowerCase() === who.poster!.email)).toBeUndefined();
-
-    send.mockClear();
-    await app.citiesService.sendNudges(monday);
-    expect(send.mock.calls.find((c) => c[0].to.toLowerCase() === who.local!.email)).toBeUndefined();
-
-    expect((await req("PATCH", "/v1/me/city-nudge", who.local!, { frequency: "never" })).json()).toEqual({ frequency: "never" });
-    send.mockRestore();
+    const page2 = await req("GET", "/v1/cities/" + blr + "/posts?cursor=20", who.local!);
+    expect(page2.statusCode).toBe(200);
+    // 1 from the previous test + 21 here = 22 open posts.
+    expect(page2.json().posts.length).toBe(2);
+    expect(page2.json().nextCursor).toBeNull();
   });
 
-  it("admin metrics: Cities notes by category, arrivals and the nudge funnel", async () => {
+  it("admin metrics: Cities notes by category and arrivals", async () => {
     expect((await req("GET", "/v1/admin/metrics/cities", who.poster!)).statusCode).toBe(403);
     await db.query(`UPDATE people SET role = 'admin' WHERE id = $1`, [who.poster!.personId]);
     const r = await req("GET", "/v1/admin/metrics/cities?days=7", who.poster!);
@@ -356,7 +340,6 @@ describe("Cities v1 API (integration, local test database only)", () => {
     expect(m.notes.byCategory.find((c: any) => c.category === "coffee").sent).toBeGreaterThanOrEqual(1);
     expect(m.arrivals.optedIn).toBeGreaterThanOrEqual(1);
     expect(m.arrivals.offers).toBeGreaterThanOrEqual(1);
-    expect(m.nudge.sent).toBeGreaterThanOrEqual(1);
     await db.query(`UPDATE people SET role = 'alumni' WHERE id = $1`, [who.poster!.personId]);
   });
 
@@ -378,13 +361,5 @@ describe("Cities helpers", () => {
     expect(sharedTag({ batch_year: 2010, department_code: "cse", org_name: null }, viewer)).toBe("Same department");
     expect(sharedTag({ batch_year: 2010, department_code: "ee", org_name: "flipkart" }, viewer)).toBe("Also at Flipkart");
     expect(sharedTag({ batch_year: null, department_code: null, org_name: null }, viewer)).toBeNull();
-  });
-  it("nudge subject and time gate", () => {
-    expect(nudgeSubject("Bengaluru", 2, 9)).toBe("2 alumni just moved to Bengaluru");
-    expect(nudgeSubject("Bengaluru", 0, 9)).toBe("9 moving-help searches for Bengaluru");
-    expect(nudgeSubject("Bengaluru", 0, null)).toBe("New plans from Bengaluru alumni");
-    expect(isNudgeTime(new Date("2026-11-02T04:00:00Z"))).toBe(false); // Monday 09:30 IST
-    expect(isNudgeTime(new Date("2026-11-02T04:31:00Z"))).toBe(true); // Monday 10:01 IST
-    expect(isNudgeTime(new Date("2026-11-04T01:00:00Z"))).toBe(true); // Wednesday
   });
 });

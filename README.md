@@ -65,7 +65,7 @@ npm install
 npm run dev
 ```
 
-The API runs at `http://localhost:4000`. The web app runs at `http://localhost:5173` and proxies `/v1/*` to the API in development.
+The API runs at `http://localhost:4000`. The web app runs at `http://localhost:5173/app/` and proxies `/v1/*` to the API in development.
 
 ## Testing And Verification
 

@@ -83,6 +83,16 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
+  /** Anti-scraping watch: members at 80%+ of today's browsing cap, and at the cap. Counts only, no names. */
+  app.get(
+    "/v1/admin/metrics/discovery-limits",
+    { preHandler: adminPreHandlers },
+    async (_request, reply) => {
+      const limits = await app.discoveryLimiter.nearLimitToday();
+      return reply.code(200).send({ limits });
+    }
+  );
+
   /** Everything on the analytics screen for one window (7, 30 or 90 days), plus 12-week trends. */
   app.get(
     "/v1/admin/analytics",
@@ -98,7 +108,7 @@ export const adminMetricsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /** Cities v1 (SPEC §8): acceptance of Cities notes by category, arrivals, coffee and the nudge email. */
+  /** Cities v1 (SPEC §8): acceptance of Cities notes by category, arrivals and coffee. */
   app.get(
     "/v1/admin/metrics/cities",
     { preHandler: adminPreHandlers },

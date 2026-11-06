@@ -10,8 +10,9 @@ import {
 import { landingMapTestimonialPinCoords } from "../lib/landingMapTestimonials";
 import { useLandingMapCollisionGuard } from "../hooks/useLandingMapCollisionGuard";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
+import { publicAsset } from "../lib/appBase";
 
-const MAP_URL = "/media/World_Map_Vns.html?embed=1";
+const MAP_URL = `${publicAsset("media/World_Map_Vns.html")}?embed=1`;
 const MAP_STATIC_URL = `${MAP_URL}&mode=static`;
 
 function usePrefersReducedMotion(): boolean {

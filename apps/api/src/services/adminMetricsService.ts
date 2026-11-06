@@ -26,7 +26,7 @@ export class AdminMetricsService {
   }
 
   /** Ask → Match funnel over the last `windowDays` plus current profile completeness. */
-  /** Cities v1: acceptance of Cities notes by category, arrivals, coffee, nudge funnel. */
+  /** Cities v1: acceptance of Cities notes by category, arrivals and coffee. */
   async getCitiesMetrics(windowDays = 30): Promise<CitiesMetrics> {
     return this.citiesMetricsRepo.getMetrics(windowDays);
   }

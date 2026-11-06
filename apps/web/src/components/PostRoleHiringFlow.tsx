@@ -42,6 +42,7 @@ type HiringEssentialShakeField = "roleTitle" | "company" | "location" | "employm
 const SHAKE_ANIMATION_SUBSTR = "career-hiring-flow-field-shake";
 
 const INITIAL_HIRING_FORM = {
+  kind: "" as "" | "ask" | "offer" | "invitation",
   roleTitle: "",
   company: "",
   location: "",
@@ -204,6 +205,10 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
         window.requestAnimationFrame(() => setShakeEssentialFields(empty));
         return;
       }
+      if (!hiringForm.kind) {
+        setHiringError("Choose what this post is: an ask, an offer or an invitation.");
+        return;
+      }
       const summary = hiringForm.summary.trim();
       if (summary.length < 10) {
         setHiringError("Add a role summary (at least 10 characters) before preview.");
@@ -212,7 +217,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       setHiringError(null);
       setShakeEssentialFields([]);
       setHiringStep("preview");
-    }, [essentialsValid, hiringForm.company, hiringForm.location, hiringForm.roleTitle, hiringForm.employmentType, hiringForm.summary]);
+    }, [essentialsValid, hiringForm.kind, hiringForm.company, hiringForm.location, hiringForm.roleTitle, hiringForm.employmentType, hiringForm.summary]);
 
     const goBackToCompose = useCallback(() => {
       setHiringError(null);
@@ -221,6 +226,10 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
     }, []);
 
     const publishHiringPost = useCallback(async () => {
+      if (!hiringForm.kind) {
+        setHiringError("Choose what this post is: an ask, an offer or an invitation.");
+        return;
+      }
       const compose = hiringFormToComposeFields(hiringForm);
       const fieldErr = validateHiringBulletinFields(compose);
       if (fieldErr) {
@@ -241,6 +250,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: "hiring",
         content,
+        kind: hiringForm.kind || null,
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
@@ -280,6 +290,22 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
               {hiringStep === "compose" ? (
                 <>
                   <div className="career-hiring-flow__grid">
+                    <label className="career-hiring-flow__field career-hiring-flow__field--wide" htmlFor="hiring-flow-kind">
+                      <span>What is this? *</span>
+                      <select
+                        id="hiring-flow-kind"
+                        className="input"
+                        value={hiringForm.kind}
+                        onChange={(e) => setHiringForm((prev) => ({ ...prev, kind: e.target.value as "ask" | "offer" | "invitation" }))}
+                      >
+                        <option value="" disabled>
+                          Choose one
+                        </option>
+                        <option value="ask">Ask — I need something</option>
+                        <option value="offer">Offer — I’m offering something</option>
+                        <option value="invitation">Invitation — join me for something</option>
+                      </select>
+                    </label>
                     <label
                       className={`career-hiring-flow__field${essentialShakeClass("roleTitle")}`}
                       onAnimationEnd={onEssentialShakeEnd("roleTitle")}

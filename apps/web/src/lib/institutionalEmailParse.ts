@@ -1,4 +1,5 @@
 import { DEPARTMENT_LABEL_BY_CODE } from "@department-catalog";
+import { isBhuInstitutionalEmail } from "./institutionalEmail";
 
 /**
  * Client-side institutional local-part parsing (keep in sync with apps/api/src/lib/emailParser.ts).
@@ -108,8 +109,23 @@ export type ParsedInstitutionalEmail = {
   joiningYear: number | null;
 };
 
+const EMPTY_PARSE: ParsedInstitutionalEmail = {
+  firstName: "",
+  lastName: "",
+  departmentCode: null,
+  departmentDisplayName: null,
+  joiningYear: null,
+};
+
 export function parseInstitutionalEmailForOnboarding(email: string): ParsedInstitutionalEmail {
   const normalized = email.trim().toLowerCase();
+
+  // Inference is only defined for IIT (BHU) locals. Other allowed institutes use
+  // free-form locals, so they get the plain manual choices with no inferred prefill.
+  if (!isBhuInstitutionalEmail(normalized)) {
+    return EMPTY_PARSE;
+  }
+
   const localPart = normalized.split("@")[0] ?? "";
 
   const deptYear = tryParseDeptYearBeforeFirstDigit(localPart);

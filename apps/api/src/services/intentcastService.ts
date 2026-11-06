@@ -11,6 +11,7 @@ import { AppError } from "../lib/errors.js";
 import {
   IntentcastRepo,
   type IntentcastCategory,
+  type IntentcastKind,
   type IntentcastFeedView,
   type IntentcastResponseView,
   type IntentcastStatus
@@ -59,6 +60,8 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
 export interface CreateIntentcastInput {
   category: IntentcastCategory;
   content: string;
+  /** Ask / Offer / Invitation: the author's own statement; optional so structured flows stay unmarked. */
+  kind?: IntentcastKind | null;
   /** Cities v1: canonical place id when posted from a city page. */
   placeId?: string | null;
 }
@@ -153,6 +156,7 @@ export class IntentcastService {
         authorPersonId,
         content,
         category: input.category,
+        kind: input.kind ?? null,
         expiresAt,
         placeId: input.placeId ?? null
       })

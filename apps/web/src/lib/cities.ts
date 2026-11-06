@@ -70,14 +70,13 @@ export type CityPost = {
   authorFullName: string;
   authorBatchYear: number | null;
   content: string;
+  kind: "ask" | "offer" | "invitation" | null;
   createdAt: string;
   viewerHasResponded: boolean;
   isMine: boolean;
 };
 
 export type ViewerRole = "local" | "newcomer" | "arriver" | "no_city";
-export type NudgeFrequency = "weekly" | "monthly" | "never";
-
 export type CityPayload = {
   place: CityRef;
   review?: CityReviewState | null;
@@ -86,7 +85,6 @@ export type CityPayload = {
   v1Enabled: boolean;
   counts: { alumni: number; openToCityHelp: number };
   arrivalPrompt: boolean;
-  nudgeFrequency: NudgeFrequency;
   arrivals: { total: number; items: CityArrival[] } | null;
   myArrival: { id: string; visibleUntil: string; daysLeft: number; previousCity: string | null } | null;
   offers: NewcomerOffer[];
@@ -98,6 +96,8 @@ export type CityPayload = {
   } | null;
   alumni: { total: number; items: CityAlum[] } | null;
   posts: CityPost[];
+  /** True when the city has more open Wall posts than the `posts` preview shows. */
+  postsHasMore: boolean;
   chapterLink: { url: string; label: string } | null;
   helpers: CityHelper[];
   others: CityAlum[];
@@ -118,6 +118,7 @@ export const ALUMNI_FILTERS = [
 ] as const;
 export type AlumniFilter = (typeof ALUMNI_FILTERS)[number]["id"];
 export type AlumniPage = { items: CityAlum[]; total: number; nextCursor: string | null };
+export type CityPostsPage = { posts: CityPost[]; nextCursor: string | null };
 
 /* Limits (mirrors the API; the server re-checks every one). */
 export const COFFEE_REASON_MIN = 40;
@@ -134,6 +135,7 @@ export const citiesKeys = {
   list: () => ["cities", "list"] as const,
   city: (placeId: string) => ["cities", "city", placeId] as const,
   alumni: (placeId: string, filter: AlumniFilter) => ["cities", "alumni", placeId, filter] as const,
+  posts: (placeId: string) => ["cities", "posts", placeId] as const,
 };
 
 /* Reads */
@@ -156,6 +158,13 @@ export function fetchCityAlumni(
   return assertApiGet<AlumniPage>(`/v1/cities/${encodeURIComponent(placeId)}/alumni?${params.toString()}`, signal);
 }
 
+export function fetchCityPosts(placeId: string, cursor: string | null, signal: AbortSignal): Promise<CityPostsPage> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  const qs = params.toString();
+  return assertApiGet<CityPostsPage>(`/v1/cities/${encodeURIComponent(placeId)}/posts${qs ? `?${qs}` : ""}`, signal);
+}
+
 /* Writes. Each returns the API error (or null) so sheets can show their own copy. */
 type Result<T = unknown> = { data?: T; error: ApiError | null };
 const done = <T,>(r: { data?: T; error?: ApiError }): Result<T> => ({ data: r.data, error: r.error ?? null });
@@ -173,8 +182,6 @@ export const sendOffer = async (arrivalId: string, kinds: HelpKind[], line: stri
 export const withdrawOffer = async (offerId: string) =>
   done(await api.delete(`/v1/cities/offers/${encodeURIComponent(offerId)}`));
 export const markOffersSeen = async () => done(await api.post("/v1/cities/offers/seen"));
-export const setNudgeFrequency = async (frequency: NudgeFrequency) =>
-  done(await api.patch<{ frequency: NudgeFrequency }>("/v1/me/city-nudge", { frequency }));
 
 export type CityNoteCategory = "coffee" | "relocation" | "visiting" | "newcomer";
 export const sendCityNote = async (input: {

@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { pendingWhatsAppEntry, rememberWhatsAppEntry } from "../lib/whatsapp";
 import { queryKeys } from "../lib/queryKeys";
+import { takeReturnTo } from "../lib/returnTo";
 
 export function AuthVerify() {
   const [searchParams] = useSearchParams();
@@ -35,8 +36,8 @@ export function AuthVerify() {
   const verifyQuery = useQuery({
     queryKey: queryKeys.auth.magicLinkVerify(challengeId ?? "", magicLinkToken ?? ""),
     queryFn: async ({ signal }) => {
-      const verifyUrl = `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId!)}&magicLinkToken=${encodeURIComponent(magicLinkToken!)}`;
-      const res = await api.get(verifyUrl, { signal });
+      // POST: the one-time token travels in the body, never in a URL the server or a proxy could log.
+      const res = await api.post("/v1/auth/verify", { challengeId, magicLinkToken }, { signal });
       if (res.aborted) {
         throw new DOMException("Aborted", "AbortError");
       }
@@ -71,7 +72,7 @@ export function AuthVerify() {
         return;
       }
       if (p.onboardingCompletedAt) {
-        navigate("/home", { replace: true });
+        navigate(takeReturnTo() ?? "/home", { replace: true });
         return;
       }
       navigate(canAccessOnboardingFlow(p) ? "/onboarding" : "/home", { replace: true });

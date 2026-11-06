@@ -32,22 +32,40 @@ export function roleOrgLineFromSearchProfile(profile: SearchProfileView): string
   return null;
 }
 
+type DepartmentDisplayProfile = Pick<PublicProfileView,
+  "departmentCode" | "departmentName" | "departmentOtherText" | "departmentOtherStatus">;
+
+/** Public API redacts Other's code/name and unapproved text. Owner previews must
+ * also hide pending/rejected text, even though the owner's API response has it. */
+export function profileDepartmentDisplay(
+  profile: DepartmentDisplayProfile,
+  isOwnProfile = false,
+  departmentCodeFallback?: string | null,
+): string | null {
+  const code = profile.departmentCode?.trim();
+  const name = profile.departmentName?.trim();
+  const isOther = code === "other" || (!code && !name);
+  if (isOther) {
+    const unapproved = profile.departmentOtherStatus === "pending" || profile.departmentOtherStatus === "rejected";
+    if (!isOwnProfile && unapproved) return null;
+    return profile.departmentOtherText?.trim() || (code === "other" ? null : departmentCodeFallback?.trim().toUpperCase()) || null;
+  }
+  return name || departmentCodeFallback?.trim().toUpperCase() || code?.toUpperCase() || null;
+}
+
 /** Hero education line, e.g. "BTech, Civil Engineering · Class of '22". */
 export function profileEducationHeadlineLine(
   profile: Pick<
     PublicProfileView,
-    "degreeCode" | "degreeName" | "departmentCode" | "departmentName" | "batchYear"
+    "degreeCode" | "degreeName" | "departmentCode" | "departmentName" | "departmentOtherText" | "departmentOtherStatus" | "batchYear"
   > | null | undefined,
   departmentCodeFallback?: string | null,
+  isOwnProfile = false,
 ): string | null {
   if (!profile) return null;
 
   const degree = profile.degreeName?.trim() || profile.degreeCode?.trim() || null;
-  const department =
-    profile.departmentName?.trim() ||
-    departmentCodeFallback?.trim().toUpperCase() ||
-    profile.departmentCode?.trim().toUpperCase() ||
-    null;
+  const department = profileDepartmentDisplay(profile, isOwnProfile, departmentCodeFallback);
 
   const studyParts: string[] = [];
   if (degree && department) studyParts.push(`${degree}, ${department}`);

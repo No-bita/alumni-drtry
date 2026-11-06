@@ -8,6 +8,8 @@ const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", 
 
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,
+  /** Ask / Offer / Invitation: required by the Wall composer; structured flows may omit it (unmarked). */
+  kind: z.enum(["ask", "offer", "invitation"]).nullable().optional(),
   content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH),
   /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
   placeId: z.string().uuid().nullable().optional()
@@ -31,8 +33,12 @@ function parseExcludeCategories(raw: string | undefined): IntentcastCategory[] |
   return tokens as IntentcastCategory[];
 }
 
+/** Most Wall posts (with their authors) one feed request returns. */
+export const FEED_PAGE_MAX = 48;
+
 const feedQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // Anti-scraping: clamped to FEED_PAGE_MAX (the web asks for 48 at most).
+  limit: z.coerce.number().int().min(1).max(100).default(20).transform((v) => Math.min(v, FEED_PAGE_MAX)),
   offset: z.coerce.number().int().min(0).default(0),
   category: intentcastCategoryEnum.optional(),
   status: z.enum(["open", "closed"]).default("open"),
@@ -105,6 +111,9 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    // The feed lists members (author name, batch, role): a discovery read like the directory.
+    await app.discoveryLimiter.assert(request.actor, request.ip);
+
     const excludeCategories = parseExcludeCategories(parsed.data.excludeCategories);
 
     const result = await app.intentcastService.listFeed(
@@ -116,6 +125,8 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
         status: parsed.data.status,
         mine: parsed.data.mine,
         authorHistory: parsed.data.authorHistory,
+        // Already safe on the server: deleted/suspended accounts are always excluded, and a post its author
+        // removed is visible only to that author (for undo). This flag only hides it from the author too.
         excludeAuthorSoftDeleted: parsed.data.excludeAuthorSoftDeleted,
         excludeCategories
       }

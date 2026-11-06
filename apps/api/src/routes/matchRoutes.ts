@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { assertDiscoveryReadAllowed } from "../lib/directoryAbuseLimiter.js";
 import { AppError } from "../lib/errors.js";
 import { MATCH_CATEGORIES } from "../lib/matchIntent.js";
 
@@ -32,7 +31,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Same budget as directory reads: matching exposes directory rows.
-    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    await app.discoveryLimiter.assert(request.actor, request.ip);
 
     // Drop keys the client did not send so "absent" keeps the parsed value.
     const overrides = parsed.data.overrides

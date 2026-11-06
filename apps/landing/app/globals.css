@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Design tokens. Keep hex values in sync with lib/tokens.ts (a test enforces it). */
+@theme inline {
+  --color-paper: #F3EFE4;
+  --color-ink: #1B1F2A;
+  --color-pen-blue: #1F3FA8;
+  --color-stamp-red: #B3261E;
+  --color-card: #FFFDF7;
+  --color-label: #4A4F5C;
+  --color-tint: #EEF1FA;
+
+  --font-display: var(--font-plex-condensed), "IBM Plex Sans Condensed", sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", monospace;
+  --font-hand: var(--font-caveat), "Caveat", cursive;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  /* Ruled paper: one line every 36px. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 35px,
+    rgba(31, 63, 168, 0.09) 35px,
+    rgba(31, 63, 168, 0.09) 36px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

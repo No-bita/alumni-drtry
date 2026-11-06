@@ -988,3 +988,317 @@
 .cities__input[aria-invalid="true"] {
   border-color: #a12a12;
 }
+
+/* City home (needs-first landing) */
+.cities-home__hero {
+  gap: 8px;
+}
+
+.cities-home__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.cities-home__tiles {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cities-home__tile {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 13px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.cities-home__tile-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--brick);
+  display: inline-flex;
+}
+
+.cities-home__tile-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cities-home__tile-label {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.cities-home__tile-example {
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.35;
+}
+
+.cities-home__request {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.cities-home__request-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.cities-home__request-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.cities-home__request-body {
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cities-home__request-meta {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.cities-home__kind {
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.cities-home__chevron {
+  flex: none;
+  color: var(--ink-muted);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.cities-home__hint {
+  border: 1px dashed var(--border-muted);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.cities-home__hint p {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.cities-home__hint strong {
+  color: var(--brick);
+  font-weight: 600;
+}
+
+.cities-home__askcard {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 15px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: var(--cream-dark);
+}
+
+.cities-home__ask-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.cities-home__ask-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cities-home__ask-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.cities-home__askbtn {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--brick);
+  color: var(--cream);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cities-home__secondary {
+  gap: 0;
+  justify-items: start;
+}
+
+/* Phone keeps a single column; desktop is the approved 2x2 tiles + requests-left / catch-all-right. */
+.cities-home__cols {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+
+.cities-home__side {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+  align-content: start;
+}
+
+/* Phone: let "View all posts" wrap under the heading instead of colliding with it. */
+.cities-home__reqhead {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  column-gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .cities-home__tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cities-home__cols {
+    grid-template-columns: 7fr 5fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* Approved desktop ask card: copy full width, button on its own row. */
+  .cities-home__askcard {
+    flex-wrap: wrap;
+  }
+
+  .cities-home__askcard .cities-home__ask-copy {
+    flex: 1 1 100%;
+  }
+}
+
+/* City home photo hero: same approved placeholder photo on every city (decision 19:22). */
+.cities-home__photohero {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  height: 92px;
+  background: #5a4a3c;
+}
+
+.cities-home__photohero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 62%;
+}
+
+.cities-home__photohero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(30, 18, 10, 0.15) 0%, rgba(30, 18, 10, 0.68) 100%);
+}
+
+.cities-home__photohero-city {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.cities-home__photohero-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  background: rgba(30, 18, 10, 0.45);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.cities-home__photohero-credit {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.cities-home__photohero-credit a {
+  color: inherit;
+}
+
+@media (min-width: 640px) {
+  .cities-home__photohero {
+    height: 110px;
+    border-radius: 16px;
+  }
+
+  .cities-home__photohero-city {
+    left: 22px;
+    bottom: 13px;
+    font-size: 31px;
+  }
+}
+
+/* Phone: keep the bottom links scrollable clear of the floating dock (approved 19:33). */
+@media (max-width: 639px) {
+  .cities-home__secondary {
+    padding-bottom: 200px;
+  }
+}

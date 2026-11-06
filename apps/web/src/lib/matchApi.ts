@@ -161,6 +161,7 @@ export async function fetchMatches(state: MatchUrlState, signal?: AbortSignal): 
 
 export function matchErrorMessage(err: unknown): string {
   if (err instanceof MatchRequestError) {
+    if (err.code === "DISCOVERY_DAILY_LIMIT") return err.message || "You've looked at a lot of profiles today. Try again tomorrow.";
     if (err.code === "DISCOVERY_RATE_LIMITED") return "Too many searches in a short time. Try again in a minute.";
     if (err.code === "NETWORK_ERROR") return err.message;
   }

@@ -1,6 +1,7 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { isStagingDeployment } from "./src/lib/stagingEnvironment";
 
@@ -53,9 +54,33 @@ function manualChunks(id: string): string | undefined {
   return "vendor-misc";
 }
 
+const APP_BASE = "/app/";
+
+/** Site-root files (robots.txt, sitemap.xml) live in site-root/ and are copied to dist/, outside the app's base. */
+function siteRootFiles(): Plugin {
+  return {
+    name: "alma-site-root-files",
+    apply: "build",
+    buildStart() {
+      // dist/ holds only this build: the app under dist/app plus the site-root files.
+      fs.rmSync(path.join(webRoot, "dist"), { recursive: true, force: true });
+    },
+    closeBundle() {
+      const from = path.join(webRoot, "site-root");
+      const to = path.join(webRoot, "dist");
+      if (!fs.existsSync(from)) return;
+      fs.mkdirSync(to, { recursive: true });
+      for (const name of fs.readdirSync(from)) fs.copyFileSync(path.join(from, name), path.join(to, name));
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  // The app lives under /app (almamatter.in/app). The router's basename, public files and built assets
+  // all follow this. API calls stay at the site root (/v1/...).
+  base: APP_BASE,
+  plugins: [react(), siteRootFiles()],
   define: {
     "__ALMA_STAGING__": JSON.stringify(
       isStagingDeployment(process.env.VERCEL_ENV, process.env.VERCEL_GIT_COMMIT_REF),
@@ -67,6 +92,10 @@ export default defineConfig({
     },
   },
   build: {
+    // Everything the app serves goes under dist/app; dist/ itself holds the site-root files (robots.txt,
+    // sitemap.xml). Vercel's output directory is dist (see vercel.json).
+    outDir: "dist/app",
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks,

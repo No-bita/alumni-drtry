@@ -54,6 +54,7 @@ const patchProfileSchema = z
   .object({
     fullName: z.string().trim().min(1).max(120).optional(),
     departmentCode: z.string().trim().min(2).max(16).regex(/^[a-zA-Z0-9]+$/).optional(),
+    departmentOtherText: z.string().trim().min(1).max(80).nullable().optional(),
     batchYear: z.union([z.number().int().min(1960).max(maxProfileBatchYear), z.null()]).optional(),
     degreeCode: z.string().trim().min(2).max(24).regex(/^[a-zA-Z0-9_]+$/).nullable().optional(),
     institutionalEmail: z.string().trim().optional(),
@@ -265,20 +266,6 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       }
       await app.linkService.deleteMyLink(request.actor.personId, params.data.id);
       return reply.code(204).send();
-    }
-  );
-
-  /** Cities v1 nudge email: how often (weekly, monthly, never). */
-  app.patch(
-    "/v1/me/city-nudge",
-    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
-    async (request, reply) => {
-      const parsed = z.object({ frequency: z.enum(["weekly", "monthly", "never"]) }).safeParse(request.body);
-      if (!parsed.success) {
-        throw new AppError(400, "CITY_NUDGE_BAD_REQUEST", "Choose weekly, monthly or never.");
-      }
-      const frequency = await app.citiesService.setNudgeFrequency(request.actor.personId, parsed.data.frequency);
-      return reply.code(200).send({ frequency });
     }
   );
 

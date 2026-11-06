@@ -45,7 +45,7 @@ describe("usage events", () => {
     render(<MemoryRouter><HomeNetworkPanel members={[]} directoryHref="/search" inviterPersonId={REF} /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Invite batchmates" }));
     const input = screen.getByLabelText("Invite link", { selector: "input" }) as HTMLInputElement;
-    expect(input.value).toBe(`${window.location.origin}/login?ref=${REF}&ch=copy`);
+    expect(input.value).toBe(`${window.location.origin}/app/login?ref=${REF}&ch=copy`);
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     const wa = screen.getByRole("link", { name: "Share on WhatsApp" }) as HTMLAnchorElement;
     expect(decodeURIComponent(wa.href)).toContain(`ref=${REF}&ch=whatsapp`);

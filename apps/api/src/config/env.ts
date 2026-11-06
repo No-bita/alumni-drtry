@@ -50,6 +50,13 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   APP_BASE_URL: z.string().url(),
+  /**
+   * Where the web app lives, including any path, e.g. https://almamatter.in/app. Every member-facing
+   * link (sign-in emails, Google sign-in return, WhatsApp, city emails) is built from it.
+   * Falls back to MAGIC_LINK_BASE_URL (older name), then APP_BASE_URL.
+   */
+  WEB_APP_URL: z.preprocess(preprocessOptionalHttpOrigin, z.string().url().optional()),
+  /** Older name for WEB_APP_URL; still read when WEB_APP_URL is unset. */
   MAGIC_LINK_BASE_URL: z.preprocess(preprocessOptionalHttpOrigin, z.string().url().optional()),
   DATABASE_URL: z.string().min(1),
   /** Max clients in the process pool. With Neon PgBouncer, keep this modest per instance (e.g. 5–10). */
@@ -81,6 +88,8 @@ const envSchema = z.object({
   WA_TEMPLATE_NOTE: z.string().trim().min(1).default("alum_referral_note"),
   WA_TEMPLATE_LANG: z.string().trim().min(2).default("en"),
   /** Hard cap on paid (template) messages per calendar month; past it notes go by email. */
+  /** How long the bot's website links (/w/<code> and their signed token) stay valid. */
+  WA_LINK_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(120),
   WA_MONTHLY_TEMPLATE_CAP: z.coerce.number().int().min(0).max(100_000).default(300),
   ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
@@ -133,8 +142,6 @@ const envSchema = z.object({
    * apply either way.
    */
   CITY_REVIEW_ENABLED: environmentBoolean.default(false),
-  /** City nudge-email eligibility: canonical place ids (comma-separated). Unset → Bengaluru, India by name. Pages no longer read this. */
-  CITIES_V1_PLACE_IDS: optionalStringSchema,
   /** Cities v1: chapter group links, JSON {"<placeId>": {"url": "https://…", "label": "…"}}. */
   CITY_CHAPTER_LINKS: optionalStringSchema,
   /** Contact-request reminder emails: interval in ms (default hourly in production, off elsewhere; 0 = off). */
@@ -146,13 +153,26 @@ const envSchema = z.object({
   CONTACT_REQUEST_WINDOW_MINUTES: z.coerce.number().int().min(1).max(10_080).default(1440),
 
   /**
-   * Max combined directory reads per user per window: GET /v1/search, /v1/profiles/:id, /v1/directory/residence-cities.
-   * In-memory per API instance. 0 = disable.
+   * Anti-scraping. "Discovery reads" = directory search, profile reads, Ask results, Careers company
+   * people, Cities people lists, the Wall feed and the residence-cities list. Counted per member in the
+   * database (survives restarts, shared by every API instance); admins are not counted. 0 = disable.
    */
-  DISCOVERY_READ_MAX_PER_USER_WINDOW: z.coerce.number().int().min(0).max(50_000).default(150),
+  /** Burst: reads per member per UTC minute. */
+  DISCOVERY_READ_MAX_PER_USER_WINDOW: z.coerce.number().int().min(0).max(50_000).default(60),
+  /** Kept for compatibility; the burst window is always one minute now. */
   DISCOVERY_READ_WINDOW_MINUTES: z.coerce.number().int().min(1).max(60).default(1),
-  /** Same window as DISCOVERY_READ_WINDOW_MINUTES; 0 = disable IP bucket. */
-  DISCOVERY_READ_MAX_PER_IP_WINDOW: z.coerce.number().int().min(0).max(200_000).default(0),
+  /** Daily cap: reads per member per day (day boundary: midnight Asia/Kolkata). */
+  DISCOVERY_READ_MAX_PER_USER_DAY: z.coerce.number().int().min(0).max(1_000_000).default(500),
+  /** Per client IP per minute, in process memory (second layer; needs TRUST_PROXY for the real IP). */
+  DISCOVERY_READ_MAX_PER_IP_WINDOW: z.coerce.number().int().min(0).max(200_000).default(300),
+  /** Magic-link / code checks (POST and GET /v1/auth/verify) per client IP per 10 minutes. 0 = disable. */
+  AUTH_VERIFY_MAX_PER_IP_WINDOW: z.coerce.number().int().min(0).max(10_000).default(60),
+  /**
+   * Which proxy hops to trust for the client IP (X-Forwarded-For). "false" = none; a number = that many
+   * hops; "true" = all (unsafe on the open internet); or a comma list of IPs/CIDRs.
+   * Unset: 2 in production (browser -> Vercel rewrite -> Render's proxy -> API), none elsewhere.
+   */
+  TRUST_PROXY: optionalStringSchema,
 
   /** OAuth 2.0 client from Google Cloud Console. Both required to enable Sign in with Google. */
   GOOGLE_CLIENT_ID: optionalStringSchema,
@@ -220,6 +240,10 @@ if (parsed.data.AUTH_BYPASS_SUPER_ADMIN) {
   if (!parsed.data.AUTH_BYPASS_SUPER_ADMIN_EMAIL) {
     throw new Error("Invalid environment: AUTH_BYPASS_SUPER_ADMIN_EMAIL is required when AUTH_BYPASS_SUPER_ADMIN=true.");
   }
+}
+
+if (parsed.data.ENABLE_PASSWORD_LOGIN && parsed.data.NODE_ENV === "production") {
+  throw new Error("Invalid environment: ENABLE_PASSWORD_LOGIN cannot be enabled in production.");
 }
 
 if (parsed.data.AUTH_BYPASS) {

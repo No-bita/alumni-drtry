@@ -31,7 +31,8 @@ type ProfileMode = "fail" | "missing" | "incomplete";
 
 function mountApp(role: string, mode: ProfileMode, path = "/intent/location/bengaluru") {
   vi.stubEnv("PROD", true);
-  window.history.pushState({}, "", path);
+  // The app lives under /app (BrowserRouter basename).
+  window.history.pushState({}, "", `/app${path}`);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -79,6 +80,6 @@ describe("profile gate has no admin bypass", () => {
 
   it("sends a super admin with a valid incomplete profile to onboarding, like alumni", async () => {
     mountApp("super_admin", "incomplete");
-    await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/onboarding"));
   });
 });
