@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import "../styles/careers.css";
 import { CareersFeedback } from "../components/CareersFeedback";
@@ -7,6 +7,8 @@ import { Nav } from "../components/Nav";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/Button";
+import { Spinner } from "../components/Spinner";
 import { careersKeys, fetchCareersCompany, type CareersPerson } from "../lib/careers";
 import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
@@ -57,21 +59,25 @@ export function CareerCompanyPage() {
   const [posted, setPosted] = useState(false);
   const signedIn = auth.status === "authenticated";
 
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: careersKeys.company(name),
-    queryFn: ({ signal }) => fetchCareersCompany(name, role, signal),
+    queryFn: ({ pageParam, signal }) => fetchCareersCompany(name, role, pageParam, signal),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.pageInfo.nextCursor ?? undefined,
     enabled: signedIn && name.length >= 2,
     staleTime: 60_000,
   });
 
   if (!signedIn) return null;
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
-  const data = query.data;
-  const companyName = data?.company ?? name;
-  const open = data?.current.filter((p) => p.openToReferrals) ?? [];
-  const others = data?.current.filter((p) => !p.openToReferrals) ?? [];
-  const past = data?.past ?? [];
-  const nobodyNow = data !== undefined && data.current.length === 0;
+  // Every loaded page together; the server returns current people before past ones.
+  const pages = query.data?.pages ?? [];
+  const currentAll = pages.flatMap((pg) => pg.current);
+  const past = pages.flatMap((pg) => pg.past);
+  const companyName = pages[0]?.company ?? name;
+  const open = currentAll.filter((p) => p.openToReferrals);
+  const others = currentAll.filter((p) => !p.openToReferrals);
+  const nobodyNow = pages.length > 0 && currentAll.length === 0;
 
   // Advice starts with where they're applying; they add their own question (80+ characters in all).
   const applying = role ? `I'm applying for the ${role} role at ${companyName}. ` : `I'm applying to ${companyName}. `;
@@ -146,11 +152,7 @@ export function CareerCompanyPage() {
                     {past.length > 0 ? "Alumni who used to work there can still give you an inside view." : "No one on Alma Mater has worked there either."}
                   </p>
                 </div>
-              ) : (
-                <p className="careers__note">
-                  {data!.current.length} {data!.current.length === 1 ? "alum" : "alumni"} at {companyName} · {open.length} open to referrals
-                </p>
-              )}
+              ) : null}
             </section>
 
             {open.length > 0 ? (
@@ -199,6 +201,25 @@ export function CareerCompanyPage() {
                   ))}
                 </ul>
               </section>
+            ) : null}
+
+            {query.hasNextPage ? (
+              <div className="careers__load-more">
+                <Button
+                  variant="secondary"
+                  onClick={() => void query.fetchNextPage()}
+                  disabled={query.isFetchingNextPage}
+                >
+                  {query.isFetchingNextPage ? (
+                    <>
+                      <Spinner size="sm" />
+                      Loading…
+                    </>
+                  ) : (
+                    "Load more"
+                  )}
+                </Button>
+              </div>
             ) : null}
 
             {wallFallback}
