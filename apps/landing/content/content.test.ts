@@ -52,7 +52,7 @@ test("key copy matches spec", () => {
   assert.deepEqual(copy.hero.stamp, ["LIFE IS UNFAIR.", "USE YOUR UNFAIR ADVANTAGE."]);
   assert.equal(copy.nav.joinButton, "Open Alma Mater");
   assert.equal(copy.hero.primaryCta, "OPEN ALMA MATER");
-  assert.equal(PLATFORM_URL, "https://app.almamater.aaryanshah.co.in/login");
+  assert.equal(PLATFORM_URL, "https://almamatter.in/app/login");
   assert.equal(copy.forAlumni.anchorId, "for-alumni");
   assert.equal(copy.examCentres.items.length, 3);
   assert.equal(copy.howItWorks.steps.length, 3);
