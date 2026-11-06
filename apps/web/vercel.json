@@ -56,5 +56,41 @@
       "source": "/v1/:path*",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "continue": true,
+      "transforms": [
+        {
+          "type": "request.headers",
+          "op": "delete",
+          "target": {
+            "key": "x-vercel-trusted-oidc-idp-token"
+          }
+        },
+        {
+          "type": "request.headers",
+          "op": "delete",
+          "target": {
+            "key": "x-vercel-oidc-token"
+          }
+        },
+        {
+          "type": "response.headers",
+          "op": "delete",
+          "target": {
+            "key": "x-vercel-trusted-oidc-idp-token"
+          }
+        },
+        {
+          "type": "response.headers",
+          "op": "delete",
+          "target": {
+            "key": "x-vercel-oidc-token"
+          }
+        }
+      ]
+    }
   ]
 }
