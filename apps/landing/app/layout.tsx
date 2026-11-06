@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteUrl } from "../lib/site.ts";
 import { Caveat, IBM_Plex_Mono, IBM_Plex_Sans_Condensed } from "next/font/google";
 import "./globals.css";
 import { copy } from "../content/copy.ts";
@@ -21,26 +22,10 @@ const caveat = Caveat({
   weight: "700",
 });
 
-/**
- * Absolute base for OG/Twitter image URLs. Set NEXT_PUBLIC_SITE_URL to the landing page origin;
- * when unset, Next.js falls back to VERCEL_PROJECT_PRODUCTION_URL on Vercel (localhost in dev).
- */
-function parseSiteUrl(raw: string | undefined): URL | null {
-  const value = raw?.trim();
-  if (!value) return null;
-  try {
-    // Accept "example.com" as well as "https://example.com"; ignore anything unparseable.
-    return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
-  } catch {
-    return null;
-  }
-}
-
-const siteUrl = parseSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
-
 // Favicon: app/icon.svg. Share image: app/opengraph-image.png (+ .alt.txt). Both are file conventions.
 export const metadata: Metadata = {
-  ...(siteUrl ? { metadataBase: siteUrl } : {}),
+  metadataBase: siteUrl,
+ alternates: { canonical: "/" },
   title: copy.seo.title,
   description: copy.seo.description,
   openGraph: {
