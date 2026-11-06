@@ -83,11 +83,13 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         <li
           key={item.id}
           className={
-            item.kind === "connection_thread_reply"
+            (item.kind === "connection_thread_reply"
               ? "notifications-page__item"
-              : "notifications-page__item notifications-page__item--activatable"
+              : "notifications-page__item notifications-page__item--activatable") +
+            (item.unseen ? " notifications-page__item--unseen" : "")
           }
         >
+          <NotificationKindTile kind={item.kind} />
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
@@ -283,6 +285,62 @@ function NotificationListItem({
     }
     default: {
       const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Small tint tile identifying the notification type; color names the kind, nothing else. */
+function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
+  switch (kind) {
+    case "contact_request_received":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--request" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+        </span>
+      );
+    case "bulletin_response":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--bulletin" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </span>
+      );
+    case "city_help_offer_received":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--city" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </span>
+      );
+    case "contact_request_resolved":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--resolved" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </span>
+      );
+    case "connection_thread_reply":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--message" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+        </span>
+      );
+    default: {
+      const _exhaustive: never = kind;
       return _exhaustive;
     }
   }

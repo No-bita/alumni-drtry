@@ -24,9 +24,13 @@ function formatNotificationBadgeCount(count: number): string {
   return String(count);
 }
 
-function openNotificationsPanel() {
+function openNotificationsPanel(anchorRect?: DOMRect) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("notifications:open"));
+  // The desktop quick view docks under the bell that opened it; the phone sheet ignores the anchor.
+  const detail = anchorRect
+    ? { top: anchorRect.bottom, right: window.innerWidth - anchorRect.right }
+    : undefined;
+  window.dispatchEvent(new CustomEvent("notifications:open", { detail }));
 }
 
 function intentSidebarActive(slug: NavIntentSlug, pathname: string): boolean {
@@ -257,8 +261,9 @@ export function Nav({
   // Original: const notificationsSummary = useNotificationsSummary(auth.status === "authenticated");
   //           const notificationCount = notificationsSummary.data?.count ?? 0;
   const notificationsList = useNotificationsList(auth.status === "authenticated");
+  // The badge counts unseen items only; the full list (seen history) stays in the panel and inbox.
   const notificationCount = (notificationsList.data?.items ?? []).filter(
-    (item) => item.kind !== "connection_thread_reply"
+    (item) => item.unseen && item.kind !== "connection_thread_reply"
   ).length;
 
   const handleSignOut = async () => {
@@ -323,7 +328,7 @@ export function Nav({
                 ? `Notifications, ${formatNotificationBadgeCount(notificationCount)} unread`
                 : "Notifications"
             }
-            onClick={() => openNotificationsPanel()}
+            onClick={(event) => openNotificationsPanel(event.currentTarget.getBoundingClientRect())}
           >
             <IconBell className="nav__notif-icon" />
             {notificationCount > 0 ? (

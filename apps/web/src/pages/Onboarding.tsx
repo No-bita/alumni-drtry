@@ -21,10 +21,12 @@ import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { ALREADY_SET_UP_NOTICE, noticeState } from "../lib/routeNotices";
 import { queryKeys } from "../lib/queryKeys";
 import { AUTH_SESSION_QUERY_KEY } from "../lib/authSessionQuery";
+import { isBhuInstitutionalEmail } from "../lib/institutionalEmail";
 import { parseInstitutionalEmailForOnboarding, toDisplayNamePart } from "../lib/institutionalEmailParse";
 import { DEPARTMENTS } from "../constants/departments";
 import { DEGREES } from "../constants/degrees";
-import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCountries";
+// PHONE_QUESTION_PARKED(2026-11-05): phone question disabled pending WhatsApp OTP verification (parked todo-01M6M19CJE53C865J2YH8353FV). Restore by uncommenting every PHONE_QUESTION_PARKED block.
+// import { PHONE_COUNTRIES, phoneCountryForResidence } from "../constants/phoneCountries";
 import { RESIDENCE_COUNTRY_LIST_ID, RESIDENCE_COUNTRY_NAMES } from "../lib/countries";
 import { CAMPUS_IMAGE } from "../constants/images";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -75,7 +77,8 @@ type Step2Question =
   | { id: "followup"; label: string; field: keyof OccupationFollowUp }
   | { id: "residenceCountry"; label: string }
   | { id: "residenceCity"; label: string }
-  | { id: "mobilePhone"; label: string }
+  // PHONE_QUESTION_PARKED(2026-11-05): question id kept out of the flow.
+  // | { id: "mobilePhone"; label: string }
   | { id: "answerKey"; label: string }
   | { id: "pastRoles"; label: string };
 
@@ -299,12 +302,14 @@ export function Onboarding() {
   const [lastName, setLastName] = useState("");
   const [batchYear, setBatchYear] = useState<number | null>(null);
   const [departmentCode, setDepartmentCode] = useState<string | null>(null);
+  const [departmentOtherText, setDepartmentOtherText] = useState("");
   const [degreeCode, setDegreeCode] = useState<string | null>("btech");
   const [joinYearStable, setJoinYearStable] = useState<number | null>(null);
   const [joinYearText, setJoinYearText] = useState("");
   const [parsedDeptLabel, setParsedDeptLabel] = useState<string | null>(null);
   /** When false, show parsed department as a summary; user taps to open the vocab dropdown. */
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(true);
+  /** "Other" stays a dropdown option; picking it reveals an inline field for the member's own words. */
   const departmentSelectRef = useRef<HTMLInputElement>(null);
   const [selectedOccupationCodes, setSelectedOccupationCodes] = useState<Set<string>>(new Set());
   const [existingOccupationCodes, setExistingOccupationCodes] = useState<Set<string>>(new Set());
@@ -312,10 +317,11 @@ export function Onboarding() {
   const [occupationFollowUps, setOccupationFollowUps] = useState<Record<string, OccupationFollowUp>>({});
   const [residenceCountry, setResidenceCountry] = useState("");
   const [residenceCity, setResidenceCity] = useState("");
-  const [mobileCountryCode, setMobileCountryCode] = useState("");
-  const [mobileCountrySelection, setMobileCountrySelection] = useState("");
-  const mobileCountryChosenRef = useRef(false);
-  const [mobilePhone, setMobilePhone] = useState("");
+  // PHONE_QUESTION_PARKED(2026-11-05): state for the parked phone question.
+  // const [mobileCountryCode, setMobileCountryCode] = useState("");
+  // const [mobileCountrySelection, setMobileCountrySelection] = useState("");
+  // const mobileCountryChosenRef = useRef(false);
+  // const [mobilePhone, setMobilePhone] = useState("");
   /** Answer key (Open-to tags). Saved only when it differs from what the member had saved before. */
   const [savedAnswerKey, setSavedAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
   const [answerKey, setAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
@@ -362,7 +368,7 @@ export function Onboarding() {
     questions.push(
       { id: "residenceCountry", label: "Current country of residence" },
       { id: "residenceCity", label: "Current city of residence" },
-      { id: "mobilePhone", label: "Mobile number" },
+      // PHONE_QUESTION_PARKED(2026-11-05): { id: "mobilePhone", label: "Mobile number" },
       { id: "answerKey", label: "What can you help with?" },
       { id: "pastRoles", label: "Where did you work before?" }
     );
@@ -440,6 +446,10 @@ export function Onboarding() {
       setSavedAnswerKey(saved);
       setAnswerKey(saved);
       const email = (p.institutionalEmail ?? "").trim();
+      // Email-parsed identity is only meaningful for BHU addresses. Other institutes get
+      // the plain manual choices, and stale signup-parser guesses stored before inference
+      // was gated must not prefill anything either.
+      const isBhuEmail = email ? isBhuInstitutionalEmail(email) : false;
       const parsed = email
         ? parseInstitutionalEmailForOnboarding(email)
         : {
@@ -459,36 +469,50 @@ export function Onboarding() {
         setLastName(parsed.lastName);
       }
 
-      const dept = p.departmentCode ?? parsed.departmentCode ?? p.parsedDepartmentCode;
+      // Inferred departments prefill only for BHU emails and only when the parsed code is
+      // a recognized vocabulary code; anything else starts blank for a manual dropdown pick.
+      const inferredDepartment = isBhuEmail
+        ? [parsed.departmentCode, p.parsedDepartmentCode].find(
+            (code) => code != null && departmentInVocab(code.toLowerCase())
+          ) ?? null
+        : null;
+      const dept = p.departmentCode ?? inferredDepartment;
       if (dept) {
         setDepartmentCode(dept.toLowerCase());
         setDepartmentPickerOpen(false);
       } else {
         setDepartmentPickerOpen(true);
       }
+      if ((dept ?? "").toLowerCase() === "other") {
+        if (p.departmentOtherText) {
+          setDepartmentOtherText(p.departmentOtherText);
+        }
+      }
       // if (p.bio) setBio(p.bio);
       if (p.degreeCode) setDegreeCode(p.degreeCode);
       setResidenceCountry(p.residenceCountry?.trim() ?? "");
       setResidenceCity(p.residenceCity?.trim() ?? "");
-      const rawMobile = p.mobilePhone?.trim() ?? "";
-      const mobileMatch = rawMobile.match(/^(\+\d{1,4})\s*(\d+)$/);
-      if (mobileMatch) {
-        setMobileCountryCode(mobileMatch[1] ?? "");
-        setMobileCountrySelection(`saved:${mobileMatch[1]}`);
-        mobileCountryChosenRef.current = true;
-        setMobilePhone(mobileMatch[2] ?? "");
-      } else {
-        setMobileCountryCode("");
-        setMobileCountrySelection("");
-        mobileCountryChosenRef.current = false;
-        setMobilePhone(rawMobile);
-      }
+      // PHONE_QUESTION_PARKED(2026-11-05): saved-phone prefill for the parked question.
+      // const rawMobile = p.mobilePhone?.trim() ?? "";
+      // const mobileMatch = rawMobile.match(/^(\+\d{1,4})\s*(\d+)$/);
+      // if (mobileMatch) {
+      //   setMobileCountryCode(mobileMatch[1] ?? "");
+      //   setMobileCountrySelection(`saved:${mobileMatch[1]}`);
+      //   mobileCountryChosenRef.current = true;
+      //   setMobilePhone(mobileMatch[2] ?? "");
+      // } else {
+      //   setMobileCountryCode("");
+      //   setMobileCountrySelection("");
+      //   mobileCountryChosenRef.current = false;
+      //   setMobilePhone(rawMobile);
+      // }
       setParsedDeptLabel(
-        p.parsedDepartmentName ?? p.departmentName ?? parsed.departmentDisplayName ?? null
+        isBhuEmail
+          ? p.parsedDepartmentName ?? p.departmentName ?? parsed.departmentDisplayName ?? null
+          : null
       );
       const inferredJoin =
-        p.parsedJoiningYear ??
-        parsed.joiningYear ??
+        (isBhuEmail ? p.parsedJoiningYear ?? parsed.joiningYear : null) ??
         (p.batchYear != null ? p.batchYear - 4 : null);
       setJoinYearStable(inferredJoin);
       setJoinYearText(inferredJoin != null ? String(inferredJoin) : "");
@@ -547,7 +571,7 @@ export function Onboarding() {
       value: department.code,
       label: department.label,
     }));
-    if (normalized && !departmentInVocab(normalized)) {
+    if (normalized && normalized !== "other" && !departmentInVocab(normalized)) {
       return [
         { value: normalized, label: `${parsedDeptLabel ?? normalized} (from email)` },
         ...vocabOptions,
@@ -628,6 +652,7 @@ export function Onboarding() {
     fullName?: string;
     batchYear?: number;
     departmentCode?: string;
+    departmentOtherText?: string;
     degreeCode?: string | null;
     bio?: string | null;
     mobilePhone?: string | null;
@@ -681,6 +706,10 @@ export function Onboarding() {
       setSaveError("Please select your department.");
       return;
     }
+    if (departmentCode === "other" && !departmentOtherText.trim()) {
+      setSaveError("Please specify your department.");
+      return;
+    }
     if (!degreeCode) {
       setSaveError("Please select your degree.");
       return;
@@ -705,6 +734,7 @@ export function Onboarding() {
       fullName,
       batchYear: batchYear ?? undefined,
       departmentCode: departmentCode ?? undefined,
+      departmentOtherText: departmentCode === "other" ? departmentOtherText.trim() : undefined,
       degreeCode: degreeCode ?? undefined,
     });
     if (err) return;
@@ -718,7 +748,9 @@ export function Onboarding() {
       case 1:
         return lastName.trim() ? null : "Please enter your last name.";
       case 2:
-        return departmentCode ? null : "Please select your department.";
+        if (!departmentCode) return "Please select your department.";
+        if (departmentCode === "other" && !departmentOtherText.trim()) return "Please specify your department.";
+        return null;
       case 3:
         return degreeCode ? null : "Please select your degree.";
       case 4: {
@@ -755,10 +787,11 @@ export function Onboarding() {
     }
     if (question.id === "answerKey") return null;
     if (question.id === "pastRoles") return pastRolesError(pastRoles);
-    if (!mobileCountryCode.trim()) return "Please enter your country code.";
-    const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
-    if (!compactPhone) return "Please enter your mobile number.";
-    if (compactPhone.length !== 10) return "Please enter a valid 10-digit mobile number.";
+    // PHONE_QUESTION_PARKED(2026-11-05): required-phone validation for the parked question.
+    // if (!mobileCountryCode.trim()) return "Please enter your country code.";
+    // const compactPhone = mobilePhone.trim().replace(/[^\d]/g, "");
+    // if (!compactPhone) return "Please enter your mobile number.";
+    // if (compactPhone.length !== 10) return "Please enter a valid 10-digit mobile number.";
     return null;
   };
 
@@ -766,9 +799,10 @@ export function Onboarding() {
     const pastRoleRows = options?.skipPastRoles ? [] : pastRoles;
     const nextResidenceCountry = residenceCountry.trim();
     const nextResidenceCity = residenceCity.trim();
-    const nextMobileCountryCode = mobileCountryCode.trim();
-    const nextMobilePhone = mobilePhone.trim();
-    const compactPhone = nextMobilePhone.replace(/[^\d]/g, "");
+    // PHONE_QUESTION_PARKED(2026-11-05): phone reads for the parked question.
+    // const nextMobileCountryCode = mobileCountryCode.trim();
+    // const nextMobilePhone = mobilePhone.trim();
+    // const compactPhone = nextMobilePhone.replace(/[^\d]/g, "");
     if (!nextResidenceCountry) {
       setSaveError("Please enter your current country of residence.");
       return;
@@ -777,18 +811,19 @@ export function Onboarding() {
       setSaveError("Please enter your current city of residence.");
       return;
     }
-    if (!nextMobilePhone) {
-      setSaveError("Please enter your mobile number.");
-      return;
-    }
-    if (!nextMobileCountryCode) {
-      setSaveError("Please enter your country code.");
-      return;
-    }
-    if (compactPhone.length !== 10) {
-      setSaveError("Please enter a valid 10-digit mobile number.");
-      return;
-    }
+    // PHONE_QUESTION_PARKED(2026-11-05): required-phone checks for the parked question.
+    // if (!nextMobilePhone) {
+    //   setSaveError("Please enter your mobile number.");
+    //   return;
+    // }
+    // if (!nextMobileCountryCode) {
+    //   setSaveError("Please enter your country code.");
+    //   return;
+    // }
+    // if (compactPhone.length !== 10) {
+    //   setSaveError("Please enter a valid 10-digit mobile number.");
+    //   return;
+    // }
     if (selectedOccupationCodes.size === 0) {
       setSaveError("Please select your occupation type.");
       return;
@@ -923,7 +958,8 @@ export function Onboarding() {
     const errMin = await saveProfile({
       residenceCountry: nextResidenceCountry,
       residenceCity: nextResidenceCity,
-      mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim(),
+      // PHONE_QUESTION_PARKED(2026-11-05): phone intentionally not sent, so existing stored numbers stay untouched.
+      // mobilePhone: `${nextMobileCountryCode} ${nextMobilePhone}`.trim(),
       // Only send the answer key when it has picks and differs from what was saved before.
       openToPreferences:
         answerKey.selected.length > 0 &&
@@ -1006,11 +1042,12 @@ export function Onboarding() {
     }
     setSaveError(null);
     if (step2QuestionIndex < step2Questions.length - 1) {
-      if (step2Questions[step2QuestionIndex + 1]?.id === "mobilePhone" && !mobileCountryChosenRef.current) {
-        const country = phoneCountryForResidence(residenceCountry);
-        setMobileCountryCode(country?.callingCode ?? "");
-        setMobileCountrySelection(country?.region ?? "");
-      }
+      // PHONE_QUESTION_PARKED(2026-11-05): country-code prefill ahead of the parked question.
+      // if (step2Questions[step2QuestionIndex + 1]?.id === "mobilePhone" && !mobileCountryChosenRef.current) {
+      //   const country = phoneCountryForResidence(residenceCountry);
+      //   setMobileCountryCode(country?.callingCode ?? "");
+      //   setMobileCountrySelection(country?.region ?? "");
+      // }
       setStep2QuestionIndex((i) => i + 1);
       return;
     }
@@ -1138,14 +1175,32 @@ export function Onboarding() {
                   {step1QuestionIndex === 0 ? <input className="onboarding-welcome__inline-input" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 1 ? <input className="onboarding-welcome__inline-input" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} onKeyDown={handleStep1FieldEnter} /> : null}
                   {step1QuestionIndex === 2 ? (
-                    <OnboardingSearchSelect
-                      inputRef={departmentSelectRef}
-                      value={departmentCode}
-                      options={departmentOptions}
-                      placeholder="Type or select an option"
-                      onChange={setDepartmentCode}
-                      onAdvanceEnter={advanceStep1Question}
-                    />
+                    <>
+                      <OnboardingSearchSelect
+                        inputRef={departmentSelectRef}
+                        value={departmentCode}
+                        options={departmentOptions}
+                        placeholder="Type or select an option"
+                        onChange={setDepartmentCode}
+                        onAdvanceEnter={advanceStep1Question}
+                      />
+                      {departmentCode === "other" ? (
+                        <>
+                          <input
+                            className="onboarding-welcome__inline-input"
+                            value={departmentOtherText}
+                            onChange={(e) => setDepartmentOtherText(e.target.value.slice(0, 80))}
+                            onKeyDown={handleStep1FieldEnter}
+                            placeholder="Please specify"
+                            maxLength={80}
+                            autoComplete="off"
+                          />
+                          <span className="onboarding-welcome__inline-note">
+                            We review it before it shows on your profile.
+                          </span>
+                        </>
+                      ) : null}
+                    </>
                   ) : null}
                   {step1QuestionIndex === 3 ? (
                     <OnboardingSearchSelect
@@ -1180,7 +1235,9 @@ export function Onboarding() {
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
                     {step2CurrentQuestion?.id === "residenceCountry" ? "What is your current country of residence?" : null}
                     {step2CurrentQuestion?.id === "residenceCity" ? "What is your current city of residence?" : null}
+                    {/* PHONE_QUESTION_PARKED(2026-11-05):
                     {step2CurrentQuestion?.id === "mobilePhone" ? "What is your mobile number?" : null}
+*/}
                     {step2CurrentQuestion?.id === "answerKey" ? "What can you help juniors with?" : null}
                     {step2CurrentQuestion?.id === "pastRoles" ? "Where did you work before?" : null}
                     </p>
@@ -1202,6 +1259,7 @@ export function Onboarding() {
                     </>
                   ) : null}
                   {step2CurrentQuestion?.id === "residenceCity" ? <input className="onboarding-welcome__inline-input" autoComplete="address-level2" value={residenceCity} onChange={(e) => setResidenceCity(e.target.value)} onKeyDown={handleStep2FieldEnter} /> : null}
+                  {/* PHONE_QUESTION_PARKED(2026-11-05): phone input row for the parked question.
                   {step2CurrentQuestion?.id === "mobilePhone" ? (
                     <div className="onboarding-occupation__mobile-row" style={{ gridTemplateColumns: "140px minmax(0, 1fr)" }} role="group" aria-label="Mobile number">
                       <select aria-label="Country code" style={{ fontSize: 16, minWidth: 0 }} className="onboarding-welcome__inline-input" autoComplete="tel-country-code" value={mobileCountrySelection} onChange={(e) => {
@@ -1217,7 +1275,10 @@ export function Onboarding() {
                       <input aria-label="Mobile number" className="onboarding-welcome__inline-input" autoComplete="tel-national" inputMode="tel" value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} onKeyDown={handleStep2FieldEnter} />
                     </div>
                   ) : null}
+*/}
+                  {/* PHONE_QUESTION_PARKED(2026-11-05):
                   {step2CurrentQuestion?.id === "mobilePhone" ? <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>Your number stays private unless you choose to share it.</p> : null}
+*/}
                   {step2CurrentQuestion?.id === "answerKey" ? (
                     <>
                       <OnboardingAnswerKey value={answerKey} onChange={setAnswerKey} />

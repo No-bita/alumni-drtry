@@ -366,8 +366,8 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
@@ -448,8 +448,8 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
@@ -515,8 +515,8 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
-        COALESCE(d.code, p.department_code) AS author_department_code,
-        COALESCE(d.name, p.department_name) AS author_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
         cur_occ.role_title AS author_current_role_title,
         cur_occ.org_name AS author_current_organization_name,
@@ -737,8 +737,8 @@ export class IntentcastRepo {
         r.created_at,
         r.updated_at,
         p.full_name AS responder_full_name,
-        COALESCE(d.code, p.department_code) AS responder_department_code,
-        COALESCE(d.name, p.department_name) AS responder_department_name,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS responder_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS responder_department_name,
         ${personIsDemoSql("p")} AS responder_is_demo
       FROM intentcast_responses r
       JOIN people p ON p.id = r.responder_person_id
@@ -767,7 +767,7 @@ export class IntentcastRepo {
         i.content AS intentcast_content,
         p.id AS responder_person_id,
         p.full_name AS responder_full_name,
-        COALESCE(d.code, p.department_code) AS responder_department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS responder_department_code,
         COALESCE(p.batch_year, p.joining_year)::int AS responder_batch_year,
         ${personIsDemoSql("p")} AS responder_is_demo
       FROM intentcast_responses r

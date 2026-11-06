@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import { useNotificationsList } from "../lib/notificationsQueries";
+import { useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "./NotificationsList";
 
 export function GlobalNotificationsWidget() {
   const auth = useAuth();
   const location = useLocation();
   const [openPathname, setOpenPathname] = useState<string | null>(null);
+  // Anchor rect of the bell that opened the panel; desktop CSS docks the popover to it (phone keeps the bottom sheet).
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  const markAllSeen = useMarkAllNotificationsSeen();
   const isOpen = openPathname === location.pathname;
 
   const hiddenOnRoutes = useMemo(() => {
@@ -30,7 +33,11 @@ export function GlobalNotificationsWidget() {
   const items = (listQuery.data?.items ?? []).filter((item) => item.kind !== "connection_thread_reply");
 
   useEffect(() => {
-    function onOpen() {
+    function onOpen(event: Event) {
+      const detail = (event as CustomEvent<{ top?: number; right?: number }>).detail;
+      setAnchor(detail && typeof detail.top === "number" && typeof detail.right === "number"
+        ? { top: detail.top, right: detail.right }
+        : null);
       setOpenPathname(location.pathname);
       trackBetaUsageEvent("notifications_panel_opened");
     }
@@ -41,6 +48,7 @@ export function GlobalNotificationsWidget() {
   if (!authenticated || hiddenOnRoutes || !isOpen) return null;
 
   const close = () => setOpenPathname(null);
+  const hasUnseen = items.some((item) => item.unseen);
 
   return (
     <>
@@ -50,7 +58,20 @@ export function GlobalNotificationsWidget() {
         aria-label="Close notifications"
         onClick={close}
       />
-      <section className="global-notifications-widget__panel" role="dialog" aria-modal="true" aria-label="Notifications">
+      <section
+        className="global-notifications-widget__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notifications"
+        style={
+          anchor
+            ? ({
+                "--notif-anchor-top": `${anchor.top + 8}px`,
+                "--notif-anchor-right": `${anchor.right}px`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
         <div className="global-notifications-widget__grab" aria-hidden="true" />
         <header className="global-notifications-widget__head">
           <div>
@@ -58,14 +79,26 @@ export function GlobalNotificationsWidget() {
             {/* Messaging paused: message notifications are hidden while messaging is off. Original: Connection requests, bulletin replies, and new messages */}
             <p>Connection requests and bulletin replies</p>
           </div>
-          <button
-            type="button"
-            className="global-notifications-widget__close"
-            onClick={close}
-            aria-label="Close notifications"
-          >
-            ×
-          </button>
+          <div className="global-notifications-widget__head-actions">
+            {hasUnseen ? (
+              <button
+                type="button"
+                className="notifications-mark-seen"
+                disabled={markAllSeen.isPending}
+                onClick={() => markAllSeen.mutate()}
+              >
+                {markAllSeen.isPending ? "Marking…" : "Mark all as seen"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="global-notifications-widget__close"
+              onClick={close}
+              aria-label="Close notifications"
+            >
+              ×
+            </button>
+          </div>
         </header>
 
         {listQuery.isPending ? (

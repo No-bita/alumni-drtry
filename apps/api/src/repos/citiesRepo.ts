@@ -37,8 +37,8 @@ function personCardColumnsSql(alias: string, prefix = ""): string {
     ${alias}.id AS ${prefix}id,
     ${alias}.full_name AS ${prefix}full_name,
     COALESCE(${alias}.batch_year, ${alias}.joining_year)::int AS ${prefix}batch_year,
-    lower(COALESCE(d_${alias}.code, ${alias}.department_code)) AS ${prefix}department_code,
-    COALESCE(d_${alias}.name, ${alias}.department_name) AS ${prefix}department_name,
+    CASE WHEN d_${alias}.code = 'other' THEN NULL ELSE lower(COALESCE(d_${alias}.code, ${alias}.department_code)) END AS ${prefix}department_code,
+    CASE WHEN d_${alias}.code = 'other' THEN NULL ELSE COALESCE(d_${alias}.name, ${alias}.department_name) END AS ${prefix}department_name,
     job_${alias}.role_title AS ${prefix}role_title,
     job_${alias}.org_name AS ${prefix}org_name`;
 }
@@ -295,7 +295,7 @@ export class CitiesRepo {
       org_name: string | null;
     }>(
       `SELECT COALESCE(v.batch_year, v.joining_year)::int AS batch_year,
-              lower(COALESCE(d_v.code, v.department_code)) AS department_code,
+              CASE WHEN d_v.code = 'other' THEN NULL ELSE lower(COALESCE(d_v.code, v.department_code)) END AS department_code,
               job_v.org_main_id, COALESCE(main.name::text, job_v.org_name) AS org_name
        FROM people v
        ${personCardJoinsSql("v")}
@@ -651,7 +651,7 @@ export class CitiesRepo {
                p.open_to_preferences,
                ($3::int IS NOT NULL AND COALESCE(p.batch_year, p.joining_year) IS NOT NULL
                  AND abs(COALESCE(p.batch_year, p.joining_year) - $3::int) <= $4::int) AS batch_near,
-               ($5::text IS NOT NULL AND lower(COALESCE(d_p.code, p.department_code)) = $5::text) AS same_dept,
+               ($5::text IS NOT NULL AND d_p.code <> 'other' AND lower(COALESCE(d_p.code, p.department_code)) = $5::text) AS same_dept,
                ($6::uuid IS NOT NULL AND job_p.org_main_id = $6::uuid) AS same_company,
                ${OPEN_TO_SQL("p", "coffee")} AS open_coffee
         FROM people p

@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { WeeklyBars } from "../components/WeeklyBars";
+import { MetricInfoPill } from "../components/MetricInfoPill";
+import { METRIC_HELP } from "../lib/analyticsMetricHelp";
 import { useAuth } from "../contexts/AuthContext";
 import {
   ANALYTICS_WINDOWS,
@@ -78,10 +80,13 @@ function categoryLabel(c: string | null): string {
   return isMatchCategory(c) ? MATCH_CATEGORY_LABELS[c] : c;
 }
 
-function Tile({ label, value, hint, hero = false }: { label: string; value: ReactNode; hint?: ReactNode; hero?: boolean }) {
+function Tile({ label, value, hint, hero = false, info }: { label: string; value: ReactNode; hint?: ReactNode; hero?: boolean; info?: string }) {
   return (
     <div className={`aa-tile${hero ? " aa-tile--hero" : ""}`}>
-      <p className="aa-tile__label">{label}</p>
+      <p className="aa-tile__label">
+        <span>{label}</span>
+        {info ? <MetricInfoPill label={label} text={info} /> : null}
+      </p>
       <p className="aa-tile__value">{value}</p>
       {hint ? <p className="aa-tile__hint">{hint}</p> : null}
     </div>
@@ -167,16 +172,17 @@ function Report({ r }: { r: AnalyticsReport }) {
   const out = r.outcomes;
   const pr = ob.profiles;
   const failed = si.failedRejected + si.failedUnreachable;
-  const methods = Object.entries(si.sessionsByMethod).sort((a, b) => b[1] - a[1]);
-  const totalSessions = methods.reduce((a, [, v]) => a + v, 0);
+  const methods = Object.entries(si.membersByMethod).sort((a, b) => b[1] - a[1]);
 
   return (
     <>
       <Section id="north-star" title="North star" note="A helpful connection = a note an alum accepted.">
         <div className="aa-tiles">
-          <Tile hero label="Accepted notes" value={compact(ns.acceptedNotes)} hint={`in the last ${r.windowDays} days`} />
+          <Tile hero label="Accepted notes"
+            info={METRIC_HELP.acceptedNotes} value={compact(ns.acceptedNotes)} hint={`in the last ${r.windowDays} days`} />
           <Tile
             label="Helped within 7 days"
+            info={METRIC_HELP.helpedWithin7Days}
             value={pct(ns.helpedWithin7Days, ns.askers)}
             hint={`${ns.helpedWithin7Days} of ${ns.askers} first-time askers · ${ns.stillWithin7Days} still inside their 7 days`}
           />
@@ -189,18 +195,26 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="sign-in" title="Sign-in and sign-up">
         <div className="aa-tiles">
-          <Tile label="Sign-in starts" value={compact(si.starts)} hint={`${compact(si.completed)} completed`} />
-          <Tile label="Emails sent" value={compact(si.emailSent)} hint={`${si.emailUnconfirmed} unconfirmed · ${si.emailUnknown} not recorded`} />
-          <Tile label="Emails failed" value={compact(failed)} hint={`${si.failedRejected} rejected · ${si.failedUnreachable} unreachable`} />
-          <Tile label="Codes replaced by a newer one" value={compact(si.superseded)} />
-          <Tile label="New members" value={compact(si.newMembers)} />
+          <Tile label="Sign-in starts"
+            info={METRIC_HELP.signInStarts} value={compact(si.starts)} hint={`${compact(si.completed)} completed`} />
+          <Tile label="Emails sent"
+            info={METRIC_HELP.emailsSent} value={compact(si.emailSent)} hint={`${si.emailUnconfirmed} unconfirmed · ${si.emailUnknown} not recorded`} />
+          <Tile label="Emails failed"
+            info={METRIC_HELP.emailsFailed} value={compact(failed)} hint={`${si.failedRejected} rejected · ${si.failedUnreachable} unreachable`} />
+          <Tile label="Codes replaced by a newer one"
+            info={METRIC_HELP.codesReplaced} value={compact(si.superseded)} />
+          <Tile label="New members"
+            info={METRIC_HELP.newMembers} value={compact(si.newMembers)} />
         </div>
         <div className="aa-split">
           <WeeklyBars title="New members per week" points={si.trendNewMembers} />
           <Table
             caption="How people signed in"
-            head={["Method", "Sign-ins", "Share"]}
-            rows={methods.map(([m, v]) => [METHOD_LABELS[m] ?? m, compact(v), pct(v, totalSessions)])}
+            head={["Method", "Members", "Share"]}
+            rows={[
+              ...methods.map(([m, v]): [string, string, string] => [METHOD_LABELS[m] ?? m, compact(v), pct(v, si.uniqueMembers)]),
+              ["Total (unique members)", compact(si.uniqueMembers), "100%"],
+            ]}
             empty="No sign-ins in this window."
           />
         </div>
@@ -209,12 +223,18 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="onboarding" title="Onboarding and profiles">
         <div className="aa-tiles">
-          <Tile label="Started onboarding" value={compact(ob.startedPeople)} hint="people" />
-          <Tile label="Finished onboarding" value={compact(ob.completedOnboardingProfiles)} hint="people" />
-          <Tile label="Validation errors" value={compact(ob.validationErrors)} />
-          <Tile label="Members" value={compact(pr.members)} hint={`${pct(pr.completed, pr.members)} complete`} />
-          <Tile label="Current role added" value={pct(pr.withCurrentRole, pr.members)} hint={`${pct(pr.withPastRole, pr.members)} added a past role`} />
-          <Tile label="Picked help topics" value={pct(pr.withOpenTo, pr.members)} hint={`${pr.withOpenTo} members`} />
+          <Tile label="Started onboarding"
+            info={METRIC_HELP.startedOnboarding} value={compact(ob.startedPeople)} hint="people" />
+          <Tile label="Finished onboarding"
+            info={METRIC_HELP.finishedOnboarding} value={compact(ob.completedOnboardingProfiles)} hint="people" />
+          <Tile label="Validation errors"
+            info={METRIC_HELP.validationErrors} value={compact(ob.validationErrors)} />
+          <Tile label="Members"
+            info={METRIC_HELP.members} value={compact(pr.members)} hint={`${pct(pr.completed, pr.members)} complete`} />
+          <Tile label="Current role added"
+            info={METRIC_HELP.currentRoleAdded} value={pct(pr.withCurrentRole, pr.members)} hint={`${pct(pr.withPastRole, pr.members)} added a past role`} />
+          <Tile label="Picked help topics"
+            info={METRIC_HELP.pickedHelpTopics} value={pct(pr.withOpenTo, pr.members)} hint={`${pr.withOpenTo} members`} />
         </div>
         <Table
           caption="How far people got (each question, people who reached it)"
@@ -226,11 +246,16 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="asking" title="Asking">
         <div className="aa-tiles">
-          <Tile label="Questions asked" value={compact(ask.questions)} />
-          <Tile label="Found matches" value={pct(ask.withMatches, ask.questions)} hint={`${ask.withMatches} questions`} />
-          <Tile label="Needed more detail" value={pct(ask.needsDetail, ask.questions)} hint={`${ask.needsDetail} questions`} />
-          <Tile label="Found nobody" value={pct(ask.zeroResults, ask.questions)} hint={`${ask.zeroResults} questions`} />
-          <Tile label="Directory searches" value={compact(ask.search.searches)} hint={`${ask.search.zeroResults} found nobody · ${ask.search.loadMore} load-more`} />
+          <Tile label="Questions asked"
+            info={METRIC_HELP.questionsAsked} value={compact(ask.questions)} />
+          <Tile label="Found matches"
+            info={METRIC_HELP.foundMatches} value={pct(ask.withMatches, ask.questions)} hint={`${ask.withMatches} questions`} />
+          <Tile label="Needed more detail"
+            info={METRIC_HELP.neededMoreDetail} value={pct(ask.needsDetail, ask.questions)} hint={`${ask.needsDetail} questions`} />
+          <Tile label="Found nobody"
+            info={METRIC_HELP.foundNobody} value={pct(ask.zeroResults, ask.questions)} hint={`${ask.zeroResults} questions`} />
+          <Tile label="Directory searches"
+            info={METRIC_HELP.directorySearches} value={compact(ask.search.searches)} hint={`${ask.search.zeroResults} found nobody · ${ask.search.loadMore} load-more`} />
         </div>
         <div className="aa-split">
           <WeeklyBars title="Questions per week" points={ask.trendQuestions} />
@@ -271,9 +296,11 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="matching" title="Matching quality">
         <div className="aa-tiles">
-          <Tile label="Notes from a search" value={compact(r.matching.notesFromMatch)} />
+          <Tile label="Notes from a search"
+            info={METRIC_HELP.notesFromSearch} value={compact(r.matching.notesFromMatch)} />
           <Tile
             label="Searches that led to a note"
+            info={METRIC_HELP.searchesLedToNote}
             value={pct(r.matching.notesFromMatch, r.matching.questionsWithMatches)}
             hint={`of ${r.matching.questionsWithMatches} searches with matches (a search can lead to several notes)`}
           />
@@ -307,27 +334,39 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="outcomes" title="Outcomes and fairness">
         <div className="aa-tiles">
-          <Tile label="Notes sent" value={compact(out.sent)} hint={`${out.accepted} accepted · ${out.declined} declined · ${out.pending} waiting`} />
-          <Tile label="Accept rate" value={pct(out.accepted, out.accepted + out.declined)} hint="of answered notes" />
-          <Tile label="Median time to reply" value={duration(out.medianReplyHours)} />
-          <Tile label="Reminders sent" value={compact(out.remindersSent)} hint={`${out.repliedAfterReminder} replied after one`} />
+          <Tile label="Notes sent"
+            info={METRIC_HELP.notesSent} value={compact(out.sent)} hint={`${out.accepted} accepted · ${out.declined} declined · ${out.pending} waiting`} />
+          <Tile label="Accept rate"
+            info={METRIC_HELP.acceptRate} value={pct(out.accepted, out.accepted + out.declined)} hint="of answered notes" />
+          <Tile label="Median time to reply"
+            info={METRIC_HELP.medianTimeToReply} value={duration(out.medianReplyHours)} />
+          <Tile label="Reminders sent"
+            info={METRIC_HELP.remindersSent} value={compact(out.remindersSent)} hint={`${out.repliedAfterReminder} replied after one`} />
           <Tile
             label="Notes to the busiest 10%"
+            info={METRIC_HELP.notesToBusiest10}
             value={out.fairness.top10Share == null ? "—" : `${Math.round(out.fairness.top10Share * 100)}%`}
             hint={`${out.fairness.recipients} alumni received notes`}
           />
-          <Tile label="At the weekly cap" value={compact(out.fairness.atWeeklyCap)} hint="5+ new notes in the last 7 days" />
-          <Tile label="Not replying" value={compact(out.fairness.silentAlumni)} hint="2+ notes older than 7 days, no reply" />
+          <Tile label="At the weekly cap"
+            info={METRIC_HELP.atWeeklyCap} value={compact(out.fairness.atWeeklyCap)} hint="5+ new notes in the last 7 days" />
+          <Tile label="Not replying"
+            info={METRIC_HELP.notReplying} value={compact(out.fairness.silentAlumni)} hint="2+ notes older than 7 days, no reply" />
         </div>
       </Section>
 
       <Section id="wall" title="The Wall">
         <div className="aa-tiles">
-          <Tile label="Posts" value={compact(r.wall.posts)} />
-          <Tile label="Posts with a reply" value={pct(r.wall.postsWithReply, r.wall.posts)} hint={`${r.wall.postsWithReply} posts`} />
-          <Tile label="Replies" value={compact(r.wall.replies)} />
-          <Tile label="Median time to first reply" value={duration(r.wall.medianFirstReplyHours)} />
-          <Tile label="Expired with no reply" value={compact(r.wall.expiredWithoutReply)} />
+          <Tile label="Posts"
+            info={METRIC_HELP.wallPosts} value={compact(r.wall.posts)} />
+          <Tile label="Posts with a reply"
+            info={METRIC_HELP.postsWithReply} value={pct(r.wall.postsWithReply, r.wall.posts)} hint={`${r.wall.postsWithReply} posts`} />
+          <Tile label="Replies"
+            info={METRIC_HELP.wallReplies} value={compact(r.wall.replies)} />
+          <Tile label="Median time to first reply"
+            info={METRIC_HELP.medianFirstReply} value={duration(r.wall.medianFirstReplyHours)} />
+          <Tile label="Expired with no reply"
+            info={METRIC_HELP.expiredNoReply} value={compact(r.wall.expiredWithoutReply)} />
         </div>
         <div className="aa-charts">
           <WeeklyBars title="Wall posts per week" points={r.wall.trendPosts} />
@@ -336,13 +375,16 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="engagement" title="Engagement and Home" note={`Active members and Home taps: ${SINCE_RELEASE.toLowerCase()}`}>
         <div className="aa-tiles">
-          <Tile label="Active members" value={compact(r.engagement.activeMembers)} hint={`used the app in the last ${r.windowDays} days`} />
+          <Tile label="Active members"
+            info={METRIC_HELP.activeMembers} value={compact(r.engagement.activeMembers)} hint={`used the app in the last ${r.windowDays} days`} />
           <Tile
             label="Returning members"
+            info={METRIC_HELP.returningMembers}
             value={pct(r.engagement.returningMembers, r.engagement.activeMembers)}
             hint={`also active in the ${r.windowDays} days before`}
           />
-          <Tile label="Notifications opened" value={compact(r.engagement.notifications.opened)} hint={`${r.engagement.notifications.clicked} items clicked`} />
+          <Tile label="Notifications opened"
+            info={METRIC_HELP.notificationsOpened} value={compact(r.engagement.notifications.opened)} hint={`${r.engagement.notifications.clicked} items clicked`} />
         </div>
         <div className="aa-split">
           <WeeklyBars title="Active members per week" points={r.engagement.trendActive} />
@@ -363,10 +405,13 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="growth" title="Growth" note={`Invites: ${SINCE_RELEASE.toLowerCase()}`}>
         <div className="aa-tiles">
-          <Tile label="Invite panel opened" value={compact(r.growth.inviteOpened)} />
-          <Tile label="Invite links shared" value={compact(r.growth.inviteCopied + r.growth.inviteWhatsapp)} hint={`${r.growth.inviteCopied} copied · ${r.growth.inviteWhatsapp} WhatsApp`} />
+          <Tile label="Invite panel opened"
+            info={METRIC_HELP.invitePanelOpened} value={compact(r.growth.inviteOpened)} />
+          <Tile label="Invite links shared"
+            info={METRIC_HELP.inviteLinksShared} value={compact(r.growth.inviteCopied + r.growth.inviteWhatsapp)} hint={`${r.growth.inviteCopied} copied · ${r.growth.inviteWhatsapp} WhatsApp`} />
           <Tile
             label="Joined through an invite"
+            info={METRIC_HELP.joinedThroughInvite}
             value={compact(r.growth.invitedSignups.copy + r.growth.invitedSignups.whatsapp)}
             hint={`${r.growth.invitedSignups.copy} from copied links · ${r.growth.invitedSignups.whatsapp} from WhatsApp`}
           />
@@ -396,25 +441,31 @@ function Report({ r }: { r: AnalyticsReport }) {
         <VerdictLine title="Test 1 · Alum replies" v={alumRepliesVerdict(r.whatsapp.byChannel)} />
         <VerdictLine title="Test 2 · Onboarding" v={onboardingVerdict(r.whatsapp.onboardingByArrival)} />
         <div className="aa-tiles">
-          <Tile label="Linked members" value={compact(r.whatsapp.linkedMembers)} hint={`${r.whatsapp.linkedInWindow} linked in the last ${r.windowDays} days`} />
+          <Tile label="Linked members"
+            info={METRIC_HELP.waLinkedMembers} value={compact(r.whatsapp.linkedMembers)} hint={`${r.whatsapp.linkedInWindow} linked in the last ${r.windowDays} days`} />
           <Tile
             label="Get notes on WhatsApp"
+            info={METRIC_HELP.waNotesOptIn}
             value={compact(r.whatsapp.notesOptedIn)}
             hint={`${r.whatsapp.notesPaused} paused · ${r.whatsapp.stopped} stopped`}
           />
-          <Tile label="Numbers texting the bot" value={compact(r.whatsapp.numbersTexting)} />
+          <Tile label="Numbers texting the bot"
+            info={METRIC_HELP.waNumbersTexting} value={compact(r.whatsapp.numbersTexting)} />
           <Tile
             label="Notes from the bot's links"
+            info={METRIC_HELP.waNotesFromBot}
             value={compact(r.whatsapp.notesFromBot)}
             hint={`${r.whatsapp.notesFromBotAccepted} accepted`}
           />
           <Tile
             label="Free replies this month"
+            info={METRIC_HELP.waFreeReplies}
             value={`${compact(r.whatsapp.month.serviceReplies)} / ${compact(r.whatsapp.month.freeServicePerMonth)}`}
             hint={`${compact(r.whatsapp.month.inbound)} messages received`}
           />
           <Tile
             label="Paid messages this month"
+            info={METRIC_HELP.waPaidMessages}
             value={`${compact(r.whatsapp.month.templates)} / ${compact(r.whatsapp.month.templateCap)}`}
             hint={`≈ ₹${r.whatsapp.month.estimatedSpendRupees.toFixed(2)} so far`}
           />
@@ -451,14 +502,19 @@ function Report({ r }: { r: AnalyticsReport }) {
         <div className="aa-tiles">
           <Tile
             label="People in the directory"
+            info={METRIC_HELP.peopleInDirectory}
             value={compact(r.operations.directory.total)}
             hint={`${r.operations.directory.real} real · ${r.operations.directory.demo} demo · ${r.operations.directory.test} test`}
           />
-          <Tile label="Admins" value={compact(r.operations.admins)} />
-          <Tile label="Suspended" value={compact(r.operations.suspended)} />
-          <Tile label="Deleted" value={compact(r.operations.deletedInWindow)} hint={`in the last ${r.windowDays} days`} />
+          <Tile label="Admins"
+            info={METRIC_HELP.admins} value={compact(r.operations.admins)} />
+          <Tile label="Suspended"
+            info={METRIC_HELP.suspended} value={compact(r.operations.suspended)} />
+          <Tile label="Deleted"
+            info={METRIC_HELP.deleted} value={compact(r.operations.deletedInWindow)} hint={`in the last ${r.windowDays} days`} />
           <Tile
             label="Companies waiting for approval"
+            info={METRIC_HELP.companiesWaiting}
             value={compact(r.operations.orgsPending)}
             hint={
               <Link to="/admin/companies" className="aa-link">
@@ -485,13 +541,20 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
   return (
     <Section id="cities" title="Cities" note="Bengaluru first. Acceptance counts accepted notes out of those that got a reply; aim for 70% or more.">
       <div className="aa-tiles">
-        <Tile hero label="Cities notes accepted" value={rate(o.acceptanceRate)} hint={`${compact(o.accepted)} of ${compact(o.accepted + o.declined)} replied · ${compact(o.pending)} waiting`} />
-        <Tile label="Arrival opt-in" value={rate(m.arrivals.optInRate)} hint={`${compact(m.arrivals.optedIn)} of ${compact(m.arrivals.promptShown)} shown the prompt`} />
-        <Tile label="Offers per arrival" value={m.arrivals.offersPerArrival ?? "—"} hint={`${rate(m.arrivals.withOfferIn7dShare)} had an offer within 7 days`} />
-        <Tile label="Newcomer notes per arrival" value={m.arrivals.newcomerNotesPerArrival ?? "—"} />
-        <Tile label="Coffee asks" value={compact(m.coffee.asksSent)} hint={`${compact(m.coffee.accepted)} accepted · “Full this week” shown ${compact(m.coffee.fullThisWeekImpressions)}×`} />
-        <Tile label="City help turned on from the panel" value={compact(m.cityHelpOnFromPanel)} />
-        <Tile label="City updated from “Moved away?”" value={compact(m.cityUpdatesFromMovedAway)} />
+        <Tile hero label="Cities notes accepted"
+            info={METRIC_HELP.citiesNotesAccepted} value={rate(o.acceptanceRate)} hint={`${compact(o.accepted)} of ${compact(o.accepted + o.declined)} replied · ${compact(o.pending)} waiting`} />
+        <Tile label="Arrival opt-in"
+            info={METRIC_HELP.arrivalOptIn} value={rate(m.arrivals.optInRate)} hint={`${compact(m.arrivals.optedIn)} of ${compact(m.arrivals.promptShown)} shown the prompt`} />
+        <Tile label="Offers per arrival"
+            info={METRIC_HELP.offersPerArrival} value={m.arrivals.offersPerArrival ?? "—"} hint={`${rate(m.arrivals.withOfferIn7dShare)} had an offer within 7 days`} />
+        <Tile label="Newcomer notes per arrival"
+            info={METRIC_HELP.newcomerNotesPerArrival} value={m.arrivals.newcomerNotesPerArrival ?? "—"} />
+        <Tile label="Coffee asks"
+            info={METRIC_HELP.coffeeAsks} value={compact(m.coffee.asksSent)} hint={`${compact(m.coffee.accepted)} accepted · “Full this week” shown ${compact(m.coffee.fullThisWeekImpressions)}×`} />
+        <Tile label="City help turned on from the panel"
+            info={METRIC_HELP.cityHelpFromPanel} value={compact(m.cityHelpOnFromPanel)} />
+        <Tile label="City updated from “Moved away?”"
+            info={METRIC_HELP.cityUpdatedMovedAway} value={compact(m.cityUpdatesFromMovedAway)} />
       </div>
       <Table
         caption="Cities notes by category"

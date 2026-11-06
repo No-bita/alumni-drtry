@@ -40,6 +40,9 @@ const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
 );
 const AdminCityReviewPage = lazy(() => import("./pages/AdminCityReviewPage").then((m) => ({ default: m.AdminCityReviewPage })));
+const AdminDepartmentOtherPage = lazy(() =>
+  import("./pages/AdminDepartmentOtherPage").then((m) => ({ default: m.AdminDepartmentOtherPage }))
+);
 const AdminLocationCleanup = lazy(() => import("./pages/AdminLocationCleanup").then((m) => ({ default: m.AdminLocationCleanup })));
 const AdminPlaceDetail = lazy(() => import("./pages/AdminPlaceDetail").then((m) => ({ default: m.AdminPlaceDetail })));
 const AdminCompanyReviewPage = lazy(() =>
@@ -376,6 +379,14 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <AdminCityReviewPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/department-other"
+          element={
+            <RequireAuth>
+              <AdminDepartmentOtherPage />
             </RequireAuth>
           }
         />
