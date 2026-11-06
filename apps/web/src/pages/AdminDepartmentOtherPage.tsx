@@ -353,9 +353,9 @@ export function AdminDepartmentOtherPage() {
                       setOpen(o);
                     }}
                     onClose={() => setOpen(null)}
-                    onApprove={() => void run(() => approveSubmission(s.personId))}
-                    onReject={(reason) => void run(() => rejectSubmission(s.personId, reason))}
-                    onLink={(departmentId) => void run(() => linkSubmission(s.personId, departmentId))}
+                    onApprove={() => void run(() => approveSubmission(s.personId, s.departmentOtherText))}
+                    onReject={(reason) => void run(() => rejectSubmission(s.personId, reason, s.departmentOtherText))}
+                    onLink={(departmentId) => void run(() => linkSubmission(s.personId, departmentId, s.departmentOtherText))}
                   />
                 ))}
               </ul>
@@ -365,4 +365,4 @@ export function AdminDepartmentOtherPage() {
       </main>
     </div>
   );
-}
+      }
