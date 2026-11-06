@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { OccupationView, ProfileLinkView, PublicProfileView } from '../../api/client';
 import { Avatar } from '../Avatar';
 import { openToDisplayItems, type OpenToPreferences } from '../../lib/openToPreferences';
-import { formatOccupationCompanyTypeLine, formatOccupationDatesDurationLine, residenceLine, sortOccupationsForDisplay } from '../../lib/profileDisplay';
+import { formatOccupationCompanyTypeLine, formatOccupationDatesDurationLine, residenceLine, profileDepartmentDisplay, sortOccupationsForDisplay } from '../../lib/profileDisplay';
 import './person-profile.css';
 
 type Props = {
@@ -66,7 +66,7 @@ export function PersonProfileView({ profile, occupations, links, isOwnProfile, o
   const [shareStatus, setShareStatus] = useState('Share');
   const owner = isOwnProfile && !preview;
   const city = residenceLine(profile.residenceCity, profile.residenceCountry);
-  const education = [profile.degreeName || profile.degreeCode, profile.departmentName || profile.departmentCode].filter(Boolean).join(' · ');
+  const education = [profile.degreeName || profile.degreeCode, profileDepartmentDisplay(profile, owner)].filter(Boolean).join(' · ');
   const choices = openToDisplayItems(openTo);
   const sorted = sortOccupationsForDisplay(occupations);
   const edit = (label: string) => owner ? <button type="button" className="person-profile__edit" aria-label={label} onClick={onEdit}><Icon kind="edit" /></button> : null;
