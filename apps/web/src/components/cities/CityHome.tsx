@@ -10,14 +10,15 @@ import {
   type CityPayload,
   type CityPost,
 } from "../../lib/cities";
+import { publicAsset } from "../../lib/appBase";
 import { IconMapPin, IconUsers } from "../LocationPageIcons";
 import { CitySheet } from "./CitySheet";
 import { NewcomerOffersSection } from "./NewcomerOffersSection";
 
 export type CityAskStarter = { headline?: string; body?: string };
 
-/** File: `apps/web/public/media/city-hero-placeholder.jpg` → `/media/city-hero-placeholder.jpg`. */
-const CITY_HERO_PLACEHOLDER = "/media/city-hero-placeholder.jpg";
+/** File: `apps/web/public/media/city-hero-placeholder.jpg`, served under the app base (`/app/media/...`). */
+const CITY_HERO_PLACEHOLDER = publicAsset("media/city-hero-placeholder.jpg");
 
 function postTitle(content: string): string {
   const { title } = splitBulletinPostBody(stripBulletinUiCategory(content));

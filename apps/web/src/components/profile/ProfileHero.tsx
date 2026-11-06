@@ -172,7 +172,7 @@ export function ProfileHero({
   const loc = residenceLine(profile?.residenceCity, profile?.residenceCountry);
   const educationLine = loading
     ? null
-    : profileEducationHeadlineLine(profile, profile?.departmentCode ?? null);
+    : profileEducationHeadlineLine(profile, profile?.departmentCode ?? null, isOwnProfile);
   const handleShare = async () => {
     const url = window.location.href;
     try {
