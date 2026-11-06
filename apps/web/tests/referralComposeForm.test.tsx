@@ -35,7 +35,12 @@ function mount() {
   return ref;
 }
 
+function chooseKind(value = "ask") {
+  fireEvent.change(screen.getByLabelText(/What is this/), { target: { value } });
+}
+
 function fillApprovedForm() {
+  chooseKind();
   fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
   fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
   fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
@@ -56,8 +61,20 @@ describe("approved referral compose form", () => {
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
 
+  it("requires the author to state what the post is before anything else", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
+    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
+    fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
+    fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("alert").textContent).toContain("Choose what this post is");
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
   it("requires the job link and validates it as a URL", () => {
     mount();
+    chooseKind();
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
@@ -70,6 +87,7 @@ describe("approved referral compose form", () => {
 
   it("rejects links with an explicit non-http(s) scheme instead of prefixing them", () => {
     mount();
+    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
@@ -86,6 +104,7 @@ describe("approved referral compose form", () => {
 
   it("rejects scheme-like input with a numeric tail that is not a host", () => {
     mount();
+    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp:21/download" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
@@ -96,6 +115,7 @@ describe("approved referral compose form", () => {
 
   it("still accepts host:port input while rejecting scheme-prefixed non-web links", () => {
     mount();
+    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com:8080/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
@@ -106,6 +126,7 @@ describe("approved referral compose form", () => {
 
   it("requires company and the fit answer", () => {
     mount();
+    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
@@ -136,9 +157,13 @@ describe("approved referral compose form", () => {
       fireEvent.click(screen.getByRole("button", { name: "Publish" }));
     });
     expect(postMock).toHaveBeenCalledOnce();
-    const [path, payload] = postMock.mock.calls[0] as unknown as [string, { category: string; content: string }];
+    const [path, payload] = postMock.mock.calls[0] as unknown as [
+      string,
+      { category: string; kind: string; content: string },
+    ];
     expect(path).toBe("/v1/intentcasts");
     expect(payload.category).toBe("mentorship");
+    expect(payload.kind).toBe("ask");
     expect(payload.content).toContain("Looking for referral for Backend Engineer at Example Co");
     expect(payload.content).toContain("Role link: https://example.com/jobs/123");
     expect(payload.content).toContain("Resume link: https://example.com/cv.pdf");

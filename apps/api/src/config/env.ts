@@ -133,8 +133,6 @@ const envSchema = z.object({
    * apply either way.
    */
   CITY_REVIEW_ENABLED: environmentBoolean.default(false),
-  /** City nudge-email eligibility: canonical place ids (comma-separated). Unset → Bengaluru, India by name. Pages no longer read this. */
-  CITIES_V1_PLACE_IDS: optionalStringSchema,
   /** Cities v1: chapter group links, JSON {"<placeId>": {"url": "https://…", "label": "…"}}. */
   CITY_CHAPTER_LINKS: optionalStringSchema,
   /** Contact-request reminder emails: interval in ms (default hourly in production, off elsewhere; 0 = off). */

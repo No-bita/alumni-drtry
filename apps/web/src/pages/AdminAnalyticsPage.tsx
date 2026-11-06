@@ -555,12 +555,6 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
             info={METRIC_HELP.cityHelpFromPanel} value={compact(m.cityHelpOnFromPanel)} />
         <Tile label="City updated from “Moved away?”"
             info={METRIC_HELP.cityUpdatedMovedAway} value={compact(m.cityUpdatesFromMovedAway)} />
-        <Tile
-          label="Nudge emails"
-            info={METRIC_HELP.nudgeEmails}
-          value={compact(m.nudge.sent)}
-          hint={`${compact(m.nudge.visitedIn7d)} visited within 7 days · ${compact(m.nudge.actedIn7d)} acted · ${rate(m.nudge.stopRate)} stopped`}
-        />
       </div>
       <Table
         caption="Cities notes by category"

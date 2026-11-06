@@ -96,10 +96,9 @@ Everything for one city. 404 `CITY_NOT_FOUND`.
   place: CityRef;
   viewerRole: "local" | "newcomer" | "arriver" | "no_city";
   viewerCity: CityRef | null;
-  v1Enabled: boolean;                      // city is in CITIES_V1_PLACE_IDS (Bengaluru)
+  v1Enabled: boolean;                      // city is approved
   counts: { alumni: number; openToCityHelp: number };
   arrivalPrompt: boolean;                  // local in a v1 city, moved here in the last 30 days, never opted in → "Just moved? Show me as new in town"
-  nudgeFrequency: "weekly" | "monthly" | "never";
 
   // local only, v1 only (else null). Newest first; up to 50 items (the page shows 2, "See all" the rest) + total.
   arrivals: { total: number; items: CityArrival[] } | null;
@@ -121,6 +120,7 @@ Everything for one city. 404 `CITY_NOT_FOUND`.
 
   // v1 only: up to 3 open Wall posts tagged with this city (local + newcomer)
   posts: CityPost[];
+  postsHasMore: boolean;                   // true when more than the 3 preview posts exist → "View all posts"
   chapterLink: { url: string; label: string } | null;
 
   // arriver only (else [] / null)
@@ -131,6 +131,10 @@ Everything for one city. 404 `CITY_NOT_FOUND`.
 }
 ```
 `no_city` viewers get the arriver payload for the city they browse. An arriver view logs demand (once per viewer, city, day).
+
+### `GET /v1/cities/:placeId/posts?cursor=`
+Every open, unexpired Wall post tagged with this city, newest first, 20 per page. Same visibility rules as the
+payload preview (`posts`). Response: `{ posts: CityPost[], nextCursor: string | null }`. Powers "View all posts".
 
 ### `GET /v1/cities/:placeId/alumni?filter=batch|department|company|coffee&cursor=`
 ```ts
@@ -148,10 +152,9 @@ Filters: `batch` = within ±2 batch years, `department` = same department, `comp
 | `POST /v1/cities/arrivals/:arrivalId/offers` | `{ kinds: HelpKind[] (≥1), line?: string (≤160) }` | `201 { offer: { id } }`. 409 `OFFER_DUPLICATE`, 404 `OFFER_NOT_FOUND` (arrival not active), 403 `OFFER_NOT_LOCAL` |
 | `DELETE /v1/cities/offers/:offerId` | – | `204`; 404 `OFFER_NOT_FOUND` when not yours |
 | `POST /v1/cities/offers/seen` | – | `204` |
-| `PATCH /v1/me/city-nudge` | `{ frequency: "weekly"\|"monthly"\|"never" }` | `200 { frequency }` |
 | `PATCH /v1/me/profile` | existing | `200 { profile, arrivalPrompt: { placeId, cityName } \| null }` |
 | `POST /v1/contact-requests` | existing + `source: "cities"`, `sourceCategory: "coffee"\|"relocation"\|"visiting"\|"newcomer"`, `cityHelpOfferId?` | as before |
-| `POST /v1/intentcasts` | existing + `placeId?` | as before |
+| `POST /v1/intentcasts` | existing + `placeId?`, `kind?: "ask"\|"offer"\|"invitation"\|null` | as before; `kind` is the author's own statement of what the post is (approved 19:30). The Wall composer requires it; structured flows may omit it, and posts written before the field stay `null` - no backfill |
 
 `openToPreferences` (profile read and write) gains `limits?: { coffee?: 1 | 2 | 3 | 5 }`.
 Writing `coffee` in `selected` without a valid `limits.coffee` → 400 `COFFEE_LIMIT_REQUIRED`, unless the stored
@@ -177,7 +180,5 @@ In-app only for offers (no email per offer — decided).
 
 ## Env
 
-- `CITIES_V1_PLACE_IDS`: comma-separated canonical place ids. Unset → Bengaluru, India looked up among **approved** cities by name or spelling ("Bangalore" works once it's a saved spelling), inside India under the members' country rules. A found city is cached for 10 minutes; "not found" only for 30 seconds, so adding Bengaluru in Location cleanup switches Cities v1 on within half a minute. If no approved Bengaluru exists, Cities v1 is off everywhere.
 - `CITY_CHAPTER_LINKS`: JSON `{ "<placeId>": { "url": "...", "label": "..." } }`.
-- City-update email rollout is parked. The production reminder scheduler does not call it. Email code remains for later approval and isolated testing; no `CITY_NUDGE_SCHEDULER` setting exists.
 - Daily Cities-view deduplication keys are retained; `purgeDemandKeys()` does not delete records. Passive views never contribute to the moving-help search count.

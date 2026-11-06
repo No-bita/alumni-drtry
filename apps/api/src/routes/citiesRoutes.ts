@@ -19,6 +19,13 @@ const alumniQuery = z.object({
     .optional()
 });
 
+const postsQuery = z.object({
+  cursor: z
+    .string()
+    .regex(/^\d{1,6}$/)
+    .optional()
+});
+
 const searchQuery = z.object({
   q: z.string().transform(stripControl).pipe(z.string().trim().min(1).max(80))
 });
@@ -69,6 +76,17 @@ export const citiesRoutes: FastifyPluginAsync = async (app) => {
     return reply
       .code(200)
       .send(await app.citiesService.alumni(params.data.placeId, viewerOf(request), query.data.filter, offset));
+  });
+
+  /** "View all posts" on the city page: every open Wall post tagged with this city, newest first. */
+  app.get("/v1/cities/:placeId/posts", { preHandler: app.authenticate }, async (request, reply) => {
+    const params = placeParams.safeParse(request.params);
+    const query = postsQuery.safeParse(request.query);
+    if (!params.success) throw new AppError(404, "CITY_NOT_FOUND", "City not found.");
+    if (!query.success) throw new AppError(400, "CITIES_BAD_REQUEST", "Invalid cursor.");
+    assertDiscoveryReadAllowed(request.actor.personId, request.ip);
+    const offset = query.data.cursor ? Number(query.data.cursor) : 0;
+    return reply.code(200).send(await app.citiesService.posts(params.data.placeId, viewerOf(request), offset));
   });
 
   const mutation = { preHandler: [app.authenticate, app.requireNonDemoMutation] };

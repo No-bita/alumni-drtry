@@ -39,6 +39,8 @@ export type CareerFeedRowModel = {
   summary: string;
   /** Lane labels only (e.g. Hiring) — surfaced as the top pill */
   chips: string[];
+  /** Ask / Offer / Invitation label, or null for posts that predate the choice (render no chip). */
+  kindLabel: string | null;
   employmentType: string | null;
   compensation: string | null;
   experience: string | null;
@@ -165,6 +167,7 @@ export function IntentcastActivityRowsList({
                     <div className={`career-feed-rows__lane-badge career-feed-rows__lane-badge--${row.tone}`}>
                       {laneBadgeLabel(row.tone)}
                     </div>
+                    {row.kindLabel ? <span className="career-feed-rows__kind">{row.kindLabel}</span> : null}
                     <ReferralIntentHeadline as="h3" className="career-feed-rows__row-title" headline={row.roleHeader} />
                     {row.companySubtitle ? (
                       <p className="career-feed-rows__row-company">{row.companySubtitle}</p>

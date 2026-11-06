@@ -128,7 +128,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const campusMonthlyService = new CampusMonthlyService(pool);
   const homeSummaryService = new HomeSummaryService(pool);
   const analyticsService = new AnalyticsService(pool);
-  const citiesService = new CitiesService(pool, contactRequestService, emailSender, adminMetricsService);
+  const citiesService = new CitiesService(pool, contactRequestService);
   profileService.setResidenceSync(citiesService);
   app.decorate("authService", authService);
   app.decorate("profileService", profileService);

@@ -8,6 +8,8 @@ const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", 
 
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,
+  /** Ask / Offer / Invitation: required by the Wall composer; structured flows may omit it (unmarked). */
+  kind: z.enum(["ask", "offer", "invitation"]).nullable().optional(),
   content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH),
   /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
   placeId: z.string().uuid().nullable().optional()

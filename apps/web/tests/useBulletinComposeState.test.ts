@@ -7,20 +7,39 @@ describe("useBulletinComposeState", () => {
     const { result } = renderHook(() => useBulletinComposeState({ maxLength: 1000 }));
 
     act(() => {
+      result.current.setKind("ask");
       result.current.setHiringCompany("ACME");
       result.current.setPostError("previous");
       result.current.openCompose();
     });
 
     expect(result.current.postOpen).toBe(true);
+    expect(result.current.kind).toBe("");
     expect(result.current.hiringCompany).toBe("");
     expect(result.current.postError).toBeNull();
+  });
+
+  it("requires choosing what the post is", () => {
+    const { result } = renderHook(() => useBulletinComposeState({ maxLength: 1000 }));
+
+    act(() => {
+      result.current.setHiringCompany("ACME");
+      result.current.setHiringTitle("Engineer");
+      result.current.setHiringLocation("Bengaluru");
+      result.current.setHiringTrackChoice("hiring");
+      result.current.setHiringExperience("3");
+      result.current.setHiringRoleSummary("Work on product quality.");
+      result.current.setHiringApplySteps("Share CV + LinkedIn.");
+    });
+
+    expect(result.current.validatePostInput()).toBe("Choose what this post is: an ask, an offer or an invitation.");
   });
 
   it("validates url and required fields", () => {
     const { result } = renderHook(() => useBulletinComposeState({ maxLength: 1000 }));
 
     act(() => {
+      result.current.setKind("offer");
       result.current.setHiringCompany("ACME");
       result.current.setHiringTitle("Engineer");
       result.current.setHiringLocation("Bengaluru");
@@ -38,6 +57,7 @@ describe("useBulletinComposeState", () => {
     const { result } = renderHook(() => useBulletinComposeState({ maxLength: 1000 }));
 
     act(() => {
+      result.current.setKind("invitation");
       result.current.setHiringCompany("ACME");
       result.current.setHiringTitle("Engineer");
       result.current.setHiringLocation("Bengaluru");

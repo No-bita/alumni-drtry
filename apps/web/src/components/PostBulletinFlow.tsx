@@ -147,6 +147,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<BulletinStep>("compose");
     const [category, setCategory] = useState<BulletinGeneralCategory>(INITIAL_CATEGORY);
+    /** Ask / Offer / Invitation: the author states what their post is (approved 19:30). Required. */
+    const [kind, setKind] = useState<"" | "ask" | "offer" | "invitation">("");
     const [headline, setHeadline] = useState("");
     const [body, setBody] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -309,6 +311,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const reset = useCallback(() => {
       setStep("compose");
       setCategory(INITIAL_CATEGORY);
+      setKind("");
       setHeadline("");
       setBody("");
       setReferralJobLink("");
@@ -371,6 +374,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const headlineOk = headline.trim().length >= 3;
 
     const validateCompose = useCallback((): string | null => {
+      if (!kind) return "Choose what this post is: an ask, an offer or an invitation.";
       if (careersPreset === "referralSeeking") {
         const jl = referralJobLink.trim();
         if (!jl) return "Add the job link for this opening.";
@@ -425,6 +429,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       composedContent,
       headline,
       headlineOk,
+      kind,
       referralCompanyName,
       referralJobLink,
       referralResumeLink,
@@ -456,6 +461,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setSubmitting(true);
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: bulletinUiCategoryToApiCategory(category),
+        kind,
         content,
         ...(placeId ? { placeId } : {}),
       });
@@ -468,7 +474,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
       closeFlow();
-    }, [category, closeFlow, composedContent, onPublishSuccess, placeId, queryClient, validateCompose]);
+    }, [category, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, validateCompose]);
 
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
@@ -549,6 +555,21 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
             {step === "compose" ? (
               <>
                 <div className="career-hiring-flow__grid">
+                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
+                    <span>What is this? *</span>
+                    <select
+                      className="input"
+                      value={kind}
+                      onChange={(e) => setKind(e.target.value as "ask" | "offer" | "invitation")}
+                    >
+                      <option value="" disabled>
+                        Choose one
+                      </option>
+                      <option value="ask">Ask — I need something</option>
+                      <option value="offer">Offer — I’m offering something</option>
+                      <option value="invitation">Invitation — join me for something</option>
+                    </select>
+                  </label>
                   {careersHubFlow ? null : (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
                       <span>Category *</span>

@@ -43,13 +43,6 @@ function personCardColumnsSql(alias: string, prefix = ""): string {
     job_${alias}.org_name AS ${prefix}org_name`;
 }
 
-/** A person is due a nudge: never sent, or not yet this week (weekly) / in the last 28 days (monthly). */
-const NUDGE_DUE_SQL = (alias: string) => `(
-  ${alias}.city_nudge_last_sent_at IS NULL
-  OR (${alias}.city_nudge_frequency = 'weekly' AND ${alias}.city_nudge_last_sent_at < ${COFFEE_WEEK_START_SQL})
-  OR (${alias}.city_nudge_frequency = 'monthly' AND ${alias}.city_nudge_last_sent_at < now() - interval '28 days')
-)`;
-
 export interface PersonCardRow {
   id: string;
   full_name: string;
@@ -130,6 +123,7 @@ export interface CityPostRow {
   author_full_name: string;
   author_batch_year: number | null;
   content: string;
+  kind: "ask" | "offer" | "invitation" | null;
   created_at: Date;
   viewer_has_responded: boolean;
 }
@@ -141,17 +135,6 @@ export interface OfferNotificationRow {
   offerer_full_name: string | null;
   kinds: string[];
   city: string;
-}
-
-export interface NudgeRecipientRow {
-  id: string;
-  institutional_email: string;
-  full_name: string | null;
-  place_id: string;
-  city: string;
-  frequency: "weekly" | "monthly";
-  last_sent_at: Date | null;
-  city_help_on: boolean;
 }
 
 export class CitiesRepo {
@@ -747,11 +730,11 @@ export class CitiesRepo {
   /* Wall posts tagged with a city                                       */
   /* ------------------------------------------------------------------ */
 
-  async cityPosts(placeId: string, viewerPersonId: string, viewerIsDemo: boolean, limit: number, since: Date | null = null): Promise<CityPostRow[]> {
+  async cityPosts(placeId: string, viewerPersonId: string, viewerIsDemo: boolean, limit: number, since: Date | null = null, offset = 0): Promise<CityPostRow[]> {
     const r = await this.db.query<CityPostRow>(
       `
       SELECT i.id, i.author_person_id, p.full_name AS author_full_name,
-             COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year, i.content, i.created_at,
+             COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year, i.content, i.kind, i.created_at,
              EXISTS (SELECT 1 FROM intentcast_responses r WHERE r.intentcast_id = i.id AND r.responder_person_id = $2::uuid) AS viewer_has_responded
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
@@ -760,66 +743,12 @@ export class CitiesRepo {
         AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
         AND (${personIsDiscoverableForViewerSql("p", viewerIsDemo)} OR p.id = $2::uuid)
         AND ($4::timestamptz IS NULL OR i.created_at > $4)
-      ORDER BY i.created_at DESC
+      ORDER BY i.created_at DESC, i.id DESC
       LIMIT $3
+      OFFSET $5
       `,
-      [placeId, viewerPersonId, limit, since]
+      [placeId, viewerPersonId, limit, since, offset]
     );
     return r.rows;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Nudge email                                                         */
-  /* ------------------------------------------------------------------ */
-
-  async nudgeFrequency(personId: string): Promise<"weekly" | "monthly" | "never"> {
-    const r = await this.db.query<{ f: "weekly" | "monthly" | "never" }>(`SELECT city_nudge_frequency AS f FROM people WHERE id = $1`, [personId]);
-    return r.rows[0]?.f ?? "weekly";
-  }
-
-  async setNudgeFrequency(personId: string, frequency: "weekly" | "monthly" | "never"): Promise<void> {
-    await this.db.query(`UPDATE people SET city_nudge_frequency = $2 WHERE id = $1`, [personId, frequency]);
-  }
-
-  /**
-   * Locals in the given places who are due a nudge: weekly → nothing sent since this week began;
-   * monthly → nothing sent in the last 28 days. Real alumni only.
-   */
-  async nudgeRecipients(placeIds: readonly string[], limit: number): Promise<NudgeRecipientRow[]> {
-    if (placeIds.length === 0) return [];
-    const r = await this.db.query<NudgeRecipientRow>(
-      `
-      SELECT p.id, p.institutional_email::text AS institutional_email, p.full_name, p.residence_canonical_place_id AS place_id,
-             cp.city_label AS city, p.city_nudge_frequency AS frequency, p.city_nudge_last_sent_at AS last_sent_at,
-             ${OPEN_TO_SQL("p", "city_help")} AS city_help_on
-      FROM people p
-      JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id
-      WHERE p.residence_canonical_place_id = ANY($1::uuid[])
-        AND p.city_nudge_frequency <> 'never'
-        AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
-        AND p.profile_completed_at IS NOT NULL
-        AND ${personIsDiscoverableAlumniSql("p")}
-        AND NOT p.is_demo
-        AND ${NUDGE_DUE_SQL("p")}
-      ORDER BY p.id
-      LIMIT $2
-      `,
-      [[...placeIds], limit]
-    );
-    return r.rows;
-  }
-
-  /** Claim this week's nudge for a person: only while still due, so two replicas can't both send it. */
-  async claimNudge(personId: string): Promise<boolean> {
-    const r = await this.db.query(
-      `UPDATE people p SET city_nudge_last_sent_at = now()
-       WHERE p.id = $1 AND p.city_nudge_frequency <> 'never' AND ${NUDGE_DUE_SQL("p")}`,
-      [personId]
-    );
-    return (r.rowCount ?? 0) > 0;
-  }
-
-  async releaseNudge(personId: string, previous: Date | null): Promise<void> {
-    await this.db.query(`UPDATE people SET city_nudge_last_sent_at = $2::timestamptz WHERE id = $1`, [personId, previous]);
   }
   }

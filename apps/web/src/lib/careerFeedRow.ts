@@ -21,6 +21,9 @@ import {
 
 export const CAREER_FEED_INCLUDE_GUIDANCE = false;
 
+/** Ask / Offer / Invitation: the author's own label; null on posts that predate the choice (no inference). */
+export const INTENTCAST_KIND_LABEL = { ask: "Ask", offer: "Offer", invitation: "Invitation" } as const;
+
 /** Second line in Careers activity: `Company · Location`. */
 function formatCareersCompanyLocationLine(company: string, locationLine: string): string | null {
   const c = company.trim();
@@ -122,6 +125,7 @@ export function mapIntentcastToRow(
       companySubtitle: null,
       summary: summaryText,
       chips,
+      kindLabel: item.kind ? INTENTCAST_KIND_LABEL[item.kind] : null,
       employmentType: null,
       compensation: null,
       experience: null,
@@ -244,6 +248,7 @@ export function mapIntentcastToRow(
     companySubtitle,
     summary: summaryText,
     chips,
+    kindLabel: item.kind ? INTENTCAST_KIND_LABEL[item.kind] : null,
     employmentType,
     compensation,
     experience,

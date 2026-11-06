@@ -1,31 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/cities.css";
 import { Nav } from "../components/Nav";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
-import { ArriverView } from "../components/cities/ArriverView";
-import { CityAlumniList } from "../components/cities/CityAlumniList";
-import { CityEmailsControl } from "../components/cities/CityEmailsControl";
-import { CityHelpPanel } from "../components/cities/CityHelpPanel";
-import { CityMeetups } from "../components/cities/CityMeetups";
+import { CityHome } from "../components/cities/CityHome";
 import { CitySwitcherSheet } from "../components/cities/CitySwitcherSheet";
-import { NewInCitySection } from "../components/cities/NewInCitySection";
-import { NewcomerOffersSection } from "../components/cities/NewcomerOffersSection";
 import { NoCityPrompt, SavedCityCard } from "../components/cities/NoCityPrompt";
 import { useAuth } from "../contexts/AuthContext";
 import {
   CITIES_KEY,
   citiesKeys,
-  endArrival,
   fetchCities,
   fetchCity,
   findCityBySlug,
   type ArrivalPrompt,
-  type CityAskMode,
   type CitiesList,
-  type CityPayload,
 } from "../lib/cities";
 import { queryKeys } from "../lib/queryKeys";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -41,7 +32,6 @@ export function LocationPage() {
   const { citySlug } = useParams();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
   const flowRef = useRef<PostBulletinFlowHandle>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [optIn, setOptIn] = useState<ArrivalPrompt | null>(null);
@@ -60,13 +50,12 @@ export function LocationPage() {
     enabled: signedIn && placeId !== null,
   });
 
-  // One "viewed" event per city opened (and whether the nudge email brought them), for the nudge funnel.
+  // One "viewed" event per city opened.
   const viewedRole = city.data?.viewerRole ?? null;
-  const via = searchParams.get("via");
   useEffect(() => {
     if (!placeId || !viewedRole) return;
-    trackBetaUsageEvent("cities_viewed", { role: viewedRole, ...(via === "nudge" ? { via: "nudge" } : {}) });
-  }, [placeId, viewedRole, via]);
+    trackBetaUsageEvent("cities_viewed", { role: viewedRole });
+  }, [placeId, viewedRole]);
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: CITIES_KEY });
@@ -79,19 +68,6 @@ export function LocationPage() {
 
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
   const profileId = auth.myProfile?.id ?? null;
-  // City emails is parked, including controls reached through older email links.
-  const cityEmailsVisible = false;
-  const emailsOpen = cityEmailsVisible && searchParams.get("emails") === "manage";
-  const closeEmails = () =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("emails");
-        return next;
-      },
-      { replace: true },
-    );
-
   const openWall = (options: { headline?: string; body?: string; placeId?: string | null }) =>
     flowRef.current?.open({
       category: "relocation",
@@ -171,25 +147,14 @@ export function LocationPage() {
         </button>
       </section>
     );
-  } else if (data.viewerRole === "arriver" || data.viewerRole === "no_city") {
-    body = (
-      <ArriverView
-        data={data}
-        onChanged={refresh}
-        onAskWall={(mode: CityAskMode) =>
-          openWall({ headline: `${mode === "moving" ? "Moving to" : "Visiting"} ${data.place.city}`, placeId: data.place.placeId })
-        }
-      />
-    );
   } else {
     body = (
-      <ResidentView
+      <CityHome
         data={data}
         profileId={profileId}
         onChanged={refresh}
         onOptIn={() => setOptIn({ placeId: data.place.placeId, cityName: data.place.city })}
-        onSwitch={() => setSwitcherOpen(true)}
-        onPostMeetup={() => openWall({ placeId: data.place.placeId })}
+        onAsk={(starter) => openWall({ ...starter, placeId: data.place.placeId })}
         onNotice={setNotice}
       />
     );
@@ -231,7 +196,6 @@ export function LocationPage() {
             ) : null}
           </div>
         ) : null}
-        {emailsOpen ? <CityEmailsControl current={data?.nudgeFrequency ?? "weekly"} onClose={closeEmails} /> : null}
         {body}
       </main>
 
@@ -259,115 +223,5 @@ export function LocationPage() {
         }}
       />
     </div>
-  );
-}
-
-/** Local (screen 1) and newcomer (screen 6) views: the viewer lives here. */
-function ResidentView({
-  data,
-  profileId,
-  onChanged,
-  onOptIn,
-  onSwitch,
-  onPostMeetup,
-  onNotice,
-}: {
-  data: CityPayload;
-  profileId: string | null;
-  onChanged: () => void;
-  onOptIn: () => void;
-  onSwitch: () => void;
-  onPostMeetup: () => void;
-  onNotice: (text: string) => void;
-}) {
-  const [stopping, setStopping] = useState(false);
-  const city = data.place.city;
-  const newcomer = data.viewerRole === "newcomer" && data.myArrival !== null;
-
-  const stop = async () => {
-    if (stopping) return;
-    setStopping(true);
-    const res = await endArrival();
-    setStopping(false);
-    if (res.error) {
-      onNotice("Couldn’t update. Try again.");
-      return;
-    }
-    onNotice("You’re no longer shown as new. Offers you already have stay here.");
-    onChanged();
-  };
-
-  return (
-    <>
-      <header className="cities__header">
-        <p className="cities__eyebrow">{newcomer ? "Your city · new in town" : "Your city"}</p>
-        {newcomer ? (
-          <p className="cities__count">
-            Shown as new to local alumni for {data.myArrival!.daysLeft} more {data.myArrival!.daysLeft === 1 ? "day" : "days"}
-          </p>
-        ) : (
-          <p className="cities__count">
-            {data.counts.alumni} {data.counts.alumni === 1 ? "alum lives" : "alumni live"} here
-          </p>
-        )}
-        {newcomer ? (
-          <button type="button" className="cities__textbtn" disabled={stopping} onClick={() => void stop()}>
-            Stop showing me as new
-          </button>
-        ) : (
-          <>
-            {data.arrivalPrompt ? (
-              <button type="button" className="cities__textbtn" onClick={onOptIn}>
-                Just moved? Show me as new in town
-              </button>
-            ) : null}
-            {profileId ? (
-              <Link to={`/profiles/${profileId}?edit=city`} className="cities__link">
-                Moved away? Update your city
-              </Link>
-            ) : null}
-          </>
-        )}
-      </header>
-
-      {/* Offers stay visible to the newcomer after "Stop showing me as new" (until their 30 days end). */}
-      {newcomer || data.offers.length > 0 ? (
-        <NewcomerOffersSection offers={data.offers} previousCity={data.myArrival?.previousCity ?? null} onChanged={onChanged} />
-      ) : null}
-
-      {!newcomer && data.v1Enabled && data.arrivals && data.arrivals.items.length > 0 ? (
-        <NewInCitySection city={city} arrivals={data.arrivals.items} total={data.arrivals.total} onChanged={onChanged} />
-      ) : null}
-
-      {data.v1Enabled && data.helpPanel ? <CityHelpPanel city={city} panel={data.helpPanel} /> : null}
-
-      {data.alumni ? <CityAlumniList place={data.place} initial={data.alumni} totalAlumni={data.counts.alumni} onChanged={onChanged} /> : null}
-
-      {data.v1Enabled ? (
-        <CityMeetups city={city} posts={data.posts} chapterLink={data.chapterLink} onPost={onPostMeetup} onChanged={onChanged} />
-      ) : null}
-
-      {data.v1Enabled ? (
-        <section className="cities__section" aria-labelledby="cities-else-title">
-          <h2 id="cities-else-title" className="cities__h2">
-            Something else?
-          </h2>
-          <ul className="cities__rows">
-            <li>
-              <button type="button" className="cities__row cities__row--button" onClick={onSwitch}>
-                <span className="cities__row-title">Moving to another city?</span>
-                <span aria-hidden>›</span>
-              </button>
-            </li>
-            <li>
-              <Link to="/match?cat=higher_studies" className="cities__row">
-                <span className="cities__row-title">Studying abroad? Ask alumni</span>
-                <span aria-hidden>›</span>
-              </Link>
-            </li>
-          </ul>
-        </section>
-      ) : null}
-    </>
   );
 }
