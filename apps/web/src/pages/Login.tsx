@@ -115,19 +115,32 @@ export function Login() {
     };
   }, []);
 
-  // "Continue with Google" shows only when the API has Google keys (GOOGLE_CLIENT_ID / _SECRET).
-  // It doesn't hold up the email form: until this answers, only the email option shows.
-  const [googleEnabled, setGoogleEnabled] = useState(false);
+  // Google and email sign-in appear together, or email appears alone: both wait on
+  // one availability check. enabled:true shows both options. Anything else - Google
+  // not configured, the check failing, or the check taking more than 10 seconds -
+  // shows email only; Google availability is then unconfirmed, not necessarily
+  // broken. Whichever answer comes first settles the card, so a response landing
+  // after the timeout never swaps the options under the user.
+  const [googleConfig, setGoogleConfig] = useState<
+    { status: "checking" } | { status: "ready"; enabled: boolean }
+  >({ status: "checking" });
   useEffect(() => {
     let alive = true;
+    let settled = false;
+    const finish = (enabled: boolean) => {
+      if (!alive || settled) return;
+      settled = true;
+      clearTimeout(timer);
+      setGoogleConfig({ status: "ready", enabled });
+    };
+    const timer = setTimeout(() => finish(false), 10_000);
     void api
       .get<{ enabled: boolean }>("/v1/auth/google/config")
-      .then((res) => {
-        if (alive && res.data?.enabled) setGoogleEnabled(true);
-      })
-      .catch(() => undefined);
+      .then((res) => finish(Boolean(res.data?.enabled)))
+      .catch(() => finish(false));
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, []);
 
@@ -714,6 +727,13 @@ export function Login() {
       <Nav hideSignInLink hideSignOut />
       {renderAuthMarketingShell(
         <div className="auth-merged__card">
+          {googleConfig.status === "checking" ? (
+            <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
+              <div className="login-sending__spinner" aria-hidden />
+              <p className="login-sending__line">Loading sign-in options…</p>
+            </div>
+          ) : (
+            <>
           <div className="auth-merged__card-heading">
             <span className="auth-merged__card-icon" aria-hidden>
               <svg
@@ -735,7 +755,7 @@ export function Login() {
               Continue with your insti email
             </h2>
           </div>
-          {googleEnabled ? (
+          {googleConfig.enabled ? (
             <div className="auth-merged__google">
               <a className="btn btn--secondary auth-merged__google-btn" href={`${API_BASE_URL}/v1/auth/google`}>
                 <svg aria-hidden width="18" height="18" viewBox="0 0 48 48">
@@ -769,8 +789,10 @@ export function Login() {
               Continue
             </Button>
           </form>
+            </>
+          )}
         </div>
       )}
     </div>
   );
-}
+          }
