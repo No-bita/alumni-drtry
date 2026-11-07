@@ -43,4 +43,19 @@ describe("CityHome hero photo", () => {
     expect(img).not.toBeNull();
     expect(img!.getAttribute("src")).toBe("/app/media/city-hero-placeholder.jpg");
   });
+
+  it("keeps a short linked CC BY-SA photo credit inside the hero photo", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <CityHome data={payload} profileId={null} onChanged={() => {}} onOptIn={() => {}} onAsk={() => {}} onNotice={() => {}} />
+      </MemoryRouter>,
+    );
+    const hero = container.querySelector(".cities-home__photohero");
+    const credit = hero!.querySelector(".cities-home__photohero-credit");
+    expect(credit).not.toBeNull();
+    expect(credit!.textContent).toBe("Photo: AjayTorvi · CC BY-SA 4.0");
+    const links = Array.from(credit!.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(links).toContain("https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg");
+    expect(links).toContain("https://creativecommons.org/licenses/by-sa/4.0/");
+  });
 });
