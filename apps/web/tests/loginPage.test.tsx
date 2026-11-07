@@ -37,9 +37,10 @@ function mount(search = "") {
     </MemoryRouter>,
   );
 }
-function submit(email: string) {
-  fireEvent.change(screen.getByPlaceholderText("you@itbhu.ac.in"), { target: { value: email } });
-  fireEvent.submit(screen.getByPlaceholderText("you@itbhu.ac.in").closest("form")!);
+async function submit(email: string) {
+  const input = await screen.findByPlaceholderText("you@itbhu.ac.in");
+  fireEvent.change(input, { target: { value: email } });
+  fireEvent.submit(input.closest("form")!);
 }
 
 describe("Login page", () => {
@@ -48,27 +49,33 @@ describe("Login page", () => {
     expect(screen.queryByPlaceholderText("Invite code")).toBeNull();
   });
 
-  it("does nothing for a blank email", () => {
+  it("does nothing for a blank email", async () => {
     mount();
-    submit("   ");
+    await submit("   ");
     expect(apiPost).not.toHaveBeenCalled();
   });
 
   it("trims and lowercases the email before starting sign-in, then shows the code cells", async () => {
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
     mount();
-    submit("  Rahul.S@ITBHU.ac.in ");
+    await submit("  Rahul.S@ITBHU.ac.in ");
     await waitFor(() => expect(apiPost).toHaveBeenCalled());
     expect(apiPost.mock.calls[0][0]).toBe("/v1/auth/start");
     expect(apiPost.mock.calls[0][1]).toEqual({ institutionalEmail: "rahul.s@itbhu.ac.in" });
     expect(await screen.findByRole("group", { name: "One-time code" })).toBeTruthy();
   });
 
-  it("shows Continue with Google only when Google sign-in is configured", async () => {
+  it("shows a spinner with neither option while the sign-in availability check runs", async () => {
+    apiGet.mockReturnValue(new Promise(() => {})); // check stays in flight
     mount();
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/google/config"));
+    expect(screen.getByRole("status")).toBeTruthy();
+    expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
-    cleanup();
+    expect(screen.queryByPlaceholderText("you@itbhu.ac.in")).toBeNull();
+  });
+
+  it("shows Continue with Google alongside the email form only when Google sign-in is configured", async () => {
     apiGet.mockResolvedValue({ data: { enabled: true } });
     mount();
     const google = await screen.findByRole("link", { name: "Continue with Google" });
@@ -77,11 +84,58 @@ describe("Login page", () => {
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
   });
 
+  it("shows only the email form when Google sign-in is not configured", async () => {
+    apiGet.mockResolvedValue({ data: { enabled: false } });
+    mount();
+    expect(await screen.findByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.queryByText("or use your email")).toBeNull();
+  });
+
+  it("shows only the email form when the availability check itself fails", async () => {
+    apiGet.mockRejectedValue(new Error("network"));
+    mount();
+    expect(await screen.findByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.queryByText("or use your email")).toBeNull();
+  });
+
+  it("shows only the email form when the availability check takes more than 10 seconds", async () => {
+    apiGet.mockReturnValue(new Promise(() => {})); // check stays in flight
+    vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
+    mount();
+    expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("you@itbhu.ac.in")).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.queryByText("Loading sign-in options…")).toBeNull();
+  });
+
+  it("keeps the settled email-only form when a slow check answers after the timeout", async () => {
+    let resolveConfig: (v: { data: { enabled: boolean } }) => void = () => {};
+    apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
+    vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
+    mount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    await act(async () => {
+      resolveConfig({ data: { enabled: true } });
+      await Promise.resolve();
+    });
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+  });
+
   it("from a WhatsApp bot link: the sign-in email's link carries the WhatsApp step", async () => {
     window.localStorage.setItem("alma.waEntry", JSON.stringify({ t: "tok123456789", next: "/match?q=x", at: Date.now() }));
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
     mount("?src=whatsapp");
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     await waitFor(() => expect(apiPost).toHaveBeenCalled());
     expect(apiPost.mock.calls[0][1]).toEqual({
       institutionalEmail: "rahul.s@itbhu.ac.in",
@@ -93,7 +147,7 @@ describe("Login page", () => {
   it("shows the server error and stays on the form", async () => {
     apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your institute email." } });
     mount();
-    submit("x@gmail.com");
+    await submit("x@gmail.com");
     expect(await screen.findByText("Use your institute email.")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "One-time code" })).toBeNull();
   });
@@ -104,21 +158,21 @@ describe("Login page", () => {
       retryAfterSeconds: 61,
     });
     mount();
-    submit("x@itbhu.ac.in");
+    await submit("x@itbhu.ac.in");
     expect(await screen.findByText("Too many tries. Try again in 2 minutes.")).toBeTruthy();
   });
 
   it("says 1 minute, singular, when the wait is under a minute", async () => {
     apiPost.mockResolvedValue({ error: { code: "AUTH_RATE_LIMITED", message: "Slow down." }, retryAfterSeconds: 20 });
     mount();
-    submit("x@itbhu.ac.in");
+    await submit("x@itbhu.ac.in");
     expect(await screen.findByText("Slow down. Try again in 1 minute.")).toBeTruthy();
   });
 
   it("shows a friendly message when the request throws", async () => {
     apiPost.mockRejectedValue(new Error("network"));
     mount();
-    submit("x@itbhu.ac.in");
+    await submit("x@itbhu.ac.in");
     expect(await screen.findByText("Something went wrong. Please try again.")).toBeTruthy();
   });
 
@@ -138,7 +192,7 @@ describe("Login page", () => {
   it("acknowledges Continue immediately with an accurate pending line", async () => {
     apiPost.mockReturnValue(new Promise(() => {})); // sign-in request stays in flight
     mount();
-    submit("x@itbhu.ac.in");
+    await submit("x@itbhu.ac.in");
     // The request fires on the tap, so the pending line can say so immediately.
     expect(apiPost.mock.calls[0]?.[0]).toBe("/v1/auth/start");
     expect(apiPost.mock.calls[0]?.[1]).toEqual({ institutionalEmail: "x@itbhu.ac.in" });
@@ -148,13 +202,17 @@ describe("Login page", () => {
   });
 
   it("blocks Continue for the rate-limit countdown, then re-enables it", async () => {
-    vi.useFakeTimers();
     apiPost.mockResolvedValue({
       error: { code: "AUTH_RATE_LIMITED", message: "Too many tries." },
       retryAfterSeconds: 20,
     });
     mount();
-    submit("x@itbhu.ac.in");
+    // Wait for the form before freezing timers: the availability check resolves on a
+    // microtask, and waitFor polls on timers that fake timers would hold still.
+    const emailInput = await screen.findByPlaceholderText("you@itbhu.ac.in");
+    vi.useFakeTimers();
+    fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
+    fireEvent.submit(emailInput.closest("form")!);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
     });
@@ -170,7 +228,7 @@ describe("Login page", () => {
     let resolveStart: (v: unknown) => void = () => {};
     apiPost.mockReturnValue(new Promise((r) => { resolveStart = r; }));
     mount();
-    const emailInput = screen.getByPlaceholderText("you@itbhu.ac.in");
+    const emailInput = await screen.findByPlaceholderText("you@itbhu.ac.in");
     const form = emailInput.closest("form")!;
     fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
     fireEvent.submit(form);
@@ -262,7 +320,7 @@ describe("Login page: the screen matches the inbox", () => {
   it("names the address on a fresh send and counts down to Resend", async () => {
     apiPost.mockResolvedValue(start());
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We've sent you a code")).toBeTruthy();
     expect(screen.getByText(/We sent a one-time code to rahul\.s@itbhu\.ac\.in/)).toBeTruthy();
     const resend = screen.getByRole("button", { name: /Resend code in [12]:\d\d/ }) as HTMLButtonElement;
@@ -272,7 +330,7 @@ describe("Login page: the screen matches the inbox", () => {
   it("says a code was already sent when the server sent no second email", async () => {
     apiPost.mockResolvedValue(start({ delivery: "already_sent", resendAfterSeconds: 95 }));
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We already sent you a code")).toBeTruthy();
     expect(screen.getByText(/so we didn't send another/)).toBeTruthy();
   });
@@ -280,7 +338,7 @@ describe("Login page: the screen matches the inbox", () => {
   it("says the code is on its way when delivery is unconfirmed", async () => {
     apiPost.mockResolvedValue(start({ delivery: "unconfirmed" }));
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("Your code is on its way")).toBeTruthy();
     expect(screen.getByText(/It can take a minute to arrive/)).toBeTruthy();
   });
@@ -288,7 +346,7 @@ describe("Login page: the screen matches the inbox", () => {
   it("treats an older API answer (no delivery field) as a normal send", async () => {
     apiPost.mockResolvedValue({ data: { challengeId: "c1" } });
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We've sent you a code")).toBeTruthy();
   });
 
@@ -298,7 +356,7 @@ describe("Login page: the screen matches the inbox", () => {
       .mockResolvedValueOnce(start({ challengeId: "c2", resendAfterSeconds: 120 }))
       .mockResolvedValueOnce({ error: { code: "AUTH_CODE_SUPERSEDED", message: "That is from an earlier sign-in email. Use the code or link in the latest one." } });
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     fireEvent.click(await screen.findByRole("button", { name: "Resend code" }));
     expect(await screen.findByText("New code sent. Earlier codes no longer work.")).toBeTruthy();
     expect(apiPost.mock.calls[1]).toEqual(["/v1/auth/start", { institutionalEmail: "rahul.s@itbhu.ac.in" }, expect.anything()]);
@@ -317,7 +375,7 @@ describe("Login page: the screen matches the inbox", () => {
       status: 503,
     });
     mount();
-    submit("rahul.s@itbhu.ac.in");
+    await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We couldn't send the sign-in email. Try again.")).toBeTruthy();
     expect(apiPost).toHaveBeenCalledTimes(1);
   });
