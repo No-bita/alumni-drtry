@@ -790,25 +790,18 @@ export function Login() {
           </div>
           {googleConfig.status === "rechecking" ? (
             <div className="auth-merged__google">
-              <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
-                <div className="login-sending__spinner" aria-hidden />
-                <p className="login-sending__line">Loading sign-in options…</p>
-              </div>
+              <button type="button" className="btn btn--secondary auth-merged__google-btn" disabled>
+                Checking...
+              </button>
+              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
+              <p className="auth-merged__google-or">or use your email</p>
             </div>
           ) : googleConfig.status === "error" ? (
             <div className="auth-merged__google">
-              <a
-                className="btn btn--secondary auth-merged__google-btn"
-                href={`${API_BASE_URL}/v1/auth/google`}
-                aria-disabled="true"
-                onClick={(e) => e.preventDefault()}
-              >
-                {googleButtonContents}
-              </a>
-              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
               <button type="button" className="btn btn--secondary auth-merged__google-btn" onClick={() => runGoogleConfigCheck(true)}>
-                Retry
+                Retry Google sign-in
               </button>
+              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
               <p className="auth-merged__google-or">or use your email</p>
             </div>
           ) : googleConfig.status === "ready" && googleConfig.enabled ? (
