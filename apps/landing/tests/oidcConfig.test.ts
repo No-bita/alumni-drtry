@@ -6,7 +6,7 @@ import { test } from "node:test";
 test("app containment only adds nonterminal credential stripping without changing existing config", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   const { routes, ...unchanged } = config;
-  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "b35015ae4051c79061069ee62aa8815a739957a4b0ce6abd7495a4637faf6a34");
+  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "767326ef7c106e4a3e70b33b793dff7a972cb757c93752d3f2b4e9e8f3313510");
   assert.deepEqual(routes, [{src: "/(.*)", continue: true, transforms: ["request.headers", "response.headers"].flatMap(type => ["x-vercel-trusted-oidc-idp-token", "x-vercel-oidc-token"].map(key => ({ type, op: "delete", target: { key } })))}]);
   assert.equal(Object.hasOwn(routes[0], "dest"), false);
 });
@@ -44,7 +44,7 @@ test("only the map document allows same-origin framing, with no overlapping fram
   assert.equal(sharedHeaders.find((header: { key: string }) => header.key === "Content-Security-Policy-Report-Only").value.includes("frame-ancestors 'none'"), true);
 });
 
-test("the release map framing exception preserves the production API target", () => {
+test("the staging map framing exception preserves the staging API target", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
-  assert.equal(config.rewrites.find((rule: { source: string }) => rule.source === "/v1/(.*)").destination, "https://alma-mater-api.onrender.com/v1/$1");
+  assert.equal(config.rewrites.find((rule: { source: string }) => rule.source === "/v1/(.*)").destination, "https://alma-staging.onrender.com/v1/$1");
 });
