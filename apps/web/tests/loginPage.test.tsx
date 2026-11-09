@@ -94,25 +94,27 @@ describe("Login page", () => {
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
-  it("keeps the email form and offers a retry when the availability check itself fails", async () => {
+  it("keeps Google visible but disabled with a retry when the availability check itself fails", async () => {
     apiGet.mockResolvedValue({ error: { code: "UNKNOWN" } }); // HTTP error shape from the api client
     mount();
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    const google = screen.getByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
   });
 
-  it("keeps the email form and offers a retry when the check request itself throws", async () => {
+  it("keeps Google visible but disabled with a retry when the check request itself throws", async () => {
     apiGet.mockRejectedValue(new Error("network"));
     mount();
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    const google = screen.getByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
   });
 
-  it("keeps the email form and offers a retry when the availability check takes more than 10 seconds", async () => {
+  it("keeps Google visible but disabled with a retry when the availability check takes more than 10 seconds", async () => {
     apiGet.mockReturnValue(new Promise(() => {})); // check stays in flight
     vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
     mount();
@@ -123,8 +125,9 @@ describe("Login page", () => {
     });
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    const google = screen.getByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
     expect(screen.queryByText("Loading sign-in options…")).toBeNull();
   });
 
@@ -143,30 +146,35 @@ describe("Login page", () => {
     });
     expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    const google = screen.getByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("aria-disabled")).toBe("true");
   });
 
-  it("retry re-runs the check and shows Continue with Google when it succeeds", async () => {
+  it("retry re-runs the check and enables Continue with Google when it succeeds", async () => {
     apiGet.mockRejectedValueOnce(new Error("network"));
     apiGet.mockResolvedValueOnce({ data: { enabled: true } });
     mount();
     const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(screen.getByRole("link", { name: "Continue with Google" }).getAttribute("aria-disabled")).toBe("true");
     expect(apiGet).toHaveBeenCalledTimes(1);
     fireEvent.click(retry);
+    expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     const google = await screen.findByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("aria-disabled")).toBeNull();
     expect(google.getAttribute("href")).toMatch(/\/v1\/auth\/google$/);
     expect(apiGet).toHaveBeenCalledTimes(2);
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(screen.queryByText("Google sign-in is temporarily unavailable.")).toBeNull();
   });
 
-  it("a failed retry keeps the unavailable state and the email form", async () => {
+  it("a failed retry keeps Google disabled, the unavailable note and the email form", async () => {
     apiGet.mockResolvedValue({ error: { code: "UNKNOWN" } });
     mount();
     const retry = await screen.findByRole("button", { name: "Retry" });
     fireEvent.click(retry);
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Continue with Google" }).getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(apiGet).toHaveBeenCalledTimes(2);
   });

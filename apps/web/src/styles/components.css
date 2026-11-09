@@ -14913,6 +14913,11 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   font-size: 13px;
 }
 
+.auth-merged__google-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .auth-merged__error {
   margin: 0 0 0.75rem;
   color: var(--brick-light);
