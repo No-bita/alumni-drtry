@@ -305,7 +305,7 @@ function NotificationListItem({
             <p className="notifications-page__item-title notifications-page__item-title--announcement">{item.title}</p>
             <p className="notifications-page__item-detail notifications-page__item-detail--announcement">{item.body}</p>
             {item.linkPath && !inSheet ? (
-              <p className="notifications-page__item-actions">
+              <p className="notifications-page__item-actions notifications-page__item-actions--link">
                 <Link to={item.linkPath} className="notifications-page__item-link">
                   Open
                 </Link>

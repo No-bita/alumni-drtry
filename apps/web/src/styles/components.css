@@ -11030,6 +11030,12 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: var(--ink);
 }
 
+/* The "Open" link lines up with the text (the mobile rule widens action rows under the tile). */
+.notifications-page__item-main .notifications-page__item-actions--link {
+  width: auto;
+  margin: 0;
+}
+
 .notifications-page__item-link {
   color: var(--ochre);
   font-size: 14px;

@@ -428,6 +428,7 @@ export function AdminAnnouncementsPage() {
                   </label>
                   <input
                     id={ids.from}
+                    aria-label="Batch from"
                     className="cr-search an-year"
                     inputMode="numeric"
                     placeholder={String(BATCH_MIN)}
@@ -440,6 +441,7 @@ export function AdminAnnouncementsPage() {
                   </label>
                   <input
                     id={ids.to}
+                    aria-label="Batch to"
                     className="cr-search an-year"
                     inputMode="numeric"
                     placeholder={String(new Date().getFullYear())}

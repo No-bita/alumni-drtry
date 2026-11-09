@@ -133,8 +133,8 @@ describe("AdminAnnouncementsPage", () => {
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Hello" } });
     expect(screen.getByText("5/120")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2015" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2016" } });
+    fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2015" } });
+    fireEvent.change(screen.getByLabelText("Batch to"), { target: { value: "2016" } });
     fireEvent.click(screen.getByLabelText("Computer Science and Engineering"));
     expect(await screen.findByText("12 members match")).toBeTruthy();
     expect(fns.previewAudience).toHaveBeenLastCalledWith({ batchYears: [2015, 2016], departmentCodes: ["cse"] }, expect.anything());
@@ -143,8 +143,8 @@ describe("AdminAnnouncementsPage", () => {
   it("flags an invalid batch range and blocks sending", async () => {
     mountPage();
     fillMessage();
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2018" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2015" } });
+    fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2018" } });
+    fireEvent.change(screen.getByLabelText("Batch to"), { target: { value: "2015" } });
     expect(await screen.findByText(/From before To/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Review and send" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -153,7 +153,7 @@ describe("AdminAnnouncementsPage", () => {
     fns.sendAnnouncement.mockResolvedValue(sent);
     mountPage();
     fillMessage();
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2015" } });
+    fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2015" } });
     expect(await screen.findByText("12 members match")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Review and send" }));
@@ -174,7 +174,7 @@ describe("AdminAnnouncementsPage", () => {
     fns.sendAnnouncement.mockRejectedValueOnce(new AnnouncementError("ANNOUNCEMENT_COUNT_CHANGED", "changed"));
     mountPage();
     fillMessage();
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2015" } });
+    fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2015" } });
     expect(await screen.findByText("12 members match")).toBeTruthy();
     fns.previewAudience.mockResolvedValue({ count: 13, sample: [] });
 
