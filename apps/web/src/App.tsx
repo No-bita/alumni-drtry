@@ -45,6 +45,10 @@ const AdminCityReviewPage = lazy(() => import("./pages/AdminCityReviewPage").the
 const AdminDepartmentOtherPage = lazy(() =>
   import("./pages/AdminDepartmentOtherPage").then((m) => ({ default: m.AdminDepartmentOtherPage }))
 );
+const AdminAnnouncementsPage = lazy(() =>
+  import("./pages/AdminAnnouncementsPage").then((m) => ({ default: m.AdminAnnouncementsPage }))
+);
+const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage").then((m) => ({ default: m.UnsubscribePage })));
 const AdminLocationCleanup = lazy(() => import("./pages/AdminLocationCleanup").then((m) => ({ default: m.AdminLocationCleanup })));
 const AdminPlaceDetail = lazy(() => import("./pages/AdminPlaceDetail").then((m) => ({ default: m.AdminPlaceDetail })));
 const AdminCompanyReviewPage = lazy(() =>
@@ -364,6 +368,8 @@ function AppRoutes() {
         {/* Links from the WhatsApp bot. Public: it sends signed-out people through sign-in. */}
         <Route path="/wa" element={<WhatsAppEntryPage />} />
         <Route path="/w/:code" element={<WhatsAppEntryPage />} />
+        {/* Unsubscribe link in announcement emails. Public: the signed token is the proof. */}
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
         <Route
           path="/admin/analytics"
           element={
@@ -393,6 +399,14 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <AdminDepartmentOtherPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/announcements"
+          element={
+            <RequireAuth>
+              <AdminAnnouncementsPage />
             </RequireAuth>
           }
         />

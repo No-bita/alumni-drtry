@@ -11016,6 +11016,38 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: #2e6b41;
 }
 
+.notifications-page__kind-tile--announcement {
+  background: #f3e8f7;
+  color: #6a3d7a;
+}
+
+/* Admin announcements: bold title, full plain-text message, optional "Open" link inside the app. */
+.notifications-page__item-title--announcement {
+  font-weight: 600;
+}
+
+.notifications-page__item-detail--announcement {
+  color: var(--ink);
+}
+
+/* The "Open" link lines up with the text (the mobile rule widens action rows under the tile). */
+.notifications-page__item-main .notifications-page__item-actions--link {
+  width: auto;
+  margin: 0;
+}
+
+.notifications-page__item-link {
+  color: var(--ochre);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.notifications-page__item-link:hover,
+.notifications-page__item-link:focus-visible {
+  text-decoration: underline;
+}
+
 /* Unseen emphasis: accent dot + stronger title + faint tint. Seen state never removes the row. */
 .notifications-page__item {
   position: relative;

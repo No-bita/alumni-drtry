@@ -4,12 +4,14 @@ import { ConnectionThreadRepo } from "../repos/connectionThreadRepo.js";
 import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
 import { CitiesRepo } from "../repos/citiesRepo.js";
 import { IntentcastRepo } from "../repos/intentcastRepo.js";
+import type { AnnouncementService } from "./announcementService.js";
 
 const POST_PREVIEW_MAX = 160;
 const THREAD_PREVIEW_MAX = 140;
 const OUTGOING_RESOLVED_LIMIT = 1000;
 const BULLETIN_RESPONSE_LIMIT = 1000;
 const CITY_OFFER_LIMIT = 200;
+const ANNOUNCEMENT_LIMIT = 50;
 
 function truncatePreview(text: string, max: number): string {
   const t = text.trim().replace(/\s+/g, " ");
@@ -72,6 +74,19 @@ export type NotificationItemDto =
       responseMessage: string;
     }
   | {
+      /** Admin announcement (in-app channel): title, plain-text message, optional link inside the app. */
+      kind: "announcement";
+      id: string;
+      occurredAt: string;
+      /** True when this item is newer than the person's seen watermark. */
+      unseen: boolean;
+      announcementId: string;
+      title: string;
+      body: string;
+      /** Path inside the web app (e.g. "/intent/career"), or null. */
+      linkPath: string | null;
+    }
+  | {
       kind: "connection_thread_reply";
       id: string;
       occurredAt: string;
@@ -90,8 +105,11 @@ export class NotificationService {
   private readonly intentcastRepo: IntentcastRepo;
   private readonly citiesRepo: CitiesRepo;
 
-  constructor(pool: Pool) {
+  private readonly announcements: AnnouncementService | null;
+
+  constructor(pool: Pool, announcements: AnnouncementService | null = null) {
     this.pool = pool;
+    this.announcements = announcements;
     this.citiesRepo = new CitiesRepo(pool);
     this.contactRequestRepo = new ContactRequestRepo(pool);
     this.connectionThreadRepo = new ConnectionThreadRepo(pool);
@@ -125,12 +143,13 @@ export class NotificationService {
   async listForPerson(personId: string): Promise<NotificationItemDto[]> {
     const watermark = await this.getSeenWatermark(personId);
     const unseen = (occurredAt: string) => Date.parse(occurredAt) > watermark.getTime();
-    const [pendingIncoming, resolvedOutgoing, bulletinResponses, threadReplies, cityOffers] = await Promise.all([
+    const [pendingIncoming, resolvedOutgoing, bulletinResponses, threadReplies, cityOffers, announcements] = await Promise.all([
       this.contactRequestRepo.listPendingIncomingForRecipient(personId),
       this.contactRequestRepo.listResolvedOutgoingForSender(personId, OUTGOING_RESOLVED_LIMIT),
       this.intentcastRepo.listBulletinResponseNotificationsForAuthor(personId, BULLETIN_RESPONSE_LIMIT),
       this.connectionThreadRepo.listThreadNotificationRowsForRecipient(personId, 50),
-      this.citiesRepo.offerNotifications(personId, CITY_OFFER_LIMIT)
+      this.citiesRepo.offerNotifications(personId, CITY_OFFER_LIMIT),
+      this.announcements ? this.announcements.notificationsForPerson(personId, ANNOUNCEMENT_LIMIT) : Promise.resolve([])
     ]);
 
     const items: NotificationItemDto[] = [];
@@ -206,19 +225,40 @@ export class NotificationService {
       });
     }
 
+    for (const a of announcements) {
+      items.push({
+        kind: "announcement",
+        id: `ann:${a.id}`,
+        occurredAt: a.occurredAt.toISOString(),
+        unseen: unseen(a.occurredAt.toISOString()),
+        announcementId: a.id,
+        title: a.title,
+        body: a.body,
+        linkPath: a.linkPath
+      });
+    }
+
     items.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
     return items;
   }
 
   /** Total notification rows (matches aggregation behind GET /v1/notifications, without row limits). */
   async countForPerson(personId: string): Promise<number> {
-    const [pending, resolvedOut, bulletin, threadReplies, cityOffers] = await Promise.all([
+    const [pending, resolvedOut, bulletin, threadReplies, cityOffers, announcements] = await Promise.all([
       this.contactRequestRepo.countPendingIncomingForRecipient(personId),
       this.contactRequestRepo.countResolvedOutgoingForSender(personId),
       this.intentcastRepo.countBulletinResponseNotificationsForAuthor(personId),
       this.connectionThreadRepo.countThreadNotificationRowsForRecipient(personId),
-      this.citiesRepo.countOfferNotifications(personId)
+      this.citiesRepo.countOfferNotifications(personId),
+      this.announcements ? this.announcements.countNotificationsForPerson(personId) : Promise.resolve(0)
     ]);
-    return pending + resolvedOut + bulletin + threadReplies + Math.min(cityOffers, CITY_OFFER_LIMIT);
+    return (
+      pending +
+      resolvedOut +
+      bulletin +
+      threadReplies +
+      Math.min(cityOffers, CITY_OFFER_LIMIT) +
+      Math.min(announcements, ANNOUNCEMENT_LIMIT)
+    );
   }
 }

@@ -41,6 +41,8 @@ import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
 import { DepartmentOtherReviewRepo } from "./repos/departmentOtherReviewRepo.js";
+import { AnnouncementService } from "./services/announcementService.js";
+import { announcementRoutes } from "./routes/announcementRoutes.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
@@ -148,7 +150,8 @@ export async function createApp(options: CreateAppOptions = {}) {
   contactRequestService.setNoteChannel(whatsappService);
   profileService.setOnboardedListener((personId) => whatsappService.notifyOnboarded(personId));
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
-  const notificationService = new NotificationService(pool);
+  const announcementService = new AnnouncementService(pool, emailSender);
+  const notificationService = new NotificationService(pool, announcementService);
   const adminPeopleService = new AdminPeopleService(pool);
   const adminMetricsService = new AdminMetricsService(pool);
   const campusMonthlyService = new CampusMonthlyService(pool);
@@ -172,6 +175,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("connectionThreadService", connectionThreadService);
   app.decorate("notificationService", notificationService);
   app.decorate("departmentOtherReview", new DepartmentOtherReviewRepo(pool));
+  app.decorate("announcementService", announcementService);
   app.decorate("adminPeopleService", adminPeopleService);
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
@@ -287,6 +291,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(adminLocationCleanupRoutes);
   await app.register(adminCityReviewRoutes);
   await app.register(adminDepartmentOtherRoutes);
+  await app.register(announcementRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
 

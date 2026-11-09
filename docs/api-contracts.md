@@ -157,7 +157,29 @@ Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migrati
 ## Notifications
 
 - `GET /v1/notifications/summary`: returns `{ count }`.
-- `GET /v1/notifications`: returns notification feed items.
+- `GET /v1/notifications`: returns notification feed items. Kind `announcement` (admin announcements sent in-app): `{ kind, id: "ann:<id>", occurredAt, unseen, announcementId, title, body, linkPath }`; `linkPath` is a path inside the web app (e.g. `/intent/career`) or null.
+
+## Announcements (admins)
+
+An admin sends a title (1–120) and plain-text message (1–2000, line breaks kept) with an optional link to a page inside the app, in-app (Notifications panel), by email, or both. Any admin can send. Filters: `batchYears` (1960–2100), `departmentCodes` (department catalog codes), `placeIds` (approved city records only; only members linked to the city count). AND across filters, OR within each; empty or missing = every member. Members = not deleted, not suspended, not demo/test accounts; any role.
+
+- `POST /v1/admin/announcements/preview` body `{ filters }` → `{ count, sample: [{ personId, fullName, batchYear, departmentCode }] }` (first 5 by name).
+- `POST /v1/admin/announcements/test` body `{ title, body, linkPath, channels: "in_app"|"email"|"both" }` → 201 `{ announcement }`. Goes to the sending admin only (both their addresses for email, even if they opted out); flagged `isTest` in history.
+- `POST /v1/admin/announcements` body `{ title, body, linkPath, channels, filters, confirmCount }` → 201 `{ announcement }`. The audience is snapshotted inside the send; if it no longer equals `confirmCount`, nothing is sent: 409 `{ code: "ANNOUNCEMENT_COUNT_CHANGED", message, count }`.
+- `GET /v1/admin/announcements?limit=` (1–200, default 50) → `{ announcements: [summary] }`, newest first, tests included.
+- `GET /v1/admin/announcements/:id` → `{ announcement }`: summary plus `body`, `linkPath`, `inApp: { delivered, seen }` (seen = the member opened Notifications since it was sent).
+- Summary: `{ id, title, channels, status: "sending"|"sent"|"partially_failed", isTest, recipientCount, createdAt, completedAt, sender: { personId, name }, filters: { batchYears, departmentCodes, places: [{ id, label }] }, email: { queued, sent, failed, skippedOptedOut } }`.
+- `linkPath`: a leading `/app` is dropped and a leading `/` added; anything with a scheme, `//`, backslash, whitespace or control characters is refused.
+- Errors: `ANNOUNCEMENT_BAD_REQUEST`, `ANNOUNCEMENT_BAD_CITY`, `ANNOUNCEMENT_NO_RECIPIENTS` (400), `ANNOUNCEMENT_NOT_FOUND` (404).
+
+Emails go to the institutional address and the personal one (if set), one email per distinct address, from an in-process worker: throttled to `ANNOUNCEMENT_EMAILS_PER_SECOND` (default 1, leaving room for sign-in emails under the provider limit), rows claimed with `FOR UPDATE SKIP LOCKED`, clear provider rejections retried up to 3 attempts, unanswered sends and claims left by a stopped process marked failed (never sent twice). Announcement emails are sent even though other automatic emails are paused.
+
+Unsubscribe (no sign-in; a signed token `<personId>.<hmac>` is the proof; tokens don't expire):
+
+- `GET /v1/announcements/unsubscribe?token=` → 303 to the web page `/unsubscribe?token=`; changes nothing (mail scanners open links).
+- `POST /v1/announcements/unsubscribe` with `{ token }` (JSON) or `?token=` (RFC 8058 one-click form post) → `{ unsubscribed: true }`.
+- `POST /v1/announcements/resubscribe` body `{ token }` → `{ unsubscribed: false }`.
+- Invalid or tampered token: 400 `ANNOUNCEMENT_UNSUBSCRIBE_INVALID`. Opted-out members still get in-app announcements.
 
 ## Organizations And Admin
 
