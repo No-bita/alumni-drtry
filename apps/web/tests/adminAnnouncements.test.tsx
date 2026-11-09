@@ -125,6 +125,13 @@ describe("AdminAnnouncementsPage", () => {
     expect(fns.previewAudience).not.toHaveBeenCalled();
   });
 
+  it("defaults to in-app only, so email is a deliberate choice", () => {
+    mountPage();
+    expect((screen.getByLabelText("In-app") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Email and In-app") as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText("Email") as HTMLInputElement).checked).toBe(false);
+  });
+
   it("shows the live count, counters and the city note", async () => {
     mountPage();
     expect(await screen.findByText("840 members match")).toBeTruthy();
@@ -153,6 +160,7 @@ describe("AdminAnnouncementsPage", () => {
     fns.sendAnnouncement.mockResolvedValue(sent);
     mountPage();
     fillMessage();
+    fireEvent.click(screen.getByLabelText("Email and In-app"));
     fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2015" } });
     expect(await screen.findByText("12 members match")).toBeTruthy();
 
@@ -174,6 +182,7 @@ describe("AdminAnnouncementsPage", () => {
     fns.sendAnnouncement.mockRejectedValueOnce(new AnnouncementError("ANNOUNCEMENT_COUNT_CHANGED", "changed"));
     mountPage();
     fillMessage();
+    fireEvent.click(screen.getByLabelText("Email and In-app"));
     fireEvent.change(screen.getByLabelText("Batch from"), { target: { value: "2015" } });
     expect(await screen.findByText("12 members match")).toBeTruthy();
     fns.previewAudience.mockResolvedValue({ count: 13, sample: [] });

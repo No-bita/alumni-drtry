@@ -220,7 +220,7 @@ export function AdminAnnouncementsPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [link, setLink] = useState("");
-  const [channels, setChannels] = useState<AnnouncementChannels>("both");
+  const [channels, setChannels] = useState<AnnouncementChannels>("in_app");
   const [batchFrom, setBatchFrom] = useState("");
   const [batchTo, setBatchTo] = useState("");
   const [departments, setDepartments] = useState<string[]>([]);
