@@ -172,7 +172,7 @@ An admin sends a title (1–120) and plain-text message (1–2000, line breaks k
 - `linkPath`: a leading `/app` is dropped and a leading `/` added; anything with a scheme, `//`, backslash, whitespace or control characters is refused.
 - Errors: `ANNOUNCEMENT_BAD_REQUEST`, `ANNOUNCEMENT_BAD_CITY`, `ANNOUNCEMENT_NO_RECIPIENTS` (400), `ANNOUNCEMENT_NOT_FOUND` (404).
 
-Emails go to the institutional address and the personal one (if set), one email per distinct address, from an in-process worker: throttled to `ANNOUNCEMENT_EMAILS_PER_SECOND` (default 2), rows claimed with `FOR UPDATE SKIP LOCKED`, clear provider rejections retried up to 3 attempts, unanswered sends and claims left by a stopped process marked failed (never sent twice). Announcement emails are sent even though other automatic emails are paused.
+Emails go to the institutional address and the personal one (if set), one email per distinct address, from an in-process worker: throttled to `ANNOUNCEMENT_EMAILS_PER_SECOND` (default 1, leaving room for sign-in emails under the provider limit), rows claimed with `FOR UPDATE SKIP LOCKED`, clear provider rejections retried up to 3 attempts, unanswered sends and claims left by a stopped process marked failed (never sent twice). Announcement emails are sent even though other automatic emails are paused.
 
 Unsubscribe (no sign-in; a signed token `<personId>.<hmac>` is the proof; tokens don't expire):
 

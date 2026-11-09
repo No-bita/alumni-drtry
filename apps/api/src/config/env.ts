@@ -146,8 +146,11 @@ const envSchema = z.object({
   CITY_CHAPTER_LINKS: optionalStringSchema,
   /** Contact-request reminder emails: interval in ms (default hourly in production, off elsewhere; 0 = off). */
   CONTACT_REQUEST_REMINDER_SCHEDULER_MS: z.coerce.number().int().min(0).max(86_400_000).optional(),
-  /** Admin announcement emails: how many to send per second (throttle). */
-  ANNOUNCEMENT_EMAILS_PER_SECOND: z.coerce.number().min(0.1).max(50).default(2),
+  /**
+   * Admin announcement emails: how many to send per second (throttle). Default 1 leaves room under the
+   * email provider's per-second API limit for sign-in emails sent at the same time.
+   */
+  ANNOUNCEMENT_EMAILS_PER_SECOND: z.coerce.number().min(0.1).max(50).default(1),
   /**
    * Admin announcement emails: how often the worker looks for queued emails, in ms (default every 30s in
    * production, off elsewhere; 0 = off). A send also starts the worker straight away.

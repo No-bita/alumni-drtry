@@ -122,13 +122,13 @@ describe("admin announcements (integration, local test database only)", () => {
   });
 
   afterAll(async () => {
-    await db.query(`DELETE FROM announcements WHERE created_by_person_id = $1`, [admin.personId]);
+    if (admin) await db.query(`DELETE FROM announcements WHERE created_by_person_id = $1`, [admin.personId]);
     await db.query(
       `UPDATE people SET batch_year = NULL, residence_canonical_place_id = NULL, announcement_emails_opt_out = FALSE
        WHERE split_part(institutional_email::text, '@', 1) LIKE $1`,
       [`${R}.%`]
     );
-    await db.query(`DELETE FROM canonical_places WHERE id = ANY($1::uuid[])`, [[placeA, placePending]]);
+    await db.query(`DELETE FROM canonical_places WHERE id = ANY($1::uuid[])`, [[placeA, placePending].filter(Boolean)]);
     await db.end();
     await app.close();
   });
