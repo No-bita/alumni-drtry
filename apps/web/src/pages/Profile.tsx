@@ -744,6 +744,9 @@ export function Profile() {
                     <Link to="/admin/locations" className="nav__profile-edit nav__profile-edit--ghost">
                       Location cleanup
                     </Link>
+                    <Link to="/admin/announcements" className="nav__profile-edit nav__profile-edit--ghost">
+                      Announcements
+                    </Link>
                   </div>
                 </div>
                   <div className="profile-page__analytics-grid">

@@ -65,6 +65,10 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
       case "city_help_offer_received":
         navigate("/intent/location");
         break;
+      case "announcement":
+        // Only offered when the announcement has a link (a path inside the app).
+        if (item.linkPath) navigate(item.linkPath);
+        break;
       default: {
         const _exhaustive: never = item;
         return _exhaustive;
@@ -83,7 +87,8 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         <li
           key={item.id}
           className={
-            (item.kind === "connection_thread_reply"
+            (item.kind === "connection_thread_reply" ||
+            (item.kind === "announcement" && !item.linkPath && activationTarget !== "inbox")
               ? "notifications-page__item"
               : "notifications-page__item notifications-page__item--activatable") +
             (item.unseen ? " notifications-page__item--unseen" : "")
@@ -283,6 +288,36 @@ function NotificationListItem({
         </>
       );
     }
+    case "announcement": {
+      const activatable = inSheet || item.linkPath !== null;
+      return (
+        <>
+          {activatable ? (
+            <button
+              type="button"
+              className="notifications-page__item-activate"
+              onClick={onActivate}
+              aria-label={inSheet ? `Open inbox: announcement ${item.title}` : `Open announcement link: ${item.title}`}
+            />
+          ) : null}
+          <div className="notifications-page__item-main">
+            <p className="notifications-page__item-meta">Announcement</p>
+            <p className="notifications-page__item-title notifications-page__item-title--announcement">{item.title}</p>
+            <p className="notifications-page__item-detail notifications-page__item-detail--announcement">{item.body}</p>
+            {item.linkPath && !inSheet ? (
+              <p className="notifications-page__item-actions">
+                <Link to={item.linkPath} className="notifications-page__item-link">
+                  Open
+                </Link>
+              </p>
+            ) : null}
+          </div>
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
     default: {
       const _exhaustive: never = item;
       return _exhaustive;
@@ -327,6 +362,16 @@ function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
             <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </span>
+      );
+    case "announcement":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--announcement" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M18.5 5.5a9 9 0 0 1 0 13" />
           </svg>
         </span>
       );

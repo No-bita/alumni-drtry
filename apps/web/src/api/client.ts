@@ -375,6 +375,19 @@ export type NotificationItem =
       counterpartyPersonId: string;
       counterpartyFullName: string | null;
       lastMessagePreview: string;
+    }
+  | {
+      /** Admin announcement sent in-app: title, plain-text message, optional page inside the app. */
+      kind: "announcement";
+      id: string;
+      occurredAt: string;
+      /** True when newer than the person's seen watermark (drives emphasis + badge count). */
+      unseen: boolean;
+      announcementId: string;
+      title: string;
+      body: string;
+      /** Path inside the web app, e.g. "/intent/career" (router-relative), or null. */
+      linkPath: string | null;
     };
 
 export type NotificationsResponse = { items: NotificationItem[] };

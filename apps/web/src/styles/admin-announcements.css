@@ -1,0 +1,267 @@
+/* Announcements (/admin/announcements). Builds on admin-analytics.css + admin-companies.css. 390px first. */
+.an-page {
+  max-width: 760px;
+}
+
+.an-section {
+  gap: 14px;
+}
+
+.an-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.an-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.an-fieldset > legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.an-textarea {
+  min-height: 140px;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.an-counter {
+  margin: 0;
+  justify-self: end;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.an-radios,
+.an-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.an-radio,
+.an-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.88rem;
+  color: var(--ink);
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.an-radio input,
+.an-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.an-radio:focus-within,
+.an-chip:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.an-radio.is-on,
+.an-chip.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+.an-chip__remove {
+  margin: 0 -6px 0 2px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+}
+
+.an-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.an-option {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.an-options li:first-child .an-option {
+  border-top: 0;
+}
+
+.an-option:hover,
+.an-option:focus-visible {
+  background: var(--palette-bg-cream);
+}
+
+.an-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.an-range__label {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.an-year {
+  width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+.an-preview {
+  gap: 4px;
+}
+
+.an-preview__count {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.an-confirm {
+  border-color: var(--ink);
+}
+
+.an-confirm__question {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.an-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--palette-bg-cream);
+  border: 1px solid var(--rule);
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.an-status {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.an-status--sending {
+  color: var(--ink-muted);
+}
+
+.an-status--partially_failed {
+  color: var(--brick);
+}
+
+.an-detail__body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.an-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.an-stats > div {
+  display: grid;
+  gap: 2px;
+}
+
+.an-stats dt {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.an-stats dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Public unsubscribe page (/unsubscribe). */
+.an-unsub {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--palette-bg-cream, #faf6f0);
+  box-sizing: border-box;
+}
+
+.an-unsub__card {
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.an-unsub__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.an-unsub__text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
