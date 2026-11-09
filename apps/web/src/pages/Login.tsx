@@ -116,33 +116,54 @@ export function Login() {
   }, []);
 
   // Google and email sign-in appear together, or email appears alone: both wait on
-  // one availability check. enabled:true shows both options. Anything else - Google
-  // not configured, the check failing, or the check taking more than 10 seconds -
-  // shows email only; Google availability is then unconfirmed, not necessarily
-  // broken. Whichever answer comes first settles the card, so a response landing
-  // after the timeout never swaps the options under the user.
-  const [googleConfig, setGoogleConfig] = useState<
-    { status: "checking" } | { status: "ready"; enabled: boolean }
-  >({ status: "checking" });
-  useEffect(() => {
-    let alive = true;
+  // one availability check. enabled:true shows both options. A successful
+  // enabled:false answer means Google is not configured, so only email shows.
+  // A failed or slow (over 10 seconds) check keeps email and adds a
+  // "temporarily unavailable" note with a retry, because Google availability is
+  // then unconfirmed, not necessarily off. Whichever answer comes first settles
+  // the card, so a response landing after the timeout never swaps the options
+  // under the user.
+  type GoogleConfigState =
+    | { status: "checking" }
+    | { status: "rechecking" }
+    | { status: "ready"; enabled: boolean }
+    | { status: "error" };
+  const [googleConfig, setGoogleConfig] = useState<GoogleConfigState>({ status: "checking" });
+  const googleConfigAttemptRef = useRef(0);
+  const googleConfigTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runGoogleConfigCheck = useCallback((isRetry: boolean) => {
+    const attempt = ++googleConfigAttemptRef.current;
+    setGoogleConfig({ status: isRetry ? "rechecking" : "checking" });
     let settled = false;
-    const finish = (enabled: boolean) => {
-      if (!alive || settled) return;
+    const finish = (next: GoogleConfigState) => {
+      if (settled || googleConfigAttemptRef.current !== attempt) return;
       settled = true;
-      clearTimeout(timer);
-      setGoogleConfig({ status: "ready", enabled });
+      if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+      setGoogleConfig(next);
     };
-    const timer = setTimeout(() => finish(false), 10_000);
+    if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+    googleConfigTimerRef.current = setTimeout(() => finish({ status: "error" }), 10_000);
     void api
       .get<{ enabled: boolean }>("/v1/auth/google/config")
-      .then((res) => finish(Boolean(res.data?.enabled)))
-      .catch(() => finish(false));
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
+      .then((res) => {
+        // The api client resolves { error } for HTTP and network failures; only a
+        // clean 200 with enabled:false means "not configured", everything else is
+        // an unconfirmed check and gets the retry state.
+        if (res.error || res.aborted) {
+          finish({ status: "error" });
+          return;
+        }
+        finish({ status: "ready", enabled: Boolean(res.data?.enabled) });
+      })
+      .catch(() => finish({ status: "error" }));
   }, []);
+  useEffect(() => {
+    runGoogleConfigCheck(false);
+    return () => {
+      googleConfigAttemptRef.current += 1; // invalidate any in-flight attempt after unmount
+      if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+    };
+  }, [runGoogleConfigCheck]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -755,7 +776,22 @@ export function Login() {
               Continue with your insti email
             </h2>
           </div>
-          {googleConfig.enabled ? (
+          {googleConfig.status === "rechecking" ? (
+            <div className="auth-merged__google">
+              <div className="login-sending" role="status" aria-live="polite" aria-busy="true">
+                <div className="login-sending__spinner" aria-hidden />
+                <p className="login-sending__line">Loading sign-in options…</p>
+              </div>
+            </div>
+          ) : googleConfig.status === "error" ? (
+            <div className="auth-merged__google">
+              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
+              <button type="button" className="btn btn--secondary auth-merged__google-btn" onClick={() => runGoogleConfigCheck(true)}>
+                Retry
+              </button>
+              <p className="auth-merged__google-or">or use your email</p>
+            </div>
+          ) : googleConfig.status === "ready" && googleConfig.enabled ? (
             <div className="auth-merged__google">
               <a className="btn btn--secondary auth-merged__google-btn" href={`${API_BASE_URL}/v1/auth/google`}>
                 <svg aria-hidden width="18" height="18" viewBox="0 0 48 48">
