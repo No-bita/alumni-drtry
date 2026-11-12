@@ -15,6 +15,13 @@ export type CareerIntentFlowChromeProps = {
   stepsAriaLabel?: string;
   /** Accessible label for the dialog close control. */
   closeAriaLabel?: string;
+  /**
+   * `"composer"`: Wall post composer layout (full-screen on phones, compact centred dialog on desktop,
+   * visible title, compact step indicator). Default keeps the hiring flow's frame unchanged.
+   */
+  variant?: "default" | "composer";
+  /** Visible header title. When omitted the header keeps the visually hidden `ariaLabel` heading. */
+  title?: string;
   children: ReactNode;
 };
 
@@ -30,12 +37,19 @@ export function CareerIntentFlowChrome({
   previewStepLabel = "Preview",
   stepsAriaLabel = "Flow steps",
   closeAriaLabel = "Close",
+  variant = "default",
+  title,
   children,
 }: CareerIntentFlowChromeProps) {
+  const composer = variant === "composer";
   return (
-    <div className="career-hiring-flow__overlay" role="presentation" onClick={onRequestClose}>
+    <div
+      className={composer ? "career-hiring-flow__overlay career-hiring-flow__overlay--composer" : "career-hiring-flow__overlay"}
+      role="presentation"
+      onClick={onRequestClose}
+    >
       <section
-        className="career-hiring-flow__dialog"
+        className={composer ? "career-hiring-flow__dialog career-hiring-flow__dialog--composer" : "career-hiring-flow__dialog"}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
@@ -44,7 +58,11 @@ export function CareerIntentFlowChrome({
         <header className="career-hiring-flow__head">
           <div className="career-hiring-flow__head-title">
             <div>
-              <h2 className="visually-hidden">{ariaLabel}</h2>
+              {title ? (
+                <h2 className="career-hiring-flow__visible-title">{title}</h2>
+              ) : (
+                <h2 className="visually-hidden">{ariaLabel}</h2>
+              )}
             </div>
           </div>
           <button type="button" className="career-hiring-flow__close" onClick={onRequestClose} aria-label={closeAriaLabel}>

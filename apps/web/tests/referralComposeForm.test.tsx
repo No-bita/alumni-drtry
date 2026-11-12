@@ -35,12 +35,7 @@ function mount() {
   return ref;
 }
 
-function chooseKind(value = "ask") {
-  fireEvent.change(screen.getByLabelText(/What is this/), { target: { value } });
-}
-
 function fillApprovedForm() {
-  chooseKind();
   fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
   fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
   fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
@@ -61,78 +56,74 @@ describe("approved referral compose form", () => {
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
 
-  it("requires the author to state what the post is before anything else", () => {
+  it("no longer asks what the post is (Ask / Offer / Invitation was removed)", () => {
     mount();
+    expect(screen.queryByLabelText(/What is this/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    expect(screen.getByRole("alert").textContent).toContain("Choose what this post is");
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(postMock).not.toHaveBeenCalled();
   });
 
   it("requires the job link and validates it as a URL", () => {
     mount();
-    chooseKind();
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("job link");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "not a url !! " } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
   });
 
   it("rejects links with an explicit non-http(s) scheme instead of prefixing them", () => {
     mount();
-    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "mailto:user@example.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("valid http(s) URL");
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com/jobs/123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("rejects scheme-like input with a numeric tail that is not a host", () => {
     mount();
-    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "ftp:21/download" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
   it("still accepts host:port input while rejecting scheme-prefixed non-web links", () => {
     mount();
-    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "example.com:8080/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
     fireEvent.change(screen.getByLabelText(/Why are you a fit/), { target: { value: "I match the stack." } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("requires company and the fit answer", () => {
     mount();
-    chooseKind();
     fireEvent.change(screen.getByLabelText(/Job link/), { target: { value: "https://example.com/jobs/123" } });
     fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "Backend Engineer" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("company");
     fireEvent.change(screen.getByLabelText(/Company/), { target: { value: "Example Co" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.getByRole("alert").textContent).toContain("fit");
   });
 
@@ -151,7 +142,7 @@ describe("approved referral compose form", () => {
     });
     mount();
     fillApprovedForm();
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview post" }));
     expect(screen.queryByRole("alert")).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Publish" }));
@@ -159,11 +150,11 @@ describe("approved referral compose form", () => {
     expect(postMock).toHaveBeenCalledOnce();
     const [path, payload] = postMock.mock.calls[0] as unknown as [
       string,
-      { category: string; kind: string; content: string },
+      { category: string; kind?: string; content: string },
     ];
     expect(path).toBe("/v1/intentcasts");
     expect(payload.category).toBe("mentorship");
-    expect(payload.kind).toBe("ask");
+    expect("kind" in payload).toBe(false);
     expect(payload.content).toContain("Looking for referral for Backend Engineer at Example Co");
     expect(payload.content).toContain("Role link: https://example.com/jobs/123");
     expect(payload.content).toContain("Resume link: https://example.com/cv.pdf");
