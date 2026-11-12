@@ -228,8 +228,8 @@ describe("Cities page: city home (local)", () => {
   it("empty city: the requests section stays useful and offers no View all", async () => {
     world(lists, payload({ posts: [], postsHasMore: false }));
     mount();
-    expect(await screen.findByText("Nothing to see here yet.")).toBeTruthy();
-    expect(screen.getByText(/Be the first to ask/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Ask the Bengaluru community" })).toBeTruthy();
+    expect(screen.queryByText(/Be the first to ask/)).toBeNull();
     expect(screen.queryByRole("button", { name: "View all posts →" })).toBeNull();
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
   });
@@ -498,7 +498,7 @@ describe("Cities page: other cities (check 13)", () => {
     mount();
     expect(await screen.findByRole("button", { name: "Change city: Pune" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "What do you need in Pune?" })).toBeTruthy();
-    expect(screen.getByText("Nothing to see here yet.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask the Pune community" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Alumni in Pune" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();
