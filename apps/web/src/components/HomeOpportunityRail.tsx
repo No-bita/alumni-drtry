@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import type { IntentcastFeedItem, ReceivedBulletinRepliesFeedResponse, ReceivedBulletinReplyFeedItem } from "../api/client";
@@ -13,6 +13,10 @@ import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/i
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
+import { WallEmptyPrompt } from "./WallEmptyPrompt";
+
+/** How long the rings around "Post to The Wall" play once the empty-Wall card settles. */
+const POST_RIPPLE_MS = 1300;
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
 import type { HomeOpportunityCategoryLegacy } from "../lib/homeOpportunityCategory";
@@ -172,6 +176,15 @@ export function HomeOpportunityRail({
     [queryClient]
   );
 
+  // Two soft rings around "Post to The Wall" once the empty-Wall card finishes typing.
+  const [rippling, setRippling] = useState(false);
+  useEffect(() => {
+    if (!rippling) return undefined;
+    const t = setTimeout(() => setRippling(false), POST_RIPPLE_MS);
+    return () => clearTimeout(t);
+  }, [rippling]);
+  const startRipple = useCallback(() => setRippling(true), []);
+
   const feedIsEmpty = !opportunitiesFeedLoading && !opportunitiesFeedError && isFeedEmpty(categoryCounts);
   const chipIds = visibleCategoryIds(CATEGORIES.map((c) => c.id), categoryCounts);
   const chipCategories = CATEGORIES.filter((c) => chipIds.includes(c.id));
@@ -186,7 +199,11 @@ export function HomeOpportunityRail({
           <p className="home-ideal__opportunities-sub">Ask for help, or share an opportunity, with every alum here.</p>
         </div>
         {onPost ? (
-          <button type="button" className="btn btn--secondary home-ideal__opportunities-post" onClick={onPost}>
+          <button
+            type="button"
+            className={`btn btn--secondary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
+            onClick={onPost}
+          >
             Post to The Wall
           </button>
         ) : null}
@@ -260,8 +277,10 @@ export function HomeOpportunityRail({
           <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
       ) : activityRows.length === 0 ? (
-        // Nothing posted yet: the header line and "Post to The Wall" carry it (no "it's quiet" message).
-        feedIsEmpty ? null : (
+        // Nothing posted yet: a blank card types example posts, then points at "Post to The Wall".
+        feedIsEmpty ? (
+          onPost ? <WallEmptyPrompt onPost={onPost} onFinished={startRipple} /> : null
+        ) : (
           <div className="home-ideal__empty">
             <p>No posts in this category yet.</p>
           </div>

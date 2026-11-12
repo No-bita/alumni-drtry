@@ -285,3 +285,144 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* Empty Wall: a blank example card that types sample posts, then points at "Post to The Wall". */
+.wall-empty {
+  padding: 4px 0 2px;
+}
+
+.wall-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border: 1.5px dashed var(--rule-strong, rgba(58, 42, 30, 0.28));
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.wall-empty-card:hover {
+  border-color: var(--brick);
+}
+
+.wall-empty-card:focus-visible {
+  outline: 3px solid var(--brick);
+  outline-offset: 3px;
+}
+
+.wall-empty-card__label {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--palette-bg-cream, #f3ede4);
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Room for three lines at 390px (four at very narrow widths), so the card never jumps as text changes. */
+.wall-empty-card__text,
+.wall-empty-card__final {
+  display: block;
+  min-height: 4.5em;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.wall-empty-card__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--ink);
+  animation: wall-empty-caret 1s steps(1) infinite;
+}
+
+@keyframes wall-empty-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.wall-empty-card.is-final {
+  border-color: var(--brick);
+}
+
+.wall-empty-card__final {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--brick);
+  font-weight: 600;
+}
+
+.wall-empty-card__arrow {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.05em;
+}
+
+@media (max-width: 560px) {
+  /* "Post to The Wall" sits above the card on phones: point straight up. */
+  .wall-empty-card__arrow {
+    transform: rotate(-45deg);
+  }
+}
+
+@media (max-width: 360px) {
+  .wall-empty-card__text,
+  .wall-empty-card__final {
+    min-height: 6em;
+  }
+}
+
+/* Two soft rings around the button, once. Box-shadow only: no layout shift, no overflow, no clicks blocked. */
+.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn {
+  position: relative;
+}
+
+.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::before,
+.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: wall-post-ripple 900ms ease-out forwards;
+}
+
+.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
+  animation-delay: 300ms;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+@keyframes wall-post-ripple {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brick) 38%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--brick) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-empty-card__caret {
+    animation: none;
+  }
+
+  .home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::before,
+  .home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
+    animation: none;
+  }
+}

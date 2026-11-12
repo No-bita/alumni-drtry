@@ -1,4 +1,4 @@
-import { isInstitutionalEmail } from "../lib/institutionalEmail";
+import { INSTITUTIONAL_EMAIL_QUESTION, isInstitutionalEmail } from "../lib/institutionalEmail";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
@@ -116,33 +116,54 @@ export function Login() {
   }, []);
 
   // Google and email sign-in appear together, or email appears alone: both wait on
-  // one availability check. enabled:true shows both options. Anything else - Google
-  // not configured, the check failing, or the check taking more than 10 seconds -
-  // shows email only; Google availability is then unconfirmed, not necessarily
-  // broken. Whichever answer comes first settles the card, so a response landing
-  // after the timeout never swaps the options under the user.
-  const [googleConfig, setGoogleConfig] = useState<
-    { status: "checking" } | { status: "ready"; enabled: boolean }
-  >({ status: "checking" });
-  useEffect(() => {
-    let alive = true;
+  // one availability check. enabled:true shows both options. A successful
+  // enabled:false answer means Google is not configured, so only email shows.
+  // A failed or slow (over 10 seconds) check keeps email and adds a
+  // "temporarily unavailable" note with a retry, because Google availability is
+  // then unconfirmed, not necessarily off. Whichever answer comes first settles
+  // the card, so a response landing after the timeout never swaps the options
+  // under the user.
+  type GoogleConfigState =
+    | { status: "checking" }
+    | { status: "rechecking" }
+    | { status: "ready"; enabled: boolean }
+    | { status: "error" };
+  const [googleConfig, setGoogleConfig] = useState<GoogleConfigState>({ status: "checking" });
+  const googleConfigAttemptRef = useRef(0);
+  const googleConfigTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runGoogleConfigCheck = useCallback((isRetry: boolean) => {
+    const attempt = ++googleConfigAttemptRef.current;
+    setGoogleConfig({ status: isRetry ? "rechecking" : "checking" });
     let settled = false;
-    const finish = (enabled: boolean) => {
-      if (!alive || settled) return;
+    const finish = (next: GoogleConfigState) => {
+      if (settled || googleConfigAttemptRef.current !== attempt) return;
       settled = true;
-      clearTimeout(timer);
-      setGoogleConfig({ status: "ready", enabled });
+      if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+      setGoogleConfig(next);
     };
-    const timer = setTimeout(() => finish(false), 10_000);
+    if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+    googleConfigTimerRef.current = setTimeout(() => finish({ status: "error" }), 10_000);
     void api
       .get<{ enabled: boolean }>("/v1/auth/google/config")
-      .then((res) => finish(Boolean(res.data?.enabled)))
-      .catch(() => finish(false));
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
+      .then((res) => {
+        // The api client resolves { error } for HTTP and network failures; only a
+        // clean 200 with enabled:false means "not configured", everything else is
+        // an unconfirmed check and gets the retry state.
+        if (res.error || res.aborted) {
+          finish({ status: "error" });
+          return;
+        }
+        finish({ status: "ready", enabled: Boolean(res.data?.enabled) });
+      })
+      .catch(() => finish({ status: "error" }));
   }, []);
+  useEffect(() => {
+    runGoogleConfigCheck(false);
+    return () => {
+      googleConfigAttemptRef.current += 1; // invalidate any in-flight attempt after unmount
+      if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
+    };
+  }, [runGoogleConfigCheck]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +181,7 @@ export function Login() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
     if (!isInstitutionalEmail(normalizedEmail)) {
-      setError("Use your institute email.");
+      setError(INSTITUTIONAL_EMAIL_QUESTION);
       return;
     }
 
@@ -722,6 +743,18 @@ export function Login() {
     );
   }
 
+  const googleButtonContents = (
+    <>
+      <svg aria-hidden width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+      </svg>
+      Continue with Google
+    </>
+  );
+
   return (
     <div className="auth-login-page">
       <Nav hideSignInLink hideSignOut />
@@ -755,16 +788,26 @@ export function Login() {
               Continue with your insti email
             </h2>
           </div>
-          {googleConfig.enabled ? (
+          {googleConfig.status === "rechecking" ? (
+            <div className="auth-merged__google">
+              <button type="button" className="btn btn--secondary auth-merged__google-btn" disabled>
+                Checking...
+              </button>
+              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
+              <p className="auth-merged__google-or">or use your email</p>
+            </div>
+          ) : googleConfig.status === "error" ? (
+            <div className="auth-merged__google">
+              <button type="button" className="btn btn--secondary auth-merged__google-btn" onClick={() => runGoogleConfigCheck(true)}>
+                Retry Google sign-in
+              </button>
+              <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
+              <p className="auth-merged__google-or">or use your email</p>
+            </div>
+          ) : googleConfig.status === "ready" && googleConfig.enabled ? (
             <div className="auth-merged__google">
               <a className="btn btn--secondary auth-merged__google-btn" href={`${API_BASE_URL}/v1/auth/google`}>
-                <svg aria-hidden width="18" height="18" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                </svg>
-                Continue with Google
+                {googleButtonContents}
               </a>
               <p className="auth-merged__google-or">or use your email</p>
             </div>
@@ -783,8 +826,8 @@ export function Login() {
               autoComplete="email"
               style={{ marginBottom: 16 }}
             />
-            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your institute email.</p> : null}
-            {error && !(emailDomainInvalid && error === "Use your institute email.") && <p className="auth-merged__error">{error}</p>}
+            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">{INSTITUTIONAL_EMAIL_QUESTION}</p> : null}
+            {error && !(emailDomainInvalid && error === INSTITUTIONAL_EMAIL_QUESTION) && <p className="auth-merged__error">{error}</p>}
             <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null || emailDomainInvalid}>
               Continue
             </Button>

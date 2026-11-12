@@ -90,17 +90,29 @@ describe("Login page", () => {
     expect(await screen.findByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
     expect(screen.queryByText("or use your email")).toBeNull();
+    expect(screen.queryByText("Google sign-in is temporarily unavailable.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
-  it("shows only the email form when the availability check itself fails", async () => {
+  it("shows a Retry Google sign-in button with the unavailable note when the availability check itself fails", async () => {
+    apiGet.mockResolvedValue({ error: { code: "UNKNOWN" } }); // HTTP error shape from the api client
+    mount();
+    expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+  });
+
+  it("shows a Retry Google sign-in button with the unavailable note when the check request itself throws", async () => {
     apiGet.mockRejectedValue(new Error("network"));
     mount();
-    expect(await screen.findByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
-    expect(screen.queryByText("or use your email")).toBeNull();
   });
 
-  it("shows only the email form when the availability check takes more than 10 seconds", async () => {
+  it("shows a Retry Google sign-in button with the unavailable note when the availability check takes more than 10 seconds", async () => {
     apiGet.mockReturnValue(new Promise(() => {})); // check stays in flight
     vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
     mount();
@@ -110,11 +122,13 @@ describe("Login page", () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
     expect(screen.queryByText("Loading sign-in options…")).toBeNull();
   });
 
-  it("keeps the settled email-only form when a slow check answers after the timeout", async () => {
+  it("keeps the settled unavailable state when a slow check answers after the timeout", async () => {
     let resolveConfig: (v: { data: { enabled: boolean } }) => void = () => {};
     apiGet.mockReturnValue(new Promise((r) => { resolveConfig = r; }));
     vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
@@ -122,13 +136,45 @@ describe("Login page", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     await act(async () => {
       resolveConfig({ data: { enabled: true } });
       await Promise.resolve();
     });
+    expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
+  });
+
+  it("retry shows Checking... then restores Continue with Google when the check succeeds", async () => {
+    apiGet.mockRejectedValueOnce(new Error("network"));
+    apiGet.mockResolvedValueOnce({ data: { enabled: true } });
+    mount();
+    const retry = await screen.findByRole("button", { name: "Retry Google sign-in" });
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(apiGet).toHaveBeenCalledTimes(1);
+    fireEvent.click(retry);
+    const checking = screen.getByRole("button", { name: "Checking..." });
+    expect(checking.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    const google = await screen.findByRole("link", { name: "Continue with Google" });
+    expect(google.getAttribute("href")).toMatch(/\/v1\/auth\/google$/);
+    expect(apiGet).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("Google sign-in is temporarily unavailable.")).toBeNull();
+  });
+
+  it("a failed retry keeps the Retry Google sign-in button, the unavailable note and the email form", async () => {
+    apiGet.mockResolvedValue({ error: { code: "UNKNOWN" } });
+    mount();
+    const retry = await screen.findByRole("button", { name: "Retry Google sign-in" });
+    fireEvent.click(retry);
+    expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(apiGet).toHaveBeenCalledTimes(2);
   });
 
   it("from a WhatsApp bot link: the sign-in email's link carries the WhatsApp step", async () => {
@@ -147,7 +193,7 @@ describe("Login page", () => {
   it("shows the server error and stays on the form", async () => {
     apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your institute email." } });
     mount();
-    await submit("x@gmail.com");
+    await submit("x@unlisted-institute.edu");
     expect(await screen.findByText("Use your institute email.")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "One-time code" })).toBeNull();
   });
@@ -378,5 +424,22 @@ describe("Login page: the screen matches the inbox", () => {
     await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We couldn't send the sign-in email. Try again.")).toBeTruthy();
     expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("Personal-provider frontend guard", () => {
+  it("asks the exact question and blocks Continue without an auth request", async () => {
+    mount();
+    await submit("student@gmail.com");
+    expect(screen.getByText("is this really your insti email id? you sure? pinky promise?")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+  it("lets a valid unknown institution reach the existing server check", async () => {
+    apiPost.mockResolvedValue({ data: { challengeId: "c2" } });
+    mount();
+    await submit("student@unlisted-institute.edu");
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/auth/start", { institutionalEmail: "student@unlisted-institute.edu" }, expect.objectContaining({ signal: expect.any(AbortSignal) })));
   });
 });
