@@ -86,3 +86,21 @@ test("hero renders nothing for an empty pair list, and loops over a custom list 
   const two = renderToStaticMarkup(<Hero pairs={heroPairs.slice(0, 2)} />);
   assert.equal((two.match(/aria-pressed/g) ?? []).length, 2);
 });
+
+
+test("all matched alumni preserve valid description-list groups without direct dividers", () => {
+  for (const pair of heroPairs) {
+    const answer = renderToStaticMarkup(<MatchedAlum pair={pair} />);
+    const lists = [...answer.matchAll(/<dl\b[^>]*>([\s\S]*?)<\/dl>/g)];
+    assert.equal(lists.length, 2, `${pair.useCase}: two description lists`);
+    for (const [, body] of lists) {
+      // CardField wraps each ordered dt/dd pair in a div. After removing
+      // those complete groups no other direct list child may remain.
+      const groups = [...body!.matchAll(/<div\b[^>]*>\s*<dt\b[^>]*>[\s\S]*?<\/dt>\s*<dd\b[^>]*>[\s\S]*?<\/dd>\s*<\/div>/g)];
+      assert.equal(groups.length, 2, `${pair.useCase}: two ordered term/value groups`);
+      const remaining = body!.replace(/<div\b[^>]*>\s*<dt\b[^>]*>[\s\S]*?<\/dt>\s*<dd\b[^>]*>[\s\S]*?<\/dd>\s*<\/div>/g, "").trim();
+      assert.equal(remaining, "", `${pair.useCase}: no invalid direct description-list children`);
+    }
+    assert.ok(answer.includes("before:border-dashed"), "separator remains decorative CSS");
+  }
+});
