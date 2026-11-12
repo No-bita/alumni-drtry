@@ -463,32 +463,6 @@ export class ConnectionThreadRepo {
     ]);
   }
 
-  async purgeExpiredMessages(retentionDays: number): Promise<void> {
-    if (!Number.isFinite(retentionDays) || retentionDays <= 0) return;
-    const result = await this.db.query<{ thread_id: string }>(
-      `
-      DELETE FROM connection_messages
-      WHERE created_at < now() - ($1::text || ' days')::interval
-      RETURNING thread_id
-      `,
-      [String(retentionDays)]
-    );
-    const touchedThreadIds = Array.from(new Set(result.rows.map((r) => r.thread_id)));
-    if (touchedThreadIds.length === 0) return;
-    await this.db.query(
-      `
-      UPDATE connection_threads t
-      SET status = 'closed', updated_at = now()
-      WHERE t.id = ANY($1::uuid[])
-        AND NOT EXISTS (
-          SELECT 1 FROM connection_messages m
-          WHERE m.thread_id = t.id
-        )
-      `,
-      [touchedThreadIds]
-    );
-  }
-
   async listThreadsForPerson(personId: string, limit: number): Promise<ConnectionThreadListView[]> {
     const result = await this.db.query<{
       id: string;
