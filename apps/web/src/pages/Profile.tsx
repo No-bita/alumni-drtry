@@ -547,7 +547,7 @@ export function Profile() {
     return (
       <>
         <Nav variant="home" avatarName={navAvatarName} />
-        <div className="home-dashboard profile-page">
+        <div className={`home-dashboard profile-page${isEditing ? " profile-page--editing" : ""}`}>
           <div className="profile-page__loading">
             <PageStateBlock
               title="Profile not found"
@@ -596,7 +596,7 @@ export function Profile() {
   return (
     <>
       <Nav variant="home" avatarName={navAvatarName} />
-      <div className="home-dashboard profile-page">
+      <div className={`home-dashboard profile-page${isEditing ? " profile-page--editing" : ""}`}>
         {/* Messaging paused: Message button on other people's profiles hidden while messaging is commented out.
             The removed ProfileHero prop was:
           onSendMessage={

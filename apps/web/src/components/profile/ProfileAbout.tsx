@@ -43,13 +43,13 @@ export function ProfileAbout({
 
   return (
     <article className="home-dashboard__card profile-page__about-card">
-      <h2 className="profile-page__section-title">About</h2>
+      <h2 className="profile-page__section-title">{isEditing ? "Contact" : "About"}</h2>
       {loading ? (
         <div className="profile-page__skeleton-block">
           <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
           <span className="profile-page__skeleton-line profile-page__skeleton-line--body" />
         </div>
-      ) : showBio ? (
+      ) : showBio && !isEditing ? (
         <p className="body-text profile-page__about-bio">{bioRaw}</p>
       ) : isOwnProfile && isEditing ? (
         <p className="body-text profile-page__muted-text profile-page__flush-text">
