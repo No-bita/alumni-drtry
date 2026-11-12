@@ -1,4 +1,4 @@
-import { isInstitutionalEmail } from "../lib/institutionalEmail";
+import { INSTITUTIONAL_EMAIL_QUESTION, isInstitutionalEmail } from "../lib/institutionalEmail";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
@@ -181,7 +181,7 @@ export function Login() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
     if (!isInstitutionalEmail(normalizedEmail)) {
-      setError("Use your institute email.");
+      setError(INSTITUTIONAL_EMAIL_QUESTION);
       return;
     }
 
@@ -826,8 +826,8 @@ export function Login() {
               autoComplete="email"
               style={{ marginBottom: 16 }}
             />
-            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">Use your institute email.</p> : null}
-            {error && !(emailDomainInvalid && error === "Use your institute email.") && <p className="auth-merged__error">{error}</p>}
+            {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">{INSTITUTIONAL_EMAIL_QUESTION}</p> : null}
+            {error && !(emailDomainInvalid && error === INSTITUTIONAL_EMAIL_QUESTION) && <p className="auth-merged__error">{error}</p>}
             <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null || emailDomainInvalid}>
               Continue
             </Button>
