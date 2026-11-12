@@ -468,6 +468,7 @@ async function init() {
   }
 
   if (STATIC) {
+    window.__landingMapReadySent = true;
     drawCompletedState();
     notifyMapReady();
     return;
