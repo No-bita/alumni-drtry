@@ -113,8 +113,9 @@ describe("Small lines", () => {
     expect(link.getAttribute("href")).toContain("https://wa.me/919137839907");
     expect(screen.getByText(/Something missing or confusing\?/)).toBeTruthy();
   });
-  it("top search says what it finds", () => {
+  it("top search keeps its accessible label and no placeholder", () => {
     wrap(<HomeToolbarSearch searchText="" onSearchTextChange={() => {}} onSubmitSearch={() => {}} />);
-    expect(screen.getByPlaceholderText("Search people, companies or cities")).toBeTruthy();
+    const input = screen.getByLabelText(/Search alumni and companies/);
+    expect(input.getAttribute("placeholder")).toBeNull();
   });
 });

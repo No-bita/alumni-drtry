@@ -3,7 +3,8 @@ const ALLOWED_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
   "itbhu.ac.in",
   "iitbhu.ac.in",
   "iitgn.ac.in",
-  "iitg.ac.in"
+  "iitg.ac.in",
+  "iiml.org.in"
 ]);
 
 /** Client-side format feedback only. Does not establish verification or server eligibility. */
