@@ -24,3 +24,31 @@
 .person-profile__signout-confirm div{display:flex;flex-wrap:wrap;gap:10px}.person-profile__signout-confirm button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #d9c6ae;background:transparent;color:#4a3a2c;font-size:13px}
 .person-profile__signout-confirm .person-profile__signout-yes{background:#825135;border-color:#825135;color:#fff}.person-profile__signout-confirm button:disabled{opacity:.6}
 .person-profile__signout-error{color:#a2412a}
+
+/* Profile-only palette. Shared shell, editor and other pages keep their colours. */
+.profile-page:has(.person-profile){background:#f8f4e9}
+.person-profile{color:#343f32}
+.person-profile__identity{background:#343f32;color:#f8f4e9}
+.person-profile__identity h1{color:#f8f4e9}
+.person-profile__cohort{color:#dedfcc}
+.person-profile__metadata{border-color:#747e69;color:#ecebdc}
+.person-profile__identity .avatar{background:#52604a;color:#f8f4e9;border-color:#929a82}
+.person-profile__toolbar button,.person-profile__toolbar a{border-color:#bec4ad;color:#9d442c}
+.person-profile__account-actions button,.person-profile__account-actions a,.person-profile__edit,.person-profile__signout{color:#9d442c}
+.person-profile__section-head h2,.person-profile__preview-label{color:#58634e}
+.person-profile__about>p{color:#4d5846}
+.person-profile__open-to{background:#e7ebda;border-color:#ced6bf}
+.person-profile__open-to li>span{background:#f8f4e9;color:#343f32}
+.person-profile__path .person-profile__section-head h2,.person-profile__contact h2{color:#343f32}
+.person-profile__path li{border-left-color:#ced6bf}
+.person-profile__path li:last-child{border-left-color:transparent}
+.person-profile__path li:before{background:#58634e}
+.person-profile__path p,.person-profile__path small,.person-profile__muted,.person-profile__contact dd,.person-profile__privacy{color:#58634e}
+.person-profile__link-row{border-color:#ced6bf}
+.person-profile__link-row a,.person-profile__link-row button,.person-profile__share{color:#9d442c}
+.person-profile__contact{background:#eceede}
+.person-profile__contact dl>div{border-color:#ced6bf}
+.person-profile__signout-confirm{border-color:#ced6bf;background:#f8f4e9;color:#343f32}
+.person-profile__signout-confirm button{border-color:#bec4ad;color:#9d442c}
+.person-profile__signout-confirm .person-profile__signout-yes{background:#9d442c;border-color:#9d442c;color:#f8f4e9}
+.person-profile button:focus-visible,.person-profile a:focus-visible{outline-color:#9d442c}
