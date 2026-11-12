@@ -175,8 +175,11 @@ export function MatchedAlum({ pair }: { pair: HeroPair }) {
       <CardDivider />
       <dl>
         <CardField label={f.currently}>{alum.currently}</CardField>
-        <CardDivider />
-        <CardField label={f.whyThem}>
+        {/* Keep the 1px divider and two 4px margins visual, not a child of dl. */}
+        <CardField
+          label={f.whyThem}
+          className="relative mt-[9px] before:absolute before:inset-x-0 before:-top-[5px] before:border-t before:border-dashed before:border-ink"
+        >
           <Hand className="block leading-tight">{alum.whyThem}</Hand>
         </CardField>
       </dl>
