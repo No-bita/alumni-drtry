@@ -193,7 +193,7 @@ describe("Login page", () => {
   it("shows the server error and stays on the form", async () => {
     apiPost.mockResolvedValue({ error: { code: "AUTH_DOMAIN_NOT_ALLOWED", message: "Use your institute email." } });
     mount();
-    await submit("x@gmail.com");
+    await submit("x@unlisted-institute.edu");
     expect(await screen.findByText("Use your institute email.")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "One-time code" })).toBeNull();
   });
@@ -424,5 +424,22 @@ describe("Login page: the screen matches the inbox", () => {
     await submit("rahul.s@itbhu.ac.in");
     expect(await screen.findByText("We couldn't send the sign-in email. Try again.")).toBeTruthy();
     expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("Personal-provider frontend guard", () => {
+  it("asks the exact question and blocks Continue without an auth request", async () => {
+    mount();
+    await submit("student@gmail.com");
+    expect(screen.getByText("is this really your insti email id? you sure? pinky promise?")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+  it("lets a valid unknown institution reach the existing server check", async () => {
+    apiPost.mockResolvedValue({ data: { challengeId: "c2" } });
+    mount();
+    await submit("student@unlisted-institute.edu");
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/auth/start", { institutionalEmail: "student@unlisted-institute.edu" }, expect.objectContaining({ signal: expect.any(AbortSignal) })));
   });
 });
