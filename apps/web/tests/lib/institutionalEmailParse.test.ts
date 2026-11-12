@@ -53,12 +53,13 @@ describe("parseInstitutionalEmailForOnboarding", () => {
   });
 });
 
-describe("non-BHU institutional emails (iitgn.ac.in, iitg.ac.in)", () => {
+describe("non-BHU institutional emails (iitgn.ac.in, iitg.ac.in, iiml.org.in)", () => {
   it("identifies BHU vs other allowed domains", () => {
     expect(isBhuInstitutionalEmail("arjun.cse20@iitbhu.ac.in")).toBe(true);
     expect(isBhuInstitutionalEmail("arjun.cse20@itbhu.ac.in")).toBe(true);
     expect(isBhuInstitutionalEmail("aarav.mehta@iitgn.ac.in")).toBe(false);
     expect(isBhuInstitutionalEmail("aarav.mehta@iitg.ac.in")).toBe(false);
+    expect(isBhuInstitutionalEmail("aarav.mehta@iiml.org.in")).toBe(false);
     expect(isBhuInstitutionalEmail("not-an-email")).toBe(false);
   });
   it("infers nothing for name-only locals", () => {
