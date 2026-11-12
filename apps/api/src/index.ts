@@ -20,6 +20,12 @@ function contactReminderIntervalMs(): number {
   return env.NODE_ENV === "production" ? 60 * 60 * 1000 : 0;
 }
 
+function announcementWorkerIntervalMs(): number {
+  const raw = env.ANNOUNCEMENT_WORKER_MS;
+  if (raw !== undefined) return raw;
+  return env.NODE_ENV === "production" ? 30_000 : 0;
+}
+
 async function main() {
   const app = await createApp();
   await app.listen({
@@ -91,8 +97,32 @@ async function main() {
     reminderInterval = setInterval(remind, reminderMs);
   }
 
+  // Admin announcement emails: picks up queued emails (and anything left after a restart), throttled.
+  // Not part of the automatic-email pause: an announcement is an explicit admin send.
+  const announcementMs = announcementWorkerIntervalMs();
+  let announcementInterval: ReturnType<typeof setInterval> | undefined;
+  let announcementStartupTimer: ReturnType<typeof setTimeout> | undefined;
+  if (announcementMs > 0) {
+    const sendAnnouncements = () => {
+      void app.announcementService
+        .processEmailQueue()
+        .then(({ sent, failed, skipped, retried }) => {
+          if (sent + failed + skipped + retried > 0) {
+            app.log.info({ sent, failed, skipped, retried }, "announcement email tick");
+          }
+        })
+        .catch((err: unknown) => {
+          app.log.error({ err }, "announcement email tick failed");
+        });
+    };
+    announcementStartupTimer = setTimeout(sendAnnouncements, 15_000);
+    announcementInterval = setInterval(sendAnnouncements, announcementMs);
+  }
+
   const shutdown = async () => {
     stopExpiryScheduler();
+    if (announcementInterval !== undefined) clearInterval(announcementInterval);
+    if (announcementStartupTimer !== undefined) clearTimeout(announcementStartupTimer);
     if (reminderInterval !== undefined) clearInterval(reminderInterval);
     if (reminderStartupTimer !== undefined) clearTimeout(reminderStartupTimer);
     await app.close();

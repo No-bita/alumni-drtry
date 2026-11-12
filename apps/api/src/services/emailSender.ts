@@ -77,6 +77,55 @@ export interface IntentcastResponseReceivedEmailPayload {
   responseMessage: string;
 }
 
+export interface AnnouncementEmailPayload {
+  to: string;
+  title: string;
+  body: string;
+  /** Full URL of the in-app page the admin linked to, or null. */
+  linkUrl: string | null;
+  /** Web page that turns announcement emails off (shown in the footer). */
+  unsubscribeUrl: string;
+  /** One-click unsubscribe endpoint for the List-Unsubscribe header (RFC 8058). */
+  oneClickUnsubscribeUrl: string;
+}
+
+/** Plain text in, escaped HTML out (paragraphs on blank lines, line breaks kept). */
+function plainTextToHtml(text: string): string {
+  return text
+    .trim()
+    .split(/\n{2,}/)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
+export function buildAnnouncementEmail(
+  payload: AnnouncementEmailPayload,
+  brandName: string
+): { subject: string; text: string; html: string; headers: Record<string, string> } {
+  const subject = payload.title.trim();
+  const footer = `You're getting this as a member of ${brandName}. Stop announcement emails: ${payload.unsubscribeUrl}`;
+  const text = [
+    payload.body.trim(),
+    ...(payload.linkUrl ? ["", `Open in ${brandName}: ${payload.linkUrl}`] : []),
+    "",
+    "—",
+    footer
+  ].join("\n");
+  const html = [
+    `<h1 style="font-size:20px;margin:0 0 12px;">${escapeHtml(subject)}</h1>`,
+    plainTextToHtml(payload.body),
+    payload.linkUrl ? `<p><a href="${escapeHtml(payload.linkUrl)}">Open in ${escapeHtml(brandName)}</a></p>` : "",
+    `<hr style="border:none;border-top:1px solid #ddd;margin:24px 0 12px;">`,
+    `<p style="font-size:12px;color:#666;">You're getting this as a member of ${escapeHtml(brandName)}. `,
+    `<a href="${escapeHtml(payload.unsubscribeUrl)}">Stop announcement emails</a>.</p>`
+  ].join("");
+  const headers = {
+    "List-Unsubscribe": `<${payload.oneClickUnsubscribeUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+  };
+  return { subject, text, html, headers };
+}
+
 /**
  * The provider never answered (timeout, dropped connection), so the email may or may not
  * have gone out. Auth start keeps the challenge for these: its code stays valid if it arrives.
@@ -114,6 +163,8 @@ export interface EmailSender {
   sendIntentcastResponseReceivedEmail(
     payload: IntentcastResponseReceivedEmailPayload
   ): Promise<void>;
+  /** Admin announcement (sent by the announcement worker; not affected by the automatic-email pause). */
+  sendAnnouncementEmail(payload: AnnouncementEmailPayload): Promise<void>;
 }
 
 export class ConsoleEmailSender implements EmailSender {
@@ -155,6 +206,10 @@ export class ConsoleEmailSender implements EmailSender {
       `[mail] to=${payload.to} type=intentcast_response_received author="${payload.authorName}" responder="${payload.responderName}" post="${payload.postContent}" response="${payload.responseMessage}"\n`
     );
   }
+
+  async sendAnnouncementEmail(payload: AnnouncementEmailPayload): Promise<void> {
+    process.stdout.write(`[mail] to=${payload.to} type=announcement title="${payload.title}"\n`);
+  }
 }
 
 /**
@@ -164,6 +219,14 @@ export class ConsoleEmailSender implements EmailSender {
  */
 export class TestCaptureEmailSender extends ConsoleEmailSender {
   readonly authEmails: AuthEmailPayload[] = [];
+  readonly announcementEmails: AnnouncementEmailPayload[] = [];
+  /** Tests can make the next announcement sends fail (each call pops one entry; true = throw). */
+  readonly announcementFailures: boolean[] = [];
+
+  override async sendAnnouncementEmail(payload: AnnouncementEmailPayload): Promise<void> {
+    if (this.announcementFailures.shift()) throw new Error("test: announcement send failed");
+    this.announcementEmails.push(payload);
+  }
 
   override async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     this.authEmails.push(payload);
@@ -321,7 +384,19 @@ export class ResendEmailSender implements EmailSender {
     await this.sendEmail(payload.to, subject, text, html);
   }
 
-  private async sendEmail(to: string, subject: string, text: string, html: string, timeoutMs?: number): Promise<void> {
+  async sendAnnouncementEmail(payload: AnnouncementEmailPayload): Promise<void> {
+    const { subject, text, html, headers } = buildAnnouncementEmail(payload, this.options.brandName);
+    await this.sendEmail(payload.to, subject, text, html, 15_000, headers);
+  }
+
+  private async sendEmail(
+    to: string,
+    subject: string,
+    text: string,
+    html: string,
+    timeoutMs?: number,
+    headers?: Record<string, string>
+  ): Promise<void> {
     let response: Response;
     try {
       response = await fetch("https://api.resend.com/emails", {
@@ -337,6 +412,7 @@ export class ResendEmailSender implements EmailSender {
           subject,
           text,
           html,
+          ...(headers ? { headers } : {}),
           ...(this.options.replyTo ? { reply_to: this.options.replyTo } : {})
         })
       });
