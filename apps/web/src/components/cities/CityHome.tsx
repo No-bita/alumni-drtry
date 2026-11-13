@@ -52,7 +52,7 @@ const SHORTCUTS: Shortcut[] = [
   },
   {
     id: "neighbourhoods",
-    label: "Neighbourhoods & commute",
+    label: "Neighborhoods",
     example: "Where to live and how to get around",
     icon: "pin",
     starter: (city) => `Neighbourhoods or commute in ${city}`,
@@ -66,7 +66,7 @@ const SHORTCUTS: Shortcut[] = [
   },
   {
     id: "people",
-    label: "Meet people & activities",
+    label: "Meet people",
     example: "Local groups, coffee meetups and things to do",
     icon: "people",
     starter: (city) => `Meeting people in ${city}`,
@@ -171,7 +171,7 @@ export function CityHome({
   return (
     <>
       <header className="cities__header cities-home__hero">
-        {/* Approved 19:22: same placeholder photo on every city, labelled as a placeholder. */}
+        {/* Shared city photo; source and license remain linked. */}
         <div className="cities-home__photohero">
           <img className="cities-home__photohero-img" src={CITY_HERO_PLACEHOLDER} alt="" />
           <span className="cities-home__photohero-shade" aria-hidden />
@@ -179,17 +179,21 @@ export function CityHome({
           <span className="cities-home__photohero-badge">
             {data.viewerRole === "local" || data.viewerRole === "newcomer" ? "Your city" : "Exploring"}
           </span>
+          <p className="cities-home__photohero-credit">
+            Photo:{" "}
+            <a
+              href="https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg"
+              target="_blank"
+              rel="noreferrer"
+            >
+              AjayTorvi
+            </a>{" "}
+            ·{" "}
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
+              CC BY-SA 4.0
+            </a>
+          </p>
         </div>
-        <p className="cities-home__photohero-credit">
-          Placeholder photo (shows Bengaluru) · Photo: AjayTorvi,{" "}
-          <a
-            href="https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg"
-            target="_blank"
-            rel="noreferrer"
-          >
-            CC BY-SA 4.0 via Wikimedia Commons
-          </a>
-        </p>
         {newcomer ? (
           <>
             <p className="cities__count">
@@ -211,7 +215,6 @@ export function CityHome({
         <h2 id="cities-home-need" className="cities-home__title">
           What do you need in {city}?
         </h2>
-        <p className="cities__note">Get practical help, local tips and connect with alumni here.</p>
         <ul className="cities-home__tiles">
           {SHORTCUTS.map((s) => (
             <li key={s.id}>
