@@ -1,3 +1,4 @@
+import { resumeApiAfterExplicitSignIn } from "../lib/apiRateLimit";
 import { INSTITUTIONAL_EMAIL_QUESTION, isInstitutionalEmail } from "../lib/institutionalEmail";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -131,20 +132,28 @@ export function Login() {
   const [googleConfig, setGoogleConfig] = useState<GoogleConfigState>({ status: "checking" });
   const googleConfigAttemptRef = useRef(0);
   const googleConfigTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const googleConfigAbortRef = useRef<AbortController | null>(null);
+  const googleConfigBusyRef = useRef(false);
   const runGoogleConfigCheck = useCallback((isRetry: boolean) => {
+    if (googleConfigBusyRef.current) return;
+    googleConfigBusyRef.current = true;
+    googleConfigAbortRef.current?.abort();
+    const controller = new AbortController();
+    googleConfigAbortRef.current = controller;
     const attempt = ++googleConfigAttemptRef.current;
     setGoogleConfig({ status: isRetry ? "rechecking" : "checking" });
     let settled = false;
     const finish = (next: GoogleConfigState) => {
       if (settled || googleConfigAttemptRef.current !== attempt) return;
       settled = true;
+      googleConfigBusyRef.current = false;
       if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
       setGoogleConfig(next);
     };
     if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
-    googleConfigTimerRef.current = setTimeout(() => finish({ status: "error" }), 10_000);
+    googleConfigTimerRef.current = setTimeout(() => { controller.abort(); finish({ status: "error" }); }, 10_000);
     void api
-      .get<{ enabled: boolean }>("/v1/auth/google/config")
+      .get<{ enabled: boolean }>("/v1/auth/google/config", { signal: controller.signal, manualRetry: isRetry })
       .then((res) => {
         // The api client resolves { error } for HTTP and network failures; only a
         // clean 200 with enabled:false means "not configured", everything else is
@@ -160,6 +169,8 @@ export function Login() {
   useEffect(() => {
     runGoogleConfigCheck(false);
     return () => {
+      googleConfigAbortRef.current?.abort();
+      googleConfigBusyRef.current = false;
       googleConfigAttemptRef.current += 1; // invalidate any in-flight attempt after unmount
       if (googleConfigTimerRef.current) clearTimeout(googleConfigTimerRef.current);
     };
@@ -241,14 +252,17 @@ export function Login() {
     startAbortRef.current?.abort();
     const controller = new AbortController();
     startAbortRef.current = controller;
+    let firstAttempt = true;
     return startAuthWithWakeRetry(
       (signal) => {
+        const manualRetry = firstAttempt;
+        firstAttempt = false;
         // From a WhatsApp bot link: the email's sign-in link carries it, so clicking it anywhere continues the WhatsApp step.
         const whatsappEntry = whatsappEntryForSignIn();
         return api.post<AuthStartResponse>(
           "/v1/auth/start",
           { institutionalEmail: normalizedEmail, ...(whatsappEntry ? { whatsappEntry } : {}) },
-          { signal }
+          { signal, manualRetry }
         );
       },
       { signal: controller.signal, onWaking }
@@ -488,12 +502,13 @@ export function Login() {
     const { error: verr } = await api.post("/v1/auth/verify", {
       challengeId,
       otp: code,
-    });
+    }, { manualRetry: true });
     setOtpSubmitting(false);
     if (verr) {
       setOtpError(verr.message ?? verr.code ?? "Invalid code.");
       return;
     }
+    resumeApiAfterExplicitSignIn();
     if (!prefersReduceMotion) {
       sessionPrefetchRef.current = refetch();
       void import("../pages/Home");
@@ -517,12 +532,13 @@ export function Login() {
     const { error: perr } = await api.post("/v1/auth/password-login", {
       institutionalEmail: normalizedEmail,
       password,
-    });
+    }, { manualRetry: true });
     setPasswordSubmitting(false);
     if (perr) {
       setPasswordError(perr.message ?? perr.code ?? "Password login failed.");
       return;
     }
+    resumeApiAfterExplicitSignIn();
     if (!prefersReduceMotion) {
       sessionPrefetchRef.current = refetch();
       void import("../pages/Home");
