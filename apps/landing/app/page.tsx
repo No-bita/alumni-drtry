@@ -1,5 +1,4 @@
-import { Hero } from "../components/Hero.tsx";
-import { Nav } from "../components/Nav.tsx";
+import { HumanHero } from "../components/HumanHero.tsx";
 import {
   BuildTogether,
   ExamCentres,
@@ -13,10 +12,9 @@ import {
 export default function Home() {
   return (
     <>
-      <Nav />
       <main>
-        <Hero />
-        <GapNote />
+        <HumanHero />
+        <div id="vision"><GapNote /></div>
         <TaskWall />
         <HowItWorks />
         <ForAlumni />
