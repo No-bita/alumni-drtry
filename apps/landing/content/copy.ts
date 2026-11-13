@@ -86,6 +86,6 @@ export const copy = {
   seo: {
     title: "Alma Mater — Find the alum who can help",
     description:
-      "Tell us what you need. We’ll find the alum who’s already done it. Now live for IIT (BHU).",
+      "Alma Mater is a private members' community for the top institutions of India. Apply to become a member.",
   },
 } as const;
