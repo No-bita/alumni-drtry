@@ -1,3 +1,4 @@
+import { rateLimitedFetch } from "./apiRateLimit";
 import { API_BASE_URL } from "../api/client";
 
 let warmed = false;
@@ -11,11 +12,10 @@ export function warmUpApi(): void {
   if (warmed || typeof fetch !== "function") return;
   warmed = true;
   try {
-    void fetch(`${API_BASE_URL}/v1/healthz`, {
+    void rateLimitedFetch(`${API_BASE_URL}/v1/healthz`, {
       method: "GET",
       credentials: "omit",
       cache: "no-store",
-      keepalive: true,
     }).catch(() => undefined);
   } catch {
     /* ignore: warm-up is best effort */
