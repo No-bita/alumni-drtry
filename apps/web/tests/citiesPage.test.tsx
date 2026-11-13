@@ -152,9 +152,9 @@ describe("Cities page: city home (local)", () => {
 
     expect(screen.getByRole("button", { name: /Housing & flatmates/ })).toBeTruthy();
     expect(screen.getByText("Flats, flatmates and housing leads")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Neighbourhoods & commute/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Neighborhoods/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Local services/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Meet people & activities/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Meet people/ })).toBeTruthy();
 
     expect(screen.getByRole("heading", { name: "From the Bengaluru community" })).toBeTruthy();
     expect(screen.getByText("Open posts from the Wall, filtered to Bengaluru.")).toBeTruthy();

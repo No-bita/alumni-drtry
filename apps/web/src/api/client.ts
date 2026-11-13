@@ -1,3 +1,4 @@
+import { getApiRateLimit, rateLimitedFetch } from "../lib/apiRateLimit";
 import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
@@ -17,10 +18,10 @@ export type ApiError = { code: string; message?: string };
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit & { manualRetry?: boolean } = {}
 ): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean; status?: number }> {
   const url = `${API_BASE}${path}`;
-  const { signal, headers: optHeaders, ...rest } = options;
+  const { signal, headers: optHeaders, manualRetry, ...rest } = options;
   const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };
   // Fastify rejects `Content-Type: application/json` when there is no JSON body (e.g. GET).
   const jsonBody = typeof rest.body === "string" && rest.body.length > 0;
@@ -29,14 +30,14 @@ async function request<T>(
   }
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await rateLimitedFetch(url, {
       ...rest,
       credentials: "include",
       headers,
       signal,
-    });
+    }, manualRetry);
   } catch (err: unknown) {
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err && typeof err === "object" && "name" in err && err.name === "AbortError") {
       return { aborted: true };
     }
     return {
@@ -49,7 +50,7 @@ async function request<T>(
   }
   const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
   if (!res.ok) {
-    if (res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
+    if (!getApiRateLimit().paused && res.status === 401 && body.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
     const retryAfter = res.headers.get("retry-after");
@@ -66,11 +67,11 @@ async function request<T>(
 }
 
 /** Options for `api.get`; pass `signal` from `AbortController` (e.g. `useEffect` cleanup) to cancel the fetch. */
-export type ApiGetInit = Pick<RequestInit, "signal" | "headers">;
+export type ApiGetInit = Pick<RequestInit, "signal" | "headers"> & { manualRetry?: boolean };
 
 export const api = {
   get: <T>(path: string, init?: ApiGetInit) => request<T>(path, { method: "GET", ...init }),
-  post: <T>(path: string, body?: unknown, init?: Pick<RequestInit, "signal">) =>
+  post: <T>(path: string, body?: unknown, init?: Pick<RequestInit, "signal"> & { manualRetry?: boolean }) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, ...init }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
@@ -83,7 +84,7 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
   const url = `${API_BASE}${path}`;
   let res: Response;
   try {
-    res = await fetch(url, { method: "POST", body: form, credentials: "include" });
+    res = await rateLimitedFetch(url, { method: "POST", body: form, credentials: "include" });
   } catch {
     return {
       error: {
@@ -96,7 +97,7 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<{ da
   const body: unknown = await res.json().catch(() => ({}));
   const b = body as Record<string, unknown>;
   if (!res.ok) {
-    if (res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
+    if (!getApiRateLimit().paused && res.status === 401 && b.code === "AUTH_UNAUTHORIZED") {
       notifyAuthSessionExpired();
     }
     return {
