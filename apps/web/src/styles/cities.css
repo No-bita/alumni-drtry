@@ -1252,7 +1252,7 @@
 .cities-home__photohero-city {
   position: absolute;
   left: 16px;
-  bottom: 12px;
+  bottom: 30px;
   margin: 0;
   font-family: var(--font-display);
   font-size: 26px;
@@ -1263,7 +1263,7 @@
 .cities-home__photohero-badge {
   position: absolute;
   right: 14px;
-  bottom: 14px;
+  bottom: 32px;
   background: rgba(30, 18, 10, 0.45);
   color: #fff;
   font-size: 12px;
@@ -1274,9 +1274,15 @@
 }
 
 .cities-home__photohero-credit {
-  margin: 6px 0 0;
-  font-size: 11px;
-  color: var(--ink-muted);
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 7px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 16px;
+  color: #fff;
+  text-shadow: 0 1px 3px #000;
 }
 
 .cities-home__photohero-credit a {
@@ -1291,7 +1297,7 @@
 
   .cities-home__photohero-city {
     left: 22px;
-    bottom: 13px;
+    bottom: 32px;
     font-size: 31px;
   }
 }
