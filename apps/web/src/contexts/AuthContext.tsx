@@ -10,6 +10,7 @@ import { api, type MePerson, type MyProfileView } from "../api/client";
 import {
   AUTH_SESSION_QUERY_KEY,
   fetchAuthSession,
+  AuthRateLimitPause,
   type AuthSessionData,
 } from "../lib/authSessionQuery";
 import { queryClient } from "../queryClient";
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: ({ signal }) => fetchAuthSession(signal),
     staleTime: 60_000,
     gcTime: 30 * 60_000,
-    retry: 1,
+    retry: (count, error) => !(error instanceof AuthRateLimitPause) && count < 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -89,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [query]);
 
   const logout = useCallback(async () => {
-    await api.post("/v1/auth/logout");
+    const { error } = await api.post("/v1/auth/logout");
+    if (error) throw new Error(error.message ?? "Couldn't sign out. Try again.");
     queryClient.clear();
     queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, { kind: "unauthenticated" });
   }, []);
@@ -105,13 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let base: AuthState;
     if (query.isPending) {
       base = { status: "loading" };
+    } else if (query.data) {
+      base = dataToAuthState(query.data);
+    } else if (query.error instanceof AuthRateLimitPause) {
+      base = { status: "loading" };
     } else if (query.isError) {
       base = { status: "unauthenticated" };
     } else {
-      base = dataToAuthState(query.data);
+      base = { status: "loading" };
     }
     return { ...base, refetch, logout, logoutAll };
-  }, [query.isPending, query.isError, query.data, refetch, logout, logoutAll]);
+  }, [query.isPending, query.isError, query.error, query.data, refetch, logout, logoutAll]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

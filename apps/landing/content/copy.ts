@@ -1,3 +1,5 @@
+export const SHARE_PREVIEW_TITLE = "Alma Mater - Life is unfair. Use your unfair advantage.";
+
 // Static page copy, taken verbatim from the landing page spec (sections 5.1 to 5.10, 7).
 // The OG image and favicon are file-based metadata: app/opengraph-image.png and app/icon.svg.
 
@@ -86,6 +88,6 @@ export const copy = {
   seo: {
     title: "Alma Mater — Find the alum who can help",
     description:
-      "Tell us what you need. We’ll find the alum who’s already done it. Now live for IIT (BHU).",
+      "Alma Mater is a private members' community for the top institutions of India. Apply to become a member.",
   },
 } as const;

@@ -68,7 +68,7 @@ describe("Login page", () => {
   it("shows a spinner with neither option while the sign-in availability check runs", async () => {
     apiGet.mockReturnValue(new Promise(() => {})); // check stays in flight
     mount();
-    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/google/config"));
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/auth/google/config", expect.objectContaining({ signal: expect.anything(), manualRetry: false })));
     expect(screen.getByRole("status")).toBeTruthy();
     expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
@@ -412,7 +412,7 @@ describe("Login page: the screen matches the inbox", () => {
     "123456".split("").forEach((d, i) => fireEvent.change(cells[i], { target: { value: d } }));
     fireEvent.click(screen.getByRole("button", { name: "Enter code" }));
     expect(await screen.findByText(/earlier sign-in email/)).toBeTruthy();
-    expect(apiPost.mock.calls[2]).toEqual(["/v1/auth/verify", { challengeId: "c2", otp: "123456" }]);
+    expect(apiPost.mock.calls[2]).toEqual(["/v1/auth/verify", { challengeId: "c2", otp: "123456" }, { manualRetry: true }]);
   });
 
   it("shows 'couldn't send' instead of silently retrying into more emails", async () => {

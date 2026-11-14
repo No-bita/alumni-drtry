@@ -1,3 +1,6 @@
+import { afterEach } from "vitest";
+import { resetApiRateLimitForTests } from "../src/lib/apiRateLimit";
+afterEach(resetApiRateLimitForTests);
 const createStorage = () => {
   let store: Record<string, string> = {};
   return {

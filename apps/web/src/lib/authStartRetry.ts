@@ -1,3 +1,4 @@
+import { getApiRateLimit } from "./apiRateLimit";
 import type { ApiError } from "../api/client";
 
 export type AuthStartResult<T> = {
@@ -30,7 +31,7 @@ const SAFE_APP_RETRY_CODES = new Set(["AUTH_START_BUSY"]);
  * must be shown, not silently retried into a pile of emails.
  */
 export function isServerWaking<T>(result: AuthStartResult<T>): boolean {
-  if (result.data !== undefined || !result.error) return false;
+  if (result.data !== undefined || !result.error || getApiRateLimit().paused) return false;
   if (result.error.code === "NETWORK_ERROR") return true;
   if (SAFE_APP_RETRY_CODES.has(result.error.code)) return true;
   const proxyPage = result.error.code === "UNKNOWN";
@@ -74,6 +75,7 @@ export async function startAuthWithWakeRetry<T>(
 
   for (let attempt = 0; ; attempt += 1) {
     if (controller.signal.aborted) return { kind: "aborted" };
+    if (attempt > 0 && getApiRateLimit().paused) return { kind: "done", result: { status: 429, error: { code: "CLIENT_RATE_LIMITED", message: "Requests paused. Try again when ready." } } };
     const remainingMs = deadlineMs - (now() - started);
     if (remainingMs <= 0) return { kind: "timeout" };
     // A request that never answers must not outlive the deadline: race it and abort it.

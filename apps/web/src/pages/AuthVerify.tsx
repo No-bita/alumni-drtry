@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { pendingWhatsAppEntry, rememberWhatsAppEntry } from "../lib/whatsapp";
 import { queryKeys } from "../lib/queryKeys";
+import { getApiRateLimit } from "../lib/apiRateLimit";
 import { takeReturnTo } from "../lib/returnTo";
 
 export function AuthVerify() {
@@ -89,10 +90,10 @@ export function AuthVerify() {
         {(!canVerify || verifyQuery.isError || sessionRefetchFailed) && (
           <>
             <p className="section-headline" style={{ marginBottom: 8 }}>
-              Link invalid or expired
+              {getApiRateLimit().paused ? "Sign-in paused" : "Link invalid or expired"}
             </p>
             <p className="body-text" style={{ color: "var(--ink-muted)", marginBottom: 24 }}>
-              Request a new sign-in link from the login page.
+              {getApiRateLimit().paused ? "Requests are paused after too many requests. This does not mean your link has expired." : "Request a new sign-in link from the login page."}
             </p>
             <Link to="/login">
               <Button variant="primary">Back to sign in</Button>

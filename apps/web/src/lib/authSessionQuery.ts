@@ -1,3 +1,5 @@
+import { getApiRateLimit } from "./apiRateLimit";
+export class AuthRateLimitPause extends Error {}
 import { api, type Me, type MePerson, type MeProfileResponse, type MyProfileView } from "../api/client";
 
 /** Single cache key for `/v1/me` + `/v1/me/profile` (see `AuthProvider`). */
@@ -17,6 +19,10 @@ export async function fetchAuthSession(signal: AbortSignal): Promise<AuthSession
     api.get<Me>("/v1/me", { signal }),
     api.get<MeProfileResponse>("/v1/me/profile", { signal }),
   ]);
+
+  if (meRes.status === 429 || profileRes.status === 429 || getApiRateLimit().paused) {
+    throw new AuthRateLimitPause("Requests paused");
+  }
 
   if (meRes.error || !meRes.data?.person) {
     return { kind: "unauthenticated" };
