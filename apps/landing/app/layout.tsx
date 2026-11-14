@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { siteUrl } from "../lib/site.ts";
 import { Caveat, IBM_Plex_Mono, IBM_Plex_Sans_Condensed } from "next/font/google";
 import "./globals.css";
-import { copy } from "../content/copy.ts";
+import { copy, SHARE_PREVIEW_TITLE } from "../content/copy.ts";
 
 const plexCondensed = IBM_Plex_Sans_Condensed({
   variable: "--font-plex-condensed",
@@ -29,14 +29,14 @@ export const metadata: Metadata = {
   title: copy.seo.title,
   description: copy.seo.description,
   openGraph: {
-    title: copy.seo.title,
+    title: SHARE_PREVIEW_TITLE,
     description: copy.seo.description,
     siteName: "Alma Mater",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: copy.seo.title,
+    title: SHARE_PREVIEW_TITLE,
     description: copy.seo.description,
   },
 };
