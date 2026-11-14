@@ -56,7 +56,7 @@ test("owner-supplied campus provenance is explicit and the supplied hero is pres
   assert.ok(css.includes("/human-reference-review.png"));
   assert.ok(css.includes("/four-section-campus.jpg"));
   assert.ok(existsSync("public/four-section-campus.jpg"));
-  assert.ok(source.includes("Currently welcoming IIT (BHU) alumni. More institutions to come."));
+  assert.ok(source.includes("Exclusively for IITs and IIMs"));
 });
 
 test("targeted refinement keeps exact problem and reciprocity with consistent desktop Join", () => {
