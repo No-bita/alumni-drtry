@@ -1,3 +1,5 @@
+export const SHARE_PREVIEW_TITLE = "Alma Mater - Life is unfair. Use your unfair advantage.";
+
 // Static page copy, taken verbatim from the landing page spec (sections 5.1 to 5.10, 7).
 // The OG image and favicon are file-based metadata: app/opengraph-image.png and app/icon.svg.
 
