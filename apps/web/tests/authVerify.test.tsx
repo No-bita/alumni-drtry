@@ -54,11 +54,11 @@ describe("AuthVerify", () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it("verifies with encoded params and shows the paper-plane loading screen", async () => {
+  it("verifies with encoded params and shows the selected loading screen", async () => {
     refetch.mockReturnValue(new Promise(() => {}));
     mount("?challengeId=c%201&magicLinkToken=t%2Fk");
     expect(screen.getByRole("main", { name: "Opening Alma" })).toBeTruthy();
-    expect(screen.getByText("Start with a fold.")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Opening Alma...");
     await waitFor(() => expect(apiPost).toHaveBeenCalled());
     // POST with the token in the body (never in a URL the server could log).
     expect(apiPost.mock.calls[0]!.slice(0, 2)).toEqual(["/v1/auth/verify", { challengeId: "c 1", magicLinkToken: "t/k" }]);
