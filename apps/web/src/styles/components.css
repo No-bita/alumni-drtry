@@ -21390,3 +21390,15 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     margin-left: -34px;
   }
 }
+
+/* Campus-neutral code-entry cue. Decorative only; form behavior is unchanged. */
+.auth-neutral-mail {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 20px;
+  border: 1px solid var(--gold, #b18b48);
+  border-radius: 50%;
+  color: var(--cream, #e8d090);
+  display: grid;
+  place-items: center;
+}
