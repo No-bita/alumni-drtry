@@ -8,7 +8,7 @@ const FEEDBACK_WHATSAPP_URL =
 export function HomeFeedbackSection() {
   return (
     <section className="home-feedback-panel" aria-label="Feedback">
-      <p className="home-feedback-panel__prompt">Something missing or confusing?</p>
+      <p className="home-feedback-panel__prompt">How can we make this better?</p>
       <a
         className="home-feedback-panel__action"
         href={FEEDBACK_WHATSAPP_URL}
