@@ -25,7 +25,6 @@ import { pendingWhatsAppEntry, whatsappEntryForSignIn } from "../lib/whatsapp";
 import { warmUpApi } from "../lib/apiWarmup";
 import { canAccessOnboardingFlow } from "../lib/onboardingEligibility";
 import { useAuth, type AuthSessionSnapshot } from "../contexts/AuthContext";
-import { publicAsset } from "../lib/appBase";
 import { takeReturnTo } from "../lib/returnTo";
 
 type LoginPhase = "form" | "sending" | "timeout" | "sent";
@@ -39,13 +38,6 @@ const AUTH_HERO_STATS = [
   { value: "38", keyword: "referrals", label: "completed last week" },
   { value: "27", keyword: "cities", label: "connected" },
 ] as const;
-
-/** Basename (no extension) of files in `public/media/` — must match disk names (spaces OK; URLs are encoded). */
-const SUCCESS_VIDEO_STEM = "Gen 4 Turbo Varanasi Aerial";
-
-function successVideoSrc(ext: "webm" | "mp4"): string {
-  return publicAsset(`media/${encodeURIComponent(SUCCESS_VIDEO_STEM)}.${ext}`);
-}
 
 export function Login() {
   const navigate = useNavigate();
@@ -87,14 +79,8 @@ export function Login() {
   const [resendBusy, setResendBusy] = useState(false);
   /** Result of the last Resend tap ("New code sent. Earlier codes no longer work."). */
   const [resendMessage, setResendMessage] = useState<string | null>(null);
-  const [showSuccessVideo, setShowSuccessVideo] = useState(false);
-  const [prefersReduceMotion, setPrefersReduceMotion] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
   const loginCompleteRef = useRef(false);
-  /** While success video plays: session refetch + Home chunk load in parallel so /home is ready when the clip ends. */
+  /** Shares the session read while finishing sign-in. */
   const sessionPrefetchRef = useRef<Promise<AuthSessionSnapshot | null> | null>(null);
   const [otpDigits, setOtpDigits] = useState<string[]>(() => emptyOtpDigits());
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -229,7 +215,6 @@ export function Login() {
       if (data) applyDelivery(data, normalizedEmail);
       setResendMessage(null);
       loginCompleteRef.current = false;
-      setShowSuccessVideo(false);
       setOtpDigits(emptyOtpDigits());
       setOtpError(null);
       const enablePassword = normalizedEmail === DEV_PASSWORD_LOGIN_EMAIL;
@@ -375,27 +360,6 @@ export function Login() {
     navigate("/login", { replace: true });
   }, [searchParams, navigate]);
 
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = () => setPrefersReduceMotion(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  useEffect(() => {
-    if (!showSuccessVideo || !prefersReduceMotion) return;
-    void completeLogin(undefined);
-  }, [showSuccessVideo, prefersReduceMotion, completeLogin]);
-
-  useEffect(() => {
-    if (!showSuccessVideo || prefersReduceMotion) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [showSuccessVideo, prefersReduceMotion]);
-
   const googleResume = searchParams.get("google") === "1";
   useEffect(() => {
     if (!googleResume) return;
@@ -509,11 +473,9 @@ export function Login() {
       return;
     }
     resumeApiAfterExplicitSignIn();
-    if (!prefersReduceMotion) {
-      sessionPrefetchRef.current = refetch();
-      void import("../pages/Home");
-    }
-    setShowSuccessVideo(true);
+    sessionPrefetchRef.current = refetch();
+    void import("../pages/Home");
+    await completeLogin(sessionPrefetchRef.current);
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -539,43 +501,15 @@ export function Login() {
       return;
     }
     resumeApiAfterExplicitSignIn();
-    if (!prefersReduceMotion) {
-      sessionPrefetchRef.current = refetch();
-      void import("../pages/Home");
-    }
-    setShowSuccessVideo(true);
+    sessionPrefetchRef.current = refetch();
+    void import("../pages/Home");
+    await completeLogin(sessionPrefetchRef.current);
   };
-
-  if (phase === "sent" && showSuccessVideo && !prefersReduceMotion) {
-    return (
-      <div className="login-success-video login-success-video--fullscreen">
-        <span className="visually-hidden" role="status" aria-live="polite">
-          Signed in. Continuing…
-        </span>
-        <video
-          className="login-success-video__media"
-          autoPlay
-          muted
-          playsInline
-          onEnded={() => void completeLogin(sessionPrefetchRef.current)}
-          onError={() => void completeLogin(sessionPrefetchRef.current)}
-        >
-          <source src={successVideoSrc("webm")} type="video/webm" />
-          <source src={successVideoSrc("mp4")} type="video/mp4" />
-        </video>
-      </div>
-    );
-  }
 
   if (phase === "sent") {
     const sentCard = (
       <div className="auth-merged__card auth-merged__card--sent">
-        {showSuccessVideo && prefersReduceMotion ? (
-          <span className="visually-hidden" role="status" aria-live="polite">
-            Signed in. Continuing…
-          </span>
-        ) : (
-          <>
+        <>
             <LankaGate phase="waiting" />
             <p className="auth-merged__code-kicker">Lanka Bechyu! Lanka Bechyu! Lanka Bechyu</p>
             <h2 className="section-headline auth-merged__card-title">{sentHeadline(delivery)}</h2>
@@ -665,7 +599,6 @@ export function Login() {
                 setChallengeId(null);
                 loginCompleteRef.current = false;
                 sessionPrefetchRef.current = null;
-                setShowSuccessVideo(false);
                 setOtpDigits(emptyOtpDigits());
                 setOtpError(null);
                 setPassword("");
@@ -678,8 +611,7 @@ export function Login() {
             >
               Use a different email
             </Button>
-          </>
-        )}
+        </>
       </div>
     );
     return (
