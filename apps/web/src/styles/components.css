@@ -950,6 +950,23 @@ input[type="reset"]:not(:disabled) {
     white-space: nowrap;
   }
 
+  /* Admin dock (adds Analytics = 6 items): slightly tighter insets/labels so every label, including Feedback, fits in full. */
+  .nav-bottom-dock--compact {
+    left: 14px;
+    right: 14px;
+    padding: 5px 6px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__list {
+    gap: 2px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    padding: 6px 0;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+  }
+
   /* Toolbar: welcome + search share the wider column without the rail. */
   html[data-app-shell="sidebar"] .nav-app-toolbar__lead {
     max-width: min(380px, 56vw);

@@ -478,7 +478,7 @@ export function Nav({
             </div>
           ) : null}
         </header>
-        <nav className="nav-bottom-dock" aria-label="Primary navigation">
+        <nav className={`nav-bottom-dock${isAdminUser && myProfileId ? " nav-bottom-dock--compact" : ""}`} aria-label="Primary navigation">
           <ul className="nav-bottom-dock__list">
             <li className="nav-bottom-dock__item">
               <NavLink
