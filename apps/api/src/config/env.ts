@@ -91,7 +91,7 @@ const envSchema = z.object({
   /** How long the bot's website links (/w/<code> and their signed token) stay valid. */
   WA_LINK_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(120),
   WA_MONTHLY_TEMPLATE_CAP: z.coerce.number().int().min(0).max(100_000).default(300),
-  ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in"),
+  ALLOWED_EMAIL_DOMAINS: z.string().default("iitbhu.ac.in,itbhu.ac.in,iitb.ac.in,iitbombay.org,iima.ac.in,iitg.ac.in,iitgn.ac.in"),
   SESSION_COOKIE_NAME: z.string().min(1).default("alumni_session"),
   /** Sliding window: on throttled activity, extend session expiry up to this many hours from "now" (default 7 days idle). */
   SESSION_SLIDING_HOURS: z.coerce.number().int().min(1).max(24 * 14).default(24 * 7),
