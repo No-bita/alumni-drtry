@@ -1,3 +1,20 @@
+/**
+ * Directory of allowed email domains by institution. `type` records whether a domain is an
+ * institute domain (shared by current students and alumni) or an alumni-association domain;
+ * it never labels an individual member's status, and access is identical for every domain.
+ */
+export type AllowedDomainType = "institute" | "alumni-association";
+
+export const DOMAIN_DIRECTORY: Readonly<Record<string, { institution: string; type: AllowedDomainType }>> = {
+  "iitbhu.ac.in": { institution: "IIT (BHU) Varanasi", type: "institute" },
+  "itbhu.ac.in": { institution: "IIT (BHU) Varanasi", type: "institute" },
+  "iitb.ac.in": { institution: "IIT Bombay", type: "institute" },
+  "iitbombay.org": { institution: "IIT Bombay", type: "alumni-association" },
+  "iima.ac.in": { institution: "IIM Ahmedabad", type: "institute" },
+  "iitg.ac.in": { institution: "IIT Guwahati", type: "institute" },
+  "iitgn.ac.in": { institution: "IIT Gandhinagar", type: "institute" }
+};
+
 export function parseAllowedDomains(raw: string): ReadonlySet<string> {
   const domains = raw
     .split(",")
