@@ -269,7 +269,7 @@ export function Nav({
   const handleSignOut = async () => {
     if (auth.status === "authenticated") {
       await auth.logout();
-      navigate("/", { replace: true });
+      navigate("/signed-out", { replace: true });
     }
   };
 
