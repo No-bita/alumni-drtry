@@ -197,7 +197,7 @@ export function MatchPage() {
               <div className="match-page__state">
                 <p className="match-page__state-title">No alum on Alma Mater matches this yet.</p>
                 <p className="match-page__state-copy">
-                  Post it as a bulletin so the right alum can find you, or loosen a filter above.
+                  Post it as a bulletin so the right alum can find you, or loosen a filter.
                 </p>
                 <button type="button" className="btn btn--secondary" onClick={postAsBulletin}>
                   Post this as a bulletin
