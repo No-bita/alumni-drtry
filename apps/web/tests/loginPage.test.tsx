@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Login } from "../src/pages/Login";
 
 const apiPost = vi.hoisted(() => vi.fn());
 const apiGet = vi.hoisted(() => vi.fn());
+const authRefetch = vi.hoisted(() => vi.fn());
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: apiGet } }));
-vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: vi.fn() }) }));
+vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: authRefetch }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className, showTestimonials = true }: { className?: string; showTestimonials?: boolean }) => <div data-testid="landing-map" className={className}>{showTestimonials && <div aria-label="Alumni testimonials" />}</div> }));
 vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
+  authRefetch.mockResolvedValue(null);
   apiGet.mockResolvedValue({ data: { enabled: false } });
   window.matchMedia = ((q: string) => ({
     matches: false,
@@ -444,6 +446,23 @@ describe("Personal-provider frontend guard", () => {
   });
 });
 
+
+describe("post-login without the campus intro video", () => {
+ for (const completed of [false, true]) {
+  it(`continues straight to ${completed ? "home" : "onboarding"} after OTP success`, async () => {
+   authRefetch.mockResolvedValue({ person: { isDemo: false }, profile: { onboardingCompletedAt: completed ? "2026-11-16" : null, appLoginCount: 1 } });
+   apiPost.mockResolvedValueOnce({ data: { challengeId: "c-video" } }).mockResolvedValueOnce({ data: {} });
+   const view = render(<MemoryRouter initialEntries={["/login"]}><Routes><Route path="/login" element={<Login />} /><Route path="/home" element={<p>Home destination</p>} /><Route path="/onboarding" element={<p>Onboarding destination</p>} /></Routes></MemoryRouter>);
+   await submit("person@iitb.ac.in");
+   const cells = await screen.findAllByRole("textbox");
+   "123456".split("").forEach((d, i) => fireEvent.change(cells[i], { target: { value: d } }));
+   fireEvent.click(screen.getByRole("button", { name: "Enter code" }));
+   expect(await screen.findByText(completed ? "Home destination" : "Onboarding destination")).toBeTruthy();
+   expect(view.container.querySelector("video")).toBeNull();
+   expect(authRefetch).toHaveBeenCalledTimes(1);
+  });
+ }
+});
 
 it("uses a campus-neutral inbox cue without changing sign-in controls", async () => {
  apiPost.mockResolvedValue({ data: { challengeId: "neutral-code" } });

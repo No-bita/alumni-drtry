@@ -73,3 +73,13 @@ test("search description uses the owner's exact selected positioning", () => {
  assert.ok(copy.includes("Alma Mater is a private members' community for the top institutions of India. Apply to become a member."));
  assert.equal((layout.match(/description: copy\.seo\.description/g) ?? []).length, 3);
 });
+
+
+test("footer omits the founding-community label and keeps brand and legal links", () => {
+ const footer = source.slice(source.indexOf("<footer>"));
+ assert.ok(!footer.includes("Founding Community"));
+ assert.ok(!footer.includes('className="community"'));
+ assert.ok(footer.includes('className="brand"'));
+ assert.ok(footer.includes('href="/tos"'));
+ assert.ok(footer.includes('href="/privacy-policy"'));
+});
