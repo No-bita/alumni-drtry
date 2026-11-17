@@ -5,7 +5,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { LankaGate } from "../components/LankaGate";
 import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { API_BASE_URL, api } from "../api/client";
@@ -576,8 +575,8 @@ export function Login() {
           </span>
         ) : (
           <>
-            <LankaGate phase="waiting" />
-            <p className="auth-merged__code-kicker">Lanka Bechyu! Lanka Bechyu! Lanka Bechyu</p>
+            <div className="auth-neutral-mail" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="3" y="7" width="30" height="22" rx="3"/><path d="m4 9 14 11L32 9"/></svg></div>
+            <p className="auth-merged__code-kicker">Check your inbox</p>
             <h2 className="section-headline auth-merged__card-title">{sentHeadline(delivery)}</h2>
             <p className="auth-merged__card-subtitle">{sentBody(delivery, sentTo || email.trim().toLowerCase())}</p>
             {passwordEnabledForEmail ? (
@@ -831,7 +830,7 @@ export function Login() {
           <form onSubmit={handleSubmit}>
             <Input
               type="email"
-              placeholder="you@itbhu.ac.in"
+              placeholder="Your institute email"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);

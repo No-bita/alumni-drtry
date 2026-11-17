@@ -111,7 +111,7 @@ describe("Small lines", () => {
     const link = screen.getByRole("link", { name: /Give feedback/ });
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("href")).toContain("https://wa.me/919137839907");
-    expect(screen.getByText(/Something missing or confusing\?/)).toBeTruthy();
+    expect(screen.getByText(/How can we make this better\?/)).toBeTruthy();
   });
   it("top search keeps its accessible label and no placeholder", () => {
     wrap(<HomeToolbarSearch searchText="" onSearchTextChange={() => {}} onSubmitSearch={() => {}} />);
