@@ -109,6 +109,15 @@ describe("MatchPage", () => {
     expect(screen.getByRole("combobox", { name: "Looking for" })).toHaveProperty("value", "referral");
   });
 
+  it("shows no open-to chip row on the result cards", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    // Willingness stays once, inside Why them; the separate chip row is gone.
+    expect(screen.getByText("Open to referrals")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Open to" })).toBeNull();
+  });
+
   it("shows what-we-understood below the results", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount("/match?q=referral+for+PM+at+Razorpay");
