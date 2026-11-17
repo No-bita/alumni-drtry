@@ -27,7 +27,6 @@ import { HomeAnswerKeyCard } from "../components/HomeAnswerKeyCard";
 import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
-import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
@@ -795,42 +794,45 @@ export function Home() {
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
-          <HomeIntentHero />
-          <div className="home-activity">
-            <HomeSentNotesLine />
-            {authPersonId && !useDevMocks ? (
-              <HomeFootprintStrip
-                myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
-                replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
-                viewerPersonId={authPersonId}
-                onOpenReplies={openRepliesTab}
-              />
-            ) : null}
+          <div className="home-ideal__main">
+            <HomeIntentHero />
+            <div className="home-activity">
+              <HomeSentNotesLine />
+              {authPersonId && !useDevMocks ? (
+                <HomeFootprintStrip
+                  myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
+                  replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
+                  viewerPersonId={authPersonId}
+                  onOpenReplies={openRepliesTab}
+                />
+              ) : null}
+            </div>
+            <OnboardingChecklistCard />
+            <HomeAnswerKeyCard />
+            <HomeOpportunityRail
+              intentcasts={opportunityIntentcasts}
+              activeCategory={viewModel.activeCategory}
+              onCategoryChange={handleOpportunityCategoryChange}
+              categoryCounts={viewModel.categoryCounts}
+              opportunitiesFeedLoading={opportunitiesFeedLoading}
+              opportunitiesFeedError={opportunitiesQuery.isError}
+              viewerPersonId={authPersonId}
+              bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
+              bulletinRepliesLoading={bulletinRepliesFeedLoading}
+              onPost={() => {
+                trackBetaUsageEvent("home_wall_post_clicked");
+                bulletinFlowRef.current?.open();
+              }}
+            />
           </div>
-          <OnboardingChecklistCard />
-          <HomeAnswerKeyCard />
-          <HomeOpportunityRail
-            intentcasts={opportunityIntentcasts}
-            activeCategory={viewModel.activeCategory}
-            onCategoryChange={handleOpportunityCategoryChange}
-            categoryCounts={viewModel.categoryCounts}
-            opportunitiesFeedLoading={opportunitiesFeedLoading}
-            opportunitiesFeedError={opportunitiesQuery.isError}
-            viewerPersonId={authPersonId}
-            bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
-            bulletinRepliesLoading={bulletinRepliesFeedLoading}
-            onPost={() => {
-              trackBetaUsageEvent("home_wall_post_clicked");
-              bulletinFlowRef.current?.open();
-            }}
-          />
-          <HomeNetworkPanel
-            members={batchList}
-            directoryHref={batchDirectorySearchHref}
-            countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
-            inviterPersonId={authPersonId ?? null}
-          />
-          <HomeFeedbackSection />
+          <aside className="home-ideal__rail" aria-label="Your network">
+            <HomeNetworkPanel
+              members={batchList}
+              directoryHref={batchDirectorySearchHref}
+              countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
+              inviterPersonId={authPersonId ?? null}
+            />
+          </aside>
         </div>
       </div>
     </>
