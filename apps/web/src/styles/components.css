@@ -1024,6 +1024,25 @@ input[type="reset"]:not(:disabled) {
   }
 }
 
+/* Narrow phones (<400px): the 6-item admin dock tightens further so labels stay full. */
+@media (max-width: 399px) {
+  .nav-bottom-dock--compact {
+    left: 8px;
+    right: 8px;
+    padding: 5px 4px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* Buttons */
 .btn {
   font-family: var(--font-body);
