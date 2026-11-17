@@ -40,7 +40,7 @@ function mount(search = "") {
   );
 }
 async function submit(email: string) {
-  const input = await screen.findByPlaceholderText("you@itbhu.ac.in");
+  const input = await screen.findByPlaceholderText("Your institute email");
   fireEvent.change(input, { target: { value: email } });
   fireEvent.submit(input.closest("form")!);
 }
@@ -74,7 +74,7 @@ describe("Login page", () => {
     expect(screen.getByRole("status")).toBeTruthy();
     expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
-    expect(screen.queryByPlaceholderText("you@itbhu.ac.in")).toBeNull();
+    expect(screen.queryByPlaceholderText("Your institute email")).toBeNull();
   });
 
   it("shows Continue with Google alongside the email form only when Google sign-in is configured", async () => {
@@ -83,13 +83,13 @@ describe("Login page", () => {
     const google = await screen.findByRole("link", { name: "Continue with Google" });
     expect(google.getAttribute("href")).toMatch(/\/v1\/auth\/google$/);
     expect(screen.getByText("or use your email")).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
   });
 
   it("shows only the email form when Google sign-in is not configured", async () => {
     apiGet.mockResolvedValue({ data: { enabled: false } });
     mount();
-    expect(await screen.findByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Your institute email")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
     expect(screen.queryByText("or use your email")).toBeNull();
     expect(screen.queryByText("Google sign-in is temporarily unavailable.")).toBeNull();
@@ -101,7 +101,7 @@ describe("Login page", () => {
     mount();
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
   });
 
@@ -110,7 +110,7 @@ describe("Login page", () => {
     mount();
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
   });
 
@@ -119,11 +119,11 @@ describe("Login page", () => {
     vi.useFakeTimers(); // before mount, so the effect's timeout lands on fake time
     mount();
     expect(screen.getByText("Loading sign-in options…")).toBeTruthy();
-    expect(screen.queryByPlaceholderText("you@itbhu.ac.in")).toBeNull();
+    expect(screen.queryByPlaceholderText("Your institute email")).toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
@@ -144,7 +144,7 @@ describe("Login page", () => {
       await Promise.resolve();
     });
     expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
     expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
   });
@@ -160,7 +160,7 @@ describe("Login page", () => {
     const checking = screen.getByRole("button", { name: "Checking..." });
     expect(checking.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     const google = await screen.findByRole("link", { name: "Continue with Google" });
     expect(google.getAttribute("href")).toMatch(/\/v1\/auth\/google$/);
     expect(apiGet).toHaveBeenCalledTimes(2);
@@ -175,7 +175,7 @@ describe("Login page", () => {
     expect(await screen.findByText("Google sign-in is temporarily unavailable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry Google sign-in" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
-    expect(screen.getByPlaceholderText("you@itbhu.ac.in")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your institute email")).toBeTruthy();
     expect(apiGet).toHaveBeenCalledTimes(2);
   });
 
@@ -257,7 +257,7 @@ describe("Login page", () => {
     mount();
     // Wait for the form before freezing timers: the availability check resolves on a
     // microtask, and waitFor polls on timers that fake timers would hold still.
-    const emailInput = await screen.findByPlaceholderText("you@itbhu.ac.in");
+    const emailInput = await screen.findByPlaceholderText("Your institute email");
     vi.useFakeTimers();
     fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
     fireEvent.submit(emailInput.closest("form")!);
@@ -276,7 +276,7 @@ describe("Login page", () => {
     let resolveStart: (v: unknown) => void = () => {};
     apiPost.mockReturnValue(new Promise((r) => { resolveStart = r; }));
     mount();
-    const emailInput = await screen.findByPlaceholderText("you@itbhu.ac.in");
+    const emailInput = await screen.findByPlaceholderText("Your institute email");
     const form = emailInput.closest("form")!;
     fireEvent.change(emailInput, { target: { value: "x@itbhu.ac.in" } });
     fireEvent.submit(form);
@@ -462,4 +462,16 @@ describe("post-login without the campus intro video", () => {
    expect(authRefetch).toHaveBeenCalledTimes(1);
   });
  }
+});
+
+it("uses a campus-neutral inbox cue without changing sign-in controls", async () => {
+ apiPost.mockResolvedValue({ data: { challengeId: "neutral-code" } });
+ const view = mount();
+ await submit("person@iitb.ac.in");
+ expect(await screen.findByText("Check your inbox")).toBeTruthy();
+ expect(screen.queryByText(/Lanka Bechyu/)).toBeNull();
+ expect(view.container.querySelector(".auth-neutral-mail svg")).toBeTruthy();
+ expect(view.container.querySelector(".lanka-gate")).toBeNull();
+ expect(screen.getByRole("group", { name: "One-time code" })).toBeTruthy();
+ expect(screen.getByRole("button", { name: "Enter code" })).toBeTruthy();
 });
