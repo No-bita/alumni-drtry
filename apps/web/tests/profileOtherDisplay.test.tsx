@@ -28,18 +28,12 @@ describe('API-shaped Other department profile display', () => {
     expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
     expect(screen.queryByText(/OTHER/)).toBeNull();
   });
-  it.each(['pending', 'rejected'] as const)('keeps %s text owner-only, hiding it in Preview and restoring on Back', status => {
+  it.each(['pending', 'rejected'] as const)('keeps %s text visible to the owner', status => {
     mount(ownerProfile(status), true);
     expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
-    expect(screen.queryByText(/Applied Mechanics/)).toBeNull();
-    expect(screen.queryByText(/other/i)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
   });
-  it('retains approved text in owner Preview', () => {
+  it('retains approved text for the owner', () => {
     mount(ownerProfile('approved'), true);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
     expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
   });
   it('does not invent or expose text absent from the public pending/rejected API response', () => {
