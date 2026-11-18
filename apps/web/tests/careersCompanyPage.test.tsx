@@ -71,7 +71,7 @@ describe("Careers company screen", () => {
     expect(within(past).getByRole("button", { name: "Ask for advice" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Send a note|Ask about it/ })).toBeNull();
     expect(within(past).getByText(/Analyst at Razorpay/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "← Careers" }).getAttribute("href")).toBe("/intent/career");
+    expect(screen.getByRole("link", { name: "Careers" }).getAttribute("href")).toBe("/intent/career");
   });
 
   it("someone you've already asked shows where it stands instead of the button", async () => {

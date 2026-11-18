@@ -119,7 +119,7 @@ export function CareerCompanyPage() {
       />
       <main className="careers">
         <Link to="/intent/career" className="careers__back">
-          ← Careers
+          Careers
         </Link>
         {name.length < 2 ? (
           <p className="careers__empty">

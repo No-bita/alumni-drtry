@@ -17,9 +17,6 @@ export function Button({
   const classNames = ["btn", `btn--${variant}`, className].filter(Boolean).join(" ");
   return (
     <button type={type} className={classNames} {...props}>
-      {variant === "back" && (
-        <span aria-hidden>←</span>
-      )}
       {children}
     </button>
   );
