@@ -233,9 +233,9 @@ export function CareerCompanyPage() {
       {ask ? (
         <MatchReachOutDialog
           recipient={{ id: ask.person.id, fullName: ask.person.fullName }}
-          purpose={ask.kind}
+          purpose={null}
           referral={{ role, company: companyName }}
-          advice={{ topic: "interview_prep", question: applying }}
+          advice={{ topic: null, question: applying }}
           source="careers"
           backTo={{ to: "/intent/career", label: "Back to Careers" }}
           onClose={() => setAsk(null)}

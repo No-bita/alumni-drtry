@@ -1088,6 +1088,11 @@ input[type="reset"]:not(:disabled) {
   min-height: 0;
 }
 
+.btn--soft {
+  background: var(--cream-dark);
+  color: var(--ink);
+}
+
 .btn--back {
   background: none;
   border: none;
@@ -10967,6 +10972,33 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-size: 15px;
   line-height: 1.45;
   color: var(--ink);
+}
+
+.notifications-page__item-sender {
+  margin: -4px 0 6px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* Reachout rows: sender name and topic tag share one line, tag pinned right. */
+.notifications-page__item-sender-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -4px 0 6px;
+}
+
+.notifications-page__item-sender-row .notifications-page__item-sender {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__item-sender-row .note-card__tag {
+  flex-shrink: 0;
 }
 
 .notifications-page__item-name {
@@ -21435,8 +21467,9 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     height: 13px;
   }
 
-  /* The tile column is narrow, so the action buttons span it to stay side by side. */
-  .notifications-page__item-actions {
+  /* The tile column is narrow, so the action buttons span it to stay side by side.
+     Only applies on rows that actually show a tile (reachout requests have none). */
+  .notifications-page__item:has(.notifications-page__kind-tile) .notifications-page__item-actions {
     width: calc(100% + 34px);
     margin-left: -34px;
   }

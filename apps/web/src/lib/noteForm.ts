@@ -96,9 +96,9 @@ export function adviceDetails(f: AdviceFields): NoteDetails {
   return { purpose: "advice", topic: f.topic ?? "other", question: f.question.trim() };
 }
 
-/** "Referral request" or "Advice · Interview prep": the label on a note. */
+/** "Referral request" or the advice topic alone ("Interview prep"): the label on a note. */
 export function noteLabel(d: NoteDetails): string {
-  return d.purpose === "referral" ? "Referral request" : `Advice · ${ADVICE_TOPIC_LABELS[d.topic] ?? "Other"}`;
+  return d.purpose === "referral" ? "Referral request" : (ADVICE_TOPIC_LABELS[d.topic] ?? "Other");
 }
 
 /** Counter under a long field: "42 / 80 characters minimum", then "120 / 500". */

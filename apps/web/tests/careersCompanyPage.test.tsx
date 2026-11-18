@@ -85,19 +85,25 @@ describe("Careers company screen", () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true })], past: [] });
     mount("/intent/career/company?name=Razorpay&role=Product+manager");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for a referral" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Asha for a referral" });
+    const dialog = screen.getByRole("dialog", { name: "Reach out to Asha" });
+    // No topic is preselected, even from a referral button: they pick it explicitly.
+    const topic = within(dialog).getByLabelText("Topic") as HTMLSelectElement;
+    expect(topic.value).toBe("");
+    expect(within(dialog).queryByLabelText("Job link")).toBeNull();
+    expect((within(dialog).getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(topic, { target: { value: "referral" } });
     expect((within(dialog).getByLabelText("Role") as HTMLInputElement).value).toBe("Product manager");
     expect((within(dialog).getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
     fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "jobs.razorpay.com/pm" } });
     expect(within(dialog).getByRole("alert").textContent).toContain("https://");
     const fit = "Three years building merchant onboarding at a payments startup; I led the KYC revamp end to end.";
     fireEvent.change(within(dialog).getByLabelText("Why you’re a fit"), { target: { value: fit } });
-    expect((within(dialog).getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "https://jobs.razorpay.com/pm" } });
     fireEvent.change(within(dialog).getByLabelText(/Résumé link/), { target: { value: "https://drive.example.com/cv" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Preview your reachout" }));
-    expect(within(dialog).getByRole("heading", { name: "This is what Asha sees" })).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send reachout" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
+    expect(within(dialog).getByRole("heading", { name: "Reach out to Asha" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
         recipientPersonId: "a",
@@ -120,17 +126,21 @@ describe("Careers company screen", () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Microsoft", current: [], past: [person("c", "Chirag Jain", { organizationName: "Microsoft" })] });
     mount("/intent/career/company?name=Microsoft");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for advice" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Chirag for advice" });
+    const dialog = screen.getByRole("dialog", { name: "Reach out to Chirag" });
+    // No topic is preselected here either; the question starter is kept.
+    const topic = within(dialog).getByLabelText("Topic") as HTMLSelectElement;
+    expect(topic.value).toBe("");
     expect(within(dialog).queryByLabelText("Job link")).toBeNull();
+    fireEvent.change(topic, { target: { value: "interview_prep" } });
     const q = within(dialog).getByLabelText("Your question") as HTMLTextAreaElement;
     expect(q.value).toBe("I'm applying to Microsoft. ");
     // The starter alone is too short: they must add their own question.
-    expect((within(dialog).getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);
     const question = "I'm applying to Microsoft. What did the hiring loop look like for your team, and what would you prepare?";
     fireEvent.change(q, { target: { value: question } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Preview your reachout" }));
-    expect(within(dialog).getByText("Advice · Interview prep")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send reachout" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
+    expect(within(dialog).getByText("Interview prep")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
         recipientPersonId: "c",
