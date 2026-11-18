@@ -7,7 +7,16 @@ import "../styles/note-card.css";
  * clampBodyLines (recipient Notifications only): the long free-text field (question / why-fit)
  * collapses to that many lines behind a Read more toggle; short texts render without a toggle.
  */
-export function NoteBody({ details, clampBodyLines }: { details: NoteDetails; clampBodyLines?: number }) {
+export function NoteBody({
+  details,
+  clampBodyLines,
+  hideTag = false,
+}: {
+  details: NoteDetails;
+  clampBodyLines?: number;
+  /** Render the body without the topic tag (the host shows it elsewhere, e.g. beside the sender name). */
+  hideTag?: boolean;
+}) {
   const longTextRef = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -27,7 +36,7 @@ export function NoteBody({ details, clampBodyLines }: { details: NoteDetails; cl
 
   return (
     <div className="note-body">
-      <span className="note-card__tag">{noteLabel(details)}</span>
+      {!hideTag && <span className="note-card__tag">{noteLabel(details)}</span>}
       {details.purpose === "referral" ? (
         <>
           <p className="note-card__headline">

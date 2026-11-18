@@ -24,6 +24,16 @@
   margin: 0;
   font-size: 14px;
   color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.note-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .note-card__from span {

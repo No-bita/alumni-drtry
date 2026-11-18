@@ -180,10 +180,19 @@ function NotificationListItem({
             }
           />
           <div className="notifications-page__item-main">
-            <p className="notifications-page__item-title">
-              <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
-              {(item.source === "cities" ? cityNoteKindLabel(item.sourceCategory) : null) ?? "wants to connect"}
-            </p>
+            {item.source === "cities" ? (
+              <p className="notifications-page__item-title">
+                <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
+                {cityNoteKindLabel(item.sourceCategory)}
+              </p>
+            ) : (
+              <>
+                <p className="notifications-page__item-title">New reachout</p>
+                <p className="notifications-page__item-sender">
+                  <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />
+                </p>
+              </>
+            )}
             {item.details ? <NoteBody details={item.details} clampBodyLines={3} /> : <p className="notifications-page__item-detail">{item.message}</p>}
             <div className="notifications-page__item-actions">
               <Button

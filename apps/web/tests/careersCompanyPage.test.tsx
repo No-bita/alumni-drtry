@@ -102,8 +102,8 @@ describe("Careers company screen", () => {
     fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "https://jobs.razorpay.com/pm" } });
     fireEvent.change(within(dialog).getByLabelText(/Résumé link/), { target: { value: "https://drive.example.com/cv" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
-    expect(within(dialog).getByRole("heading", { name: "This is what Asha sees" })).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send reachout" }));
+    expect(within(dialog).getByRole("heading", { name: "Reach out to Asha" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
         recipientPersonId: "a",
@@ -139,8 +139,8 @@ describe("Careers company screen", () => {
     const question = "I'm applying to Microsoft. What did the hiring loop look like for your team, and what would you prepare?";
     fireEvent.change(q, { target: { value: question } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
-    expect(within(dialog).getByText("Advice · Interview prep")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send reachout" }));
+    expect(within(dialog).getByText("Interview prep")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/v1/contact-requests", {
         recipientPersonId: "c",

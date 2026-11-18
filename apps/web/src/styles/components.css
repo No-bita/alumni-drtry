@@ -1088,6 +1088,11 @@ input[type="reset"]:not(:disabled) {
   min-height: 0;
 }
 
+.btn--soft {
+  background: var(--cream-dark);
+  color: var(--ink);
+}
+
 .btn--back {
   background: none;
   border: none;
@@ -10966,6 +10971,12 @@ button.career-referrals-v3__matching-pill--editable:active {
   font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.45;
+  color: var(--ink);
+}
+
+.notifications-page__item-sender {
+  margin: -4px 0 6px;
+  font-size: 14px;
   color: var(--ink);
 }
 

@@ -68,7 +68,7 @@ async function sendReferral() {
   fireEvent.change(await screen.findByLabelText("Job link"), { target: { value: JOB } });
   fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-  fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
 }
 
 function mount(url: string) {
@@ -189,10 +189,10 @@ describe("MatchPage", () => {
     expect(preview.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
     fireEvent.click(preview);
-    expect(screen.getByRole("heading", { name: "This is what Ananya sees" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
     expect(screen.getByText("Referral request")).toBeTruthy();
     expect(screen.getByText("Viewer Person")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
@@ -221,7 +221,7 @@ describe("MatchPage", () => {
     const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
     fireEvent.change(q, { target: { value: longer } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,

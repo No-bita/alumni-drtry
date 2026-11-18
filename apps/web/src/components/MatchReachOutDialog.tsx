@@ -21,7 +21,6 @@ import {
   NOTE_URL_MAX,
   adviceDetails,
   adviceProblems,
-  batchLabel,
   isWebUrl,
   lengthCounter,
   referralDetails,
@@ -31,6 +30,7 @@ import {
   type NoteDetails,
   type NotePurpose,
   type ReferralFields,
+  noteLabel,
 } from "../lib/noteForm";
 import { Button } from "./Button";
 import { NoteBody } from "./NoteBody";
@@ -75,15 +75,17 @@ function sendErrorMessage(code: string | undefined, message: string | undefined)
   }
 }
 
-/** The note as the recipient will see it: who it's from, then its label and fields. */
-function NoteCard({ details, senderName, senderBatch }: { details: NoteDetails; senderName: string; senderBatch: string }) {
+/** The note as the recipient will see it: who it's from (with the topic pill beside the name), then its fields. */
+function NoteCard({ details, senderName }: { details: NoteDetails; senderName: string }) {
   return (
     <article className="note-card" aria-label="Your reachout">
-      <p className="note-card__from">
-        <strong>{senderName}</strong>
-        {senderBatch ? <span> · {senderBatch}</span> : null}
-      </p>
-      <NoteBody details={details} />
+      <div className="note-card__top">
+        <p className="note-card__from">
+          <strong>{senderName}</strong>
+        </p>
+        <span className="note-card__tag">{noteLabel(details)}</span>
+      </div>
+      <NoteBody details={details} hideTag />
     </article>
   );
 }
@@ -126,7 +128,6 @@ export function MatchReachOutDialog({
   const name = firstName(recipient.fullName);
   const me = auth.status === "authenticated" ? auth.myProfile : null;
   const senderName = me?.fullName?.trim() || "You";
-  const senderBatch = batchLabel(me?.batchYear);
   const problems = purpose === "referral" ? referralProblems(ref) : purpose === "advice" ? adviceProblems(adv) : ["topic"];
   const details: NoteDetails | null = problems.length === 0 ? (purpose === "referral" ? referralDetails(ref) : adviceDetails(adv)) : null;
 
@@ -339,7 +340,7 @@ export function MatchReachOutDialog({
               </>
             )}
             <div className="match-dialog__actions">
-              <Button type="button" variant="skip" onClick={onClose}>
+              <Button type="button" variant="soft" onClick={onClose}>
                 Cancel
               </Button>
               <Button type="submit" variant="primary" disabled={!details}>
@@ -350,20 +351,21 @@ export function MatchReachOutDialog({
         ) : details ? (
           <>
             <h2 id={titleId} className="match-dialog__title">
-              This is what {name} sees
+              Reach out to {name}
             </h2>
-            <NoteCard details={details} senderName={senderName} senderBatch={senderBatch} />
+            <p className="match-dialog__eyebrow">Preview</p>
+            <NoteCard details={details} senderName={senderName} />
             {error ? (
               <p className="match-dialog__error" role="alert">
                 {error}
               </p>
             ) : null}
             <div className="match-dialog__actions">
-              <Button variant="back" onClick={() => setStep("fields")} disabled={sending}>
+              <Button variant="soft" onClick={() => setStep("fields")} disabled={sending}>
                 Edit
               </Button>
               <Button variant="primary" onClick={() => void send()} disabled={sending}>
-                {sending ? "Sending…" : "Send reachout"}
+                {sending ? "Sending…" : "Send"}
               </Button>
             </div>
           </>
