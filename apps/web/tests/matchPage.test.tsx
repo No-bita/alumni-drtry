@@ -67,7 +67,7 @@ async function sendReferral() {
   fireEvent.change(await screen.findByLabelText("Topic"), { target: { value: "referral" } });
   fireEvent.change(await screen.findByLabelText("Job link"), { target: { value: JOB } });
   fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
-  fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+  fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
 }
 
@@ -177,11 +177,11 @@ describe("MatchPage", () => {
     // No topic is preselected, even though the question reads as a referral.
     const topic = screen.getByLabelText("Topic") as HTMLSelectElement;
     expect(topic.value).toBe("");
-    expect((screen.getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(topic, { target: { value: "referral" } });
     expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("Product Manager");
     expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
-    const preview = screen.getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement;
+    const preview = screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement;
     expect(preview.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
     fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: "pls refer" } });
@@ -220,7 +220,7 @@ describe("MatchPage", () => {
     expect(q.value).toBe("Google PM interview next week");
     const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
     fireEvent.change(q, { target: { value: longer } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
     expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {

@@ -170,6 +170,9 @@ export function MatchReachOutDialog({
       }}
     >
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="match-dialog" ref={dialogRef} tabIndex={-1}>
+        <button type="button" className="match-dialog__close" aria-label="Close" onClick={onClose} disabled={sending}>
+          ×
+        </button>
         {step === "sent" ? (
           <>
             <h2 id={titleId} className="match-dialog__title">
@@ -318,28 +321,29 @@ export function MatchReachOutDialog({
                 <label htmlFor={ids.question} className="match-dialog__label">
                   Your question
                 </label>
-                <textarea
-                  id={ids.question}
-                  className="match-dialog__textarea"
-                  rows={6}
-                  value={adv.question}
-                  maxLength={NOTE_QUESTION_MAX}
-                  placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
-                  aria-describedby={ids.qCount}
-                  onChange={(e) => setAdv({ ...adv, question: e.target.value })}
-                />
-                <p id={ids.qCount} className="match-dialog__counter" aria-live="polite">
-                  {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
-                </p>
+                <div className="match-dialog__textarea-wrap">
+                  <textarea
+                    id={ids.question}
+                    className="match-dialog__textarea"
+                    rows={6}
+                    value={adv.question}
+                    maxLength={NOTE_QUESTION_MAX}
+                    placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
+                    aria-describedby={ids.qCount}
+                    onChange={(e) => setAdv({ ...adv, question: e.target.value })}
+                  />
+                  <p id={ids.qCount} className="match-dialog__counter match-dialog__counter--inside" aria-live="polite">
+                    {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
+                  </p>
+                </div>
               </>
             )}
-            {details ? null : <p className="match-dialog__hint">Still needed: {problems.join(", ")}.</p>}
             <div className="match-dialog__actions">
-              <Button type="button" variant="back" onClick={onClose}>
+              <Button type="button" variant="skip" onClick={onClose}>
                 Cancel
               </Button>
               <Button type="submit" variant="primary" disabled={!details}>
-                Preview your reachout
+                Preview
               </Button>
             </div>
           </form>
@@ -349,9 +353,6 @@ export function MatchReachOutDialog({
               This is what {name} sees
             </h2>
             <NoteCard details={details} senderName={senderName} senderBatch={senderBatch} />
-            <p className="match-dialog__body">
-              They get this by email or WhatsApp and in Notifications. Your contact details are shared only if they accept.
-            </p>
             {error ? (
               <p className="match-dialog__error" role="alert">
                 {error}
