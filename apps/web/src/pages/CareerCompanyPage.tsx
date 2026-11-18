@@ -18,7 +18,7 @@ const yy = (y: number | null) => (y ? ` · Batch '${String(y).slice(-2)}` : "");
 type Ask = { person: CareersPerson; kind: "referral" | "advice" };
 
 const NOTE_LABEL: Record<string, string> = {
-  pending: "Note sent · waiting",
+  pending: "Reachout sent · waiting",
   accepted: "Accepted · contact shared",
   declined: "Declined",
   expired: "No reply",
