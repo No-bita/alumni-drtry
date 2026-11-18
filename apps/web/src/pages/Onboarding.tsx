@@ -306,7 +306,7 @@ export function Onboarding() {
   const [departmentCode, setDepartmentCode] = useState<string | null>(null);
   const [departmentOtherText, setDepartmentOtherText] = useState("");
   const [degreeCode, setDegreeCode] = useState<string | null>("btech");
-  const [joinYearStable, setJoinYearStable] = useState<number | null>(null);
+  const [, setJoinYearStable] = useState<number | null>(null);
   const [joinYearText, setJoinYearText] = useState("");
   const [parsedDeptLabel, setParsedDeptLabel] = useState<string | null>(null);
   /** When false, show parsed department as a summary; user taps to open the vocab dropdown. */
@@ -567,17 +567,6 @@ export function Onboarding() {
     }
   }, [departmentPickerOpen, stepIndex]);
 
-  const joinYear = useMemo(() => {
-    const t = joinYearText.trim();
-    if (t !== "") {
-      const y = Number(t);
-      if (Number.isInteger(y) && y >= JOIN_YEAR_MIN && y <= joinYearMax()) return y;
-    }
-    return joinYearStable ?? 2019;
-  }, [joinYearText, joinYearStable]);
-
-  const gradYear4 = joinYear + 4;
-  const gradYear5 = joinYear + 5;
   const departmentOptions = useMemo<OnboardingDropdownOption[]>(() => {
     const normalized = departmentCode?.trim().toLowerCase() ?? "";
     const vocabOptions = DEPARTMENTS.map((department) => ({
@@ -1015,27 +1004,6 @@ export function Onboarding() {
     }));
   };
 
-  const pickProgram = (len: 4 | 5) => {
-    setBatchYear(len === 4 ? gradYear4 : gradYear5);
-  };
-
-  const onJoinYearTextChange = (raw: string) => {
-    setJoinYearText(raw);
-    const t = raw.trim();
-    if (t === "") {
-      setJoinYearStable(null);
-      return;
-    }
-    const y = Number(t);
-    if (!Number.isInteger(y) || y < JOIN_YEAR_MIN || y > joinYearMax()) return;
-    setJoinYearStable(y);
-    setBatchYear((prev) => {
-      const g4 = y + 4;
-      const g5 = y + 5;
-      if (prev === g4 || prev === g5) return prev;
-      return g4;
-    });
-  };
 
   const advanceStep1Question = () => {
     const err = step1QuestionError(step1QuestionIndex);
