@@ -5,6 +5,7 @@ import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
 import { NAV_INTENT_LABELS, NAV_INTENT_SLUGS, type NavIntentSlug } from "../constants/intents";
+import { FEEDBACK_WHATSAPP_URL } from "../lib/feedbackLink";
 import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
@@ -95,6 +96,19 @@ function IconYou({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconFeedback({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4.5 6.5c0-1.1.9-2 2-2h11c1.1 0 2 .9 2 2v7c0 1.1-.9 2-2 2H9l-4.5 3.5V6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -269,7 +283,7 @@ export function Nav({
   const handleSignOut = async () => {
     if (auth.status === "authenticated") {
       await auth.logout();
-      navigate("/", { replace: true });
+      navigate("/signed-out", { replace: true });
     }
   };
 
@@ -433,6 +447,17 @@ export function Nav({
                   </Link>
                 </li>
               ) : null}
+              <li>
+                <a
+                  className="nav-sidebar__link"
+                  href={FEEDBACK_WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <IconFeedback className="nav-sidebar__icon" />
+                  <span className="nav-sidebar__link-label">Feedback</span>
+                </a>
+              </li>
             </ul>
           </nav>
         </aside>
@@ -453,7 +478,7 @@ export function Nav({
             </div>
           ) : null}
         </header>
-        <nav className="nav-bottom-dock" aria-label="Primary navigation">
+        <nav className={`nav-bottom-dock${isAdminUser && myProfileId ? " nav-bottom-dock--compact" : ""}`} aria-label="Primary navigation">
           <ul className="nav-bottom-dock__list">
             <li className="nav-bottom-dock__item">
               <NavLink
@@ -522,6 +547,17 @@ export function Nav({
                 </Link>
               </li>
             ) : null}
+            <li className="nav-bottom-dock__item">
+              <a
+                className="nav-bottom-dock__link"
+                href={FEEDBACK_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconFeedback className="nav-bottom-dock__icon" />
+                <span className="nav-bottom-dock__label">Feedback</span>
+              </a>
+            </li>
             <li className="nav-bottom-dock__item">
               {myProfileId ? (
                 <Link

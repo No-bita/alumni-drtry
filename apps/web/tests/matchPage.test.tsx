@@ -110,6 +110,31 @@ describe("MatchPage", () => {
     expect(screen.getByRole("combobox", { name: "Looking for" })).toHaveProperty("value", "referral");
   });
 
+  it("shows no open-to chip row on the result cards", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    // Willingness stays once, inside Why them; the separate chip row is gone.
+    expect(screen.getByText("Open to referrals")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Open to" })).toBeNull();
+  });
+
+  it("shows what-we-understood below the results", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    const resultsHeading = await screen.findByRole("heading", { name: /who can help/ });
+    const understood = screen.getByRole("heading", { name: "What we understood" });
+    const pos = resultsHeading.compareDocumentPosition(understood);
+    expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("has no back-to-home button on the results page", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /back to home/i })).toBeNull();
+  });
+
   it("clearing a chip puts the correction in the URL and re-asks", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount("/match?q=referral+for+PM+at+Razorpay");
@@ -250,7 +275,7 @@ describe("MatchPage — filling a missing field", () => {
 });
 
 describe("MatchPage — reach-out loop", () => {
-  it("shows 'Note sent' instead of Reach out when a note is pending, and the reply line when present", async () => {
+  it("shows 'Reachout sent' instead of Reach out when a reachout is pending, and the reply line when present", async () => {
     post.mockResolvedValue({
       data: {
         intent,
@@ -260,10 +285,10 @@ describe("MatchPage — reach-out loop", () => {
       },
     });
     mount("/match?q=referral+at+Razorpay");
-    expect(await screen.findByText(/Note sent · waiting for reply/)).toBeTruthy();
+    expect(await screen.findByText(/Reachout sent · waiting for reply/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reach out" })).toBeNull();
-    expect(screen.getByText("Replied to 4 of 5 notes · usually within 2 days")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "See your notes" }).getAttribute("href")).toBe("/notifications");
+    expect(screen.getByText("Replied to 4 of 5 reachouts · usually within 2 days")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See your reachouts" }).getAttribute("href")).toBe("/notifications");
   });
 
   it("shows no reply line without enough data, and the server's duplicate message on 409", async () => {

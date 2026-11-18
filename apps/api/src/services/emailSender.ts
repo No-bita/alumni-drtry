@@ -33,16 +33,16 @@ export function buildContactRequestReminderEmail(
   const text = [
     `Hi ${payload.recipientName},`,
     "",
-    `${payload.senderName} sent you a note ${days} ago and hasn't heard back yet:`,
+    `${payload.senderName} sent you a reachout ${days} ago and hasn't heard back yet:`,
     `"${payload.message}"`,
     "",
-    "You can accept or decline from your notifications. This is the only reminder we'll send for this note."
+    "You can accept or decline from your notifications. This is the only reminder we'll send for this reachout."
   ].join("\n");
   const html = [
     `<p>Hi ${escapeHtml(payload.recipientName)},</p>`,
-    `<p><strong>${escapeHtml(payload.senderName)}</strong> sent you a note ${days} ago and hasn't heard back yet:</p>`,
+    `<p><strong>${escapeHtml(payload.senderName)}</strong> sent you a reachout ${days} ago and hasn't heard back yet:</p>`,
     `<blockquote>${escapeHtml(payload.message)}</blockquote>`,
-    "<p>You can accept or decline from your notifications. This is the only reminder we'll send for this note.</p>"
+    "<p>You can accept or decline from your notifications. This is the only reminder we'll send for this reachout.</p>"
   ].join("");
   return { subject, text, html };
 }
@@ -52,7 +52,7 @@ export interface ContactRequestReceivedEmailPayload {
   recipientName: string;
   senderName: string;
   message: string;
-  /** What the sender did, e.g. "asked you for coffee" (Cities notes). Default: "sent you a contextual note". */
+  /** What the sender did, e.g. "asked you for coffee" (Cities notes). Default: "sent you a contextual reachout". */
   lead?: string;
 }
 
@@ -302,7 +302,7 @@ export class ResendEmailSender implements EmailSender {
     const subject = payload.lead
       ? `${payload.senderName} ${payload.lead} on ${this.options.brandName}`
       : `${payload.senderName} wants to connect on ${this.options.brandName}`;
-    const lead = payload.lead ?? "sent you a contextual note";
+    const lead = payload.lead ?? "sent you a contextual reachout";
     const text = [
       `Hi ${payload.recipientName},`,
       "",

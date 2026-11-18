@@ -5,9 +5,11 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/match.css";
 
 const EXAMPLE_QUESTIONS = [
-  "Referral at Meesho",
-  "Interview prep for consulting",
-  "Moving to Bengaluru next month",
+  // phoneLabel: the short label shown on phones (<=639px). Chips with phoneLabel null are desktop-only.
+  // Clicking a phone chip still submits its full query.
+  { query: "Referral at Meesho", phoneLabel: "Referral at Meesho" },
+  { query: "Interview prep for consulting", phoneLabel: null },
+  { query: "Moving to Bengaluru next month", phoneLabel: "Moving to Bengaluru" },
 ] as const;
 
 /** Home hero: plain-language question → `/match`. */
@@ -67,8 +69,23 @@ export function HomeAskBox() {
       <div id={hintId} className="home-ask__examples">
         <span className="home-ask__examples-label">Try:</span>
         {EXAMPLE_QUESTIONS.map((example) => (
-          <button key={example} type="button" className="home-ask__example" onClick={() => submit(example, "example")}>
-            {example}
+          <button
+            key={example.query}
+            type="button"
+            className="home-ask__example home-ask__example--full"
+            onClick={() => submit(example.query, "example")}
+          >
+            {example.query}
+          </button>
+        ))}
+        {EXAMPLE_QUESTIONS.filter((example) => example.phoneLabel !== null).map((example) => (
+          <button
+            key={example.phoneLabel}
+            type="button"
+            className="home-ask__example home-ask__example--phone"
+            onClick={() => submit(example.query, "example")}
+          >
+            {example.phoneLabel}
           </button>
         ))}
       </div>

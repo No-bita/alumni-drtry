@@ -338,8 +338,8 @@ export class WhatsAppService implements NoteDeliveryChannel {
     if (contact.notes_opted_in_at) {
       buttons.push(
         contact.notes_paused_at
-          ? { id: MENU.resume, title: "Resume WhatsApp notes" }
-          : { id: MENU.pause, title: "Pause WhatsApp notes" }
+          ? { id: MENU.resume, title: "Resume reachouts" }
+          : { id: MENU.pause, title: "Pause reachouts" }
       );
     }
     await this.repo.setState(contact.wa_id, { ...contact.state, step: undefined });
@@ -410,12 +410,12 @@ export class WhatsAppService implements NoteDeliveryChannel {
       }).toString()}`;
       const link = await this.linkUrl(contact.wa_id, next);
       lines.push(
-        `${i + 1}. ${r.fullName}${r.batchYear ? ` (${yy(r.batchYear)})` : ""}${headline ? `\n${headline}` : ""}\nWhy: ${r.whyThem}\nSend a note: ${link}`
+        `${i + 1}. ${r.fullName}${r.batchYear ? ` (${yy(r.batchYear)})` : ""}${headline ? `\n${headline}` : ""}\nWhy: ${r.whyThem}\nSend a reachout: ${link}`
       );
     }
     await this.replyWithBack(
       contact.wa_id,
-      `Here's who can help with a referral at ${result.intent.company}:\n\n${lines.join("\n\n")}\n\nNotes are written on the website. Type another company to search again.`
+      `Here's who can help with a referral at ${result.intent.company}:\n\n${lines.join("\n\n")}\n\nReachouts are written on the website. Type another company to search again.`
     );
   }
 
@@ -444,7 +444,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
       });
     } catch (err) {
       if (isAppError(err) && err.code === "CONTACT_REQUEST_ALREADY_RESOLVED") {
-        await this.reply(contact.wa_id, { kind: "text", body: "You've already answered this note." });
+        await this.reply(contact.wa_id, { kind: "text", body: "You've already answered this reachout." });
         return;
       }
       throw err;
@@ -470,7 +470,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
       body:
         action === "decline"
           ? `${alum} can't help with this one right now. Text hi to find someone else.`
-          : `${alum} accepted your note. Contact: ${updated?.recipientContactShared ?? "see your notes on the website"}`
+          : `${alum} accepted your reachout. Contact: ${updated?.recipientContactShared ?? "see your reachouts on the website"}`
     });
   }
 

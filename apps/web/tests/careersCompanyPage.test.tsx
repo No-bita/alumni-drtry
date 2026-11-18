@@ -77,7 +77,7 @@ describe("Careers company screen", () => {
   it("someone you've already asked shows where it stands instead of the button", async () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true, yourNote: "pending" })], past: [] });
     mount("/intent/career/company?name=Razorpay");
-    expect(await screen.findByText("Note sent · waiting")).toBeTruthy();
+    expect(await screen.findByText("Reachout sent · waiting")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ask for a referral" })).toBeNull();
   });
 
