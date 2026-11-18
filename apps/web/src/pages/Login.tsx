@@ -5,7 +5,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { LandingWorldMap } from "../components/LandingWorldMap";
 import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { API_BASE_URL, api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
@@ -43,17 +42,6 @@ export function Login() {
   const [searchParams] = useSearchParams();
   const { refetch } = useAuth();
   const isPhone = usePhoneViewport();
-  // Match the desktop right-rail breakpoint; tablets retain their map-free layout.
-  const [showDesktopMap, setShowDesktopMap] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 900px)");
-    const apply = () => setShowDesktopMap(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
 
   const [email, setEmail] = useState("");
   const emailDomainInvalid = email.trim().length > 0 && !isInstitutionalEmail(email);
@@ -368,7 +356,6 @@ export function Login() {
   const renderAuthMarketingShell = (cardMount: ReactNode) => (
     <section className="auth-merged">
       <div className="auth-merged__hero">
-        {(showDesktopMap || isPhone) && <LandingWorldMap className="auth-merged__map" showTestimonials={!isPhone} />}
         <div className="auth-merged__hero-copy">
           <h1 className="auth-merged__title">
             Where alumni
