@@ -1,6 +1,4 @@
-/** Feedback goes to WhatsApp with a prefilled introduction; no backend involved. */
-const FEEDBACK_WHATSAPP_URL =
-  "https://wa.me/919137839907?text=Hi+Aaryan%21+I%27m+using+Alma+Mater+and+wanted+to+share...";
+import { FEEDBACK_WHATSAPP_URL } from "../lib/feedbackLink";
 
 /**
  * Homepage feedback panel — opens WhatsApp in a new tab.
