@@ -28,9 +28,8 @@ import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/Pos
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
-// PARKED 2026-11-18 per user instruction: Getting-started checklist and answer key hidden for now.
+// PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
 // import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
-// import { HomeAnswerKeyCard } from "../components/HomeAnswerKeyCard";
 import "../styles/home-layout.css";
 
 const EMPTY_POSTS: IntentcastFeedItem[] = [];
@@ -808,9 +807,8 @@ export function Home() {
                 />
               ) : null}
             </div>
-            {/* PARKED 2026-11-18 per user instruction: Getting-started checklist and answer key hidden for now.
-            <OnboardingChecklistCard />
-            <HomeAnswerKeyCard /> */}
+            {/* PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
+            <OnboardingChecklistCard /> */}
             <HomeOpportunityRail
               intentcasts={opportunityIntentcasts}
               activeCategory={viewModel.activeCategory}
