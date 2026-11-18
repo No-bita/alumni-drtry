@@ -206,10 +206,10 @@ describe("incoming notes from the note form", () => {
 });
 
 describe("type tiles and unseen emphasis", () => {
-  it("every row carries a kind tile keyed to its notification type", () => {
+  it("non-request rows carry a kind tile; reachout requests show no tile", () => {
     const { container } = wrap(<NotificationsList items={items} />);
-    expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(3);
-    expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(1);
+    expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(2);
+    expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(0);
     expect(container.querySelectorAll(".notifications-page__kind-tile--resolved").length).toBe(1);
     expect(container.querySelectorAll(".notifications-page__kind-tile--bulletin").length).toBe(1);
   });

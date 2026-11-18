@@ -100,7 +100,7 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
             (item.unseen ? " notifications-page__item--unseen" : "")
           }
         >
-          <NotificationKindTile kind={item.kind} />
+          {item.kind !== "contact_request_received" && <NotificationKindTile kind={item.kind} />}
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
