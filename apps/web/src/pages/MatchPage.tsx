@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { MatchIntentChips } from "../components/MatchIntentChips";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
-import { topicForCategory } from "../lib/noteForm";
 import { MatchResultCard } from "../components/MatchResultCard";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { useAuth } from "../contexts/AuthContext";
@@ -86,15 +85,14 @@ export function MatchPage() {
       ? { result: { id: reachProfile.data.profile.id, fullName: reachProfile.data.profile.fullName }, rank: null }
       : null;
   const dialogFor = reachOutTo ?? autoDialog;
-  // Note form: a referral question opens the referral form (role and company from the question,
-  // else the person's current company); any other kind of question opens advice with the user's
-  // question to start from. No clear kind of question: they pick.
-  const askedCategory = data?.intent.category ?? state.overrides.category ?? null;
+  // Note form: no topic is ever preselected - the asker picks one every time (mandatory, no
+  // defaults). Role, company and the question itself still prefill from the search, since the
+  // asker already typed or tapped those.
   const dialogCompany = dialogFor ? (data?.results.find((r) => r.id === dialogFor.result.id)?.headlineOrganizationName ?? null) : null;
   const noteSetup = {
-    purpose: askedCategory === "referral" ? ("referral" as const) : askedCategory ? ("advice" as const) : null,
+    purpose: null,
     referral: { role: data?.intent.role ?? null, company: data?.intent.company ?? dialogCompany },
-    advice: { topic: topicForCategory(askedCategory), question: state.question },
+    advice: { topic: null, question: state.question },
   };
   const updating = matchQuery.isFetching && matchQuery.isPlaceholderData;
 

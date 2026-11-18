@@ -64,10 +64,11 @@ const referralNote = { purpose: "referral", jobUrl: JOB, role: "Product Manager"
 
 /** Fill the referral form (role and company come prefilled), preview, send. */
 async function sendReferral() {
+  fireEvent.change(await screen.findByLabelText("Topic"), { target: { value: "referral" } });
   fireEvent.change(await screen.findByLabelText("Job link"), { target: { value: JOB } });
   fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
-  fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
-  fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+  fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
 }
 
 function mount(url: string) {
@@ -148,10 +149,14 @@ describe("MatchPage", () => {
     mount("/match?q=Need+a+referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
-    expect((screen.getByLabelText("Topic") as HTMLSelectElement).value).toBe("referral");
+    // No topic is preselected, even though the question reads as a referral.
+    const topic = screen.getByLabelText("Topic") as HTMLSelectElement;
+    expect(topic.value).toBe("");
+    expect((screen.getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(topic, { target: { value: "referral" } });
     expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("Product Manager");
     expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
-    const preview = screen.getByRole("button", { name: "Preview your note" }) as HTMLButtonElement;
+    const preview = screen.getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement;
     expect(preview.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
     fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: "pls refer" } });
@@ -162,8 +167,8 @@ describe("MatchPage", () => {
     expect(screen.getByRole("heading", { name: "This is what Ananya sees" })).toBeTruthy();
     expect(screen.getByText("Referral request")).toBeTruthy();
     expect(screen.getByText("Viewer Person")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: referralNote,
@@ -182,14 +187,17 @@ describe("MatchPage", () => {
     mount("/match?q=Google+PM+interview+next+week");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
-    expect((screen.getByLabelText("Topic") as HTMLSelectElement).value).toBe("interview_prep");
+    // The question is kept, but the topic is not preselected.
+    const topic = screen.getByLabelText("Topic") as HTMLSelectElement;
+    expect(topic.value).toBe("");
+    fireEvent.change(topic, { target: { value: "interview_prep" } });
     const q = screen.getAllByLabelText("Your question").find((el) => el.tagName === "TEXTAREA") as HTMLTextAreaElement;
     expect(q.value).toBe("Google PM interview next week");
     const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
     fireEvent.change(q, { target: { value: longer } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: { purpose: "advice", topic: "interview_prep", question: longer },
@@ -281,7 +289,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
     );
     mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
     await sendReferral();
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: referralNote,
@@ -293,6 +301,10 @@ describe("MatchPage — from the WhatsApp bot", () => {
   it("uses the bot's reading of the question (company, referral) so the website shows the same list", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount(`/match?q=Referral+at+razorpay%2C+pm&cat=referral&company=Razorpay&reach=${result.id}&via=whatsapp`);
+    // Even from the bot's referral link, the topic is not preselected.
+    const topic = (await screen.findByLabelText("Topic")) as HTMLSelectElement;
+    expect(topic.value).toBe("");
+    fireEvent.change(topic, { target: { value: "referral" } });
     await screen.findByLabelText("Job link");
     expect(post).toHaveBeenCalledWith(
       "/v1/match",
@@ -310,10 +322,12 @@ describe("MatchPage — from the WhatsApp bot", () => {
         : { data: { contactRequest: { id: "x" } } },
     );
     mount(`/match?q=Referral+at+Razorpay&cat=referral&company=Razorpay&reach=${priya}&via=whatsapp`);
+    expect(((await screen.findByLabelText("Topic")) as HTMLSelectElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "referral" } });
     await screen.findByLabelText("Job link");
     expect(getJson).toHaveBeenCalledWith(`/v1/profiles/${priya}`, expect.anything());
     await sendReferral();
-    expect(await screen.findByText("Note sent to Priya")).toBeTruthy();
+    expect(await screen.findByText("Reachout sent to Priya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: priya,
       note: referralNote,
