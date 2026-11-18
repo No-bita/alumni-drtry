@@ -790,7 +790,7 @@ export function Home() {
       <Nav
         variant="home"
         avatarName={displayName}
-        toolbarSearchLead
+        appToolbarSearch={null}
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
