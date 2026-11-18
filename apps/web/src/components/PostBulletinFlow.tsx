@@ -374,7 +374,6 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const headlineOk = headline.trim().length >= 3;
 
     const validateCompose = useCallback((): string | null => {
-      if (!kind) return "Choose what this post is: an ask, an offer or an invitation.";
       if (careersPreset === "referralSeeking") {
         const jl = referralJobLink.trim();
         if (!jl) return "Add the job link for this opening.";
@@ -461,7 +460,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setSubmitting(true);
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: bulletinUiCategoryToApiCategory(category),
-        kind,
+        ...(kind ? { kind } : {}),
         content,
         ...(placeId ? { placeId } : {}),
       });
@@ -520,12 +519,22 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
           ? "Teams or roles you can support, geography, seniority, and how someone should reach out."
           : "What you’ve tried, what you need, and how alumni can respond.";
 
+    const detailsMaxChars =
+      careersPreset === "referralSeeking"
+        ? Math.max(
+            0,
+            BULLETIN_DESCRIPTION_MAX_CHARS -
+              referralSeekingLinkLines(referralJobLink, referralResumeLink).join("\n\n").length -
+              2
+          )
+        : BULLETIN_DESCRIPTION_MAX_CHARS;
+
     const publishLabel =
       careersPreset === "referralSeeking"
         ? "Publish"
         : careersPreset === "canHelp"
           ? "Publish offer"
-          : "Publish post";
+          : "Publish";
 
     useEffect(() => {
       if (!open) return;
@@ -549,27 +558,15 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         stepsAriaLabel={stepsAriaLabel}
         closeAriaLabel={closeAriaLabel}
         composeStepLabel="Write"
+        title="Post to the Wall"
+        hideSteps
+        blurOverlay
       >
         <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
           <div className="career-hiring-flow__main ds-surface-card">
             {step === "compose" ? (
               <>
                 <div className="career-hiring-flow__grid">
-                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                    <span>What is this? *</span>
-                    <select
-                      className="input"
-                      value={kind}
-                      onChange={(e) => setKind(e.target.value as "ask" | "offer" | "invitation")}
-                    >
-                      <option value="" disabled>
-                        Choose one
-                      </option>
-                      <option value="ask">Ask — I need something</option>
-                      <option value="offer">Offer — I’m offering something</option>
-                      <option value="invitation">Invitation — join me for something</option>
-                    </select>
-                  </label>
                   {careersHubFlow ? null : (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
                       <span>Category *</span>
@@ -628,24 +625,19 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                   ) : null}
                   <label className="career-hiring-flow__field career-hiring-flow__field--wide">
                     <span>{careersPreset === "referralSeeking" ? "Why are you a fit for this role? *" : "Details *"}</span>
-                    <textarea
-                      className="input input--textarea"
-                      rows={4}
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      placeholder={detailsPlaceholder}
-                      maxLength={
-                        careersPreset === "referralSeeking"
-                          ? Math.max(
-                              0,
-                              BULLETIN_DESCRIPTION_MAX_CHARS -
-                                referralSeekingLinkLines(referralJobLink, referralResumeLink)
-                                  .join("\n\n").length -
-                                2
-                            )
-                          : BULLETIN_DESCRIPTION_MAX_CHARS
-                      }
-                    />
+                    <div className="career-hiring-flow__textarea-wrap">
+                      <textarea
+                        className="input input--textarea"
+                        rows={4}
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        placeholder={detailsPlaceholder}
+                        maxLength={detailsMaxChars}
+                      />
+                      <p className="career-hiring-flow__counter career-hiring-flow__counter--inside" aria-live="polite">
+                        {body.length} / {detailsMaxChars}
+                      </p>
+                    </div>
                   </label>
                   {careersPreset === "referralSeeking" ? (
                     <label className="career-hiring-flow__field career-hiring-flow__field--wide">
@@ -664,7 +656,10 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                   ) : null}
                 </div>
                 <footer className="career-hiring-flow__actions">
-                  <Button type="button" variant="secondary" onClick={goToPreview}>
+                  <Button type="button" variant="soft" onClick={closeFlow}>
+                    Cancel
+                  </Button>
+                  <Button type="button" variant="primary" onClick={goToPreview}>
                     Preview
                   </Button>
                 </footer>
@@ -673,6 +668,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
 
             {step === "preview" ? (
               <div className="career-hiring-flow__preview-stack">
+                <p className="career-hiring-flow__eyebrow">Preview</p>
                 <article
                   ref={previewPanelRef}
                   tabIndex={-1}
@@ -692,11 +688,11 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
 
             {step === "preview" ? (
               <>
-                <footer className="career-hiring-flow__actions career-hiring-flow__actions--publish">
-                  <Button type="button" variant="primary" onClick={goBackToCompose}>
-                    Back
+                <footer className="career-hiring-flow__actions">
+                  <Button type="button" variant="soft" onClick={goBackToCompose}>
+                    Edit
                   </Button>
-                  <Button type="button" variant="secondary" disabled={submitting} onClick={() => void publish()}>
+                  <Button type="button" variant="primary" disabled={submitting} onClick={() => void publish()}>
                     {submitting ? "Publishing…" : publishLabel}
                   </Button>
                 </footer>

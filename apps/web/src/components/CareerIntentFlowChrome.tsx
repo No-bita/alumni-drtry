@@ -15,6 +15,13 @@ export type CareerIntentFlowChromeProps = {
   stepsAriaLabel?: string;
   /** Accessible label for the dialog close control. */
   closeAriaLabel?: string;
+  /** Optional visible heading shown in the dialog header. When omitted, the
+      header keeps only the visually-hidden aria heading (existing behavior). */
+  title?: string;
+  /** Hide the numbered two-step indicator (e.g. single-purpose flows). */
+  hideSteps?: boolean;
+  /** Add a light backdrop blur over the page behind the dialog. */
+  blurOverlay?: boolean;
   children: ReactNode;
 };
 
@@ -30,10 +37,17 @@ export function CareerIntentFlowChrome({
   previewStepLabel = "Preview",
   stepsAriaLabel = "Flow steps",
   closeAriaLabel = "Close",
+  title,
+  hideSteps = false,
+  blurOverlay = false,
   children,
 }: CareerIntentFlowChromeProps) {
   return (
-    <div className="career-hiring-flow__overlay" role="presentation" onClick={onRequestClose}>
+    <div
+      className={`career-hiring-flow__overlay${blurOverlay ? " career-hiring-flow__overlay--blur" : ""}`}
+      role="presentation"
+      onClick={onRequestClose}
+    >
       <section
         className="career-hiring-flow__dialog"
         role="dialog"
@@ -44,23 +58,25 @@ export function CareerIntentFlowChrome({
         <header className="career-hiring-flow__head">
           <div className="career-hiring-flow__head-title">
             <div>
-              <h2 className="visually-hidden">{ariaLabel}</h2>
+              {title ? <h2>{title}</h2> : <h2 className="visually-hidden">{ariaLabel}</h2>}
             </div>
           </div>
           <button type="button" className="career-hiring-flow__close" onClick={onRequestClose} aria-label={closeAriaLabel}>
             ×
           </button>
         </header>
-        <div className="career-hiring-flow__steps career-hiring-flow__steps--two" aria-label={stepsAriaLabel}>
-          <span className={step === "compose" ? "is-active" : "is-done"}>
-            <b>{step === "preview" ? "✓" : "1"}</b>
-            <small>{composeStepLabel}</small>
-          </span>
-          <span className={step === "preview" ? "is-active" : ""}>
-            <b>2</b>
-            <small>{previewStepLabel}</small>
-          </span>
-        </div>
+        {hideSteps ? null : (
+          <div className="career-hiring-flow__steps career-hiring-flow__steps--two" aria-label={stepsAriaLabel}>
+            <span className={step === "compose" ? "is-active" : "is-done"}>
+              <b>{step === "preview" ? "✓" : "1"}</b>
+              <small>{composeStepLabel}</small>
+            </span>
+            <span className={step === "preview" ? "is-active" : ""}>
+              <b>2</b>
+              <small>{previewStepLabel}</small>
+            </span>
+          </div>
+        )}
         {children}
       </section>
     </div>
