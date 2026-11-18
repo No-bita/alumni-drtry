@@ -10980,6 +10980,27 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: var(--ink);
 }
 
+/* Reachout rows: sender name and topic tag share one line, tag pinned right. */
+.notifications-page__item-sender-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -4px 0 6px;
+}
+
+.notifications-page__item-sender-row .notifications-page__item-sender {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__item-sender-row .note-card__tag {
+  flex-shrink: 0;
+}
+
 .notifications-page__item-name {
   font-weight: 600;
   color: var(--ink);

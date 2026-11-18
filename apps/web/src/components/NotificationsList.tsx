@@ -7,6 +7,7 @@ import { invalidateNotificationRelatedQueries } from "../lib/invalidateAppQuerie
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { queryKeys } from "../lib/queryKeys";
 import { HELP_KIND_LABELS, cityNoteKindLabel } from "../lib/cities";
+import { noteLabel } from "../lib/noteForm";
 import { Button } from "./Button";
 import { NoteBody } from "./NoteBody";
 
@@ -188,12 +189,15 @@ function NotificationListItem({
             ) : (
               <>
                 <p className="notifications-page__item-title">New reachout</p>
-                <p className="notifications-page__item-sender">
-                  <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />
-                </p>
+                <div className="notifications-page__item-sender-row">
+                  <p className="notifications-page__item-sender">
+                    <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />
+                  </p>
+                  {item.details ? <span className="note-card__tag">{noteLabel(item.details)}</span> : null}
+                </div>
               </>
             )}
-            {item.details ? <NoteBody details={item.details} clampBodyLines={3} /> : <p className="notifications-page__item-detail">{item.message}</p>}
+            {item.details ? <NoteBody details={item.details} clampBodyLines={3} hideTag /> : <p className="notifications-page__item-detail">{item.message}</p>}
             <div className="notifications-page__item-actions">
               <Button
                 type="button"
