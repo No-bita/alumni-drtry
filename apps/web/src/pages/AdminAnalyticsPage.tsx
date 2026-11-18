@@ -49,7 +49,7 @@ const HOME_EVENT_LABELS: Record<string, string> = {
   home_example_clicked: "Tapped an example question",
   home_browse_clicked: "Tapped a browse link",
   home_wall_post_clicked: "Tapped Post to The Wall",
-  home_notes_clicked: "Opened their notes",
+  home_notes_clicked: "Opened their reachouts",
   home_checklist_clicked: "Tapped the next step",
   home_checklist_dismissed: "Dismissed the next step",
   home_answer_key_opened: "Opened the answer-key card",
@@ -177,9 +177,9 @@ function Report({ r }: { r: AnalyticsReport }) {
 
   return (
     <>
-      <Section id="north-star" title="North star" note="A helpful connection = a note an alum accepted.">
+      <Section id="north-star" title="North star" note="A helpful connection = a reachout an alum accepted.">
         <div className="aa-tiles">
-          <Tile hero label="Accepted notes"
+          <Tile hero label="Accepted reachouts"
             info={METRIC_HELP.acceptedNotes} value={compact(ns.acceptedNotes)} hint={`in the last ${r.windowDays} days`} />
           <Tile
             label="Helped within 7 days"
@@ -189,8 +189,8 @@ function Report({ r }: { r: AnalyticsReport }) {
           />
         </div>
         <div className="aa-charts">
-          <WeeklyBars title="Accepted notes per week" points={ns.trendAccepted} />
-          <WeeklyBars title="Notes sent per week" points={ns.trendSent} />
+          <WeeklyBars title="Accepted reachouts per week" points={ns.trendAccepted} />
+          <WeeklyBars title="Reachouts sent per week" points={ns.trendSent} />
         </div>
       </Section>
 
@@ -297,30 +297,30 @@ function Report({ r }: { r: AnalyticsReport }) {
 
       <Section id="matching" title="Matching quality">
         <div className="aa-tiles">
-          <Tile label="Notes from a search"
+          <Tile label="Reachouts from a search"
             info={METRIC_HELP.notesFromSearch} value={compact(r.matching.notesFromMatch)} />
           <Tile
-            label="Searches that led to a note"
+            label="Searches that led to a reachout"
             info={METRIC_HELP.searchesLedToNote}
             value={pct(r.matching.notesFromMatch, r.matching.questionsWithMatches)}
-            hint={`of ${r.matching.questionsWithMatches} searches with matches (a search can lead to several notes)`}
+            hint={`of ${r.matching.questionsWithMatches} searches with matches (a search can lead to several reachouts)`}
           />
         </div>
         <div className="aa-split">
           <Table
             caption="Which result people contacted"
-            head={["Position", "Notes", "Accepted", "Accept rate"]}
+            head={["Position", "Reachouts", "Accepted", "Accept rate"]}
             rows={r.matching.byRank.map((k) => [
               k.rank == null ? "Not recorded" : `#${k.rank}`,
               compact(k.notes),
               compact(k.accepted),
               pct(k.accepted, k.accepted + k.declined),
             ])}
-            empty={`No notes from a search in this window. Position: ${SINCE_RELEASE.toLowerCase()}`}
+            empty={`No reachouts from a search in this window. Position: ${SINCE_RELEASE.toLowerCase()}`}
           />
           <Table
-            caption="Notes by kind of help"
-            head={["Kind of help", "Notes", "Accepted", "Declined", "Waiting"]}
+            caption="Reachouts by kind of help"
+            head={["Kind of help", "Reachouts", "Accepted", "Declined", "Waiting"]}
             rows={r.matching.byCategory.map((c) => [
               categoryLabel(c.category),
               compact(c.notes),
@@ -328,31 +328,31 @@ function Report({ r }: { r: AnalyticsReport }) {
               compact(c.declined),
               compact(c.pending),
             ])}
-            empty="No notes from a search in this window."
+            empty="No reachouts from a search in this window."
           />
         </div>
       </Section>
 
       <Section id="outcomes" title="Outcomes and fairness">
         <div className="aa-tiles">
-          <Tile label="Notes sent"
+          <Tile label="Reachouts sent"
             info={METRIC_HELP.notesSent} value={compact(out.sent)} hint={`${out.accepted} accepted · ${out.declined} declined · ${out.pending} waiting`} />
           <Tile label="Accept rate"
-            info={METRIC_HELP.acceptRate} value={pct(out.accepted, out.accepted + out.declined)} hint="of answered notes" />
+            info={METRIC_HELP.acceptRate} value={pct(out.accepted, out.accepted + out.declined)} hint="of answered reachouts" />
           <Tile label="Median time to reply"
             info={METRIC_HELP.medianTimeToReply} value={duration(out.medianReplyHours)} />
           <Tile label="Reminders sent"
             info={METRIC_HELP.remindersSent} value={compact(out.remindersSent)} hint={`${out.repliedAfterReminder} replied after one`} />
           <Tile
-            label="Notes to the busiest 10%"
+            label="Reachouts to the busiest 10%"
             info={METRIC_HELP.notesToBusiest10}
             value={out.fairness.top10Share == null ? "—" : `${Math.round(out.fairness.top10Share * 100)}%`}
-            hint={`${out.fairness.recipients} alumni received notes`}
+            hint={`${out.fairness.recipients} alumni received reachouts`}
           />
           <Tile label="At the weekly cap"
-            info={METRIC_HELP.atWeeklyCap} value={compact(out.fairness.atWeeklyCap)} hint="5+ new notes in the last 7 days" />
+            info={METRIC_HELP.atWeeklyCap} value={compact(out.fairness.atWeeklyCap)} hint="5+ new reachouts in the last 7 days" />
           <Tile label="Not replying"
-            info={METRIC_HELP.notReplying} value={compact(out.fairness.silentAlumni)} hint="2+ notes older than 7 days, no reply" />
+            info={METRIC_HELP.notReplying} value={compact(out.fairness.silentAlumni)} hint="2+ reachouts older than 7 days, no reply" />
         </div>
       </Section>
 
@@ -437,7 +437,7 @@ function Report({ r }: { r: AnalyticsReport }) {
       <Section
         id="whatsapp"
         title="WhatsApp pilot"
-        note="Go / no-go after 30+ WhatsApp notes. Spend is an estimate; Meta's invoice is final."
+        note="Go / no-go after 30+ WhatsApp reachouts. Spend is an estimate; Meta's invoice is final."
       >
         <VerdictLine title="Test 1 · Alum replies" v={alumRepliesVerdict(r.whatsapp.byChannel)} />
         <VerdictLine title="Test 2 · Onboarding" v={onboardingVerdict(r.whatsapp.onboardingByArrival)} />
@@ -445,7 +445,7 @@ function Report({ r }: { r: AnalyticsReport }) {
           <Tile label="Linked members"
             info={METRIC_HELP.waLinkedMembers} value={compact(r.whatsapp.linkedMembers)} hint={`${r.whatsapp.linkedInWindow} linked in the last ${r.windowDays} days`} />
           <Tile
-            label="Get notes on WhatsApp"
+            label="Get reachouts on WhatsApp"
             info={METRIC_HELP.waNotesOptIn}
             value={compact(r.whatsapp.notesOptedIn)}
             hint={`${r.whatsapp.notesPaused} paused · ${r.whatsapp.stopped} stopped`}
@@ -453,7 +453,7 @@ function Report({ r }: { r: AnalyticsReport }) {
           <Tile label="Numbers texting the bot"
             info={METRIC_HELP.waNumbersTexting} value={compact(r.whatsapp.numbersTexting)} />
           <Tile
-            label="Notes from the bot's links"
+            label="Reachouts from the bot's links"
             info={METRIC_HELP.waNotesFromBot}
             value={compact(r.whatsapp.notesFromBot)}
             hint={`${r.whatsapp.notesFromBotAccepted} accepted`}
@@ -474,7 +474,7 @@ function Report({ r }: { r: AnalyticsReport }) {
         <div className="aa-split">
           <Table
             caption="Test 1 · How the alum was told"
-            head={["Channel", "Notes", "Accepted", "Accept rate", "Median reply"]}
+            head={["Channel", "Reachouts", "Accepted", "Accept rate", "Median reply"]}
             rows={r.whatsapp.byChannel.map((c) => [
               c.channel === "whatsapp" ? "WhatsApp" : "Email",
               compact(c.notes),
@@ -482,7 +482,7 @@ function Report({ r }: { r: AnalyticsReport }) {
               pct(c.accepted, c.notes),
               duration(c.medianReplyHours),
             ])}
-            empty="No notes in this window."
+            empty="No reachouts in this window."
           />
           <Table
             caption="Test 2 · Members who joined, by where they arrived"
@@ -540,15 +540,15 @@ const CITIES_NOTE_LABELS: Record<string, string> = {
 function CitiesSection({ m }: { m: CitiesMetrics }) {
   const o = m.notes.overall;
   return (
-    <Section id="cities" title="Cities" note="Bengaluru first. Acceptance counts accepted notes out of those that got a reply; aim for 70% or more.">
+    <Section id="cities" title="Cities" note="Bengaluru first. Acceptance counts accepted reachouts out of those that got a reply; aim for 70% or more.">
       <div className="aa-tiles">
-        <Tile hero label="Cities notes accepted"
+        <Tile hero label="Cities reachouts accepted"
             info={METRIC_HELP.citiesNotesAccepted} value={rate(o.acceptanceRate)} hint={`${compact(o.accepted)} of ${compact(o.accepted + o.declined)} replied · ${compact(o.pending)} waiting`} />
         <Tile label="Arrival opt-in"
             info={METRIC_HELP.arrivalOptIn} value={rate(m.arrivals.optInRate)} hint={`${compact(m.arrivals.optedIn)} of ${compact(m.arrivals.promptShown)} shown the prompt`} />
         <Tile label="Offers per arrival"
             info={METRIC_HELP.offersPerArrival} value={m.arrivals.offersPerArrival ?? "—"} hint={`${rate(m.arrivals.withOfferIn7dShare)} had an offer within 7 days`} />
-        <Tile label="Newcomer notes per arrival"
+        <Tile label="Newcomer reachouts per arrival"
             info={METRIC_HELP.newcomerNotesPerArrival} value={m.arrivals.newcomerNotesPerArrival ?? "—"} />
         <Tile label="Coffee asks"
             info={METRIC_HELP.coffeeAsks} value={compact(m.coffee.asksSent)} hint={`${compact(m.coffee.accepted)} accepted · “Full this week” shown ${compact(m.coffee.fullThisWeekImpressions)}×`} />
@@ -558,7 +558,7 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
             info={METRIC_HELP.cityUpdatedMovedAway} value={compact(m.cityUpdatesFromMovedAway)} />
       </div>
       <Table
-        caption="Cities notes by category"
+        caption="Cities reachouts by category"
         head={["Category", "Sent", "Accepted", "Declined", "Waiting", "Accept rate", "Decline rate"]}
         rows={m.notes.byCategory.map((c) => [
           CITIES_NOTE_LABELS[c.category] ?? c.category,
@@ -569,7 +569,7 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
           rate(c.acceptanceRate),
           rate(c.declineRate),
         ])}
-        empty="No Cities notes yet."
+        empty="No Cities reachouts yet."
       />
     </Section>
   );

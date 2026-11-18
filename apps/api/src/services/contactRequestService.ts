@@ -150,7 +150,7 @@ export class ContactRequestService {
         throw new AppError(
           400,
           "CONTACT_REQUEST_MESSAGE_TOO_SHORT",
-          "Contextual note must be at least 10 characters."
+          "Contextual reachout must be at least 10 characters."
         );
       }
       category = input.sourceCategory ?? null;
@@ -170,7 +170,7 @@ export class ContactRequestService {
       throw new AppError(
         409,
         "CONTACT_REQUEST_DUPLICATE_PENDING",
-        `You already have a note waiting for ${name}.`
+        `You already have a reachout waiting for ${name}.`
       );
     }
 
@@ -268,7 +268,7 @@ export class ContactRequestService {
     cityHelpOfferId: string | null
   ): Promise<ContactRequestView> {
     if (!category || !(CITIES_NOTE_CATEGORIES as readonly string[]).includes(category)) {
-      throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid Cities note category.");
+      throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid Cities reachout category.");
     }
     const { senderPersonId, recipientPersonId, message } = createInput;
     if (category === "coffee" && coffeeReasonText(message).length < COFFEE_REASON_MIN_CHARS) {
@@ -325,7 +325,7 @@ export class ContactRequestService {
 
       // Same one-pending-note-per-pair rule as every other note, re-checked under the lock.
       if (await notes.hasPendingBetween(senderPersonId, recipientPersonId)) {
-        throw new AppError(409, "CONTACT_REQUEST_DUPLICATE_PENDING", "You already have a note waiting for them.");
+        throw new AppError(409, "CONTACT_REQUEST_DUPLICATE_PENDING", "You already have a reachout waiting for them.");
       }
       const created = await notes.create({
         ...createInput,

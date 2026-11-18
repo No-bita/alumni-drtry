@@ -257,7 +257,7 @@ describe("WhatsApp bot (integration)", () => {
     out = await hear(textMsg(ALUM, "hello"));
     expect(out[0]!.message).toMatchObject({
       kind: "buttons",
-      buttons: [{ id: MENU.referral }, { id: MENU.pause, title: "Pause WhatsApp notes" }],
+      buttons: [{ id: MENU.referral }, { id: MENU.pause, title: "Pause reachouts" }],
     });
   });
 
@@ -272,7 +272,7 @@ describe("WhatsApp bot (integration)", () => {
     const text = body(m);
     expect(text.length).toBeLessThanOrEqual(1024);
     expect(text).toContain(`Arun Alum ${run}`);
-    const link = text.match(/Send a note: (\S+)/)![1]!;
+    const link = text.match(/Send a reachout: (\S+)/)![1]!;
     expect(link).toMatch(/\/w\/[A-Za-z0-9]{8}$/);
     const { waId, next } = await shortLink(link);
     expect(waId).toBe(ASKER);

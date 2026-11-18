@@ -58,27 +58,27 @@ type Step = "purpose" | "fields" | "preview" | "sent";
 function sendErrorMessage(code: string | undefined, message: string | undefined): string {
   switch (code) {
     case "DEMO_READ_ONLY":
-      return "Demo accounts can’t send notes.";
+      return "Demo accounts can’t send reachouts.";
     case "CONTACT_REQUEST_RATE_LIMITED":
-      return "You’ve sent a lot of notes recently. Try again later.";
+      return "You’ve sent a lot of reachouts recently. Try again later.";
     case "CONTACT_REQUEST_DUPLICATE_PENDING":
-      return message ?? "You already have a note waiting for this alum.";
+      return message ?? "You already have a reachout waiting for this alum.";
     case "NETWORK_ERROR":
       return message ?? "We couldn't reach the server.";
     case "CONTACT_REQUEST_BAD_REQUEST":
       // Mid-deploy skew: this dialog already speaks the note form, the server doesn't yet.
-      return "Notes just got an upgrade. Refresh this page, then send again.";
+      return "Reachouts just got an upgrade. Refresh this page, then send again.";
     default:
       // Field rules come back with their own plain-language message.
       if (code?.startsWith("CONTACT_REQUEST_") && message) return message;
-      return "Couldn’t send your note. Try again.";
+      return "Couldn’t send your reachout. Try again.";
   }
 }
 
 /** The note as the recipient will see it: who it's from, then its label and fields. */
 function NoteCard({ details, senderName, senderBatch }: { details: NoteDetails; senderName: string; senderBatch: string }) {
   return (
-    <article className="note-card" aria-label="Your note">
+    <article className="note-card" aria-label="Your reachout">
       <p className="note-card__from">
         <strong>{senderName}</strong>
         {senderBatch ? <span> · {senderBatch}</span> : null}
@@ -179,7 +179,7 @@ export function MatchReachOutDialog({
         {step === "sent" ? (
           <>
             <h2 id={titleId} className="match-dialog__title">
-              Note sent to {name}
+              Reachout sent to {name}
             </h2>
             <p className="match-dialog__body">
               {name} will see it soon. If they accept, you’ll both see each other’s contact details. If there’s no reply in a few days, we
@@ -213,7 +213,7 @@ export function MatchReachOutDialog({
                 </span>
               </button>
             </div>
-            <p className="match-dialog__hint">Alumni get many notes. A clear, specific ask is easier to say yes to.</p>
+            <p className="match-dialog__hint">Alumni get many reachouts. A clear, specific ask is easier to say yes to.</p>
             <div className="match-dialog__actions">
               <Button variant="back" onClick={onClose}>
                 Cancel
@@ -321,7 +321,7 @@ export function MatchReachOutDialog({
                 {presetPurpose ? "Cancel" : "Back"}
               </Button>
               <Button type="submit" variant="primary" disabled={!details}>
-                Preview your note
+                Preview your reachout
               </Button>
             </div>
           </form>
@@ -375,7 +375,7 @@ export function MatchReachOutDialog({
                 {presetPurpose ? "Cancel" : "Back"}
               </Button>
               <Button type="submit" variant="primary" disabled={!details}>
-                Preview your note
+                Preview your reachout
               </Button>
             </div>
           </form>
@@ -399,7 +399,7 @@ export function MatchReachOutDialog({
                 Edit
               </Button>
               <Button variant="primary" onClick={() => void send()} disabled={sending}>
-                {sending ? "Sending…" : "Send note"}
+                {sending ? "Sending…" : "Send reachout"}
               </Button>
             </div>
           </>

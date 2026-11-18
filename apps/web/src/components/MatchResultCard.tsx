@@ -59,11 +59,11 @@ export function MatchResultCard({ result, onReachOut }: MatchResultCardProps) {
       <div className="match-card__actions">
         {result.yourNote === "pending" ? (
           <p className="match-card__note-status" role="status">
-            Note sent · waiting for reply · <Link to="/notifications">See your notes</Link>
+            Reachout sent · waiting for reply · <Link to="/notifications">See your reachouts</Link>
           </p>
         ) : result.yourNote === "accepted" ? (
           <p className="match-card__note-status match-card__note-status--accepted" role="status">
-            Accepted your note · <Link to="/notifications">See their contact</Link>
+            Accepted your reachout · <Link to="/notifications">See their contact</Link>
           </p>
         ) : (
           <button type="button" className="btn btn--primary" onClick={() => onReachOut(result)}>
