@@ -147,7 +147,8 @@ describe("MatchPage", () => {
     );
     mount("/match?q=Need+a+referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
-    expect(screen.getByRole("heading", { name: "Ask Ananya for a referral" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
+    expect((screen.getByLabelText("Topic") as HTMLSelectElement).value).toBe("referral");
     expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("Product Manager");
     expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
     const preview = screen.getByRole("button", { name: "Preview your note" }) as HTMLButtonElement;
@@ -180,8 +181,8 @@ describe("MatchPage", () => {
     );
     mount("/match?q=Google+PM+interview+next+week");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
-    expect(screen.getByRole("heading", { name: "Ask Ananya for advice" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Interview prep" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
+    expect((screen.getByLabelText("Topic") as HTMLSelectElement).value).toBe("interview_prep");
     const q = screen.getAllByLabelText("Your question").find((el) => el.tagName === "TEXTAREA") as HTMLTextAreaElement;
     expect(q.value).toBe("Google PM interview next week");
     const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
@@ -201,13 +202,14 @@ describe("MatchPage", () => {
     post.mockResolvedValue({ data: { intent: { ...intent, category: null }, needsDetail: false, results: [result], fallback: null } });
     mount("/match?q=Razorpay+people");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
-    expect(screen.getByRole("heading", { name: "What do you need from Ananya?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
     expect(screen.queryByText(/say hi/i)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Ask for a referral/ }));
-    fireEvent.click(screen.getByRole("button", { name: "No specific opening? Ask for advice instead" }));
-    expect(screen.getByRole("heading", { name: "Ask Ananya for advice" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("heading", { name: "What do you need from Ananya?" })).toBeTruthy();
+    const topic = screen.getByLabelText("Topic") as HTMLSelectElement;
+    expect(topic.value).toBe("");
+    fireEvent.change(topic, { target: { value: "referral" } });
+    expect(screen.getByLabelText("Job link")).toBeTruthy();
+    fireEvent.change(topic, { target: { value: "interview_prep" } });
+    expect(screen.getAllByLabelText("Your question").some((el) => el.tagName === "TEXTAREA")).toBe(true);
   });
 
   it("shows a friendly message when rate limited", async () => {

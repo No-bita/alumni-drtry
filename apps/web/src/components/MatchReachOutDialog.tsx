@@ -102,10 +102,10 @@ export function MatchReachOutDialog({
   const auth = useAuth();
   const queryClient = useQueryClient();
   const titleId = useId();
-  const ids = { job: useId(), role: useId(), company: useId(), fit: useId(), resume: useId(), question: useId(), fitCount: useId(), qCount: useId() };
+  const ids = { job: useId(), role: useId(), company: useId(), fit: useId(), resume: useId(), question: useId(), topic: useId(), fitCount: useId(), qCount: useId() };
   const dialogRef = useRef<HTMLDivElement>(null);
   const [purpose, setPurpose] = useState<NotePurpose | null>(presetPurpose);
-  const [step, setStep] = useState<Step>(presetPurpose ? "fields" : "purpose");
+  const [step, setStep] = useState<Step>("fields");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ref, setRef] = useState<ReferralFields>({
@@ -127,14 +127,8 @@ export function MatchReachOutDialog({
   const me = auth.status === "authenticated" ? auth.myProfile : null;
   const senderName = me?.fullName?.trim() || "You";
   const senderBatch = batchLabel(me?.batchYear);
-  const problems = purpose === "referral" ? referralProblems(ref) : purpose === "advice" ? adviceProblems(adv) : ["purpose"];
+  const problems = purpose === "referral" ? referralProblems(ref) : purpose === "advice" ? adviceProblems(adv) : ["topic"];
   const details: NoteDetails | null = problems.length === 0 ? (purpose === "referral" ? referralDetails(ref) : adviceDetails(adv)) : null;
-
-  const choose = (p: NotePurpose) => {
-    setPurpose(p);
-    setStep("fields");
-    setError(null);
-  };
 
   const send = async () => {
     if (!details || sending) return;
@@ -196,135 +190,6 @@ export function MatchReachOutDialog({
               </Button>
             </div>
           </>
-        ) : step === "purpose" ? (
-          <>
-            <h2 id={titleId} className="match-dialog__title">
-              What do you need from {name}?
-            </h2>
-            <div className="match-dialog__choices">
-              <button type="button" className="match-dialog__choice" onClick={() => choose("referral")}>
-                <span className="match-dialog__choice-title">Ask for a referral</span>
-                <span className="match-dialog__choice-copy">For a specific opening. You’ll need the job link, the role, and why you’re a fit.</span>
-              </button>
-              <button type="button" className="match-dialog__choice" onClick={() => choose("advice")}>
-                <span className="match-dialog__choice-title">Ask for advice</span>
-                <span className="match-dialog__choice-copy">
-                  Interviews, switching careers, higher studies, moving cities, starting up. You’ll write one specific question.
-                </span>
-              </button>
-            </div>
-            <p className="match-dialog__hint">Alumni get many notes. A clear, specific ask is easier to say yes to.</p>
-            <div className="match-dialog__actions">
-              <Button variant="back" onClick={onClose}>
-                Cancel
-              </Button>
-            </div>
-          </>
-        ) : step === "fields" && purpose === "referral" ? (
-          <form
-            className="match-dialog__form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (details) setStep("preview");
-            }}
-          >
-            <p className="match-dialog__step">Step 1 of 2</p>
-            <h2 id={titleId} className="match-dialog__title">
-              Ask {name} for a referral
-            </h2>
-            <label htmlFor={ids.job} className="match-dialog__label">
-              Job link
-            </label>
-            <input
-              id={ids.job}
-              className="match-dialog__input"
-              type="url"
-              inputMode="url"
-              placeholder="https://careers.company.com/…"
-              value={ref.jobUrl}
-              maxLength={NOTE_URL_MAX}
-              aria-invalid={badJob}
-              onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
-            />
-            {badJob ? (
-              <p className="match-dialog__error" role="alert">
-                Add the job link, starting with https://.
-              </p>
-            ) : null}
-            <button type="button" className="match-dialog__textlink" onClick={() => choose("advice")}>
-              No specific opening? Ask for advice instead
-            </button>
-            <div className="match-dialog__pair">
-              <div className="match-dialog__field">
-                <label htmlFor={ids.role} className="match-dialog__label">
-                  Role
-                </label>
-                <input
-                  id={ids.role}
-                  className="match-dialog__input"
-                  value={ref.role}
-                  maxLength={NOTE_SHORT_FIELD_MAX}
-                  onChange={(e) => setRef({ ...ref, role: e.target.value })}
-                />
-              </div>
-              <div className="match-dialog__field">
-                <label htmlFor={ids.company} className="match-dialog__label">
-                  Company
-                </label>
-                <input
-                  id={ids.company}
-                  className="match-dialog__input"
-                  value={ref.company}
-                  maxLength={NOTE_SHORT_FIELD_MAX}
-                  onChange={(e) => setRef({ ...ref, company: e.target.value })}
-                />
-              </div>
-            </div>
-            <label htmlFor={ids.fit} className="match-dialog__label">
-              Why you’re a fit
-            </label>
-            <textarea
-              id={ids.fit}
-              className="match-dialog__textarea"
-              rows={5}
-              value={ref.fit}
-              maxLength={NOTE_FIT_MAX}
-              placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
-              aria-describedby={ids.fitCount}
-              onChange={(e) => setRef({ ...ref, fit: e.target.value })}
-            />
-            <p id={ids.fitCount} className="match-dialog__counter" aria-live="polite">
-              {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
-            </p>
-            <label htmlFor={ids.resume} className="match-dialog__label">
-              Résumé link <span className="match-dialog__optional">(optional)</span>
-            </label>
-            <input
-              id={ids.resume}
-              className="match-dialog__input"
-              type="url"
-              inputMode="url"
-              placeholder="Drive or Dropbox link"
-              value={ref.resumeUrl}
-              maxLength={NOTE_URL_MAX}
-              aria-invalid={badResume}
-              onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
-            />
-            {badResume ? (
-              <p className="match-dialog__error" role="alert">
-                The résumé link must start with https:// (or leave it empty).
-              </p>
-            ) : null}
-            {details ? null : <p className="match-dialog__hint">Still needed: {problems.join(", ")}.</p>}
-            <div className="match-dialog__actions">
-              <Button type="button" variant="back" onClick={() => (presetPurpose ? onClose() : setStep("purpose"))}>
-                {presetPurpose ? "Cancel" : "Back"}
-              </Button>
-              <Button type="submit" variant="primary" disabled={!details}>
-                Preview your note
-              </Button>
-            </div>
-          </form>
         ) : step === "fields" ? (
           <form
             className="match-dialog__form"
@@ -333,46 +198,145 @@ export function MatchReachOutDialog({
               if (details) setStep("preview");
             }}
           >
-            <p className="match-dialog__step">Step 1 of 2</p>
             <h2 id={titleId} className="match-dialog__title">
-              Ask {name} for advice
+              Reach out to {name}
             </h2>
-            <fieldset className="match-dialog__fieldset">
-              <legend className="match-dialog__label">Topic</legend>
-              <div className="match-dialog__chips">
-                {ADVICE_TOPICS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className="match-dialog__chip"
-                    aria-pressed={adv.topic === t}
-                    onClick={() => setAdv({ ...adv, topic: t })}
-                  >
-                    {ADVICE_TOPIC_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <label htmlFor={ids.question} className="match-dialog__label">
-              Your question
+            <label htmlFor={ids.topic} className="match-dialog__label">
+              Topic
             </label>
-            <textarea
-              id={ids.question}
-              className="match-dialog__textarea"
-              rows={6}
-              value={adv.question}
-              maxLength={NOTE_QUESTION_MAX}
-              placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
-              aria-describedby={ids.qCount}
-              onChange={(e) => setAdv({ ...adv, question: e.target.value })}
-            />
-            <p id={ids.qCount} className="match-dialog__counter" aria-live="polite">
-              {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
-            </p>
+            <select
+              id={ids.topic}
+              className="match-dialog__input"
+              value={purpose === "referral" ? "referral" : (adv.topic ?? "")}
+              required
+              onChange={(e) => {
+                const v = e.target.value;
+                setError(null);
+                if (v === "referral") {
+                  setPurpose("referral");
+                } else {
+                  setPurpose("advice");
+                  setAdv({ ...adv, topic: (v || null) as AdviceTopic | null });
+                }
+              }}
+            >
+              <option value="" disabled>
+                Select a topic
+              </option>
+              <option value="referral">Referral</option>
+              {ADVICE_TOPICS.map((t) => (
+                <option key={t} value={t}>
+                  {ADVICE_TOPIC_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            {purpose === "referral" ? (
+              <>
+                <label htmlFor={ids.job} className="match-dialog__label">
+                  Job link
+                </label>
+                <input
+                  id={ids.job}
+                  className="match-dialog__input"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://careers.company.com/…"
+                  value={ref.jobUrl}
+                  maxLength={NOTE_URL_MAX}
+                  aria-invalid={badJob}
+                  onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
+                />
+                {badJob ? (
+                  <p className="match-dialog__error" role="alert">
+                    Add the job link, starting with https://.
+                  </p>
+                ) : null}
+                <div className="match-dialog__pair">
+                  <div className="match-dialog__field">
+                    <label htmlFor={ids.role} className="match-dialog__label">
+                      Role
+                    </label>
+                    <input
+                      id={ids.role}
+                      className="match-dialog__input"
+                      value={ref.role}
+                      maxLength={NOTE_SHORT_FIELD_MAX}
+                      onChange={(e) => setRef({ ...ref, role: e.target.value })}
+                    />
+                  </div>
+                  <div className="match-dialog__field">
+                    <label htmlFor={ids.company} className="match-dialog__label">
+                      Company
+                    </label>
+                    <input
+                      id={ids.company}
+                      className="match-dialog__input"
+                      value={ref.company}
+                      maxLength={NOTE_SHORT_FIELD_MAX}
+                      onChange={(e) => setRef({ ...ref, company: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <label htmlFor={ids.fit} className="match-dialog__label">
+                  Why you’re a fit
+                </label>
+                <textarea
+                  id={ids.fit}
+                  className="match-dialog__textarea"
+                  rows={5}
+                  value={ref.fit}
+                  maxLength={NOTE_FIT_MAX}
+                  placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
+                  aria-describedby={ids.fitCount}
+                  onChange={(e) => setRef({ ...ref, fit: e.target.value })}
+                />
+                <p id={ids.fitCount} className="match-dialog__counter" aria-live="polite">
+                  {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
+                </p>
+                <label htmlFor={ids.resume} className="match-dialog__label">
+                  Résumé link <span className="match-dialog__optional">(optional)</span>
+                </label>
+                <input
+                  id={ids.resume}
+                  className="match-dialog__input"
+                  type="url"
+                  inputMode="url"
+                  placeholder="Drive or Dropbox link"
+                  value={ref.resumeUrl}
+                  maxLength={NOTE_URL_MAX}
+                  aria-invalid={badResume}
+                  onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
+                />
+                {badResume ? (
+                  <p className="match-dialog__error" role="alert">
+                    The résumé link must start with https:// (or leave it empty).
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <label htmlFor={ids.question} className="match-dialog__label">
+                  Your question
+                </label>
+                <textarea
+                  id={ids.question}
+                  className="match-dialog__textarea"
+                  rows={6}
+                  value={adv.question}
+                  maxLength={NOTE_QUESTION_MAX}
+                  placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
+                  aria-describedby={ids.qCount}
+                  onChange={(e) => setAdv({ ...adv, question: e.target.value })}
+                />
+                <p id={ids.qCount} className="match-dialog__counter" aria-live="polite">
+                  {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
+                </p>
+              </>
+            )}
             {details ? null : <p className="match-dialog__hint">Still needed: {problems.join(", ")}.</p>}
             <div className="match-dialog__actions">
-              <Button type="button" variant="back" onClick={() => (presetPurpose ? onClose() : setStep("purpose"))}>
-                {presetPurpose ? "Cancel" : "Back"}
+              <Button type="button" variant="back" onClick={onClose}>
+                Cancel
               </Button>
               <Button type="submit" variant="primary" disabled={!details}>
                 Preview your note
@@ -381,7 +345,6 @@ export function MatchReachOutDialog({
           </form>
         ) : details ? (
           <>
-            <p className="match-dialog__step">Step 2 of 2</p>
             <h2 id={titleId} className="match-dialog__title">
               This is what {name} sees
             </h2>

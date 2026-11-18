@@ -85,7 +85,7 @@ describe("Careers company screen", () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("a", "Asha Rao", { openToReferrals: true })], past: [] });
     mount("/intent/career/company?name=Razorpay&role=Product+manager");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for a referral" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Asha for a referral" });
+    const dialog = screen.getByRole("dialog", { name: "Reach out to Asha" });
     expect((within(dialog).getByLabelText("Role") as HTMLInputElement).value).toBe("Product manager");
     expect((within(dialog).getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
     fireEvent.change(within(dialog).getByLabelText("Job link"), { target: { value: "jobs.razorpay.com/pm" } });
@@ -120,7 +120,7 @@ describe("Careers company screen", () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Microsoft", current: [], past: [person("c", "Chirag Jain", { organizationName: "Microsoft" })] });
     mount("/intent/career/company?name=Microsoft");
     fireEvent.click(await screen.findByRole("button", { name: "Ask for advice" }));
-    const dialog = screen.getByRole("dialog", { name: "Ask Chirag for advice" });
+    const dialog = screen.getByRole("dialog", { name: "Reach out to Chirag" });
     expect(within(dialog).queryByLabelText("Job link")).toBeNull();
     const q = within(dialog).getByLabelText("Your question") as HTMLTextAreaElement;
     expect(q.value).toBe("I'm applying to Microsoft. ");
