@@ -61,10 +61,9 @@ function SignOutActions({ onSignOut, onSignOutEverywhere }: { onSignOut: () => v
   </div>;
 }
 
-export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, onEdit, onSignOut, onSignOutEverywhere, onPreviewChange }: Props) {
-  const [preview, setPreview] = useState(false);
+export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, onEdit, onSignOut, onSignOutEverywhere }: Props) {
   const [shareStatus, setShareStatus] = useState('Share');
-  const owner = isOwnProfile && !preview;
+  const owner = isOwnProfile;
   const city = residenceLine(profile.residenceCity, profile.residenceCountry);
   const education = [profile.degreeName || profile.degreeCode, profileDepartmentDisplay(profile, owner)].filter(Boolean).join(' · ');
   const choices = openToDisplayItems(openTo);
@@ -78,15 +77,10 @@ export function PersonProfileView({ profile, occupations, links, isOwnProfile, o
     } catch { setShareStatus('Share'); }
   };
   return <section className="person-profile" aria-label={`${profile.fullName}'s profile`}>
-    <div className="person-profile__toolbar">
-      {preview ? <button type="button" onClick={() => { setPreview(false); onPreviewChange?.(false); }}><Icon kind="back" />Back</button> : <Link to="/search"><Icon kind="back" />Directory</Link>}
-      {isOwnProfile && !preview ? <button type="button" onClick={() => { setPreview(true); onPreviewChange?.(true); }}><Icon kind="eye" />Preview</button> : null}
-    </div>
     <header className="person-profile__identity">
       <div className="person-profile__name-row"><div><p className="person-profile__cohort">IIT BHU{profile.batchYear ? ` · Class of ${profile.batchYear}` : ''}</p><h1>{profile.fullName}</h1></div><Avatar name={profile.fullName} size="md" /></div>
       {(education || city) ? <div className="person-profile__metadata"><span>{education}</span>{city ? <span><Icon kind="pin" />{city}</span> : null}</div> : null}
     </header>
-    {preview ? <p className="person-profile__preview-label">Preview</p> : null}
     {owner ? <div className="person-profile__account-actions"><button type="button" onClick={onEdit}><Icon kind="edit" />Edit profile</button>{onboardingIncomplete ? <Link to="/onboarding">Finish your profile</Link> : null}</div> : null}
     {profile.bio?.trim() ? <section className="person-profile__about">{head('About')}<p>{profile.bio}</p></section> : null}
     {(choices.length > 0 || owner) ? <section className="person-profile__open-to">{head('Open to', edit('Edit Open to'))}{choices.length ? <ul>{choices.map(item => <li key={item.id}><span>{item.title}</span></li>)}</ul> : <p className="person-profile__muted">Nothing selected.</p>}</section> : null}

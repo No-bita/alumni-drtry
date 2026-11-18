@@ -10,6 +10,7 @@ import { AuthChallengeRepo, type AuthChallengeRow } from "../repos/authChallenge
 import { AdminAllowedEmailRepo } from "../repos/adminAllowedEmailRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import { SessionRepo } from "../repos/sessionRepo.js";
+import { GoogleSignInProfileRepo, RETAINED_CLAIMS } from "../repos/googleSignInProfileRepo.js";
 import { EmailDeliveryUnconfirmedError, EmailUnreachableError, type EmailSender } from "./emailSender.js";
 import {
   exchangeGoogleAuthorizationCode,
@@ -358,6 +359,40 @@ export class AuthService {
 
       await client.query("COMMIT");
       shouldRollback = false;
+
+      // Keep the latest basic Google profile claims for this member, separate from the
+      // editable/frozen Alma Mater profile; each successful Google sign-in replaces them.
+      // Best-effort AFTER commit: a save failure must never block sign-in, and it runs
+      // outside the transaction so a Postgres error cannot poison the session write.
+      // Nothing here overwrites people.* or changes sign-in eligibility. Only the known
+      // profile claims are stored - access tokens, ID tokens, authorization codes and
+      // secrets never reach this row.
+      // Surface what we deliberately drop: log only the NAMES of claims Google sends that we
+      // do not retain, so support for them can be added deliberately later. Bounded and
+      // value-free: no payload values, no identifiers, no tokens or codes.
+      const unknownClaims = Object.keys(userInfo)
+        .filter((key) => !(RETAINED_CLAIMS as readonly string[]).includes(key))
+        .map((key) => key.slice(0, 64))
+        .sort()
+        .slice(0, 20);
+      if (unknownClaims.length > 0) {
+        console.info("Google sign-in returned profile fields we do not retain.", { unknownClaims });
+      }
+
+      try {
+        const googleSignInProfileRepo = new GoogleSignInProfileRepo(client);
+        await googleSignInProfileRepo.upsert({
+          personId: person.id,
+          claims: userInfo as unknown as Record<string, unknown>
+        });
+      } catch (error) {
+        // Log no personal payload, tokens or query values - only the error type/code.
+        const pgCode = (error as { code?: unknown }).code;
+        console.error("Google sign-in profile save failed; sign-in continues.", {
+          errorName: error instanceof Error ? error.name : typeof error,
+          pgCode: typeof pgCode === "string" ? pgCode : undefined
+        });
+      }
 
       return {
         sessionToken,

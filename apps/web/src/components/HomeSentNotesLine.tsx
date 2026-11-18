@@ -13,15 +13,15 @@ export function HomeSentNotesLine() {
   const parts = query.data ? sentNotesSummary(query.data.requests) : null;
   if (!parts) return null;
   return (
-    <section className="home-notes-line" aria-label="Your notes">
+    <section className="home-notes-line" aria-label="Your reachouts">
       <p className="home-notes-line__text">
-        <strong>Your notes</strong>
+        <strong>Your reachouts</strong>
         {parts.map((p) => (
           <span key={p}> · {p}</span>
         ))}
       </p>
       <Link to="/notifications" className="home-notes-line__link" onClick={() => trackBetaUsageEvent("home_notes_clicked")}>
-        See your notes →
+        See your reachouts →
       </Link>
     </section>
   );

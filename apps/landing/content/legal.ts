@@ -12,24 +12,24 @@ export const legalPolicies = {
         "heading": "2. Information we handle",
         "paragraphs": [
           "Account and profile information includes your institute email, name, department, degree and batch or graduation year. You may also provide a bio, city and country, phone number, personal email, work or education details, profile links, and topics you are open to helping with.",
-          "We process questions, searches and filters to find relevant alumni. We store help notes and their responses, posts and replies, contact details you share through the service, invitation referrals, and selected actions such as completing onboarding or opening notifications. We also handle support messages you send us.",
+          "We process questions, searches and filters to find relevant alumni. We store help reachouts and their responses, posts and replies, contact details you share through the service, invitation referrals, and selected actions such as completing onboarding or opening notifications. We also handle support messages you send us.",
           "We handle technical information such as sign-in and session records, IP addresses, browser or device information, request and error logs, timestamps, and message-delivery status.",
           "If you use Google sign-in when available, we request the basic openid, email and profile permissions. Google may return your account identifier, email, email-verification status, name and profile picture. The current sign-in flow uses your email and its verification status to sign you in; it does not save Google's name or picture to your Alma Mater profile. We do not ask for your Google password or access to your Gmail inbox, Drive files or Calendar.",
-          "If you contact us on WhatsApp, we process your WhatsApp number or identifier, messages and actions you send, account-linking information, notification choices, and delivery or read status supplied by WhatsApp. A help note sent through WhatsApp may also be stored as a note in Alma Mater."
+          "If you contact us on WhatsApp, we process your WhatsApp number or identifier, messages and actions you send, account-linking information, notification choices, and delivery or read status supplied by WhatsApp. A help reachout sent through WhatsApp may also be stored as a reachout in Alma Mater."
         ]
       },
       {
         "heading": "3. How we use information",
         "paragraphs": [
-          "We use information to sign you in, maintain your profile, suggest relevant alumni, deliver notes and responses, run posts and notifications, connect the website with WhatsApp when you choose, provide support, prevent abuse, and understand which parts of the service need improvement.",
+          "We use information to sign you in, maintain your profile, suggest relevant alumni, deliver reachouts and responses, run posts and notifications, connect the website with WhatsApp when you choose, provide support, prevent abuse, and understand which parts of the service need improvement.",
           "Matching uses your question and relevant profile information to suggest people who may be able to help. A suggestion is not a guarantee of expertise, availability or a successful outcome."
         ]
       },
       {
         "heading": "4. What other people can see",
         "paragraphs": [
-          "Your member profile, including the profile details, work information, links and help preferences you add, can be shown to other signed-in members. Posts and replies are shown to the audience of the relevant feature. Notes are sent to their intended recipients and may be delivered by email or WhatsApp.",
-          "Your phone number and personal email are not part of the ordinary member directory. If you accept a help note, the service shares your personal email if you have provided one, otherwise your institute email, with the person who sent it. A WhatsApp contact-sharing action may share your WhatsApp number instead. Contact details you put directly in a post or message are visible to its recipients.",
+          "Your member profile, including the profile details, work information, links and help preferences you add, can be shown to other signed-in members. Posts and replies are shown to the audience of the relevant feature. Reachouts are sent to their intended recipients and may be delivered by email or WhatsApp.",
+          "Your phone number and personal email are not part of the ordinary member directory. If you accept a help reachout, the service shares your personal email if you have provided one, otherwise your institute email, with the person who sent it. A WhatsApp contact-sharing action may share your WhatsApp number instead. Contact details you put directly in a post or message are visible to its recipients.",
           "People who receive your information may keep or share it outside Alma Mater. Only include information you are comfortable sharing with that audience."
         ]
       },
@@ -49,7 +49,7 @@ export const legalPolicies = {
       {
         "heading": "7. Retention and your choices",
         "paragraphs": [
-          "Different records have different lifetimes. Profiles, help notes and conversation records may remain stored after you sign out or a conversation closes. Some records, such as expired sign-in links, usage events and removed bulletin posts, have separate expiry or cleanup rules. Closing, withdrawing or removing an item from view does not mean every associated record is immediately erased.",
+          "Different records have different lifetimes. Profiles, help reachouts and conversation records may remain stored after you sign out or a conversation closes. Some records, such as expired sign-in links, usage events and removed bulletin posts, have separate expiry or cleanup rules. Closing, withdrawing or removing an item from view does not mean every associated record is immediately erased.",
           "You can edit the profile fields the app allows you to change and choose what optional information to provide. Some identity fields are fixed after onboarding; contact us if they need correction. You can sign out or change the available WhatsApp notification settings. Sending STOP to our WhatsApp service stops further bot messages after its confirmation until you send START. This does not stop sign-in or other service emails.",
           "For access, correction, account closure or deletion requests, contact aaryan@aaryanshah.co.in. We may need to verify that the request is yours. We will explain what can be done, what information must remain, and any limits that apply. We do not promise immediate or complete erasure. Nothing in this policy limits rights you have under applicable law."
         ]
@@ -87,7 +87,7 @@ export const legalPolicies = {
         "heading": "4. Your content and contact details",
         "paragraphs": [
           "You keep your rights in the content you submit. You give Alma Mater permission to store, display and deliver it as needed to operate the features you use, including delivery to the audiences or recipients you select. This does not transfer ownership of your content to us.",
-          "Read the Privacy Policy before providing personal information. Accepting a help note or choosing a contact-sharing action can reveal contact information to the other person. Signing out or closing a conversation does not automatically delete its records."
+          "Read the Privacy Policy before providing personal information. Accepting a help reachout or choosing a contact-sharing action can reveal contact information to the other person. Signing out or closing a conversation does not automatically delete its records."
         ]
       },
       {

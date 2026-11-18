@@ -16,18 +16,18 @@ export function SentNotesSection({ enabled }: { enabled: boolean }) {
   return (
     <section className="sent-notes" aria-labelledby="sent-notes-title">
       <h2 id="sent-notes-title" className="notifications-page__heading sent-notes__heading">
-        Notes you sent
+        Reachouts you sent
       </h2>
       {query.isPending ? (
         <p className="notifications-page__loading" role="status">
-          Loading your notes…
+          Loading your reachouts…
         </p>
       ) : query.isError ? (
         <p className="notifications-page__error" role="alert">
-          Couldn’t load your notes. Try again in a moment.
+          Couldn’t load your reachouts. Try again in a moment.
         </p>
       ) : notes.length === 0 ? (
-        <p className="notifications-page__empty">You haven’t sent any notes yet.</p>
+        <p className="notifications-page__empty">You haven’t sent any reachouts yet.</p>
       ) : (
         <ul className="notifications-page__list">
           {notes.map((n) => {

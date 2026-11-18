@@ -448,8 +448,17 @@ input[type="reset"]:not(:disabled) {
   color: rgba(252, 248, 240, 1);
 }
 
-/* Signed-in sidebar shell — vertical primary nav + cream toolbar */
+/* Signed-in sidebar shell — vertical primary nav + cream toolbar.
+   Light sidebar: token overrides scoped to .nav-sidebar so the phone bottom dock
+   keeps the existing dark theme (dock reads the :root tokens). */
 .nav-sidebar {
+  --nav-sidebar-bg: var(--palette-card);
+  --nav-sidebar-text: var(--ink);
+  --nav-sidebar-text-muted: var(--ink-muted);
+  --nav-sidebar-active-pill: var(--palette-muted);
+  --nav-sidebar-active-ring: transparent;
+  --nav-sidebar-border: var(--rule);
+  --nav-sidebar-link-hover-bg: rgba(58, 42, 30, 0.06);
   position: fixed;
   top: 0;
   left: 0;
@@ -491,9 +500,9 @@ input[type="reset"]:not(:disabled) {
 }
 
 .nav-sidebar__brand .nav-app-beta-pill {
-  color: rgba(248, 242, 231, 0.95);
-  border: 1px solid rgba(201, 168, 108, 0.55);
-  background: rgba(0, 0, 0, 0.18);
+  color: var(--ink);
+  border: 1px solid rgba(139, 58, 42, 0.42);
+  background: rgba(212, 154, 74, 0.14);
 }
 
 .nav__brand-with-beta {
@@ -578,7 +587,7 @@ input[type="reset"]:not(:disabled) {
 }
 
 .nav-sidebar__link:focus-visible {
-  outline: 2px solid rgba(248, 242, 231, 0.95);
+  outline: 2px solid rgba(58, 42, 30, 0.72);
   outline-offset: 2px;
 }
 
@@ -941,6 +950,23 @@ input[type="reset"]:not(:disabled) {
     white-space: nowrap;
   }
 
+  /* Admin dock (adds Analytics = 6 items): slightly tighter insets/labels so every label, including Feedback, fits in full. */
+  .nav-bottom-dock--compact {
+    left: 14px;
+    right: 14px;
+    padding: 5px 6px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__list {
+    gap: 2px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    padding: 6px 0;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+  }
+
   /* Toolbar: welcome + search share the wider column without the rail. */
   html[data-app-shell="sidebar"] .nav-app-toolbar__lead {
     max-width: min(380px, 56vw);
@@ -995,6 +1021,25 @@ input[type="reset"]:not(:disabled) {
 
   html[data-app-shell="sidebar"] .nav-app-toolbar__search-icon {
     left: 10px;
+  }
+}
+
+/* Narrow phones (<400px): the 6-item admin dock tightens further so labels stay full. */
+@media (max-width: 399px) {
+  .nav-bottom-dock--compact {
+    left: 8px;
+    right: 8px;
+    padding: 5px 4px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__icon {
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -18506,26 +18551,31 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   gap: 14px;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > * {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *,
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
   opacity: 0;
   animation: home-premium-rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: opacity, transform;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(1) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(1) {
   animation-delay: 0.04s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(2) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(2) {
   animation-delay: 0.12s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(3) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(3) {
   animation-delay: 0.18s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(4) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(4) {
   animation-delay: 0.24s;
+}
+
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
+  animation-delay: 0.18s;
 }
 
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
@@ -18546,7 +18596,8 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-dashboard--ideal.home-dashboard--premium .home-ideal__container > * {
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *,
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

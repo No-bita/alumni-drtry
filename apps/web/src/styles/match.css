@@ -76,6 +76,11 @@
   cursor: pointer;
 }
 
+/* Phone-only example chips (short labels); hidden on desktop. */
+.home-ask__example--phone {
+  display: none;
+}
+
 /* Same look; invisible ::after gives a 44px+ tap area. */
 .home-ask__example {
   position: relative;
@@ -635,6 +640,23 @@
   .home-ask__row,
   .match-page__ask-row {
     flex-direction: column;
+  }
+
+  /* Phone: exactly two short example chips with "Try:" inline, kept on one line; desktop three hidden. */
+  .home-ask__examples {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    column-gap: 6px;
+  }
+
+  .home-ask__example--full {
+    display: none;
+  }
+
+  .home-ask__example--phone {
+    display: block;
+    font-size: 12px;
+    padding: 4px 8px;
   }
 
   .match-card__actions .btn {

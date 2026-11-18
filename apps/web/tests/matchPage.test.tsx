@@ -66,8 +66,8 @@ const referralNote = { purpose: "referral", jobUrl: JOB, role: "Product Manager"
 async function sendReferral() {
   fireEvent.change(await screen.findByLabelText("Job link"), { target: { value: JOB } });
   fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: FIT } });
-  fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
-  fireEvent.click(screen.getByRole("button", { name: "Send note" }));
+  fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
 }
 
 function mount(url: string) {
@@ -107,6 +107,31 @@ describe("MatchPage", () => {
     expect(screen.getByText("Currently Senior Product Manager at Razorpay")).toBeTruthy();
     expect(screen.getByText("1 alum who can help")).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Looking for" })).toHaveProperty("value", "referral");
+  });
+
+  it("shows no open-to chip row on the result cards", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    // Willingness stays once, inside Why them; the separate chip row is gone.
+    expect(screen.getByText("Open to referrals")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Open to" })).toBeNull();
+  });
+
+  it("shows what-we-understood below the results", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    const resultsHeading = await screen.findByRole("heading", { name: /who can help/ });
+    const understood = screen.getByRole("heading", { name: "What we understood" });
+    const pos = resultsHeading.compareDocumentPosition(understood);
+    expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("has no back-to-home button on the results page", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /back to home/i })).toBeNull();
   });
 
   it("clearing a chip puts the correction in the URL and re-asks", async () => {
@@ -150,7 +175,7 @@ describe("MatchPage", () => {
     expect(screen.getByRole("heading", { name: "Ask Ananya for a referral" })).toBeTruthy();
     expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("Product Manager");
     expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Razorpay");
-    const preview = screen.getByRole("button", { name: "Preview your note" }) as HTMLButtonElement;
+    const preview = screen.getByRole("button", { name: "Preview your reachout" }) as HTMLButtonElement;
     expect(preview.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
     fireEvent.change(screen.getByLabelText("Why you’re a fit"), { target: { value: "pls refer" } });
@@ -161,8 +186,8 @@ describe("MatchPage", () => {
     expect(screen.getByRole("heading", { name: "This is what Ananya sees" })).toBeTruthy();
     expect(screen.getByText("Referral request")).toBeTruthy();
     expect(screen.getByText("Viewer Person")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: referralNote,
@@ -186,9 +211,9 @@ describe("MatchPage", () => {
     expect(q.value).toBe("Google PM interview next week");
     const longer = `${q.value}. What does the product round focus on, and how did you prepare for it?`;
     fireEvent.change(q, { target: { value: longer } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview your note" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send note" }));
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Preview your reachout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send reachout" }));
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: { purpose: "advice", topic: "interview_prep", question: longer },
@@ -240,7 +265,7 @@ describe("MatchPage — filling a missing field", () => {
 });
 
 describe("MatchPage — reach-out loop", () => {
-  it("shows 'Note sent' instead of Reach out when a note is pending, and the reply line when present", async () => {
+  it("shows 'Reachout sent' instead of Reach out when a reachout is pending, and the reply line when present", async () => {
     post.mockResolvedValue({
       data: {
         intent,
@@ -250,10 +275,10 @@ describe("MatchPage — reach-out loop", () => {
       },
     });
     mount("/match?q=referral+at+Razorpay");
-    expect(await screen.findByText(/Note sent · waiting for reply/)).toBeTruthy();
+    expect(await screen.findByText(/Reachout sent · waiting for reply/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reach out" })).toBeNull();
-    expect(screen.getByText("Replied to 4 of 5 notes · usually within 2 days")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "See your notes" }).getAttribute("href")).toBe("/notifications");
+    expect(screen.getByText("Replied to 4 of 5 reachouts · usually within 2 days")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See your reachouts" }).getAttribute("href")).toBe("/notifications");
   });
 
   it("shows no reply line without enough data, and the server's duplicate message on 409", async () => {
@@ -279,7 +304,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
     );
     mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
     await sendReferral();
-    expect(await screen.findByText("Note sent to Ananya")).toBeTruthy();
+    expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: result.id,
       note: referralNote,
@@ -311,7 +336,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
     await screen.findByLabelText("Job link");
     expect(getJson).toHaveBeenCalledWith(`/v1/profiles/${priya}`, expect.anything());
     await sendReferral();
-    expect(await screen.findByText("Note sent to Priya")).toBeTruthy();
+    expect(await screen.findByText("Reachout sent to Priya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
       recipientPersonId: priya,
       note: referralNote,
