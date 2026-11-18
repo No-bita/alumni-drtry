@@ -182,7 +182,7 @@ describe("incoming notes from the note form", () => {
       <NotificationsList
         items={[
           { ...base, id: "a", contactRequestId: "c1", senderFullName: "Asha", message: "Referral request: PM at X", details: { purpose: "referral", jobUrl: "https://x.example.com/j", role: "PM", company: "X", fit: "f", resumeUrl: null } },
-          { ...base, id: "b", contactRequestId: "c2", senderFullName: "Bilal", message: "Advice · Moving cities", details: { purpose: "advice", topic: "relocation", question: "q" } },
+          { ...base, id: "b", contactRequestId: "c2", senderFullName: "Bilal Anwar Khan", message: "Advice · Moving cities", details: { purpose: "advice", topic: "relocation", question: "q" } },
           { ...base, id: "c", contactRequestId: "c3", senderFullName: "Chirag", message: "An older note" },
         ]}
       />,
@@ -192,7 +192,14 @@ describe("incoming notes from the note form", () => {
     expect(screen.getByText("PM at X")).toBeTruthy();
     expect(screen.getByRole("link", { name: "https://x.example.com/j" })).toBeTruthy();
     expect(screen.queryByText("Referral request: PM at X")).toBeNull();
+    // Topic pill without the "Advice ·" prefix, on every advice reachout.
+    expect(screen.queryByText(/Advice ·/)).toBeNull();
     expect(screen.getByText("Moving cities")).toBeTruthy();
+    // Generic "New reachout" heading on each non-cities request, sender first+last name beneath as a profile link.
+    expect(screen.getAllByText("New reachout").length).toBe(3);
+    expect(screen.getByRole("link", { name: "Bilal Khan" })).toBeTruthy();
+    expect(screen.queryByText("Bilal Anwar Khan")).toBeNull();
+    expect(screen.getByText("Asha")).toBeTruthy();
     expect(document.querySelectorAll(".note-body").length).toBe(2);
     expect(screen.getByText("An older note")).toBeTruthy();
   });
