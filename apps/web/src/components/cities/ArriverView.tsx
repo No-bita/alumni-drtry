@@ -20,7 +20,7 @@ import { CoffeeAskSheet } from "./CoffeeAskSheet";
 function replyStatsLine(h: CityHelper): string | null {
   const s = h.replyStats;
   if (!s) return null;
-  const base = `Replied to ${s.replied} of ${s.total} notes`;
+  const base = `Replied to ${s.replied} of ${s.total} reachouts`;
   return s.medianDays ? `${base} · usually within ${s.medianDays} ${s.medianDays === 1 ? "day" : "days"}` : base;
 }
 
@@ -51,7 +51,7 @@ export function ArriverView({
       <header className="cities__header">
         {data.viewerCity ? (
           <Link to={cityPath(data.viewerCity)} className="cities__back">
-            ‹ Your city: {data.viewerCity.city}
+            Your city: {data.viewerCity.city}
           </Link>
         ) : null}
         {/* Counts are temporarily hidden by product choice; keep the data and markup.
@@ -126,17 +126,17 @@ export function ArriverView({
                           <p className="cities__meta">{[batchDeptLine(h.person), roleLine(h.person)].filter(Boolean).join(" · ")}</p>
                           {h.sharedTag ? <p className="cities__shared">{h.sharedTag}</p> : null}
                           {h.yourCityAsk?.status === "pending" ? (
-                            <p className="cities__meta cities__meta--muted">Your note is waiting for a reply</p>
+                            <p className="cities__meta cities__meta--muted">Your reachout is waiting for a reply</p>
                           ) : stats ? (
                             <p className="cities__meta cities__meta--muted">{stats}</p>
                           ) : null}
                         </div>
                       </div>
                       {h.yourCityAsk?.status === "pending" ? (
-                        <p className="cities__status-row">Note sent {formatRelativeTime(h.yourCityAsk.createdAt)}</p>
+                        <p className="cities__status-row">Reachout sent {formatRelativeTime(h.yourCityAsk.createdAt)}</p>
                       ) : h.yourCityAsk?.status === "accepted" ? (
                         <p className="cities__status-row">
-                          <span aria-hidden>✓</span> {h.person.fullName.split(/\s+/)[0]} accepted your note
+                          <span aria-hidden>✓</span> {h.person.fullName.split(/\s+/)[0]} accepted your reachout
                         </p>
                       ) : atLimit ? (
                         <button type="button" className="cities__primary" disabled>
@@ -160,7 +160,7 @@ export function ArriverView({
             </h2>
             <p className="cities__note">
               When you’re {mode === "moving" ? "moving" : "visiting"}, where you’ll {mode === "moving" ? "work" : "stay"}, and one specific
-              thing you need: areas to live, commute, flatmates or schools. Your note starts with these filled in for you to edit.
+              thing you need: areas to live, commute, flatmates or schools. Your reachout starts with these filled in for you to edit.
             </p>
           </aside>
 

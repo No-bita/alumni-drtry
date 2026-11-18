@@ -23,6 +23,7 @@ import { rememberReturnTo } from "./lib/returnTo";
 /** Each `import()` becomes its own JS chunk; only the current route’s page loads (no static `pages/*` imports here). */
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const AuthVerify = lazy(() => import("./pages/AuthVerify").then((m) => ({ default: m.AuthVerify })));
+const SignedOut = lazy(() => import("./pages/SignedOut").then((m) => ({ default: m.SignedOut })));
 const Search = lazy(() => import("./pages/Search").then((m) => ({ default: m.Search })));
 const MatchPage = lazy(() => import("./pages/MatchPage").then((m) => ({ default: m.MatchPage })));
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
@@ -207,6 +208,7 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/auth/verify" element={<AuthVerify />} />
+        <Route path="/signed-out" element={<SignedOut />} />
         <Route
           path="/search"
           element={

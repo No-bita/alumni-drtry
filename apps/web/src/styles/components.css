@@ -448,8 +448,17 @@ input[type="reset"]:not(:disabled) {
   color: rgba(252, 248, 240, 1);
 }
 
-/* Signed-in sidebar shell — vertical primary nav + cream toolbar */
+/* Signed-in sidebar shell — vertical primary nav + cream toolbar.
+   Light sidebar: token overrides scoped to .nav-sidebar so the phone bottom dock
+   keeps the existing dark theme (dock reads the :root tokens). */
 .nav-sidebar {
+  --nav-sidebar-bg: var(--palette-card);
+  --nav-sidebar-text: var(--ink);
+  --nav-sidebar-text-muted: var(--ink-muted);
+  --nav-sidebar-active-pill: var(--palette-muted);
+  --nav-sidebar-active-ring: transparent;
+  --nav-sidebar-border: var(--rule);
+  --nav-sidebar-link-hover-bg: rgba(58, 42, 30, 0.06);
   position: fixed;
   top: 0;
   left: 0;
@@ -491,9 +500,9 @@ input[type="reset"]:not(:disabled) {
 }
 
 .nav-sidebar__brand .nav-app-beta-pill {
-  color: rgba(248, 242, 231, 0.95);
-  border: 1px solid rgba(201, 168, 108, 0.55);
-  background: rgba(0, 0, 0, 0.18);
+  color: var(--ink);
+  border: 1px solid rgba(139, 58, 42, 0.42);
+  background: rgba(212, 154, 74, 0.14);
 }
 
 .nav__brand-with-beta {
@@ -578,7 +587,7 @@ input[type="reset"]:not(:disabled) {
 }
 
 .nav-sidebar__link:focus-visible {
-  outline: 2px solid rgba(248, 242, 231, 0.95);
+  outline: 2px solid rgba(58, 42, 30, 0.72);
   outline-offset: 2px;
 }
 
@@ -941,6 +950,23 @@ input[type="reset"]:not(:disabled) {
     white-space: nowrap;
   }
 
+  /* Admin dock (adds Analytics = 6 items): slightly tighter insets/labels so every label, including Feedback, fits in full. */
+  .nav-bottom-dock--compact {
+    left: 14px;
+    right: 14px;
+    padding: 5px 6px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__list {
+    gap: 2px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    padding: 6px 0;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+  }
+
   /* Toolbar: welcome + search share the wider column without the rail. */
   html[data-app-shell="sidebar"] .nav-app-toolbar__lead {
     max-width: min(380px, 56vw);
@@ -998,6 +1024,25 @@ input[type="reset"]:not(:disabled) {
   }
 }
 
+/* Narrow phones (<400px): the 6-item admin dock tightens further so labels stay full. */
+@media (max-width: 399px) {
+  .nav-bottom-dock--compact {
+    left: 8px;
+    right: 8px;
+    padding: 5px 4px;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__link {
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+
+  .nav-bottom-dock--compact .nav-bottom-dock__icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* Buttons */
 .btn {
   font-family: var(--font-body);
@@ -1041,6 +1086,11 @@ input[type="reset"]:not(:disabled) {
   color: var(--ink-faint);
   padding: 8px 0;
   min-height: 0;
+}
+
+.btn--soft {
+  background: var(--cream-dark);
+  color: var(--ink);
 }
 
 .btn--back {
@@ -10924,6 +10974,33 @@ button.career-referrals-v3__matching-pill--editable:active {
   color: var(--ink);
 }
 
+.notifications-page__item-sender {
+  margin: -4px 0 6px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* Reachout rows: sender name and topic tag share one line, tag pinned right. */
+.notifications-page__item-sender-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -4px 0 6px;
+}
+
+.notifications-page__item-sender-row .notifications-page__item-sender {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__item-sender-row .note-card__tag {
+  flex-shrink: 0;
+}
+
 .notifications-page__item-name {
   font-weight: 600;
   color: var(--ink);
@@ -15780,6 +15857,22 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: rgba(252, 248, 240, 0.6);
 }
 
+/* MOCK ONLY: mirror the separately approved back-arrow removal so proposals
+   don't show a stale element (executor owns the real patch). */
+.btn--back span[aria-hidden] {
+  display: none;
+}
+
+/* Small label above each field on a combined question screen (mock). */
+.onboarding-welcome__inline-fieldlabel {
+  display: block;
+  margin-top: var(--space-sm, 10px);
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.6);
+}
+
 .onboarding-welcome__inline-link {
   display: inline-block;
   margin-top: var(--space-xs, 6px);
@@ -18506,26 +18599,31 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   gap: 14px;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > * {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *,
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
   opacity: 0;
   animation: home-premium-rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: opacity, transform;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(1) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(1) {
   animation-delay: 0.04s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(2) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(2) {
   animation-delay: 0.12s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(3) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(3) {
   animation-delay: 0.18s;
 }
 
-.home-dashboard--ideal.home-dashboard--premium .home-ideal__container > *:nth-child(4) {
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *:nth-child(4) {
   animation-delay: 0.24s;
+}
+
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
+  animation-delay: 0.18s;
 }
 
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
@@ -18546,7 +18644,8 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-dashboard--ideal.home-dashboard--premium .home-ideal__container > * {
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__main > *,
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__rail {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -21282,13 +21381,15 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   }
 
   .onboarding-welcome__inline-actions {
-    flex-direction: column-reverse;
+    flex-direction: row;
     align-items: stretch;
     gap: var(--space-sm);
   }
 
   .onboarding-welcome__inline-actions .btn {
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
     min-height: var(--chrome-min-touch-target);
   }
 
@@ -21384,8 +21485,9 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     height: 13px;
   }
 
-  /* The tile column is narrow, so the action buttons span it to stay side by side. */
-  .notifications-page__item-actions {
+  /* The tile column is narrow, so the action buttons span it to stay side by side.
+     Only applies on rows that actually show a tile (reachout requests have none). */
+  .notifications-page__item:has(.notifications-page__kind-tile) .notifications-page__item-actions {
     width: calc(100% + 34px);
     margin-left: -34px;
   }
@@ -21401,4 +21503,63 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   color: var(--cream, #e8d090);
   display: grid;
   place-items: center;
+}
+
+/* Horizontal combined-field rows (mock: horizontal-first layout study). */
+.onboarding-welcome__fieldrow {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.onboarding-welcome__fieldcell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.onboarding-welcome__fieldcell .onboarding-welcome__inline-input,
+.onboarding-welcome__fieldcell .onboarding-welcome__search-select {
+  width: 100%;
+}
+
+
+/* Dept/degree: stacked on narrow, horizontal (department wide, degree compact) when it truly fits (mock). */
+.onboarding-welcome__fieldrow--dept {
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+@media (min-width: 720px) {
+  .onboarding-welcome__fieldrow--dept {
+    flex-direction: row;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__fieldcell--dept {
+    flex: 1.7 1 0;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__fieldcell--deg {
+    flex: 1 1 0;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__search-select-input {
+    font-size: 20px;
+  }
+}
+
+/* Pair rows (mock): combined company+industry / country+city screens - horizontal-first, tighter gap on narrow. */
+.onboarding-welcome__fieldlabel {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.66);
+  margin: 0 0 8px;
+}
+.onboarding-welcome__fieldrow--pair {
+  gap: 24px;
+}
+@media (max-width: 719px) {
+  .onboarding-welcome__fieldrow--pair {
+    gap: 12px;
+  }
 }

@@ -41,3 +41,58 @@ describe("OnboardingWelcome layout", () => {
     expect(document.documentElement.classList.contains("onboarding-dark")).toBe(false);
   });
 });
+
+describe("OnboardingWelcome auto-advance", () => {
+  it("advances by itself after 3 seconds on the welcome step", () => {
+    vi.useFakeTimers();
+    try {
+      const onBegin = vi.fn();
+      render(
+        <MemoryRouter>
+          <OnboardingWelcome onBegin={onBegin} showBeginButton />
+        </MemoryRouter>,
+      );
+      expect(onBegin).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(2999);
+      expect(onBegin).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(onBegin).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the manual Start path and fires only once when tapped first", () => {
+    vi.useFakeTimers();
+    try {
+      const onBegin = vi.fn();
+      render(
+        <MemoryRouter>
+          <OnboardingWelcome onBegin={onBegin} showBeginButton />
+        </MemoryRouter>,
+      );
+      screen.getByRole("button", { name: "Start" }).click();
+      expect(onBegin).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not auto-advance on the question steps", () => {
+    vi.useFakeTimers();
+    try {
+      const onBegin = vi.fn();
+      render(
+        <MemoryRouter>
+          <OnboardingWelcome onBegin={onBegin} showBeginButton={false}>
+            <p>question body</p>
+          </OnboardingWelcome>
+        </MemoryRouter>,
+      );
+      vi.advanceTimersByTime(5000);
+      expect(onBegin).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

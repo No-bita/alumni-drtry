@@ -76,6 +76,11 @@
   cursor: pointer;
 }
 
+/* Phone-only example chips (short labels); hidden on desktop. */
+.home-ask__example--phone {
+  display: none;
+}
+
 /* Same look; invisible ::after gives a 44px+ tap area. */
 .home-ask__example {
   position: relative;
@@ -421,6 +426,7 @@
 }
 
 .match-dialog {
+  position: relative;
   width: min(520px, 100%);
   max-height: calc(100dvh - 2 * var(--page-x));
   overflow: auto;
@@ -430,6 +436,30 @@
   border-radius: var(--radius-panel);
   background: var(--surface);
   box-shadow: 0 24px 64px rgba(28, 20, 16, 0.25);
+}
+
+.match-dialog__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.match-dialog__close:hover,
+.match-dialog__close:focus-visible {
+  background: var(--cream);
+  color: var(--ink);
 }
 
 .match-dialog__title {
@@ -560,6 +590,42 @@
   margin-top: -4px;
 }
 
+/* Small marker above the preview card: the step heading stays "Reach out to {name}"
+   and this label is what says the card below is a preview. */
+.match-dialog__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Counter inside the question box, bottom-right: the wrap carries the box styling and
+   the counter sits in normal flow below the textarea, so typed text can never overlap it. */
+.match-dialog__textarea-wrap {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-input);
+  background: var(--cream);
+  padding: var(--space-md);
+  padding-bottom: 6px;
+}
+
+.match-dialog__textarea-wrap:focus-within {
+  border-color: var(--brick);
+}
+
+.match-dialog__textarea-wrap .match-dialog__textarea {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.match-dialog__counter--inside {
+  margin-top: 2px;
+  text-align: right;
+}
+
 .match-dialog__textlink {
   justify-self: start;
   min-height: 44px;
@@ -635,6 +701,23 @@
   .home-ask__row,
   .match-page__ask-row {
     flex-direction: column;
+  }
+
+  /* Phone: exactly two short example chips with "Try:" inline, kept on one line; desktop three hidden. */
+  .home-ask__examples {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    column-gap: 6px;
+  }
+
+  .home-ask__example--full {
+    display: none;
+  }
+
+  .home-ask__example--phone {
+    display: block;
+    font-size: 12px;
+    padding: 4px 8px;
   }
 
   .match-card__actions .btn {

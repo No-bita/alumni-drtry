@@ -85,3 +85,23 @@ body.onboarding-dark {
     display: none;
   }
 }
+
+/* Welcome auto-advances after 3s; a light pulse around Start marks the countdown. */
+@keyframes onboarding-welcome-start-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 239, 230, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(244, 239, 230, 0);
+  }
+}
+
+.onboarding-welcome--intro .btn--onboarding-welcome {
+  animation: onboarding-welcome-start-pulse 1s ease-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-welcome--intro .btn--onboarding-welcome {
+    animation: none;
+  }
+}
