@@ -1,5 +1,43 @@
 /* Home (junior-asker redesign): one ask, quiet secondary paths, no zero states. 390px first. */
 
+/* Feed column + right-hand rail. Single column below desktop: the rail stacks after the feed,
+   which keeps the previous mobile order (batchmates after the Wall). No new rail content. */
+.home-ideal__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__main {
+  gap: 14px;
+}
+
+.home-ideal__rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  align-content: start;
+}
+
+@media (min-width: 1200px) {
+  .home-ideal__container {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* Rail panels stack their actions full-width; side-by-side buttons overflow a 320px rail. */
+  .home-ideal__rail .home-ideal__panel-actions {
+    flex-wrap: wrap;
+  }
+
+  .home-ideal__rail .home-ideal__panel-actions .btn {
+    flex-basis: 100%;
+  }
+}
+
 /* The hero now holds only the question, the box and one reassurance line. */
 .home-dashboard--ideal .home-ideal__intent-hero,
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {

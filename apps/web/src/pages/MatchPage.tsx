@@ -1,10 +1,9 @@
 import { useCallback, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { MatchIntentChips } from "../components/MatchIntentChips";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
-import { topicForCategory } from "../lib/noteForm";
 import { MatchResultCard } from "../components/MatchResultCard";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,7 +35,6 @@ const TOPIC_PROMPTS: Partial<Record<string, string>> = {
 /** Ask → Match results (`/match?q=…`). */
 export function MatchPage() {
   const auth = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = useMemo(() => parseMatchUrlState(searchParams), [searchParams]);
   const searchKey = useMemo(() => buildMatchSearch(state), [state]);
@@ -86,15 +84,14 @@ export function MatchPage() {
       ? { result: { id: reachProfile.data.profile.id, fullName: reachProfile.data.profile.fullName }, rank: null }
       : null;
   const dialogFor = reachOutTo ?? autoDialog;
-  // Note form: a referral question opens the referral form (role and company from the question,
-  // else the person's current company); any other kind of question opens advice with the user's
-  // question to start from. No clear kind of question: they pick.
-  const askedCategory = data?.intent.category ?? state.overrides.category ?? null;
+  // Note form: no topic is ever preselected - the asker picks one every time (mandatory, no
+  // defaults). Role, company and the question itself still prefill from the search, since the
+  // asker already typed or tapped those.
   const dialogCompany = dialogFor ? (data?.results.find((r) => r.id === dialogFor.result.id)?.headlineOrganizationName ?? null) : null;
   const noteSetup = {
-    purpose: askedCategory === "referral" ? ("referral" as const) : askedCategory ? ("advice" as const) : null,
+    purpose: null,
     referral: { role: data?.intent.role ?? null, company: data?.intent.company ?? dialogCompany },
-    advice: { topic: topicForCategory(askedCategory), question: state.question },
+    advice: { topic: null, question: state.question },
   };
   const updating = matchQuery.isFetching && matchQuery.isPlaceholderData;
 
@@ -184,20 +181,6 @@ export function MatchPage() {
           </div>
         ) : data ? (
           <>
-            <section className="match-page__understood" aria-labelledby="match-understood-title">
-              <h2 id="match-understood-title" className="match-page__section-title">
-                What we understood
-              </h2>
-              <p className="match-page__hint">Wrong? Tap a chip to fix it.</p>
-              <MatchIntentChips
-                key={`${searchKey}:${matchQuery.isPlaceholderData ? "prev" : "current"}`}
-                intent={data.intent}
-                disabled={updating}
-                autoEditField={autoEditField}
-                onChange={onChipChange}
-              />
-            </section>
-
             {updating ? (
               <p className="match-page__updating" role="status">
                 Updating matches…
@@ -212,7 +195,7 @@ export function MatchPage() {
               <div className="match-page__state">
                 <p className="match-page__state-title">No alum on Alma Mater matches this yet.</p>
                 <p className="match-page__state-copy">
-                  Post it as a bulletin so the right alum can find you, or loosen a filter above.
+                  Post it as a bulletin so the right alum can find you, or loosen a filter.
                 </p>
                 <button type="button" className="btn btn--secondary" onClick={postAsBulletin}>
                   Post this as a bulletin
@@ -236,12 +219,22 @@ export function MatchPage() {
                 </p>
               </section>
             )}
+
+            <section className="match-page__understood" aria-labelledby="match-understood-title">
+              <h2 id="match-understood-title" className="match-page__section-title">
+                What we understood
+              </h2>
+              <p className="match-page__hint">Wrong? Tap a chip to fix it.</p>
+              <MatchIntentChips
+                key={`${searchKey}:${matchQuery.isPlaceholderData ? "prev" : "current"}`}
+                intent={data.intent}
+                disabled={updating}
+                autoEditField={autoEditField}
+                onChange={onChipChange}
+              />
+            </section>
           </>
         ) : null}
-
-        <button type="button" className="match-page__back" onClick={() => navigate("/home")}>
-          ← Back to home
-        </button>
       </main>
 
       {dialogFor ? (

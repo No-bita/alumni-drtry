@@ -31,17 +31,19 @@ describe("Wall feed scope tabs", () => {
         />
       </QueryClientProvider></MemoryRouter>,
     );
-    const topics = screen.getByRole("button", { name: /Topics/ });
-    const tablist = screen.getByRole("tablist", { name: "Wall feeds" });
-    expect(tablist.contains(topics)).toBe(false);
-    expect(topics.parentElement?.parentElement).toBe(tablist.parentElement);
-    expect(tablist.parentElement?.classList.contains("home-wall-toolbar")).toBe(true);
-    fireEvent.click(topics);
-    expect(topics.getAttribute("aria-expanded")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: /^Careers\s*1$/ }));
-    expect(onCategoryChange).toHaveBeenCalledWith("careers");
-    expect(topics.getAttribute("aria-expanded")).toBe("false");
-    expect(document.activeElement).toBe(topics);
+    // PARKED 2026-11-18: topic chips are parked (see HomeOpportunityRail); the Topics
+    // trigger no longer renders. Restore this block with the chips.
+    // const topics = screen.getByRole("button", { name: /Topics/ });
+    // const tablist0 = screen.getByRole("tablist", { name: "Wall feeds" });
+    // expect(tablist0.contains(topics)).toBe(false);
+    // expect(topics.parentElement?.parentElement).toBe(tablist0.parentElement);
+    // fireEvent.click(topics);
+    // expect(topics.getAttribute("aria-expanded")).toBe("true");
+    // fireEvent.click(screen.getByRole("button", { name: /^Careers\s*1$/ }));
+    // expect(onCategoryChange).toHaveBeenCalledWith("careers");
+    // expect(topics.getAttribute("aria-expanded")).toBe("false");
+    // expect(document.activeElement).toBe(topics);
+    expect(screen.queryByRole("button", { name: /Topics/ })).toBeNull();
     const all = screen.getByRole("tab", { name: "All posts" });
     const personal = screen.getByRole("tab", { name: "For you" });
     const originalPanel = screen.getByRole("tabpanel");
@@ -62,22 +64,24 @@ describe("Wall feed scope tabs", () => {
     expect(document.activeElement).toBe(personal);
     expect(screen.getByRole("tabpanel").innerHTML).toBe(initialContent);
   });
-  it("preserves selected-topic toggle-off, zero-count categories and summary focus", () => {
-    const onCategoryChange = vi.fn();
-    render(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
-      <HomeOpportunityRail intentcasts={[]} activeCategory="careers" onCategoryChange={onCategoryChange}
-        categoryCounts={{ careers: 1, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 }} />
-    </MemoryRouter></QueryClientProvider>);
-    const trigger = screen.getByRole("button", { name: /Topics/ });
-    fireEvent.click(trigger);
-    const careers = screen.getByRole("button", { name: /^Careers\s*1$/ });
-    expect(careers.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /^Relocation\s*0$/ })).toBeTruthy();
-    fireEvent.click(careers);
-    expect(onCategoryChange).toHaveBeenCalledWith("all");
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    expect(document.activeElement).toBe(trigger);
-  });
+  // PARKED 2026-11-18: topic chips are parked (see HomeOpportunityRail), so this
+  // interaction test is parked with them. Restore together.
+  // it("preserves selected-topic toggle-off, zero-count categories and summary focus", () => {
+  //   const onCategoryChange = vi.fn();
+  //   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
+  //     <HomeOpportunityRail intentcasts={[]} activeCategory="careers" onCategoryChange={onCategoryChange}
+  //       categoryCounts={{ careers: 1, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 }} />
+  //   </MemoryRouter></QueryClientProvider>);
+  //   const trigger = screen.getByRole("button", { name: /Topics/ });
+  //   fireEvent.click(trigger);
+  //   const careers = screen.getByRole("button", { name: /^Careers\s*1$/ });
+  //   expect(careers.getAttribute("aria-pressed")).toBe("true");
+  //   expect(screen.getByRole("button", { name: /^Relocation\s*0$/ })).toBeTruthy();
+  //   fireEvent.click(careers);
+  //   expect(onCategoryChange).toHaveBeenCalledWith("all");
+  //   expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  //   expect(document.activeElement).toBe(trigger);
+  // });
   it("keeps Topics absent for a fully empty feed", () => {
     render(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}}

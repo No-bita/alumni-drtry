@@ -66,7 +66,7 @@ describe("reach-out loop (integration)", () => {
     expect(second.statusCode).toBe(409);
     expect(second.json()).toMatchObject({
       code: "CONTACT_REQUEST_DUPLICATE_PENDING",
-      message: `You already have a note waiting for Alum Person ${run}.`
+      message: `You already have a reachout waiting for Alum Person ${run}.`
     });
 
     const stored = (await db.query(`SELECT source, source_category FROM contact_requests WHERE sender_person_id = $1`, [asker.personId])).rows;

@@ -16,40 +16,49 @@ vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
 afterEach(() => { cleanup(); profile.mobilePhone = null; vi.clearAllMocks(); });
 
-// PHONE_QUESTION_PARKED(2026-11-05): this helper now reaches the answer-key step; the phone step no longer exists.
-async function reachAnswerKey(country = "India") {
+// PHONE_QUESTION_PARKED(2026-11-05): the phone step no longer exists. Settled flow: residence
+// (country + city, one screen) is the last question; completion follows it directly.
+async function reachResidence() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(<MemoryRouter><QueryClientProvider client={client}><Onboarding /></QueryClientProvider></MemoryRouter>);
   fireEvent.click(await screen.findByRole("button", { name: "Start" }));
-  for (let i = 0; i < 5; i++) fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  fireEvent.click(await screen.findByRole("button", { name: "OK" })); // name pair (prefilled)
+  await screen.findByText("Which department, and which degree?");
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  await screen.findByText("Which year did you graduate?");
   fireEvent.click(screen.getByRole("button", { name: /Looks right/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Other" }));
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await screen.findByText("Please specify *");
   fireEvent.change(view.container.querySelector("input")!, { target: { value: "Consulting" } });
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
-  fireEvent.change(view.container.querySelector("input")!, { target: { value: country } });
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
-  fireEvent.change(view.container.querySelector("input")!, { target: { value: "Mumbai" } });
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
-  return view;
+  await screen.findByText(/Where do you live/);
+}
+
+async function finishFromResidence() {
+  fireEvent.change(screen.getByLabelText("Country"), { target: { value: "India" } });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Mumbai" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 }
 
 // PHONE_QUESTION_PARKED(2026-11-05): original phone-question expectations are preserved, commented, below these tests.
 // Restore them together with the question when WhatsApp OTP verification lands (parked todo-01M6M19CJE53C865J2YH8353FV).
 describe("onboarding phone question (parked behaviour)", () => {
-  it("does not show the phone question after city; the answer-key step follows", async () => {
-    await reachAnswerKey();
+  it("does not show the phone question; residence is the last step before completion", async () => {
+    await reachResidence();
     expect(screen.queryByText("What is your mobile number?")).toBeNull();
     expect(screen.queryByLabelText("Country code")).toBeNull();
     expect(screen.queryByLabelText("Mobile number", { selector: "input" })).toBeNull();
-    expect(screen.getByText("What can you help juniors with?")).toBeTruthy();
+    await finishFromResidence();
+    await waitFor(() =>
+      expect(mocks.patch).toHaveBeenCalledWith("/v1/me/profile", { markOnboardingComplete: true })
+    );
+    expect(screen.queryByText("What is your mobile number?")).toBeNull();
   });
   it("finishing sends no mobilePhone, so an existing stored number stays untouched", async () => {
     profile.mobilePhone = "+91 9876543210";
-    await reachAnswerKey();
-    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+    await reachResidence();
+    await finishFromResidence();
     await waitFor(() =>
       expect(mocks.patch).toHaveBeenCalledWith("/v1/me/profile", expect.objectContaining({ markMinimumProfileComplete: true }))
     );
@@ -58,9 +67,8 @@ describe("onboarding phone question (parked behaviour)", () => {
     }
   });
   it("completes onboarding without a phone answer", async () => {
-    await reachAnswerKey();
-    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+    await reachResidence();
+    await finishFromResidence();
     await waitFor(() =>
       expect(mocks.patch).toHaveBeenCalledWith("/v1/me/profile", expect.objectContaining({ markOnboardingComplete: true }))
     );

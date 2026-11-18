@@ -8,8 +8,8 @@ describe("contact request reminder email", () => {
       "Alma Mater"
     );
     expect(e.subject).toBe("Reminder: Raj <script> is waiting on your reply on Alma Mater");
-    expect(e.text).toContain("sent you a note 3 days ago");
-    expect(e.text).toContain("This is the only reminder we'll send for this note.");
+    expect(e.text).toContain("sent you a reachout 3 days ago");
+    expect(e.text).toContain("This is the only reminder we'll send for this reachout.");
     expect(e.html).toContain("Raj &lt;script&gt;");
     expect(e.html).toContain("Hi &lt;b&gt;there&lt;/b&gt; &amp; thanks");
     expect(e.html).not.toContain("<script>");

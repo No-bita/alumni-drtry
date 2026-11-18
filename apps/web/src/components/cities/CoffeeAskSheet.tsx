@@ -54,7 +54,7 @@ export function CoffeeAskSheet({ alum, onClose, onSent }: { alum: CityAlum; onCl
       {sent ? (
         <div className="cities-sheet__body">
           <p className="cities__lede">
-            {name} sees your note and can accept or decline. If they accept, you’ll get their contact details.
+            {name} sees your reachout and can accept or decline. If they accept, you’ll get their contact details.
           </p>
           <button type="button" className="cities__primary" onClick={onClose}>
             Done

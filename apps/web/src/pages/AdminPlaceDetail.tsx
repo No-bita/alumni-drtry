@@ -85,7 +85,7 @@ export function AdminPlaceDetail() {
       />
       <main className="aa-page cr-page">
         <Link to="/admin/locations" className="cr-link">
-          ← All cities
+          All cities
         </Link>
         {!isAdmin ? (
           <p className="aa-message" role="alert">

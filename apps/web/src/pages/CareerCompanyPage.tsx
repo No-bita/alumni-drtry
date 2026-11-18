@@ -18,7 +18,7 @@ const yy = (y: number | null) => (y ? ` · Batch '${String(y).slice(-2)}` : "");
 type Ask = { person: CareersPerson; kind: "referral" | "advice" };
 
 const NOTE_LABEL: Record<string, string> = {
-  pending: "Note sent · waiting",
+  pending: "Reachout sent · waiting",
   accepted: "Accepted · contact shared",
   declined: "Declined",
   expired: "No reply",
@@ -119,7 +119,7 @@ export function CareerCompanyPage() {
       />
       <main className="careers">
         <Link to="/intent/career" className="careers__back">
-          ← Careers
+          Careers
         </Link>
         {name.length < 2 ? (
           <p className="careers__empty">
@@ -233,9 +233,9 @@ export function CareerCompanyPage() {
       {ask ? (
         <MatchReachOutDialog
           recipient={{ id: ask.person.id, fullName: ask.person.fullName }}
-          purpose={ask.kind}
+          purpose={null}
           referral={{ role, company: companyName }}
-          advice={{ topic: "interview_prep", question: applying }}
+          advice={{ topic: null, question: applying }}
           source="careers"
           backTo={{ to: "/intent/career", label: "Back to Careers" }}
           onClose={() => setAsk(null)}

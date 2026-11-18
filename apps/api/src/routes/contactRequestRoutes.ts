@@ -23,7 +23,7 @@ const createContactRequestSchema = z
   .superRefine((v, ctx) => {
     if (v.source === "cities") {
       if (!v.message || !v.message.trim()) {
-        ctx.addIssue({ code: "custom", message: "Cities notes need a message.", path: ["message"] });
+        ctx.addIssue({ code: "custom", message: "Cities reachouts need a message.", path: ["message"] });
       }
     }
     const cat = v.sourceCategory ?? null;
@@ -32,7 +32,7 @@ const createContactRequestSchema = z
       ctx.addIssue({ code: "custom", message: "Category does not fit the source.", path: ["sourceCategory"] });
     }
     if (v.cityHelpOfferId && !(v.source === "cities" && cat === "newcomer")) {
-      ctx.addIssue({ code: "custom", message: "Only newcomer notes answer an offer.", path: ["cityHelpOfferId"] });
+      ctx.addIssue({ code: "custom", message: "Only newcomer reachouts answer an offer.", path: ["cityHelpOfferId"] });
     }
   });
 

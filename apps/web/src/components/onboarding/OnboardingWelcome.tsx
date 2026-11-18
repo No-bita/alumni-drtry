@@ -1,6 +1,6 @@
 import { Nav } from "../Nav";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import "./OnboardingWelcome.css";
@@ -41,6 +41,18 @@ export function OnboardingWelcome({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showBeginButton, onBegin]);
+
+  /* Welcome advances on its own after 3s (Start and Enter still work sooner). The ref keeps the
+     timer from re-arming when the parent re-renders. */
+  const onBeginRef = useRef(onBegin);
+  useEffect(() => {
+    onBeginRef.current = onBegin;
+  }, [onBegin]);
+  useEffect(() => {
+    if (!showBeginButton) return;
+    const timer = window.setTimeout(() => onBeginRef.current(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [showBeginButton]);
 
   return (
     <div className="onboarding-welcome-page">

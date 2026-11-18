@@ -51,14 +51,14 @@ describe("SentNotesSection", () => {
   it("has an empty state", async () => {
     get.mockResolvedValue({ requests: [] });
     mount();
-    expect(await screen.findByText("You haven’t sent any notes yet.")).toBeTruthy();
+    expect(await screen.findByText("You haven’t sent any reachouts yet.")).toBeTruthy();
   });
 });
 
 describe("replyStatsLine", () => {
   it("formats counts and days", () => {
-    expect(replyStatsLine({ total: 5, replied: 4, medianDays: 2 })).toBe("Replied to 4 of 5 notes · usually within 2 days");
-    expect(replyStatsLine({ total: 3, replied: 1, medianDays: 1 })).toBe("Replied to 1 of 3 notes · usually within 1 day");
-    expect(replyStatsLine({ total: 3, replied: 0, medianDays: null })).toBe("Replied to 0 of 3 notes");
+    expect(replyStatsLine({ total: 5, replied: 4, medianDays: 2 })).toBe("Replied to 4 of 5 reachouts · usually within 2 days");
+    expect(replyStatsLine({ total: 3, replied: 1, medianDays: 1 })).toBe("Replied to 1 of 3 reachouts · usually within 1 day");
+    expect(replyStatsLine({ total: 3, replied: 0, medianDays: null })).toBe("Replied to 0 of 3 reachouts");
   });
 });

@@ -177,12 +177,12 @@ describe("full inbox back control", () => {
 
 describe("incoming notes from the note form", () => {
   const base = { kind: "contact_request_received" as const, occurredAt: new Date().toISOString(), unseen: false, senderPersonId: "p9" };
-  it("shows the label and fields ('Referral request' / 'Advice · topic'); older notes show just the text", () => {
+  it("shows the label and fields ('Referral request' / topic alone); older notes show just the text", () => {
     wrap(
       <NotificationsList
         items={[
           { ...base, id: "a", contactRequestId: "c1", senderFullName: "Asha", message: "Referral request: PM at X", details: { purpose: "referral", jobUrl: "https://x.example.com/j", role: "PM", company: "X", fit: "f", resumeUrl: null } },
-          { ...base, id: "b", contactRequestId: "c2", senderFullName: "Bilal", message: "Advice · Moving cities", details: { purpose: "advice", topic: "relocation", question: "q" } },
+          { ...base, id: "b", contactRequestId: "c2", senderFullName: "Bilal Anwar Khan", message: "Advice · Moving cities", details: { purpose: "advice", topic: "relocation", question: "q" } },
           { ...base, id: "c", contactRequestId: "c3", senderFullName: "Chirag", message: "An older note" },
         ]}
       />,
@@ -192,17 +192,24 @@ describe("incoming notes from the note form", () => {
     expect(screen.getByText("PM at X")).toBeTruthy();
     expect(screen.getByRole("link", { name: "https://x.example.com/j" })).toBeTruthy();
     expect(screen.queryByText("Referral request: PM at X")).toBeNull();
-    expect(screen.getByText("Advice · Moving cities")).toBeTruthy();
+    // Topic pill without the "Advice ·" prefix, on every advice reachout.
+    expect(screen.queryByText(/Advice ·/)).toBeNull();
+    expect(screen.getByText("Moving cities")).toBeTruthy();
+    // Generic "New reachout" heading on each non-cities request, sender first+last name beneath as a profile link.
+    expect(screen.getAllByText("New reachout").length).toBe(3);
+    expect(screen.getByRole("link", { name: "Bilal Khan" })).toBeTruthy();
+    expect(screen.queryByText("Bilal Anwar Khan")).toBeNull();
+    expect(screen.getByText("Asha")).toBeTruthy();
     expect(document.querySelectorAll(".note-body").length).toBe(2);
     expect(screen.getByText("An older note")).toBeTruthy();
   });
 });
 
 describe("type tiles and unseen emphasis", () => {
-  it("every row carries a kind tile keyed to its notification type", () => {
+  it("non-request rows carry a kind tile; reachout requests show no tile", () => {
     const { container } = wrap(<NotificationsList items={items} />);
-    expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(3);
-    expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(1);
+    expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(2);
+    expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(0);
     expect(container.querySelectorAll(".notifications-page__kind-tile--resolved").length).toBe(1);
     expect(container.querySelectorAll(".notifications-page__kind-tile--bulletin").length).toBe(1);
   });

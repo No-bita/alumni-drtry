@@ -100,7 +100,7 @@ afterEach(cleanup);
 describe("Admin analytics screen", () => {
   it("shows every section on one screen, defaulting to 30 days", async () => {
     mount();
-    expect(await screen.findByText("Accepted notes")).toBeTruthy();
+    expect(await screen.findByText("Accepted reachouts")).toBeTruthy();
     expect(apiGet).toHaveBeenCalledWith("/v1/admin/analytics?days=30", expect.anything());
     for (const title of [
       "North star", "Sign-in and sign-up", "Onboarding and profiles", "Asking", "Demand vs supply", "Matching quality",
@@ -149,7 +149,7 @@ describe("Admin analytics screen", () => {
 
   it("switches the window and can skip the cache", async () => {
     mount();
-    await screen.findByText("Accepted notes");
+    await screen.findByText("Accepted reachouts");
     fireEvent.click(screen.getByRole("button", { name: "7 days" }));
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/v1/admin/analytics?days=7", expect.anything()));
     expect(screen.getByRole("button", { name: "7 days" }).getAttribute("aria-pressed")).toBe("true");
@@ -160,8 +160,8 @@ describe("Admin analytics screen", () => {
 
   it("charts carry a table copy and a tooltip on hover", async () => {
     mount();
-    await screen.findByText("Accepted notes");
-    const fig = screen.getByText("Accepted notes per week").closest("figure") as HTMLElement;
+    await screen.findByText("Accepted reachouts");
+    const fig = screen.getByText("Accepted reachouts per week").closest("figure") as HTMLElement;
     expect(within(fig).getAllByRole("row")).toHaveLength(12);
     fireEvent.mouseEnter(within(fig).getAllByLabelText(/^Week of/)[11]!);
     expect(within(fig).getByRole("status").textContent).toContain("11");
@@ -208,7 +208,7 @@ describe("Metric help pills", () => {
         : { report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) },
     );
     mount();
-    expect(await screen.findByText("Cities notes accepted")).toBeTruthy();
+    expect(await screen.findByText("Cities reachouts accepted")).toBeTruthy();
     const pills = screen.getAllByRole("button", { name: /^About this metric: / });
     expect(pills).toHaveLength(56);
     const started = screen.getByRole("button", { name: "About this metric: Started onboarding" });

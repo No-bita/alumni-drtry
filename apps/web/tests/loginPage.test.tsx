@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Login } from "../src/pages/Login";
 
 const apiPost = vi.hoisted(() => vi.fn());
 const apiGet = vi.hoisted(() => vi.fn());
+const authRefetch = vi.hoisted(() => vi.fn());
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: apiGet } }));
-vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: vi.fn() }) }));
+vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: authRefetch }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/LandingWorldMap", () => ({ LandingWorldMap: ({ className, showTestimonials = true }: { className?: string; showTestimonials?: boolean }) => <div data-testid="landing-map" className={className}>{showTestimonials && <div aria-label="Alumni testimonials" />}</div> }));
 vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
+  authRefetch.mockResolvedValue(null);
   apiGet.mockResolvedValue({ data: { enabled: false } });
   window.matchMedia = ((q: string) => ({
     matches: false,
@@ -284,77 +285,32 @@ describe("Login page", () => {
   });
 
   });
-
-// Exercise both initial mounting and live breakpoint changes, not just CSS hiding.
-describe("responsive login map", () => {
+// The map is removed from the login screen; keep the no-map result pinned at phone and desktop widths.
+describe("login without the map", () => {
   function viewport(width: number) {
-    const listeners = new Set<() => void>();
-    const phoneListeners = new Set<() => void>();
     const phoneMq = {
       matches: width <= 639, media: "(max-width: 639px)",
-      addEventListener: (_event: string, fn: () => void) => phoneListeners.add(fn),
-      removeEventListener: (_event: string, fn: () => void) => phoneListeners.delete(fn),
+      addEventListener: () => {}, removeEventListener: () => {},
     };
-    const mq = {
-      matches: width >= 900,
-      media: "(min-width: 900px)",
-      addEventListener: (_event: string, fn: () => void) => listeners.add(fn),
-      removeEventListener: (_event: string, fn: () => void) => listeners.delete(fn),
-    };
-    window.matchMedia = ((query: string) => query === mq.media ? mq : query === phoneMq.media ? phoneMq : {
+    window.matchMedia = ((query: string) => query === phoneMq.media ? phoneMq : {
       matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {},
     }) as typeof window.matchMedia;
-    return {
-      resize(nextWidth: number) {
-        act(() => {
-          mq.matches = nextWidth >= 900;
-          phoneMq.matches = nextWidth <= 639;
-          phoneListeners.forEach((listener) => listener());
-          listeners.forEach((listener) => listener());
-        });
-      },
-      listeners, phoneListeners,
-    };
   }
 
-  it.each([640, 820, 899])("does not mount the map at %ipx", (width) => {
+  it.each([390, 639, 640, 900, 1440])("shows no map at %ipx", (width) => {
     viewport(width);
     mount();
     expect(screen.queryByTestId("landing-map")).toBeNull();
   });
 
-  it.each([390, 639])("replaces the stats with the map on phones at %ipx", (width) => {
-    viewport(width);
+  it("keeps the network stats on desktop and off phones", () => {
+    viewport(1440);
     mount();
-    expect(screen.getByTestId("landing-map")).toBeTruthy();
-    expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
-    expect(screen.queryByLabelText("Alumni testimonials")).toBeNull();
-  });
-
-  it.each([900, 1440])("restores the map at %ipx", (width) => {
-    viewport(width);
-    mount();
-    expect(screen.getByTestId("landing-map").className).toBe("auth-merged__map");
-    expect(screen.getByLabelText("Alumni testimonials")).toBeTruthy();
     expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
-  });
-
-  it("mounts and unmounts when crossing the breakpoint and removes its listener", () => {
-    const media = viewport(899);
-    const view = mount();
-    expect(screen.queryByTestId("landing-map")).toBeNull();
-    media.resize(900);
-    expect(screen.getByTestId("landing-map")).toBeTruthy();
-    media.resize(390);
-    expect(screen.getByTestId("landing-map")).toBeTruthy();
+    cleanup();
+    viewport(390);
+    mount();
     expect(screen.queryByRole("list", { name: "Network highlights" })).toBeNull();
-    expect(screen.queryByLabelText("Alumni testimonials")).toBeNull();
-    media.resize(820);
-    expect(screen.queryByTestId("landing-map")).toBeNull();
-    expect(screen.getByRole("list", { name: "Network highlights" })).toBeTruthy();
-    view.unmount();
-    expect(media.listeners.size).toBe(0);
-    expect(media.phoneListeners.size).toBe(0);
   });
 });
 
@@ -444,6 +400,23 @@ describe("Personal-provider frontend guard", () => {
   });
 });
 
+
+describe("post-login without the campus intro video", () => {
+ for (const completed of [false, true]) {
+  it(`continues straight to ${completed ? "home" : "onboarding"} after OTP success`, async () => {
+   authRefetch.mockResolvedValue({ person: { isDemo: false }, profile: { onboardingCompletedAt: completed ? "2026-11-16" : null, appLoginCount: 1 } });
+   apiPost.mockResolvedValueOnce({ data: { challengeId: "c-video" } }).mockResolvedValueOnce({ data: {} });
+   const view = render(<MemoryRouter initialEntries={["/login"]}><Routes><Route path="/login" element={<Login />} /><Route path="/home" element={<p>Home destination</p>} /><Route path="/onboarding" element={<p>Onboarding destination</p>} /></Routes></MemoryRouter>);
+   await submit("person@iitb.ac.in");
+   const cells = await screen.findAllByRole("textbox");
+   "123456".split("").forEach((d, i) => fireEvent.change(cells[i], { target: { value: d } }));
+   fireEvent.click(screen.getByRole("button", { name: "Enter code" }));
+   expect(await screen.findByText(completed ? "Home destination" : "Onboarding destination")).toBeTruthy();
+   expect(view.container.querySelector("video")).toBeNull();
+   expect(authRefetch).toHaveBeenCalledTimes(1);
+  });
+ }
+});
 
 it("uses a campus-neutral inbox cue without changing sign-in controls", async () => {
  apiPost.mockResolvedValue({ data: { challengeId: "neutral-code" } });

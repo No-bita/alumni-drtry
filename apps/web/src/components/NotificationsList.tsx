@@ -7,6 +7,7 @@ import { invalidateNotificationRelatedQueries } from "../lib/invalidateAppQuerie
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { queryKeys } from "../lib/queryKeys";
 import { HELP_KIND_LABELS, cityNoteKindLabel } from "../lib/cities";
+import { noteLabel } from "../lib/noteForm";
 import { Button } from "./Button";
 import { NoteBody } from "./NoteBody";
 
@@ -19,6 +20,12 @@ type NotificationsListProps = {
 
 function displayName(name: string | null | undefined): string {
   return name?.trim() || "Alumni";
+}
+
+/** Headline names stay short: first and last word only ("Aaryan Shah"); single-word names stay as they are. */
+function shortName(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : name;
 }
 
 export function NotificationsList({ items, onNavigate, activationTarget }: NotificationsListProps) {
@@ -94,7 +101,7 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
             (item.unseen ? " notifications-page__item--unseen" : "")
           }
         >
-          <NotificationKindTile kind={item.kind} />
+          {item.kind !== "contact_request_received" && <NotificationKindTile kind={item.kind} />}
           <NotificationListItem
             item={item}
             busyContactRequestId={busyContactRequestId}
@@ -159,7 +166,7 @@ function NotificationListItem({
       );
     }
     case "contact_request_received": {
-      const name = displayName(item.senderFullName);
+      const name = shortName(displayName(item.senderFullName));
       const busy = busyContactRequestId === item.contactRequestId;
       return (
         <>
@@ -174,11 +181,23 @@ function NotificationListItem({
             }
           />
           <div className="notifications-page__item-main">
-            <p className="notifications-page__item-title">
-              <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
-              {(item.source === "cities" ? cityNoteKindLabel(item.sourceCategory) : null) ?? "wants to connect"}
-            </p>
-            {item.details ? <NoteBody details={item.details} /> : <p className="notifications-page__item-detail">{item.message}</p>}
+            {item.source === "cities" ? (
+              <p className="notifications-page__item-title">
+                <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
+                {cityNoteKindLabel(item.sourceCategory)}
+              </p>
+            ) : (
+              <>
+                <p className="notifications-page__item-title">New reachout</p>
+                <div className="notifications-page__item-sender-row">
+                  <p className="notifications-page__item-sender">
+                    <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />
+                  </p>
+                  {item.details ? <span className="note-card__tag">{noteLabel(item.details)}</span> : null}
+                </div>
+              </>
+            )}
+            {item.details ? <NoteBody details={item.details} clampBodyLines={3} hideTag /> : <p className="notifications-page__item-detail">{item.message}</p>}
             <div className="notifications-page__item-actions">
               <Button
                 type="button"

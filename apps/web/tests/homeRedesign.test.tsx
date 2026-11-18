@@ -67,7 +67,7 @@ describe("Your notes line", () => {
     apiGet.mockResolvedValue({ requests: [{ status: "pending" }] });
     wrap(<HomeSentNotesLine />);
     expect(await screen.findByText(/1 waiting for reply/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "See your notes →" }).getAttribute("href")).toBe("/notifications");
+    expect(screen.getByRole("link", { name: "See your reachouts →" }).getAttribute("href")).toBe("/notifications");
     expect(apiGet).toHaveBeenCalledWith("/v1/contact-requests/sent", expect.anything());
     cleanup();
     apiGet.mockResolvedValue({ requests: [] });
