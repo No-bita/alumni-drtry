@@ -625,8 +625,8 @@ export function Profile() {
             privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
             openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
             onEdit={() => void beginEdit()}
-            onSignOut={() => { void auth.logout().then(() => navigate("/", { replace: true })); }}
-            onSignOutEverywhere={auth.status === "authenticated" && !auth.person.isDemo ? () => auth.logoutAll().then(() => navigate("/", { replace: true })) : undefined} />
+            onSignOut={() => { void auth.logout().then(() => navigate("/signed-out", { replace: true })); }}
+            onSignOutEverywhere={auth.status === "authenticated" && !auth.person.isDemo ? () => auth.logoutAll().then(() => navigate("/signed-out", { replace: true, state: { plain: true } })) : undefined} />
         ) : null}
         {loading || isEditing ? <>
         <ProfileHero

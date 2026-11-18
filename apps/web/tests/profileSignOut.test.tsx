@@ -66,7 +66,7 @@ function mount(path: string, logout = vi.fn(async () => {}), logoutAll = vi.fn(a
 }
 
 describe("Profile sign out", () => {
-  it("sign out of all devices asks once, then signs out everywhere to the landing page", async () => {
+  it("sign out of all devices asks once, then signs out everywhere to the signed-out page", async () => {
     const logoutAll = vi.fn(async () => {});
     mount("/profiles/me-1", vi.fn(async () => {}), logoutAll);
     fireEvent.click(await screen.findByRole("button", { name: "Sign out of all devices" }));
@@ -74,7 +74,7 @@ describe("Profile sign out", () => {
     expect(logoutAll).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Yes, sign out everywhere" }));
     await waitFor(() => expect(logoutAll).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/"));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/signed-out"));
   });
 
   it("sign out of all devices: cancel does nothing; a failure is shown and you stay signed in", async () => {
@@ -97,11 +97,11 @@ describe("Profile sign out", () => {
     expect(screen.queryByRole("button", { name: "Sign out of all devices" })).toBeNull();
   });
 
-  it("shows Sign out on the member's own profile and signs out to the landing page", async () => {
+  it("shows Sign out on the member's own profile and signs out to the signed-out page", async () => {
     const logout = mount("/profiles/me-1");
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/"));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/signed-out"));
   });
 
   it("has only one owner Sign out", async () => {
