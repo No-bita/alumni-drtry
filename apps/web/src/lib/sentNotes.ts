@@ -34,7 +34,7 @@ export function sentNoteStatusLabel(note: Pick<SentNote, "status">): string {
 
 /** "Replied to 4 of 5 notes · usually within 2 days" — only called when stats exist. */
 export function replyStatsLine(stats: { total: number; replied: number; medianDays: number | null }): string {
-  const notes = stats.total === 1 ? "note" : "notes";
+  const notes = stats.total === 1 ? "reachout" : "reachouts";
   const base = `Replied to ${stats.replied} of ${stats.total} ${notes}`;
   if (stats.medianDays === null) return base;
   const days = stats.medianDays === 1 ? "1 day" : `${stats.medianDays} days`;
