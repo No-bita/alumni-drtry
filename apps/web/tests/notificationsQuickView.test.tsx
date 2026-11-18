@@ -177,7 +177,7 @@ describe("full inbox back control", () => {
 
 describe("incoming notes from the note form", () => {
   const base = { kind: "contact_request_received" as const, occurredAt: new Date().toISOString(), unseen: false, senderPersonId: "p9" };
-  it("shows the label and fields ('Referral request' / 'Advice · topic'); older notes show just the text", () => {
+  it("shows the label and fields ('Referral request' / topic alone); older notes show just the text", () => {
     wrap(
       <NotificationsList
         items={[
@@ -192,7 +192,7 @@ describe("incoming notes from the note form", () => {
     expect(screen.getByText("PM at X")).toBeTruthy();
     expect(screen.getByRole("link", { name: "https://x.example.com/j" })).toBeTruthy();
     expect(screen.queryByText("Referral request: PM at X")).toBeNull();
-    expect(screen.getByText("Advice · Moving cities")).toBeTruthy();
+    expect(screen.getByText("Moving cities")).toBeTruthy();
     expect(document.querySelectorAll(".note-body").length).toBe(2);
     expect(screen.getByText("An older note")).toBeTruthy();
   });

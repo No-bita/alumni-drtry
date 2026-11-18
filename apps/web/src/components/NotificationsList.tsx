@@ -21,6 +21,12 @@ function displayName(name: string | null | undefined): string {
   return name?.trim() || "Alumni";
 }
 
+/** Headline names stay short: first and last word only ("Aaryan Shah"); single-word names stay as they are. */
+function shortName(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : name;
+}
+
 export function NotificationsList({ items, onNavigate, activationTarget }: NotificationsListProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -159,7 +165,7 @@ function NotificationListItem({
       );
     }
     case "contact_request_received": {
-      const name = displayName(item.senderFullName);
+      const name = shortName(displayName(item.senderFullName));
       const busy = busyContactRequestId === item.contactRequestId;
       return (
         <>
@@ -178,7 +184,7 @@ function NotificationListItem({
               <ProfileName personId={item.senderPersonId} name={name} inSheet={inSheet} />{" "}
               {(item.source === "cities" ? cityNoteKindLabel(item.sourceCategory) : null) ?? "wants to connect"}
             </p>
-            {item.details ? <NoteBody details={item.details} /> : <p className="notifications-page__item-detail">{item.message}</p>}
+            {item.details ? <NoteBody details={item.details} clampBodyLines={3} /> : <p className="notifications-page__item-detail">{item.message}</p>}
             <div className="notifications-page__item-actions">
               <Button
                 type="button"

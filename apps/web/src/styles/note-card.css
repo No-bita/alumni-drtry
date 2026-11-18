@@ -55,3 +55,24 @@
   overflow-wrap: anywhere;
 }
 
+/* Recipient Notifications: long note bodies collapse to 3 lines behind a toggle. */
+.note-card__text--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.note-card__readmore {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brick);
+  cursor: pointer;
+}
+
