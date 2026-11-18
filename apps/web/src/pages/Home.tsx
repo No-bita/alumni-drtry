@@ -23,14 +23,14 @@ import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "..
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
 import { HomeIntentHero } from "../components/HomeIntentHero";
-import { HomeAnswerKeyCard } from "../components/HomeAnswerKeyCard";
 import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { HomeFeedbackSection } from "../components/HomeFeedbackSection";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
-import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
+// PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
+// import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
 
 const EMPTY_POSTS: IntentcastFeedItem[] = [];
@@ -807,8 +807,8 @@ export function Home() {
               />
             ) : null}
           </div>
-          <OnboardingChecklistCard />
-          <HomeAnswerKeyCard />
+          {/* PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
+          <OnboardingChecklistCard /> */}
           <HomeOpportunityRail
             intentcasts={opportunityIntentcasts}
             activeCategory={viewModel.activeCategory}
