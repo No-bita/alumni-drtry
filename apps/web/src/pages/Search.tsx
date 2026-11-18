@@ -345,18 +345,6 @@ export function Search() {
           </div>
         ) : null}
 
-        {normalization?.applied ? (
-          <div className="search-page__notice search-page__notice--muted" role="status">
-            <p className="search-page__notice-text">
-              Filtered your search from keywords
-              {normalization.batchFromQuery != null ? ` · batch ${normalization.batchFromQuery}` : ""}
-              {normalization.deptFromQuery ? ` · dept ${normalization.deptFromQuery}` : ""}
-              {normalization.companyFromQuery ? ` · company ${normalization.companyFromQuery}` : ""}
-              {normalization.removedTokens?.length ? ` (removed: ${normalization.removedTokens.join(", ")})` : ""}.
-            </p>
-          </div>
-        ) : null}
-
         <DirectoryFilterDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter search">
           <DirectoryFiltersForm
             batchYear={draft.batch}
