@@ -48,9 +48,8 @@ async function reachDepartmentQuestion() {
     </MemoryRouter>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "Start" }));
-  fireEvent.click(await screen.findByRole("button", { name: "OK" })); // first name
-  fireEvent.click(await screen.findByRole("button", { name: "OK" })); // last name
-  await screen.findByText("Which department were you in?");
+  fireEvent.click(await screen.findByRole("button", { name: "OK" })); // name pair (prefilled)
+  await screen.findByText("Which department, and which degree?");
 }
 
 describe("Onboarding department Other specification", () => {
@@ -60,7 +59,7 @@ describe("Onboarding department Other specification", () => {
     // No specification input until Other is picked.
     expect(screen.queryByPlaceholderText("Please specify")).toBeNull();
 
-    fireEvent.focus(screen.getByPlaceholderText("Type or select an option"));
+    fireEvent.focus(screen.getAllByPlaceholderText("Type or select an option")[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Other" }));
 
     const specify = await screen.findByPlaceholderText("Please specify");
@@ -68,30 +67,27 @@ describe("Onboarding department Other specification", () => {
 
     // Empty specification blocks the advance with the required-text error.
     await screen.findByText("Please specify your department.");
-    expect(screen.getByText("Which department were you in?")).toBeTruthy();
+    expect(screen.getByText("Which department, and which degree?")).toBeTruthy();
 
     fireEvent.change(specify, { target: { value: "Applied Mechanics" } });
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: "OK" })); // degree is prefilled
 
-    await screen.findByText("Which degree did you complete?");
+    await screen.findByText("Which year did you graduate?");
   });
 
   it("sends the specification with the profile save", async () => {
     await reachDepartmentQuestion();
 
-    fireEvent.focus(screen.getByPlaceholderText("Type or select an option"));
+    fireEvent.focus(screen.getAllByPlaceholderText("Type or select an option")[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Other" }));
     fireEvent.change(await screen.findByPlaceholderText("Please specify"), {
       target: { value: "Applied Mechanics" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
-    await screen.findByText("Which degree did you complete?");
+    fireEvent.click(screen.getByRole("button", { name: "OK" })); // degree is prefilled
+    await screen.findByText("Which year did you graduate?");
 
-    // Finish step 1 with the prefilled degree/join year and a program pick.
-    fireEvent.click(screen.getByRole("button", { name: "OK" })); // degree
-    fireEvent.click(screen.getByRole("button", { name: "OK" })); // join year
-    fireEvent.click(screen.getByRole("button", { name: /4-year/ })); // program
-    fireEvent.click(screen.getByRole("button", { name: /Looks right/ }));
+    // Finish step 1 with the prefilled graduation year.
+    fireEvent.click(screen.getByRole("button", { name: /Looks right/ })); // graduation year (prefilled)
 
     await waitFor(() => {
       const saved = mocks.patch.mock.calls.some(
