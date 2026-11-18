@@ -15857,6 +15857,22 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: rgba(252, 248, 240, 0.6);
 }
 
+/* MOCK ONLY: mirror the separately approved back-arrow removal so proposals
+   don't show a stale element (executor owns the real patch). */
+.btn--back span[aria-hidden] {
+  display: none;
+}
+
+/* Small label above each field on a combined question screen (mock). */
+.onboarding-welcome__inline-fieldlabel {
+  display: block;
+  margin-top: var(--space-sm, 10px);
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.6);
+}
+
 .onboarding-welcome__inline-link {
   display: inline-block;
   margin-top: var(--space-xs, 6px);
@@ -21365,13 +21381,15 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   }
 
   .onboarding-welcome__inline-actions {
-    flex-direction: column-reverse;
+    flex-direction: row;
     align-items: stretch;
     gap: var(--space-sm);
   }
 
   .onboarding-welcome__inline-actions .btn {
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
     min-height: var(--chrome-min-touch-target);
   }
 
@@ -21485,4 +21503,63 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   color: var(--cream, #e8d090);
   display: grid;
   place-items: center;
+}
+
+/* Horizontal combined-field rows (mock: horizontal-first layout study). */
+.onboarding-welcome__fieldrow {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.onboarding-welcome__fieldcell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.onboarding-welcome__fieldcell .onboarding-welcome__inline-input,
+.onboarding-welcome__fieldcell .onboarding-welcome__search-select {
+  width: 100%;
+}
+
+
+/* Dept/degree: stacked on narrow, horizontal (department wide, degree compact) when it truly fits (mock). */
+.onboarding-welcome__fieldrow--dept {
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+@media (min-width: 720px) {
+  .onboarding-welcome__fieldrow--dept {
+    flex-direction: row;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__fieldcell--dept {
+    flex: 1.7 1 0;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__fieldcell--deg {
+    flex: 1 1 0;
+  }
+  .onboarding-welcome__fieldrow--dept .onboarding-welcome__search-select-input {
+    font-size: 20px;
+  }
+}
+
+/* Pair rows (mock): combined company+industry / country+city screens - horizontal-first, tighter gap on narrow. */
+.onboarding-welcome__fieldlabel {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(252, 248, 240, 0.66);
+  margin: 0 0 8px;
+}
+.onboarding-welcome__fieldrow--pair {
+  gap: 24px;
+}
+@media (max-width: 719px) {
+  .onboarding-welcome__fieldrow--pair {
+    gap: 12px;
+  }
 }
