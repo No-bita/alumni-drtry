@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import type { MatchResult } from "../lib/matchApi";
-import { OPEN_TO_CATALOG } from "../lib/openToPreferences";
 import { replyStatsLine } from "../lib/sentNotes";
 import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
@@ -43,18 +42,6 @@ export function MatchResultCard({ result, onReachOut }: MatchResultCardProps) {
         </ul>
       </div>
 
-      {result.openTo.length > 0 ? (
-        <ul className="match-card__tags" aria-label="Open to">
-          {result.openTo.map((id) => (
-            <li
-              key={id}
-              className={`match-card__tag${result.relevantOpenTo.includes(id) ? " match-card__tag--relevant" : ""}`}
-            >
-              {OPEN_TO_CATALOG[id].title}
-            </li>
-          ))}
-        </ul>
-      ) : null}
 
       <div className="match-card__actions">
         {result.yourNote === "pending" ? (

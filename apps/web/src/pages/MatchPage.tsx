@@ -1,6 +1,6 @@
 import { useCallback, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { MatchIntentChips } from "../components/MatchIntentChips";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
@@ -36,7 +36,6 @@ const TOPIC_PROMPTS: Partial<Record<string, string>> = {
 /** Ask → Match results (`/match?q=…`). */
 export function MatchPage() {
   const auth = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = useMemo(() => parseMatchUrlState(searchParams), [searchParams]);
   const searchKey = useMemo(() => buildMatchSearch(state), [state]);
@@ -184,20 +183,6 @@ export function MatchPage() {
           </div>
         ) : data ? (
           <>
-            <section className="match-page__understood" aria-labelledby="match-understood-title">
-              <h2 id="match-understood-title" className="match-page__section-title">
-                What we understood
-              </h2>
-              <p className="match-page__hint">Wrong? Tap a chip to fix it.</p>
-              <MatchIntentChips
-                key={`${searchKey}:${matchQuery.isPlaceholderData ? "prev" : "current"}`}
-                intent={data.intent}
-                disabled={updating}
-                autoEditField={autoEditField}
-                onChange={onChipChange}
-              />
-            </section>
-
             {updating ? (
               <p className="match-page__updating" role="status">
                 Updating matches…
@@ -212,7 +197,7 @@ export function MatchPage() {
               <div className="match-page__state">
                 <p className="match-page__state-title">No alum on Alma Mater matches this yet.</p>
                 <p className="match-page__state-copy">
-                  Post it as a bulletin so the right alum can find you, or loosen a filter above.
+                  Post it as a bulletin so the right alum can find you, or loosen a filter.
                 </p>
                 <button type="button" className="btn btn--secondary" onClick={postAsBulletin}>
                   Post this as a bulletin
@@ -236,12 +221,22 @@ export function MatchPage() {
                 </p>
               </section>
             )}
+
+            <section className="match-page__understood" aria-labelledby="match-understood-title">
+              <h2 id="match-understood-title" className="match-page__section-title">
+                What we understood
+              </h2>
+              <p className="match-page__hint">Wrong? Tap a chip to fix it.</p>
+              <MatchIntentChips
+                key={`${searchKey}:${matchQuery.isPlaceholderData ? "prev" : "current"}`}
+                intent={data.intent}
+                disabled={updating}
+                autoEditField={autoEditField}
+                onChange={onChipChange}
+              />
+            </section>
           </>
         ) : null}
-
-        <button type="button" className="match-page__back" onClick={() => navigate("/home")}>
-          ← Back to home
-        </button>
       </main>
 
       {dialogFor ? (

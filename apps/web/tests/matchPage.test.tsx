@@ -109,6 +109,31 @@ describe("MatchPage", () => {
     expect(screen.getByRole("combobox", { name: "Looking for" })).toHaveProperty("value", "referral");
   });
 
+  it("shows no open-to chip row on the result cards", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    // Willingness stays once, inside Why them; the separate chip row is gone.
+    expect(screen.getByText("Open to referrals")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Open to" })).toBeNull();
+  });
+
+  it("shows what-we-understood below the results", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    const resultsHeading = await screen.findByRole("heading", { name: /who can help/ });
+    const understood = screen.getByRole("heading", { name: "What we understood" });
+    const pos = resultsHeading.compareDocumentPosition(understood);
+    expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("has no back-to-home button on the results page", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/match?q=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /back to home/i })).toBeNull();
+  });
+
   it("clearing a chip puts the correction in the URL and re-asks", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount("/match?q=referral+for+PM+at+Razorpay");
