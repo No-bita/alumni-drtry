@@ -51,7 +51,7 @@ export function ArriverView({
       <header className="cities__header">
         {data.viewerCity ? (
           <Link to={cityPath(data.viewerCity)} className="cities__back">
-            ‹ Your city: {data.viewerCity.city}
+            Your city: {data.viewerCity.city}
           </Link>
         ) : null}
         {/* Counts are temporarily hidden by product choice; keep the data and markup.

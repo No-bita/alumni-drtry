@@ -228,7 +228,7 @@ function ConnectionThreadBody({
       <div className="connection-thread-page">
         <header className="connection-thread-page__head">
           <button type="button" className="connection-thread-page__back" onClick={() => navigate(-1)}>
-            ← Back
+            Back
           </button>
           <h1 className="connection-thread-page__title">{title}</h1>
           <DeptBatchMeta
