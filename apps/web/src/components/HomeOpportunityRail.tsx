@@ -8,10 +8,12 @@ import { queryKeys } from "../lib/queryKeys";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../hooks/useDialogFocusManager";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
-import { HomeWallTopicsFilter } from "./HomeWallTopicsFilter";
+// PARKED 2026-11-18: Wall topic chips removed from the toolbar for now (beta feed too sparse
+// for two filter dimensions). Component, styles and tests are kept; uncomment to restore.
+// import { HomeWallTopicsFilter } from "./HomeWallTopicsFilter";
 import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/intentcastOpportunityCard";
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
-import { isFeedEmpty, visibleCategoryIds } from "../lib/emptyFeedDefense";
+import { isFeedEmpty } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
 import { WallEmptyPrompt } from "./WallEmptyPrompt";
 
@@ -58,12 +60,13 @@ type HomeOpportunityRailProps = {
   onPost?: () => void;
 };
 
-const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: string }> = [
-  { id: "careers", label: "Careers" },
-  { id: "relocation", label: "Relocation" },
-  { id: "startups", label: "Startups" },
-  { id: "guidance", label: "Guidance" },
-];
+// PARKED 2026-11-18: category list only fed the parked topic chips below.
+// const CATEGORIES: Array<{ id: Exclude<HomeOpportunityCategory, "all">; label: string }> = [
+//   { id: "careers", label: "Careers" },
+//   { id: "relocation", label: "Relocation" },
+//   { id: "startups", label: "Startups" },
+//   { id: "guidance", label: "Guidance" },
+// ];
 
 function intentcastHomeLane(ic: IntentcastFeedItem): Exclude<HomeOpportunityCategory, "all" | "replies"> {
   return normalizeOpportunityCard(ic.content, ic.category).category;
@@ -112,7 +115,8 @@ function mapBulletinReplyToActivityRow(reply: ReceivedBulletinReplyFeedItem): Ca
 export function HomeOpportunityRail({
   intentcasts,
   activeCategory,
-  onCategoryChange,
+  // PARKED 2026-11-18: onCategoryChange is no longer destructured - only the parked topic
+  // chips consumed it. The prop stays in the interface; restore with the chips.
   categoryCounts,
   opportunitiesFeedLoading = false,
   opportunitiesFeedError = false,
@@ -186,8 +190,9 @@ export function HomeOpportunityRail({
   const startRipple = useCallback(() => setRippling(true), []);
 
   const feedIsEmpty = !opportunitiesFeedLoading && !opportunitiesFeedError && isFeedEmpty(categoryCounts);
-  const chipIds = visibleCategoryIds(CATEGORIES.map((c) => c.id), categoryCounts);
-  const chipCategories = CATEGORIES.filter((c) => chipIds.includes(c.id));
+  // PARKED 2026-11-18: chip derivation for the parked topic chips.
+  // const chipIds = visibleCategoryIds(CATEGORIES.map((c) => c.id), categoryCounts);
+  // const chipCategories = CATEGORIES.filter((c) => chipIds.includes(c.id));
 
   return (
     <section className="home-ideal__opportunities ds-surface-card" aria-labelledby="home-opportunities-heading">
@@ -233,6 +238,7 @@ export function HomeOpportunityRail({
             </button>
           ))}
         </div>
+        {/* PARKED 2026-11-18: topic chips cut for now; tabs stay the only filter. Restore with the import above.
         {chipCategories.length > 0 ? (
           <HomeWallTopicsFilter
             topics={chipCategories}
@@ -241,6 +247,7 @@ export function HomeOpportunityRail({
             onCategoryChange={onCategoryChange}
           />
         ) : null}
+        */}
       </div>
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
