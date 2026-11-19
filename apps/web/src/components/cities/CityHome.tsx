@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { formatRelativeTime } from "../../lib/formatRelativeTime";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../../lib/bulletinPostCardUtils";
 import {
@@ -103,9 +102,10 @@ function PenIcon() {
  * shortcuts that prefill a Wall ask, the city's open Wall requests, then one open ask. Requests open
  * read-only; there are no reply counts or buttons here while the response model is unsettled.
  */
+// `profileId` stays in the props type but is intentionally not destructured: its only consumer (the
+// "Moved away? Update your city" link) was removed; keeping the prop leaves the LocationPage call site unchanged.
 export function CityHome({
   data,
-  profileId,
   onChanged,
   onOptIn,
   onAsk,
@@ -164,8 +164,6 @@ export function CityHome({
   };
 
   const posts = all ? all.posts : data.posts;
-  const directoryParams = new URLSearchParams({ residenceCity: city });
-  if (data.place.country) directoryParams.set("residenceCountry", data.place.country);
 
   return (
     <>
@@ -314,19 +312,11 @@ export function CityHome({
       </section>
 
       <section className="cities__section cities-home__secondary" aria-label="More">
-        <Link to={`/search?${directoryParams.toString()}`} className="cities__link">
-          Browse the {city} alumni directory ›
-        </Link>
         {data.arrivalPrompt && !newcomer ? (
           <button type="button" className="cities__link" onClick={onOptIn}>
             Just moved? Show me as new in town ›
           </button>
         ) : null}
-            {profileId ? (
-              <Link to={`/profiles/${profileId}?edit=city`} className="cities__link">
-                Moved away? Update your city ›
-              </Link>
-            ) : null}
           </section>
         </div>
       </div>

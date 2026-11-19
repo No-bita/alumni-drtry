@@ -162,9 +162,6 @@ describe("Cities page: city home (local)", () => {
     expect(screen.getByText(/Asha ’19 ·/)).toBeTruthy();
 
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Browse the Bengaluru alumni directory ›" }).getAttribute("href"))
-      .toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
-    expect(screen.getByRole("link", { name: "Moved away? Update your city ›" }).getAttribute("href")).toBe("/profiles/me1?edit=city");
 
     // Retired sections stay gone: alumni list, helper panel, meetups, arrivals.
     expect(screen.queryByRole("heading", { name: "Alumni in Bengaluru" })).toBeNull();
@@ -325,8 +322,6 @@ describe("Cities page: exploring another city", () => {
     expect(wallOpen).toHaveBeenCalledWith(
       expect.objectContaining({ placeId: "blr", category: "relocation", headline: "Local services in Bengaluru" }),
     );
-    expect(screen.getByRole("link", { name: "Browse the Bengaluru alumni directory ›" }).getAttribute("href"))
-      .toBe("/search?residenceCity=Bengaluru&residenceCountry=India");
   });
 
   it("old contact entry points are gone from Cities", async () => {
