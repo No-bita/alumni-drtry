@@ -6,9 +6,9 @@ import {
 
 /** Visual tone for category pills / borders — aligned with home bulletin chips. */
 export type BulletinCardTone = "referrals" | "moving_cities" | "hiring";
-export type BulletinUiCategory = "careers" | "hiring" | "relocation" | "startups" | "guidance";
+export type BulletinUiCategory = "careers" | "hiring" | "relocation" | "startups" | "guidance" | "general";
 
-const BULLETIN_UI_CATEGORY_PREFIX = /^\s*\[\[cat:(careers|hiring|relocation|startups|guidance)\]\]\s*\n?/i;
+const BULLETIN_UI_CATEGORY_PREFIX = /^\s*\[\[cat:(careers|hiring|relocation|startups|guidance|general)\]\]\s*\n?/i;
 
 export function extractBulletinUiCategory(raw: string): BulletinUiCategory | null {
   const match = raw.match(BULLETIN_UI_CATEGORY_PREFIX);
@@ -20,6 +20,7 @@ export function extractBulletinUiCategory(raw: string): BulletinUiCategory | nul
     case "relocation":
     case "startups":
     case "guidance":
+    case "general":
       return value;
     default:
       return null;

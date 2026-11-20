@@ -24,6 +24,7 @@ export type CareerFeedVisualTone =
   | "can_help"
   | "relocation"
   | "startups"
+  | "general"
   | "inbound_reply";
 
 /** Feed tabs — All / Hiring / Referral (internal ids unchanged for filtering). */

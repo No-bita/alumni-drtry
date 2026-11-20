@@ -275,6 +275,8 @@ function bulletinUiFromHomeMockChip(chip: ReturnType<typeof normalizeHomeOpportu
       return "startups";
     case "guidance":
       return "guidance";
+    case "general":
+      return "general";
     case "careers":
       return "careers";
     case "replies":
@@ -732,6 +734,7 @@ export function Home() {
         relocation: totalCountFor("relocation"),
         startups: totalCountFor("startups"),
         guidance: totalCountFor("guidance"),
+        general: totalCountFor("general"),
         replies: bulletinRepliesQuery.data?.totalCount ?? 0,
       },
     };

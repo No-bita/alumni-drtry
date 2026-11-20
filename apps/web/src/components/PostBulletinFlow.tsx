@@ -129,6 +129,8 @@ function bulletinUiCategoryToApiCategory(category: BulletinGeneralCategory): Int
   switch (category) {
     case "careers":
       return "mentorship";
+    case "general":
+      return "guidance";
     case "hiring":
       return "hiring";
     case "relocation":
@@ -598,6 +600,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         <option value="relocation">Relocation</option>
                         <option value="startups">Startups</option>
                         <option value="guidance">Guidance</option>
+                        <option value="general">General</option>
                       </select>
                     </label>
                   )}
