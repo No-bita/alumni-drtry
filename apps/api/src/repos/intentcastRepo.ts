@@ -12,6 +12,7 @@ export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "gu
 export type IntentcastKind = "ask" | "offer" | "invitation";
 
 interface IntentcastFeedRow {
+  wall_pinned_at?: Date | null;
   id: string;
   author_person_id: string;
   author_full_name: string;
@@ -39,6 +40,8 @@ interface IntentcastFeedRow {
 }
 
 export interface IntentcastFeedView {
+  /** Present only for Home Wall feed queries. */
+  wallPinnedAt?: Date | null;
   id: string;
   authorPersonId: string;
   authorFullName: string;
@@ -133,6 +136,7 @@ export interface CreateIntentcastInput {
 }
 
 export interface FeedInput {
+  homeWall?: boolean;
   viewerPersonId: string;
   limit: number;
   offset: number;
@@ -218,6 +222,7 @@ export interface UpdateIntentcastInput {
 function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
   return {
     id: row.id,
+    wallPinnedAt: row.wall_pinned_at ?? null,
     authorPersonId: row.author_person_id,
     authorFullName: row.author_full_name,
     authorInstitutionName: row.author_email_domain ? (DOMAIN_DIRECTORY[row.author_email_domain]?.institution ?? null) : null,
@@ -379,6 +384,7 @@ export class IntentcastRepo {
       `
       SELECT
         i.id,
+        ${input.homeWall && !input.mine && !input.authorHistory ? '(SELECT wp.pinned_at FROM wall_post_pins wp WHERE wp.intentcast_id = i.id)' : 'NULL::timestamptz'} AS wall_pinned_at,
         i.author_person_id,
         p.full_name AS author_full_name,
         lower(split_part(p.institutional_email, '@', 2)) AS author_email_domain,
@@ -426,6 +432,7 @@ export class IntentcastRepo {
       WHERE ${where.join("\n  AND ")}
       /* Bulletin feed ordering — document in docs/bulletin-feed-ranking.md; update when this changes. */
       ORDER BY
+        ${input.homeWall && !input.mine && !input.authorHistory ? 'wall_pinned_at DESC NULLS LAST,' : ''}
         CASE
           WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
           WHEN (

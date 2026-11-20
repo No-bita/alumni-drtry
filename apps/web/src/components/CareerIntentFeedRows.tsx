@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { CAREER_FEED_INCLUDE_GUIDANCE, mapIntentcastToRow, laneBadgeLabel } from "../lib/careerFeedRow";
 import { Avatar } from "./Avatar";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
+import { WallPinBadge } from "./WallPinBadge";
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 import { CareerStyleSearchToolbar } from "./CareerStyleSearchToolbar";
@@ -117,6 +118,10 @@ function splitAuthorRoleOrg(roleLine: string | null): { role: string | null; org
 
 export type IntentcastActivityRowsListProps = {
   rows: CareerFeedRowModel[];
+  /** Supplied by Home only; Careers never displays or manages pins. */
+  wallPins?: ReadonlyMap<string, string>;
+  onToggleWallPin?: (id: string, pinned: boolean) => void;
+  pinSubmitting?: boolean;
   viewerPersonId: string | null;
   deleteSubmittingId: string | null;
   onRequestDelete: (intentcastId: string) => void;
@@ -137,6 +142,9 @@ export function IntentcastActivityRowsList({
   onRequestDelete,
   listClassName,
   ownerDeleteMenu = true,
+  wallPins,
+  onToggleWallPin,
+  pinSubmitting = false,
 }: IntentcastActivityRowsListProps) {
   return (
     <ul className={listClassName ? `career-feed-rows__list ${listClassName}` : "career-feed-rows__list"} role="list">
@@ -162,13 +170,14 @@ export function IntentcastActivityRowsList({
         const { role: authorRoleTitle, org: authorOrgName } = splitAuthorRoleOrg(row.authorRoleLine);
         return (
           <li key={row.id}>
-            <article className={`career-feed-rows__row${isOwn ? " career-feed-rows__row--own" : ""}`}>
+            <article className={`career-feed-rows__row${isOwn ? " career-feed-rows__row--own" : ""}${onToggleWallPin ? " career-feed-rows__row--wall-pin-actions" : ""}`}>
               <div className="career-feed-rows__row-layout">
                 <div className="career-feed-rows__row-primary">
                   <div className="career-feed-rows__row-primary-body">
                     <div className={`career-feed-rows__lane-badge career-feed-rows__lane-badge--${row.tone}`}>
                       {laneBadgeLabel(row.tone)}
                     </div>
+                    {wallPins?.has(row.id) ? <WallPinBadge /> : null}
                     {row.kindLabel ? <span className="career-feed-rows__kind">{row.kindLabel}</span> : null}
                     <ReferralIntentHeadline as="h3" className="career-feed-rows__row-title" headline={row.roleHeader} />
                     {row.companySubtitle ? (
@@ -255,11 +264,12 @@ export function IntentcastActivityRowsList({
                       </button>
                     ) : ownerDeleteMenu ? (
                     */}
-                    {isOwn && ownerDeleteMenu ? (
+                    {(isOwn && ownerDeleteMenu) || onToggleWallPin ? (
                       <BulletinOwnPostMenu
                         detachDropdown
                         deleteDisabled={deleteSubmittingId === row.id}
-                        onRequestDelete={() => onRequestDelete(row.id)}
+                        onRequestDelete={isOwn && ownerDeleteMenu ? () => onRequestDelete(row.id) : undefined}
+                        pinAction={onToggleWallPin ? { pinned: wallPins?.has(row.id) ?? false, disabled: pinSubmitting, onToggle: () => onToggleWallPin(row.id, !wallPins?.has(row.id)) } : undefined}
                       />
                     ) : null}
                   </div>

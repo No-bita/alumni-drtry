@@ -398,6 +398,8 @@ export type NotificationsSummaryResponse = { count: number; unseenCount: number 
 
 /** GET /v1/intentcasts */
 export type IntentcastFeedItem = {
+  /** Home Wall ranking metadata, never an audience override. */
+  wallPinnedAt?: string | null;
   id: string;
   authorPersonId: string;
   authorFullName: string;

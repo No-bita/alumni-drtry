@@ -125,6 +125,56 @@ export class IntentcastService {
     this.personRepo = new PersonRepo(pool);
   }
 
+  /** Pin is a ranking privilege, never an edit or audience override. */
+  async setWallPin(actor: { personId: string; role: string; isDemo?: boolean }, intentcastId: string, pinned: boolean): Promise<{ pinnedAt: Date | null }> {
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AppError(403, "AUTH_FORBIDDEN", "Admin access required.");
+    }
+    if (actor.isDemo) throw new AppError(403, "DEMO_READ_ONLY", "Demo accounts are read-only.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Lock target before slots, matching close/removal trigger lock order.
+      const target = await client.query<{ status: string; author_soft_deleted_at: Date | null }>(
+        "SELECT status, author_soft_deleted_at FROM intentcasts WHERE id = $1 FOR UPDATE", [intentcastId]
+      );
+      if (!target.rows[0]) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
+      await client.query("SELECT slot FROM wall_post_pins ORDER BY slot FOR UPDATE");
+      const repo = new IntentcastRepo(client);
+      // Same visibility predicate as direct-link/feed reads, including audience once integrated.
+      const visible = await repo.findFeedItemVisibleToViewer(intentcastId, actor.personId);
+      if (!visible) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
+      if (!pinned) {
+        await client.query("UPDATE wall_post_pins SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL WHERE intentcast_id = $1", [intentcastId]);
+        await client.query("COMMIT");
+        return { pinnedAt: null };
+      }
+      if (target.rows[0].status !== "open" || target.rows[0].author_soft_deleted_at) {
+        throw new AppError(409, "WALL_PIN_UNAVAILABLE", "Only visible, open posts can be pinned.");
+      }
+      // Clear slots whose posts/authors are unavailable, never reopen or restore anything.
+      await client.query(`UPDATE wall_post_pins wp SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL
+        FROM intentcasts i JOIN people p ON p.id = i.author_person_id
+        WHERE wp.intentcast_id = i.id AND (i.status <> 'open' OR i.author_soft_deleted_at IS NOT NULL
+          OR p.deleted_at IS NOT NULL OR p.suspended_at IS NOT NULL OR p.full_name IS NULL)`);
+      const existing = await client.query<{ pinned_at: Date }>("SELECT pinned_at FROM wall_post_pins WHERE intentcast_id = $1", [intentcastId]);
+      if (existing.rows[0]) {
+        await client.query("COMMIT");
+        return { pinnedAt: existing.rows[0].pinned_at };
+      }
+      const result = await client.query<{ pinned_at: Date }>(`UPDATE wall_post_pins SET intentcast_id = $1, pinned_at = clock_timestamp(), pinned_by_person_id = $2
+        WHERE slot = (SELECT slot FROM wall_post_pins WHERE intentcast_id IS NULL ORDER BY slot LIMIT 1) RETURNING pinned_at`, [intentcastId, actor.personId]);
+      if (!result.rows[0]) throw new AppError(409, "WALL_PIN_LIMIT", "Two posts are already pinned. Unpin one before pinning another.");
+      await client.query("COMMIT");
+      return { pinnedAt: result.rows[0].pinned_at };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async createIntentcast(authorPersonId: string, input: CreateIntentcastInput): Promise<IntentcastFeedView> {
     const content = input.content.trim();
     if (content.length < 10) {
@@ -186,6 +236,7 @@ export class IntentcastService {
     limit: number,
     offset: number,
     options?: {
+      homeWall?: boolean;
       category?: IntentcastCategory;
       status?: IntentcastStatus;
       mine?: boolean;
@@ -198,6 +249,7 @@ export class IntentcastService {
     await this.intentcastRepo.purgeAuthorSoftDeletedIntentcasts(500);
     const result = await this.intentcastRepo.listFeed({
       viewerPersonId,
+      homeWall: options?.homeWall,
       limit,
       offset,
       category: options?.category,

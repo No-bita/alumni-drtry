@@ -4,7 +4,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 
 type BulletinOwnPostMenuProps = {
   /** Opens the confirmation flow (parent-owned dialog). */
-  onRequestDelete: () => void;
+  onRequestDelete?: () => void;
+  pinAction?: { pinned: boolean; disabled?: boolean; onToggle: () => void };
   deleteDisabled?: boolean;
   /**
    * Escape overflow clipping (bulletin vertical scroll + home horizontal carousel).
@@ -17,6 +18,8 @@ function DeleteMenuDropdown({
   buttonId,
   deleteDisabled,
   onMenuDelete,
+  showDelete,
+  pinAction,
   className,
   style,
   panelRef,
@@ -25,13 +28,18 @@ function DeleteMenuDropdown({
   buttonId: string;
   deleteDisabled?: boolean;
   onMenuDelete: () => void;
+  showDelete: boolean;
+  pinAction?: { pinned: boolean; disabled?: boolean; onToggle: () => void };
   className?: string;
   style?: CSSProperties;
   panelRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <div ref={panelRef} id={menuId} className={className ?? "bulletin-own-menu__dropdown"} style={style} role="menu" aria-labelledby={buttonId}>
-      <button
+      {pinAction ? <button type="button" role="menuitem" className="bulletin-own-menu__item" disabled={pinAction.disabled} onClick={pinAction.onToggle}>
+        {pinAction.pinned ? "Unpin from Wall" : "Pin to Wall"}
+      </button> : null}
+      {showDelete ? <button
         type="button"
         role="menuitem"
         className="bulletin-own-menu__item bulletin-own-menu__item--danger"
@@ -39,7 +47,7 @@ function DeleteMenuDropdown({
         onClick={onMenuDelete}
       >
         Delete
-      </button>
+      </button> : null}
     </div>
   );
 }
@@ -50,6 +58,7 @@ function DeleteMenuDropdown({
 export function BulletinOwnPostMenu({
   onRequestDelete,
   deleteDisabled,
+  pinAction,
   detachDropdown = false,
 }: BulletinOwnPostMenuProps) {
   const [open, setOpen] = useState(false);
@@ -61,11 +70,12 @@ export function BulletinOwnPostMenu({
   const buttonId = useId();
   const menuId = useId();
 
+  const hasPinAction = Boolean(pinAction);
   const close = useCallback(() => setOpen(false), []);
 
   const onMenuDelete = useCallback(() => {
     close();
-    onRequestDelete();
+    onRequestDelete?.();
   }, [close, onRequestDelete]);
 
   useLayoutEffect(() => {
@@ -73,13 +83,14 @@ export function BulletinOwnPostMenu({
     const anchor = triggerRef.current;
     const place = () => {
       const r = anchor.getBoundingClientRect();
-      const minW = 140;
+      const minW = hasPinAction ? 180 : 140;
       const left = Math.max(10, Math.min(window.innerWidth - minW - 10, r.right - minW));
       setDropStyle({
         position: "fixed",
         top: `${r.bottom + 5}px`,
         left: `${left}px`,
         minWidth: `${minW}px`,
+        ...(hasPinAction ? { width: `${minW}px`, right: "auto" } : {}),
         zIndex: 2600,
       });
     };
@@ -90,7 +101,7 @@ export function BulletinOwnPostMenu({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, detachDropdown]);
+  }, [open, detachDropdown, hasPinAction]);
 
   useEffect(() => {
     if (!open) return;
@@ -123,6 +134,8 @@ export function BulletinOwnPostMenu({
           buttonId={buttonId}
           deleteDisabled={deleteDisabled}
           onMenuDelete={onMenuDelete}
+          showDelete={Boolean(onRequestDelete)}
+          pinAction={pinAction ? { ...pinAction, onToggle: () => { close(); pinAction.onToggle(); } } : undefined}
           className="bulletin-own-menu__dropdown bulletin-own-menu__dropdown--floating"
           style={dropStyle}
           panelRef={floatedPanelRef}
@@ -138,6 +151,8 @@ export function BulletinOwnPostMenu({
         buttonId={buttonId}
         deleteDisabled={deleteDisabled}
         onMenuDelete={onMenuDelete}
+        showDelete={Boolean(onRequestDelete)}
+        pinAction={pinAction ? { ...pinAction, onToggle: () => { close(); pinAction.onToggle(); } } : undefined}
         panelRef={inlinePanelRef}
       />
     ) : null;
@@ -153,7 +168,7 @@ export function BulletinOwnPostMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
-        disabled={Boolean(deleteDisabled)}
+        disabled={Boolean(deleteDisabled || pinAction?.disabled)}
         onClick={() => setOpen((v) => !v)}
       >
         <svg

@@ -663,7 +663,7 @@ export function Home() {
     queryKey: ["home", "opportunity-rail"],
     queryFn: ({ signal }) =>
       assertApiGet<IntentcastFeedResponse>(
-        "/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true",
+        "/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true&scope=home_wall",
         signal
       ),
     enabled: authenticated,
@@ -782,7 +782,7 @@ export function Home() {
       const withoutDup = prev.intentcasts.filter((item) => item.id !== posted.id);
       return {
         ...prev,
-        intentcasts: [posted, ...withoutDup].slice(0, 48),
+        intentcasts: [...withoutDup.filter((ic) => ic.wallPinnedAt), posted, ...withoutDup.filter((ic) => !ic.wallPinnedAt)].slice(0, 48),
       };
     });
     void queryClient.invalidateQueries({
@@ -828,6 +828,7 @@ export function Home() {
               opportunitiesFeedLoading={opportunitiesFeedLoading}
               opportunitiesFeedError={opportunitiesQuery.isError}
               viewerPersonId={authPersonId}
+              canManageWallPins={auth.status === "authenticated" && (auth.person.role === "admin" || auth.person.role === "super_admin") && !auth.person.isDemo}
               bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
               bulletinRepliesLoading={bulletinRepliesFeedLoading}
               onPost={() => {
