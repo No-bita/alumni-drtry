@@ -42,7 +42,7 @@ describe("buildFootprint", () => {
   it("renders nothing when there are no live posts and no replies", () => {
     expect(buildFootprint([], 0, "me", NOW)).toBeNull();
   });
-  it("keeps only my open, live, not-removed posts, newest first", () => {
+  it("keeps only my open, not-removed posts, newest first (expiry disabled 2026-11-21: expired posts stay)", () => {
     const fp = buildFootprint(
       [
         post({ id: "old", createdAt: hours(-48) }),
@@ -50,23 +50,24 @@ describe("buildFootprint", () => {
         post({ id: "closed", status: "closed" }),
         post({ id: "closedAt", closedAt: hours(-2) }),
         post({ id: "removed", authorSoftDeletedAt: hours(-3) }),
-        post({ id: "expired", expiresAt: hours(-1) }),
+        // Expiry is commented out, not deleted: a post past expires_at still counts as live.
+        post({ id: "expired", createdAt: hours(-2), expiresAt: hours(-1) }),
         post({ id: "theirs", authorPersonId: "other" }),
       ],
       0,
       "me",
       NOW
     );
-    expect(fp?.posts.map((p) => p.id)).toEqual(["new", "old"]);
+    expect(fp?.posts.map((p) => p.id)).toEqual(["new", "expired", "old"]);
     expect(fp?.replyCount).toBe(0);
   });
   it("shows the strip for replies alone, and clamps a bad count", () => {
     expect(buildFootprint([], 3, "me", NOW)).toEqual({ posts: [], replyCount: 3 });
     expect(buildFootprint([], -2, "me", NOW)).toBeNull();
   });
-  it("carries a readable title, expiry state and per-post reply count", () => {
+  it("carries a readable title and per-post reply count (expiry chip disabled 2026-11-21, commented out not deleted)", () => {
     const fp = buildFootprint([post({ responseCount: 2, expiresAt: hours(5) })], 2, "me", NOW);
-    expect(fp?.posts[0]).toMatchObject({ expiryLabel: "Last call: 5 hours left", expiryTone: "soon", responseCount: 2 });
+    expect(fp?.posts[0]).toMatchObject({ expiryLabel: "", expiryTone: "ok", responseCount: 2 });
     expect(fp?.posts[0]?.title.length).toBeGreaterThan(0);
   });
 });

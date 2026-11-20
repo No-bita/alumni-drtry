@@ -738,7 +738,9 @@ export class CitiesRepo {
              EXISTS (SELECT 1 FROM intentcast_responses r WHERE r.intentcast_id = i.id AND r.responder_person_id = $2::uuid) AS viewer_has_responded
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
-      WHERE i.place_id = $1::uuid AND i.status = 'open' AND i.expires_at > now()
+      -- Post expiry disabled (user request, 2026-11-21): expires_at no longer hides open posts.
+      -- Commented out, not deleted: AND i.expires_at > now()
+      WHERE i.place_id = $1::uuid AND i.status = 'open'
         AND i.author_soft_deleted_at IS NULL
         AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
         AND (${personIsDiscoverableForViewerSql("p", viewerIsDemo)} OR p.id = $2::uuid)

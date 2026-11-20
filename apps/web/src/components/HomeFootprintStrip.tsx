@@ -50,11 +50,13 @@ export function HomeFootprintStrip({ myPosts, replyCount: totalReplies, viewerPe
             <li key={post.id} className="home-footprint__post">
               <span className="home-footprint__post-title">{post.title}</span>
               <span className="home-footprint__post-meta">
-                <span
-                  className={`home-footprint__expiry${post.expiryTone === "soon" ? " home-footprint__expiry--soon" : ""}`}
-                >
-                  {post.expiryLabel}
-                </span>
+                {post.expiryLabel ? (
+                  <span
+                    className={`home-footprint__expiry${post.expiryTone === "soon" ? " home-footprint__expiry--soon" : ""}`}
+                  >
+                    {post.expiryLabel}
+                  </span>
+                ) : null}
                 {post.responseCount > 0 ? (
                   <span className="home-footprint__post-replies">
                     {post.responseCount} {post.responseCount === 1 ? "reply" : "replies"}

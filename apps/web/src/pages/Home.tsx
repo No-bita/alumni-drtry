@@ -23,7 +23,8 @@ import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "..
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
 import { HomeIntentHero } from "../components/HomeIntentHero";
-import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
+// PARKED 2026-11-21 with the homepage callout (see home-activity block below).
+// import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -32,7 +33,8 @@ import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 // import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
 
-const EMPTY_POSTS: IntentcastFeedItem[] = [];
+// PARKED 2026-11-21 with the homepage callout: only the footprint strip used this.
+// const EMPTY_POSTS: IntentcastFeedItem[] = [];
 
 function displayFirstName(profile: MyProfileView, email: string | undefined): string {
   const fn = (profile.fullName ?? "").trim() || profile.fullName?.trim();
@@ -677,15 +679,16 @@ export function Home() {
     enabled: authenticated,
   });
 
-  const myPostsQuery = useQuery({
-    queryKey: queryKeys.home.myPosts(),
-    queryFn: ({ signal }) =>
-      assertApiGet<IntentcastFeedResponse>(
-        "/v1/intentcasts?mine=true&limit=20&offset=0&excludeAuthorSoftDeleted=true",
-        signal
-      ),
-    enabled: authenticated && !useDevMocks,
-  });
+  // PARKED 2026-11-21 with the homepage callout: the footprint strip was its only consumer.
+  // const myPostsQuery = useQuery({
+  //   queryKey: queryKeys.home.myPosts(),
+  //   queryFn: ({ signal }) =>
+  //     assertApiGet<IntentcastFeedResponse>(
+  //       "/v1/intentcasts?mine=true&limit=20&offset=0&excludeAuthorSoftDeleted=true",
+  //       signal
+  //     ),
+  //   enabled: authenticated && !useDevMocks,
+  // });
 
   const opportunitiesFeedLoading =
     authenticated &&
@@ -766,12 +769,13 @@ export function Home() {
   const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
   const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
   const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => setActiveCategory(category);
-  const openRepliesTab = () => {
-    setActiveCategory("replies");
-    window.requestAnimationFrame(() => {
-      document.getElementById("home-opportunities-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  };
+  // PARKED 2026-11-21 with the homepage callout: only the footprint strip opened replies this way.
+  // const openRepliesTab = () => {
+  //   setActiveCategory("replies");
+  //   window.requestAnimationFrame(() => {
+  //     document.getElementById("home-opportunities-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  //   });
+  // };
   const handleBulletinPublishSuccess = (posted: IntentcastFeedItem) => {
     queryClient.setQueryData<IntentcastFeedResponse>(["home", "opportunity-rail"], (prev) => {
       if (!prev) return prev;
@@ -801,6 +805,9 @@ export function Home() {
             <HomeIntentHero />
             <div className="home-activity">
               <HomeSentNotesLine />
+              {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented
+                  out, code kept (same expiry change that disables auto-expiry). Replies on your posts
+                  remain available via the Replies tab.
               {authPersonId && !useDevMocks ? (
                 <HomeFootprintStrip
                   myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
@@ -809,6 +816,7 @@ export function Home() {
                   onOpenReplies={openRepliesTab}
                 />
               ) : null}
+              */}
             </div>
             {/* PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
             <OnboardingChecklistCard /> */}
