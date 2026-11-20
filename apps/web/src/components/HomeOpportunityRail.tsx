@@ -92,6 +92,8 @@ function mapBulletinReplyToActivityRow(reply: ReceivedBulletinReplyFeedItem): Ca
   return {
     id: reply.responseId,
     tone: "inbound_reply",
+    // Reply rows do not carry responder institution data; the Wall byline omits it.
+    authorInstitutionName: null,
     roleHeader: postHeadline,
     companySubtitle: null,
     summary: reply.responseMessage,

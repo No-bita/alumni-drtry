@@ -401,6 +401,8 @@ export type IntentcastFeedItem = {
   id: string;
   authorPersonId: string;
   authorFullName: string;
+  /** Institution display name from the allowed-domain directory (null when unlisted). */
+  authorInstitutionName?: string | null;
   authorDepartmentCode: string | null;
   authorDepartmentName: string | null;
   /** Graduation / cohort year for short bylines (e.g. ’24). */

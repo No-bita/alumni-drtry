@@ -133,6 +133,7 @@ export function mapIntentcastToRow(
       experience: null,
       authorPersonId: item.authorPersonId,
       authorFullName,
+    authorInstitutionName: item.authorInstitutionName ?? null,
       authorDepartmentCode: item.authorDepartmentCode,
       authorBatchYear: item.authorBatchYear ?? null,
       authorRoleLine,
@@ -191,6 +192,10 @@ export function mapIntentcastToRow(
         stripHiringTailChipDuplicateProse(parsed.description)
       ).trim();
       summaryText = proseTail || bulletinSummaryFull;
+    } else if (normalized.category === "general") {
+      // General posts keep bare URLs as normal post content; no resume/role-link relabeling.
+      const proseTail = stripStructuredHiringTailMeta(parsed.description).trim();
+      summaryText = proseTail || bulletinSummaryFull;
     } else {
       const coerced = promoteBareLeadingListingToResumeForReferral(
         extractStructuredCareerRoleLink(parsed.description)
@@ -211,7 +216,7 @@ export function mapIntentcastToRow(
       companySubtitle = split.company;
     }
     summaryText = bulletinSummaryFull;
-    if (!isHiringLane) {
+    if (!isHiringLane && normalized.category !== "general") {
       const coerced = promoteBareLeadingListingToResumeForReferral(
         extractStructuredCareerRoleLink(bulletinSummaryFull)
       );
@@ -257,6 +262,7 @@ export function mapIntentcastToRow(
     experience,
     authorPersonId: item.authorPersonId,
     authorFullName,
+    authorInstitutionName: item.authorInstitutionName ?? null,
     authorDepartmentCode: item.authorDepartmentCode,
     authorBatchYear: item.authorBatchYear ?? null,
     authorRoleLine,

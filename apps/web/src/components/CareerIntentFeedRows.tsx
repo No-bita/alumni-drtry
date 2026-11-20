@@ -47,6 +47,7 @@ export type CareerFeedRowModel = {
   experience: string | null;
   authorPersonId: string;
   authorFullName: string;
+  authorInstitutionName: string | null;
   authorDepartmentCode: string | null;
   authorBatchYear: number | null;
   authorRoleLine: string | null;
@@ -205,8 +206,12 @@ export function IntentcastActivityRowsList({
                     <Avatar name={row.authorFullName} size="md" tone="pastel" />
                     <span className="career-feed-rows__author-block-text">
                       <span className="career-feed-rows__author-block-name-row">
+                        <span className="career-feed-rows__author-block-by" aria-hidden="true">by</span>
                         <span className="career-feed-rows__author-block-name">{row.authorFullName}</span>
                       </span>
+                      {row.authorInstitutionName ? (
+                        <span className="career-feed-rows__author-block-institution">{row.authorInstitutionName}</span>
+                      ) : null}
                       <DeptBatchMeta
                         className="career-feed-rows__author-block-meta dept-batch-meta"
                         departmentCode={row.authorDepartmentCode}

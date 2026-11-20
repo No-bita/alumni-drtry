@@ -4,6 +4,7 @@ import {
 } from "../constants/bulletin.js";
 import type { DbExecutor } from "../db/types.js";
 import { personIsDemoSql } from "../lib/demoPersonSql.js";
+import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 
 export type IntentcastStatus = "open" | "closed";
 export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "guidance";
@@ -14,6 +15,7 @@ interface IntentcastFeedRow {
   id: string;
   author_person_id: string;
   author_full_name: string;
+  author_email_domain: string | null;
   author_department_code: string | null;
   author_department_name: string | null;
   author_batch_year: number | null;
@@ -40,6 +42,8 @@ export interface IntentcastFeedView {
   id: string;
   authorPersonId: string;
   authorFullName: string;
+  /** Institution display name from the allowed-domain directory, null when the author's domain is unlisted. */
+  authorInstitutionName: string | null;
   authorDepartmentCode: string | null;
   authorDepartmentName: string | null;
   authorBatchYear: number | null;
@@ -216,6 +220,7 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     id: row.id,
     authorPersonId: row.author_person_id,
     authorFullName: row.author_full_name,
+    authorInstitutionName: row.author_email_domain ? (DOMAIN_DIRECTORY[row.author_email_domain]?.institution ?? null) : null,
     authorDepartmentCode: row.author_department_code,
     authorDepartmentName: row.author_department_name,
     authorBatchYear: row.author_batch_year != null ? Number(row.author_batch_year) : null,
@@ -366,6 +371,7 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
+        lower(split_part(p.institutional_email, '@', 2)) AS author_email_domain,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
@@ -448,6 +454,7 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
+        lower(split_part(p.institutional_email, '@', 2)) AS author_email_domain,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
@@ -515,6 +522,7 @@ export class IntentcastRepo {
         i.id,
         i.author_person_id,
         p.full_name AS author_full_name,
+        lower(split_part(p.institutional_email, '@', 2)) AS author_email_domain,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.code, p.department_code) END AS author_department_code,
         CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS author_department_name,
         COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year,
