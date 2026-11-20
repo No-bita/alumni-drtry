@@ -15,7 +15,7 @@ import {
 } from "./parseHiringBulletin";
 
 /** Home / bulletin chip lane (excludes aggregate filters `all` and `replies`). */
-export type HomeOpportunityFeedLane = "careers" | "hiring" | "relocation" | "startups" | "guidance";
+export type HomeOpportunityFeedLane = "careers" | "hiring" | "relocation" | "startups" | "guidance" | "general";
 
 export function mapIntentcastCategoryToHomeCategory(category: IntentcastFeedItem["category"]): HomeOpportunityFeedLane {
   if (category === "hiring") return "hiring";

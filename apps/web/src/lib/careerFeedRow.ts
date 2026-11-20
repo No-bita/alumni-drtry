@@ -67,6 +67,8 @@ export function laneBadgeLabel(tone: CareerFeedVisualTone): string {
       return "Relocation";
     case "startups":
       return "Startups";
+    case "general":
+      return "General";
     case "inbound_reply":
       return "Reply";
     default: {
@@ -232,7 +234,8 @@ export function mapIntentcastToRow(
     roleHeader = "Post";
   }
 
-  const tone: CareerFeedVisualTone = isHiringLane ? "hiring" : isCanHelpLane ? "can_help" : "referral";
+  const tone: CareerFeedVisualTone =
+    isHiringLane ? "hiring" : normalized.category === "general" ? "general" : isCanHelpLane ? "can_help" : "referral";
 
   const chips = mergeCareerLaneChip(tone, []);
 
@@ -277,6 +280,8 @@ function toneLaneChipLabel(tone: CareerFeedVisualTone): string {
       return "Relocation";
     case "startups":
       return "Startups";
+    case "general":
+      return "General";
     case "inbound_reply":
       return "Reply";
     default: {

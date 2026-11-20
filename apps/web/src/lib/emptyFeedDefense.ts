@@ -1,7 +1,7 @@
 import type { HomeOpportunityCategory } from "../components/HomeOpportunityRail";
 
 type Counts = Record<Exclude<HomeOpportunityCategory, "all">, number>;
-const LANES = ["careers", "hiring", "relocation", "startups", "guidance"] as const;
+const LANES = ["careers", "hiring", "relocation", "startups", "guidance", "general"] as const;
 
 /** True when no lane has a single post. Replies are about the viewer, not the feed. */
 export function isFeedEmpty(counts: Counts): boolean {

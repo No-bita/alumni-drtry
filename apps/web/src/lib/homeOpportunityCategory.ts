@@ -14,6 +14,7 @@ export function normalizeHomeOpportunityCategory(cat: HomeOpportunityCategoryLeg
     case "relocation":
     case "startups":
     case "guidance":
+    case "general":
     case "replies":
       return cat;
     case "all":
