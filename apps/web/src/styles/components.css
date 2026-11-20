@@ -7652,6 +7652,16 @@ button.career-referrals-v3__matching-pill--editable:active {
   box-shadow: 0 18px 42px rgba(20, 14, 10, 0.16);
 }
 
+/* Compact Post to the Wall dialog: the blur overlay is applied only to the Wall
+   compose (PostBulletinFlow without a careers preset), so this scopes the 600px
+   cap to that dialog; the hiring compose keeps the wide layout. Below 640px the
+   existing phone rule still wins, so phones are unchanged. */
+@media (min-width: 640px) {
+  .career-hiring-flow__overlay--blur > .career-hiring-flow__dialog {
+    width: min(600px, 100%);
+  }
+}
+
 .career-hiring-flow__head {
   display: flex;
   align-items: flex-start;
