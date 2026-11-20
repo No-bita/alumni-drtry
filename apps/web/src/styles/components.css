@@ -3233,6 +3233,12 @@ textarea {
   border-color: color-mix(in srgb, #7c3aed 26%, transparent);
 }
 
+
+.career-feed-rows__lane-badge--general {
+  background: color-mix(in srgb, var(--ink) 8%, #fff);
+  color: color-mix(in srgb, var(--ink) 72%, #fff);
+  border-color: color-mix(in srgb, var(--ink) 16%, transparent);
+}
 .career-feed-rows__lane-badge--inbound_reply {
   background: color-mix(in srgb, var(--brick) 12%, #fff);
   color: color-mix(in srgb, var(--brick) 88%, #1a1008);
@@ -3257,7 +3263,8 @@ textarea {
 .home-ideal__opportunities .career-feed-rows__lane-badge--can_help,
 .home-ideal__opportunities .career-feed-rows__lane-badge--relocation,
 .home-ideal__opportunities .career-feed-rows__lane-badge--startups,
-.home-ideal__opportunities .career-feed-rows__lane-badge--inbound_reply {
+.home-ideal__opportunities .career-feed-rows__lane-badge--inbound_reply,
+.home-ideal__opportunities .career-feed-rows__lane-badge--general {
   background: color-mix(in srgb, var(--ink) 9%, #fff);
   color: color-mix(in srgb, var(--ink) 81%, #fff);
   border-color: color-mix(in srgb, var(--ink) 14%, transparent);
@@ -3294,6 +3301,13 @@ textarea {
   border-top: 0;
 }
 
+/* "by" prefix and institute are Wall-byline elements; hidden on other feeds so the
+   Careers feed keeps its richer author line. */
+.career-feed-rows__author-block-by,
+.career-feed-rows__author-block-institution {
+  display: none;
+}
+
 .home-ideal__opportunities .career-feed-rows__author-block .avatar {
   display: none;
 }
@@ -3317,10 +3331,26 @@ textarea {
   color: color-mix(in srgb, var(--ink) 78%, transparent);
 }
 
+/* Wall byline: "by Name · Institute" only - department, batch, role and company
+   are dropped from the Wall card's author line. */
 .home-ideal__opportunities .career-feed-rows__author-block-meta.dept-batch-meta,
 .home-ideal__opportunities .career-feed-rows__author-block-role,
 .home-ideal__opportunities .career-feed-rows__author-block-org {
+  display: none;
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-by {
+  display: inline;
+  margin-right: 4px;
   font-size: 12.5px;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ink) 52%, transparent);
+}
+
+.home-ideal__opportunities .career-feed-rows__author-block-institution {
+  display: inline;
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ink) 52%, transparent);
 }
 
 .home-ideal__opportunities .career-feed-rows__author-block .dept-batch-meta__cap-icon {
