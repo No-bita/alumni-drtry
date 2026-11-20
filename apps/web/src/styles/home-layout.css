@@ -158,6 +158,11 @@
     padding: 0 14px;
     font-size: 11px;
   }
+
+  /* Phone: the Wall header drops its microcopy line so the compact CTA shares the heading line. Desktop keeps the line. */
+  .home-dashboard--ideal .home-ideal__opportunities-sub {
+    display: none;
+  }
 }
 
 /* Homepage feedback panel — filled ink panel linking to the external Google Form */
