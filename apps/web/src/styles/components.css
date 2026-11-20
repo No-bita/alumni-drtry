@@ -8139,6 +8139,48 @@ button.career-referrals-v3__matching-pill--editable:active {
   padding-top: 10px;
 }
 
+/* Details box with the live character counter inside it, bottom-right
+   (mirrors the reach-out dialog's match-dialog__textarea-wrap pattern). */
+.career-hiring-flow__textarea-wrap {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-input);
+  background: var(--cream);
+  padding: var(--space-md);
+  padding-bottom: 6px;
+}
+
+.career-hiring-flow__textarea-wrap:focus-within {
+  border-color: var(--brick);
+}
+
+.career-hiring-flow__textarea-wrap .input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.career-hiring-flow__counter {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.career-hiring-flow__counter--inside {
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* Small marker above the preview card (mirrors the reach-out dialog eyebrow). */
+.career-hiring-flow__eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
 .career-hiring-flow__actions .btn {
   min-height: 34px;
   padding: 0 14px;
@@ -21505,6 +21547,12 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
   place-items: center;
 }
 
+/* Wall compose/preview dialog: light blur over the page behind it, on top of
+   the existing dim. Opt-in via the chrome's blurOverlay prop (Wall only). */
+.career-hiring-flow__overlay--blur {
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
 /* Horizontal combined-field rows (mock: horizontal-first layout study). */
 .onboarding-welcome__fieldrow {
   display: flex;
