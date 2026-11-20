@@ -44,11 +44,16 @@ export function buildFootprint(
   for (const ic of newestFirst) {
     if (ic.authorPersonId !== viewerPersonId) continue;
     if (ic.status !== "open" || ic.closedAt || ic.authorSoftDeletedAt) continue;
-    const expiry = expiryState(ic.expiresAt, now);
-    if (!expiry) continue;
+    // Post expiry disabled (user request, 2026-11-21): posts no longer expire, so the countdown
+    // ("Live for N more days" / "Last call…") and the expired-post gate are commented out, not
+    // deleted. expiryState is preserved above for re-enabling; the strip shows open posts without
+    // an expiry chip.
+    // const expiry = expiryState(ic.expiresAt, now);
+    // if (!expiry) continue;
     const title = normalizeOpportunityCard(ic.content, ic.category).title.trim() || "Your post";
-    posts.push({ id: ic.id, title, expiryLabel: expiry.label, expiryTone: expiry.tone, responseCount: ic.responseCount });
+    posts.push({ id: ic.id, title, expiryLabel: "", expiryTone: "ok", responseCount: ic.responseCount });
   }
+  void now;
   const replies = Math.max(0, replyCount);
   if (posts.length === 0 && replies === 0) return null;
   return { posts, replyCount: replies };

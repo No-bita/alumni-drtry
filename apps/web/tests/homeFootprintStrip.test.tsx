@@ -35,13 +35,12 @@ describe("HomeFootprintStrip", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("ignores other people's, closed and expired posts", () => {
+  it("ignores other people's and closed posts (expiry disabled 2026-11-21: expired posts stay)", () => {
     const { container } = render(
       <HomeFootprintStrip
         myPosts={[
           post("theirs", { authorPersonId: "other" }),
           post("closed", { status: "closed" }),
-          post("expired", { expiresAt: hoursFromNow(-3) }),
         ]}
         replyCount={0}
         viewerPersonId="me"
@@ -51,7 +50,7 @@ describe("HomeFootprintStrip", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("shows live posts with expiry and a replies button that opens the Replies tab", () => {
+  it("shows live posts without an expiry chip (commented out 2026-11-21) and a replies button that opens the Replies tab", () => {
     const open = vi.fn();
     render(
       <HomeFootprintStrip
@@ -61,8 +60,9 @@ describe("HomeFootprintStrip", () => {
         onOpenReplies={open}
       />
     );
-    expect(screen.getByText("Live for 3 more days")).toBeTruthy();
-    expect(screen.getByText("Last call: 5 hours left").className).toContain("--soon");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    // Expiry label is commented out, not deleted: no "Live for…"/"Last call…" chips render.
+    expect(screen.queryByText(/Live for|Last call/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /2 replies on your posts/ }));
     expect(open).toHaveBeenCalledTimes(1);
   });

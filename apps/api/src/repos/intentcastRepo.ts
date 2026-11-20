@@ -281,6 +281,13 @@ export class IntentcastRepo {
   }
 
   async expireOpenIntentcasts(limit = 2000): Promise<number> {
+    // Post expiry disabled (user request, 2026-11-21): automatic closing is commented out, not
+    // deleted. New and currently open posts stay open; posts already closed stay closed.
+    // expires_at is still recorded on new posts but no longer closes anything.
+    // Restore the UPDATE below to re-enable.
+    void limit;
+    return 0;
+    /*
     const result = await this.db.query(
       `
       WITH target AS (
@@ -303,6 +310,7 @@ export class IntentcastRepo {
       [limit]
     );
     return result.rowCount ?? 0;
+    */
   }
 
   async listFeed(input: FeedInput): Promise<IntentcastFeedResult> {
@@ -319,9 +327,11 @@ export class IntentcastRepo {
     ];
 
     const authorDashboard = Boolean(input.mine && input.authorHistory);
-    if (!authorDashboard) {
-      where.push("i.expires_at > now()");
-    }
+    // Post expiry disabled (user request, 2026-11-21): open posts no longer drop out of the feed
+    // when expires_at passes. Commented out, not deleted; restore with expireOpenIntentcasts.
+    // if (!authorDashboard) {
+    //   where.push("i.expires_at > now()");
+    // }
 
     if (authorDashboard) {
       where.push(`(i.status = 'open' OR i.status = 'closed')`);
@@ -562,8 +572,10 @@ export class IntentcastRepo {
         AND (
           i.author_person_id = $2::uuid
           OR (
-            i.expires_at > now()
-            AND i.status = 'open'
+            -- Post expiry disabled (user request, 2026-11-21): expires_at no longer hides open
+            -- posts. Commented out, not deleted:
+            -- i.expires_at > now() AND
+            i.status = 'open'
             AND i.author_soft_deleted_at IS NULL
           )
         )
