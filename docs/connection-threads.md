@@ -12,7 +12,7 @@ Alumni reach-outs create a **connection thread**: a short on-platform exchange b
 ## Trust and safety
 
 - Prefer **report/block** flows aligned with your broader product policy (same as directory and bulletin).
-- **Retention**: Define message and thread retention with your privacy policy and ops practice; this doc does not set a fixed window.
+- **Retention**: All messages are retained. There is no automatic message deletion, and closing or declining a conversation does not erase its history.
 
 ## Routes and API
 
