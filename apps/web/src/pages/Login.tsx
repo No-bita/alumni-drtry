@@ -5,7 +5,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { usePhoneViewport } from "../hooks/usePhoneViewport";
 import { API_BASE_URL, api } from "../api/client";
 import { startAuthWithWakeRetry } from "../lib/authStartRetry";
 import {
@@ -31,17 +30,58 @@ type SentAuthMethod = "otp" | "password";
 const OTP_LENGTH = 6;
 const emptyOtpDigits = (): string[] => Array.from({ length: OTP_LENGTH }, () => "");
 const DEV_PASSWORD_LOGIN_EMAIL = "seed-admin-placeholder@example.invalid";
-const AUTH_HERO_STATS = [
-  { value: "400+", keyword: "alumni", label: "active this week" },
-  { value: "38", keyword: "referrals", label: "completed last week" },
-  { value: "27", keyword: "cities", label: "connected" },
+const CONTEXT_ICON_PROPS = {
+  width: 26,
+  height: 26,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+/** The four contexts the network covers, shown under the login hero headline. */
+const AUTH_HERO_CONTEXTS = [
+  {
+    label: "Work & Careers",
+    icon: (
+      <svg {...CONTEXT_ICON_PROPS} aria-hidden>
+        <rect x="3" y="7" width="18" height="14" rx="2" />
+        <path d="M8 7V4h8v3M3 12c5 3 13 3 18 0M11 12h2v4h-2z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Cities & Local Life",
+    icon: (
+      <svg {...CONTEXT_ICON_PROPS} aria-hidden>
+        <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    ),
+  },
+  {
+    label: "Business & Startups",
+    icon: (
+      <svg {...CONTEXT_ICON_PROPS} aria-hidden>
+        <path d="M5 16c-3-6 3-12 14-13 0 11-6 17-12 14M9 15l7-7M5 18l-2 3 5-1M6 10H3v5M14 18v3H9" />
+      </svg>
+    ),
+  },
+  {
+    label: "Life & Perspective",
+    icon: (
+      <svg {...CONTEXT_ICON_PROPS} aria-hidden>
+        <path d="M3 17h4l4 3h5l5-5c1-2-1-3-2-2l-4 3h-5M7 17v-5h4l4 3M9 7c-4-4 1-7 3-3 2-4 7-1 3 3l-3 3Z" />
+      </svg>
+    ),
+  },
 ] as const;
 
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { refetch } = useAuth();
-  const isPhone = usePhoneViewport();
 
   const [email, setEmail] = useState("");
   const emailDomainInvalid = email.trim().length > 0 && !isInstitutionalEmail(email);
@@ -49,7 +89,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   /** True once the first sign-in request got no answer and we are retrying quietly. */
   const [serverWaking, setServerWaking] = useState(false);
-  /** Guards, not copy, decide when Continue may be tapped: during the server's rate-limit countdown another tap cannot help. */
+  /** Guards, not copy, decide when Login may be tapped: during the server's rate-limit countdown another tap cannot help. */
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
@@ -364,17 +404,14 @@ export function Login() {
               <span className="auth-merged__title-accent">open doors for each other.</span>
             </span>
           </h1>
-          {!isPhone && <ul className="auth-merged__hero-stats" aria-label="Network highlights">
-            {AUTH_HERO_STATS.map(({ value, keyword, label }) => (
-              <li key={label} className="auth-merged__stat">
-                <span className="auth-merged__stat-headline">
-                  <span className="auth-merged__stat-number">{value}</span>{" "}
-                  <span className="auth-merged__stat-keyword">{keyword}</span>
-                </span>
-                <span className="auth-merged__stat-label">{label}</span>
+          <ul className="auth-merged__contexts" aria-label="What the network covers">
+            {AUTH_HERO_CONTEXTS.map(({ label, icon }) => (
+              <li key={label} className="auth-merged__context">
+                {icon}
+                <span>{label}</span>
               </li>
             ))}
-          </ul>}
+          </ul>
         </div>
         <div className="auth-merged__card-mount">{cardMount}</div>
       </div>
@@ -685,7 +722,7 @@ export function Login() {
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
       </svg>
-      Continue with Google
+      Login with Google
     </>
   );
 
@@ -719,7 +756,7 @@ export function Login() {
               </svg>
             </span>
             <h2 className="section-headline auth-merged__card-title">
-              Continue with your insti email
+              Login to Alma Mater
             </h2>
           </div>
           {googleConfig.status === "rechecking" ? (
@@ -728,7 +765,7 @@ export function Login() {
                 Checking...
               </button>
               <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
-              <p className="auth-merged__google-or">or use your email</p>
+              <p className="auth-merged__google-or">or</p>
             </div>
           ) : googleConfig.status === "error" ? (
             <div className="auth-merged__google">
@@ -736,14 +773,14 @@ export function Login() {
                 Retry Google sign-in
               </button>
               <p className="auth-merged__google-note" role="status">Google sign-in is temporarily unavailable.</p>
-              <p className="auth-merged__google-or">or use your email</p>
+              <p className="auth-merged__google-or">or</p>
             </div>
           ) : googleConfig.status === "ready" && googleConfig.enabled ? (
             <div className="auth-merged__google">
               <a className="btn btn--secondary auth-merged__google-btn" href={`${API_BASE_URL}/v1/auth/google`}>
                 {googleButtonContents}
               </a>
-              <p className="auth-merged__google-or">or use your email</p>
+              <p className="auth-merged__google-or">or</p>
             </div>
           ) : null}
           <form onSubmit={handleSubmit}>
@@ -763,7 +800,7 @@ export function Login() {
             {emailDomainInvalid ? <p id="institution-email-error" className="auth-merged__error" role="status">{INSTITUTIONAL_EMAIL_QUESTION}</p> : null}
             {error && !(emailDomainInvalid && error === INSTITUTIONAL_EMAIL_QUESTION) && <p className="auth-merged__error">{error}</p>}
             <Button type="submit" variant="primary" style={{ width: "100%" }} disabled={rateLimitedUntil !== null || emailDomainInvalid}>
-              Continue
+              Login
             </Button>
           </form>
             </>

@@ -14618,19 +14618,42 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .auth-login-page {
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #1a1412;
+  background: url("/app/login-hero-house.jpg") center / cover no-repeat fixed, #191207;
   overflow-x: hidden;
 }
 
+/* Warm photographic hero: a left-weighted scrim keeps copy readable over the photo. */
+.auth-login-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(100deg, rgba(18, 11, 5, 0.88) 0%, rgba(18, 11, 5, 0.72) 30%, rgba(18, 11, 5, 0.38) 52%, rgba(18, 11, 5, 0.12) 74%),
+    linear-gradient(0deg, rgba(18, 11, 5, 0.5), transparent 32%);
+}
+
 .auth-login-page .nav {
-  background: #4b241a;
-  border-bottom-color: rgba(248, 242, 231, 0.08);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  position: relative;
+  z-index: 1;
   padding-left: calc(var(--page-x) + 8px);
   padding-right: calc(var(--page-x) + 8px);
 }
 
 .auth-login-page .auth-merged {
-  background: #1a1412;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-login-page .auth-merged__title,
+.auth-login-page .nav,
+.auth-login-page .auth-merged__contexts {
+  text-shadow: 0 1px 3px rgba(15, 9, 4, 0.85), 0 2px 22px rgba(15, 9, 4, 0.65);
 }
 
 .auth-login-page .auth-merged .landing-world-map {
@@ -14732,102 +14755,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 .auth-login-page .auth-merged__subtitle {
   margin: 0 0 2.6rem;
   line-height: 1.6;
-}
-
-/** Login hero: three stats in one row (number emphasis, label below). */
-.auth-merged__hero-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: clamp(1.35rem, 5vw, 3.5rem);
-  align-items: start;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  width: min(100%, 36rem);
-  max-width: 100%;
-  position: relative;
-  z-index: 2;
-}
-
-.auth-merged__hero-stats .auth-merged__stat {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: none;
-  text-align: left;
-}
-
-.auth-merged__hero-stats .auth-merged__stat-headline {
-  display: block;
-  margin: 0 0 0.4rem;
-  line-height: 1.05;
-  white-space: nowrap;
-}
-
-.auth-merged__hero-stats .auth-merged__stat-number {
-  color: rgba(212, 154, 74, 0.98);
-  font-family: var(--font-body);
-  font-size: clamp(2rem, 3.8vw, 2.85rem);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.auth-merged__hero-stats .auth-merged__stat-keyword {
-  color: rgba(252, 248, 240, 0.94);
-  font-family: var(--font-body);
-  font-size: clamp(1.05rem, 2.1vw, 1.35rem);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.auth-merged__hero-stats .auth-merged__stat-label {
-  display: block;
-  max-width: none;
-  white-space: nowrap;
-  color: rgba(252, 248, 240, 0.68);
-  font-family: var(--font-body);
-  font-size: clamp(0.82rem, 1.35vw, 0.98rem);
-  line-height: 1.35;
-  letter-spacing: 0.01em;
-}
-
-.auth-login-page .auth-merged__hero-stats {
-  margin: clamp(1.75rem, 4.5vh, 2.75rem) 0 0;
-  width: min(100%, 44rem);
-}
-
-@media (min-width: 900px) {
-  .auth-login-page .auth-merged__hero-stats {
-    margin-top: clamp(2rem, 5.5vh, 3.25rem);
-    width: min(100%, 50rem);
-    column-gap: clamp(1.75rem, 5.5vw, 4.25rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-number {
-    font-size: clamp(2.1rem, 3.2vw, 2.95rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-keyword {
-    font-size: clamp(1.1rem, 1.8vw, 1.4rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-label {
-    font-size: clamp(0.92rem, 1.05vw, 1.05rem);
-  }
-}
-
-@media (min-width: 640px) and (max-width: 899px) {
-  .auth-login-page .auth-merged__hero-stats {
-    width: min(100%, 40rem);
-    column-gap: clamp(1.25rem, 4.5vw, 2.5rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-label {
-    font-size: clamp(0.8rem, 1.5vw, 0.92rem);
-  }
 }
 
 .auth-merged__title {
@@ -14956,14 +14883,14 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   color: rgba(252, 248, 240, 0.92);
 }
 
-/* Login: card flush with hero shell (#1a1412); border matches hero eyebrow gold */
+/* Login: glass card floating over the photographic hero */
 .auth-login-page .auth-merged__card {
-  background: #1a1412;
-  border: 1px solid rgba(212, 154, 74, 0.48);
-  box-shadow:
-    0 14px 44px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(212, 154, 74, 0.08),
-    0 0 28px rgba(212, 154, 74, 0.14);
+  background: rgba(24, 14, 7, 0.82);
+  /* Keep the unprefixed declaration last: the CSS minifier dedupes to the final one, and Chrome ignores the -webkit- alias. */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(240, 220, 190, 0.26);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   padding: 1.6rem 1.5rem 1.85rem;
 }
 
@@ -14979,6 +14906,127 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .auth-login-page .auth-merged__card .btn--primary:hover {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.09) inset;
+}
+
+/* Login hero: the four contexts the network covers, under the headline. */
+.auth-merged__contexts {
+  display: flex;
+  gap: 30px;
+  margin: 3rem 0 0;
+  padding: 1.5rem 0 0;
+  list-style: none;
+  border-top: 1px solid rgba(240, 220, 190, 0.28);
+  color: rgba(252, 248, 240, 0.88);
+}
+
+.auth-merged__context {
+  display: grid;
+  gap: 9px;
+  justify-items: start;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
+.auth-merged__context svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: rgba(212, 154, 74, 0.95);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Login hero - desktop (>=900px): contained copy block left, glass card right, over the photo. */
+@media (min-width: 900px) {
+  .auth-login-page .auth-merged__hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 56px;
+    max-width: 1180px;
+    margin: 0 auto;
+    min-height: calc(100vh - var(--nav-height));
+    box-sizing: border-box;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  .auth-login-page .auth-merged__hero-copy {
+    max-width: 520px;
+  }
+
+  .auth-login-page .auth-merged__title-nowrap {
+    white-space: normal;
+  }
+
+  .auth-login-page .auth-merged__card-mount {
+    position: static;
+    left: auto;
+    bottom: auto;
+    width: auto;
+    flex: 0 0 440px;
+    margin: 0;
+  }
+
+  .auth-login-page .auth-merged__card {
+    padding: 30px 30px 32px;
+    border-radius: 20px;
+  }
+}
+
+/* Login hero - phone/tablet (<900px): portrait photo, gold accent dash, divided context row. */
+@media (max-width: 899px) {
+  .auth-login-page {
+    background-image: url("/app/login-hero-house-portrait.jpg");
+  }
+
+  .auth-login-page::before {
+    background: linear-gradient(180deg, rgba(18, 11, 5, 0.78) 0%, rgba(18, 11, 5, 0.62) 18%, rgba(18, 11, 5, 0.42) 38%, rgba(18, 11, 5, 0.75) 64%, rgba(18, 11, 5, 0.93) 100%);
+  }
+
+  .auth-login-page .auth-merged__hero-copy::before {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 3px;
+    border-radius: 2px;
+    background: #d49a4a;
+    margin-bottom: 1.1rem;
+  }
+
+  .auth-login-page .auth-merged__contexts {
+    margin-top: 1.8rem;
+    padding-top: 0;
+    border-top: none;
+    gap: 0;
+    justify-content: space-between;
+  }
+
+  .auth-login-page .auth-merged__context {
+    flex: 1;
+    position: relative;
+    padding: 0 6px;
+    justify-items: center;
+    text-align: center;
+    font-size: 11px;
+  }
+
+  .auth-login-page .auth-merged__context svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .auth-login-page .auth-merged__context + .auth-merged__context::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 12%;
+    height: 76%;
+    width: 1px;
+    background: rgba(240, 220, 190, 0.3);
+  }
 }
 
 .auth-merged__card .input {
@@ -15166,31 +15214,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
     flex-direction: column;
   }
 
-  .auth-login-page .auth-merged__hero-stats {
-    width: 100%;
-    max-width: none;
-    margin-top: clamp(1.35rem, 4vh, 2rem);
-    column-gap: clamp(0.85rem, 4.5vw, 1.65rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-headline {
-    margin-bottom: 0.28rem;
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-number {
-    font-size: clamp(1.55rem, 6.2vw, 1.95rem);
-    font-weight: 600;
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-keyword {
-    font-size: clamp(0.9rem, 3.6vw, 1.05rem);
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-label {
-    font-size: clamp(0.68rem, 2.4vw, 0.78rem);
-    line-height: 1.3;
-  }
-
   .auth-login-page .auth-merged {
     flex: 1;
     display: flex;
@@ -15273,18 +15296,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   .auth-login-page .auth-merged__title {
     font-size: clamp(1.85rem, 8.2vw, 2.35rem);
     line-height: 1.1;
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-headline,
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-label {
-    white-space: normal;
-  }
-
-  .auth-login-page .auth-merged__hero-stats .auth-merged__stat-headline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.2em 0.35em;
   }
 
   .auth-login-page .landing-map-testimonials--mobile-dock {
