@@ -1,0 +1,102 @@
+/* Audited form controls. Kept separate from login/feature layout styles.
+   Compose/note forms share full controls; Directory retains a compact variant. */
+:root {
+  --form-control-height: 48px;
+  --form-control-font-size: 16px;
+  --form-control-inset: var(--space-md);
+  --filter-control-height: 44px;
+  --select-chevron-inset: var(--space-md);
+}
+
+/* Keep native select semantics while giving the closed control a stable chevron.
+   Do not apply to Home's existing custom select or unrelated selects. */
+.career-hiring-flow__main select.input,
+.directory-filters select.input.directory-filters__select,
+select.cities__input,
+select.match-dialog__input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='m3 4.5 3 3 3-3' stroke='%23695d52' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right var(--select-chevron-inset) center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  padding-right: calc(var(--select-chevron-inset) + 12px + var(--space-md));
+}
+
+.career-hiring-flow__main .input:not(textarea),
+.career-hiring-flow__main .career-hiring-flow__input-slot,
+.career-hiring-flow__main .career-hiring-flow__input-slot-control,
+.cities-sheet__body .cities__input,
+.match-dialog__form .match-dialog__input {
+  min-height: var(--form-control-height);
+  font-size: var(--form-control-font-size);
+  line-height: 1.5;
+}
+
+.career-hiring-flow__main .input:not(textarea),
+.cities-sheet__body .cities__input,
+.match-dialog__form .match-dialog__input {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  padding-left: var(--form-control-inset);
+}
+
+/* Keep textarea writing text consistent without shortening the writing area. */
+.career-hiring-flow__main textarea.input,
+.match-dialog__form .match-dialog__textarea {
+  font-size: var(--form-control-font-size);
+  line-height: 1.5;
+}
+
+/* Keep suffixes aligned with editable text without adding a second border. */
+.career-hiring-flow__main .career-hiring-flow__input-slot-control {
+  padding: var(--space-sm) var(--space-xs) var(--space-sm) var(--form-control-inset);
+}
+.career-hiring-flow__main .career-hiring-flow__input-slot-suffix {
+  padding: var(--space-sm) var(--form-control-inset) var(--space-sm) var(--space-xs);
+  font-size: var(--form-control-font-size);
+  line-height: 1.5;
+}
+.match-dialog__form .match-dialog__field {
+  gap: var(--space-sm);
+}
+
+/* Filters stay compact and do not inherit the full-form height. */
+.directory-filters .input.directory-filters__select {
+  min-height: var(--filter-control-height);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  padding-left: var(--form-control-inset);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* One focus boundary for textarea + counter, never a second nested frame. */
+.career-hiring-flow__textarea-wrap:focus-within,
+.match-dialog__textarea-wrap:focus-within {
+  border-color: var(--brick);
+  box-shadow: 0 0 0 3px rgba(139, 58, 42, 0.12);
+}
+.career-hiring-flow__textarea-wrap .input:focus,
+.career-hiring-flow__textarea-wrap .input:focus-visible,
+.match-dialog__textarea-wrap .match-dialog__textarea:focus,
+.match-dialog__textarea-wrap .match-dialog__textarea:focus-visible {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Native high-contrast affordances are more reliable than background imagery. */
+@media (forced-colors: active) {
+  .career-hiring-flow__main select.input,
+  .directory-filters select.input.directory-filters__select,
+  select.cities__input,
+  select.match-dialog__input {
+    appearance: auto;
+    background-image: none;
+  }
+  .career-hiring-flow__textarea-wrap:focus-within,
+  .match-dialog__textarea-wrap:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
