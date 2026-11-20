@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { buildHiringBulletinContent, validateHiringBulletinFields } from "../lib/parseHiringBulletin";
+import { freshAudienceChoice, type AudienceChoice } from "../lib/postAudience";
 
 type UseBulletinComposeStateParams = {
   maxLength: number;
@@ -20,6 +21,12 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
   const [hiringRoleSummary, setHiringRoleSummary] = useState("");
   const [hiringJdUrl, setHiringJdUrl] = useState("");
   const [hiringApplySteps, setHiringApplySteps] = useState("");
+  /** Who can see the post: Everyone each time the composer opens; fixed once posted. */
+  const [audience, setAudience] = useState<AudienceChoice>(freshAudienceChoice);
+  const [audienceState, setAudienceState] = useState<{ label: string | null; blocked: boolean }>({
+    label: null,
+    blocked: false,
+  });
 
   const resetComposeFields = useCallback(() => {
     setPostError(null);
@@ -34,6 +41,7 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
     setHiringRoleSummary("");
     setHiringJdUrl("");
     setHiringApplySteps("");
+    setAudience(freshAudienceChoice());
   }, []);
 
   const openCompose = useCallback(() => {
@@ -182,5 +190,9 @@ export function useBulletinComposeState({ maxLength }: UseBulletinComposeStatePa
     openCompose,
     closeCompose,
     validatePostInput,
+    audience,
+    setAudience,
+    audienceState,
+    setAudienceState,
   };
 }

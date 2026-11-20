@@ -1,0 +1,226 @@
+/* Wall post audience: "Who can see this" in every composer, and the label on posts. */
+
+.post-audience {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.post-audience__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #695d52;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.post-audience__summary {
+  min-height: 52px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.post-audience__summary:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.post-audience__summary-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.post-audience__summary-label {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.post-audience__summary-hint {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.post-audience__caret {
+  flex: none;
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.post-audience__panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.post-audience__field {
+  display: grid;
+  gap: 6px;
+}
+
+.post-audience__field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.post-audience__checks {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.post-audience__checks legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.post-audience__check {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.post-audience__check:first-of-type {
+  border-top: 0;
+}
+
+.post-audience__check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--brick);
+}
+
+.post-audience__check--off {
+  cursor: default;
+}
+
+.post-audience__check-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.post-audience__check-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.post-audience__check--off .post-audience__check-name {
+  color: var(--ink-muted);
+}
+
+.post-audience__check-value {
+  font-size: 13px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.post-audience__note,
+.post-audience__fixed {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.post-audience__done {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.post-audience__size {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--cream-dark);
+}
+
+.post-audience__size--warn {
+  background: #fbf1df;
+  border: 1px solid #e3c48f;
+  color: #4a3a1c;
+}
+
+.post-audience__size--block {
+  background: #f8e3df;
+  border: 1px solid #d79a8f;
+  color: #6b2418;
+}
+
+/* The label a limited post carries, on cards and previews. */
+.post-audience-label {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.post-audience-label svg {
+  flex: none;
+}
+
+.cities-home__request-audience {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+/* A shared link to a post the viewer can't see (or that is closed or removed). */
+.post-unavailable {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.post-unavailable__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.post-unavailable__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}

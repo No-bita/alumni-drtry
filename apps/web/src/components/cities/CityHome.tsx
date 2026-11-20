@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PostAudienceLabel } from "../PostAudienceField";
 import { formatRelativeTime } from "../../lib/formatRelativeTime";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../../lib/bulletinPostCardUtils";
 import {
@@ -254,6 +255,7 @@ export function CityHome({
                   <span className="cities-home__request-copy">
                     <span className="cities-home__request-title">{postTitle(p.content)}</span>
                     {postBody(p.content) ? <span className="cities-home__request-body">{postBody(p.content)}</span> : null}
+                    {p.audience ? <span className="cities-home__request-audience">Visible to: {p.audience.label}</span> : null}
                     <span className="cities-home__request-meta">
                       {p.kind ? <span className="cities__chip cities-home__kind">{KIND_LABEL[p.kind]}</span> : null}
                       {[
@@ -338,6 +340,7 @@ export function CityHome({
               <span className="cities__chip">{KIND_LABEL[openPost.kind]}</span>
             </p>
           ) : null}
+          <PostAudienceLabel label={openPost.audience?.label ?? null} />
           {postBody(openPost.content) ? <p className="cities__post">{postBody(openPost.content)}</p> : null}
         </CitySheet>
       ) : null}

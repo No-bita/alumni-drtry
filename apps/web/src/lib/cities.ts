@@ -74,6 +74,8 @@ export type CityPost = {
   createdAt: string;
   viewerHasResponded: boolean;
   isMine: boolean;
+  /** Who can see it; null or missing = Everyone (migration 066). */
+  audience?: { label: string; parts: string[] } | null;
 };
 
 export type ViewerRole = "local" | "newcomer" | "arriver" | "no_city";

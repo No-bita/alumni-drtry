@@ -6,14 +6,32 @@ import type { IntentcastCategory } from "../repos/intentcastRepo.js";
 
 const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", "guidance"]);
 
+/**
+ * Who can see a post (migration 066): which choices are ticked, never their values (the server reads
+ * those from the author's profile). Strict: unknown keys are refused, not ignored.
+ */
+const audienceSchema = z
+  .object({
+    /** Institute key from GET /v1/intentcasts/audience-options; null = all institutes. */
+    institution: z.string().min(1).max(80).nullable().optional(),
+    batch: z.boolean().optional(),
+    department: z.boolean().optional(),
+    city: z.boolean().optional()
+  })
+  .strict();
+
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,
   /** Ask / Offer / Invitation: required by the Wall composer; structured flows may omit it (unmarked). */
   kind: z.enum(["ask", "offer", "invitation"]).nullable().optional(),
   content: z.string().max(BULLETIN_CONTENT_MAX_LENGTH),
   /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
-  placeId: z.string().uuid().nullable().optional()
+  placeId: z.string().uuid().nullable().optional(),
+  /** Missing or null = Everyone. Fixed once posted (PATCH never takes it). */
+  audience: audienceSchema.nullable().optional()
 });
+
+const audiencePreviewSchema = z.object({ audience: audienceSchema.nullable() });
 
 /** Query helper — comma-separated `category` tokens */
 function parseExcludeCategories(raw: string | undefined): IntentcastCategory[] | undefined {
@@ -97,12 +115,38 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
         eventType: "intentcast_posted",
         personId: request.actor.personId,
         route: request.routeOptions.url ?? request.url,
-        metadata: { category: parsed.data.category }
+        // Which audience choices were used (names only, never the values).
+        metadata: {
+          category: parsed.data.category,
+          audience: intentcast.audience ? intentcast.audience.parts : ["everyone"]
+        }
       })
       .catch((error) => {
         request.log.warn({ err: error }, "Failed to log beta usage event.");
       });
     return reply.code(201).send({ intentcast });
+  });
+
+  /** The audience picker's choices for this author: institutes plus their own batch, department, city. */
+  app.get("/v1/intentcasts/audience-options", { preHandler: app.authenticate }, async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    const options = await app.intentcastService.getAudienceOptions(request.actor.personId);
+    return reply.code(200).send(options);
+  });
+
+  /**
+   * Label and ROUNDED size of an audience while composing. Counts members, so it is limited like the
+   * other member-listing reads.
+   */
+  app.post("/v1/intentcasts/audience-preview", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = audiencePreviewSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError(400, "AUDIENCE_BAD_REQUEST", "Invalid audience.");
+    }
+    await app.discoveryLimiter.assert(request.actor, request.ip);
+    reply.header("Cache-Control", "no-store");
+    const preview = await app.intentcastService.previewAudience(request.actor.personId, parsed.data.audience);
+    return reply.code(200).send(preview);
   });
 
   app.get("/v1/intentcasts", { preHandler: app.authenticate }, async (request, reply) => {

@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { audienceLabel, audienceParts, type AudiencePart } from "../lib/postAudience.js";
 import { env } from "../config/env.js";
 import { hashSecret } from "../lib/crypto.js";
 import { AppError } from "../lib/errors.js";
@@ -148,6 +149,26 @@ function parseChapterLinks(raw: string | undefined): ChapterLinks {
 }
 
 /** Cities page (Bengaluru first): who lives in a city, who just arrived, and asks that pass the reach-out principle. */
+/** Who can see a city post: null = Everyone (migration 066). Same label as the Wall. */
+function cityPostAudience(p: CityPostRow): { label: string; parts: AudiencePart[] } | null {
+  const batchYear = p.audience_batch_year != null ? Number(p.audience_batch_year) : null;
+  const parts = audienceParts({
+    emailDomains: p.audience_institution_name ? [p.audience_institution_name] : null,
+    batchYear,
+    departmentCode: p.audience_department_code,
+    placeId: p.audience_place_id
+  });
+  if (parts.length === 0) return null;
+  const label =
+    audienceLabel({
+      institutionName: p.audience_institution_name,
+      batchYear,
+      departmentName: p.audience_department_name,
+      placeName: p.audience_place_name
+    }) ?? "A smaller group";
+  return { label, parts };
+}
+
 export class CitiesService implements ResidenceSync {
   private readonly repo: CitiesRepo;
   private readonly matchRepo: MatchRepo;
@@ -447,7 +468,8 @@ export class CitiesService implements ResidenceSync {
       kind: p.kind ?? null,
       createdAt: p.created_at.toISOString(),
       viewerHasResponded: p.viewer_has_responded,
-      isMine: p.author_person_id === viewerPersonId
+      isMine: p.author_person_id === viewerPersonId,
+      audience: cityPostAudience(p)
     };
   }
 

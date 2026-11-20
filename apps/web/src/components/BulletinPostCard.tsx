@@ -4,6 +4,7 @@ import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
 import type { BulletinCardTone } from "../lib/bulletinPostCardUtils";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
+import { PostAudienceLabel } from "./PostAudienceField";
 
 export type BulletinPostCardVariant = "rail" | "stack";
 
@@ -26,6 +27,8 @@ export type BulletinPostCardProps = {
   /** Own-post overflow (e.g. kebab menu) — top-right of header, with card hover affordance in CSS */
   ownerActions?: ReactNode;
   className?: string;
+  /** "IIT (BHU) Varanasi · Bengaluru" when the post is limited; nothing for Everyone. */
+  audienceLabel?: string | null;
 };
 
 export function BulletinPostCard({
@@ -44,6 +47,7 @@ export function BulletinPostCard({
   footer,
   ownerActions,
   className,
+  audienceLabel,
 }: BulletinPostCardProps) {
   const shellClass = variant === "rail" ? "bb-post-card bb-post-card--rail" : "bb-post-card bb-post-card--stack";
   const postChips = (chips ?? []).filter(Boolean).slice(0, 4);
@@ -82,6 +86,7 @@ export function BulletinPostCard({
       <div className="bb-post-card__body">
         <ReferralIntentHeadline as="h3" className="bb-post-card__title" headline={title} />
         {description ? <p className="bb-post-card__summary">{description}</p> : null}
+        <PostAudienceLabel label={audienceLabel} className="bb-post-card__audience" />
       </div>
       {postChips.length > 0 ? (
         <ul className="bb-post-card__tags" aria-label="Topics">

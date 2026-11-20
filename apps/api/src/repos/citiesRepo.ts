@@ -1,5 +1,6 @@
 import type { DbExecutor } from "../db/types.js";
 import { personIsDiscoverableAlumniSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
+import { audienceVisibleSql } from "../lib/postAudience.js";
 import { normalizePlaceAlias } from "../lib/canonicalPlacesNormalize.js";
 import { countryMatchKeys } from "../lib/countries.js";
 
@@ -126,6 +127,12 @@ export interface CityPostRow {
   kind: "ask" | "offer" | "invitation" | null;
   created_at: Date;
   viewer_has_responded: boolean;
+  audience_institution_name: string | null;
+  audience_batch_year: number | null;
+  audience_department_code: string | null;
+  audience_department_name: string | null;
+  audience_place_id: string | null;
+  audience_place_name: string | null;
 }
 
 export interface OfferNotificationRow {
@@ -735,12 +742,18 @@ export class CitiesRepo {
       `
       SELECT i.id, i.author_person_id, p.full_name AS author_full_name,
              COALESCE(p.batch_year, p.joining_year)::int AS author_batch_year, i.content, i.kind, i.created_at,
-             EXISTS (SELECT 1 FROM intentcast_responses r WHERE r.intentcast_id = i.id AND r.responder_person_id = $2::uuid) AS viewer_has_responded
+             EXISTS (SELECT 1 FROM intentcast_responses r WHERE r.intentcast_id = i.id AND r.responder_person_id = $2::uuid) AS viewer_has_responded,
+             i.audience_institution_name, i.audience_batch_year, i.audience_department_code,
+             i.audience_department_name, i.audience_place_id, aud_place.city_label AS audience_place_name
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
+      LEFT JOIN canonical_places aud_place ON aud_place.id = i.audience_place_id
+      LEFT JOIN people vp ON vp.id = $2::uuid
       -- Post expiry disabled (user request, 2026-11-21): expires_at no longer hides open posts.
       -- Commented out, not deleted: AND i.expires_at > now()
       WHERE i.place_id = $1::uuid AND i.status = 'open'
+        -- Who can see each post (migration 066).
+        AND ${audienceVisibleSql("i", "vp")}
         AND i.author_soft_deleted_at IS NULL
         AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
         AND (${personIsDiscoverableForViewerSql("p", viewerIsDemo)} OR p.id = $2::uuid)

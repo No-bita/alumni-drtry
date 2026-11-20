@@ -31,6 +31,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
+import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
+import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
 
 /** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines. */
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
@@ -74,6 +76,8 @@ export type PostBulletinFlowProps = {
 export type PostBulletinFlowHandle = PostBulletinFlowHandleShape;
 
 type BulletinStep = "compose" | "preview";
+
+const AUDIENCE_BLOCKED_MESSAGE = "No one else matches this audience yet. Remove a choice under Who can see this.";
 
 const INITIAL_CATEGORY: BulletinGeneralCategory = "guidance";
 
@@ -162,6 +166,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     /** Cities: the post is tagged with this city (POST /v1/intentcasts `placeId`). */
     const [placeId, setPlaceId] = useState<string | null>(null);
     const [referralResumeLink, setReferralResumeLink] = useState("");
+    /** Who can see the post: Everyone each time the composer opens; fixed once posted. */
+    const [audience, setAudience] = useState<AudienceChoice>(freshAudienceChoice);
+    const [audienceState, setAudienceState] = useState<{ label: string | null; blocked: boolean }>({ label: null, blocked: false });
 
     const composeHeadlineRef = useRef<HTMLInputElement>(null);
     const previewPanelRef = useRef<HTMLElement>(null);
@@ -322,6 +329,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setError(null);
       setCareersPreset(null);
       setPlaceId(null);
+      setAudience(freshAudienceChoice());
     }, []);
 
     const closeFlow = useCallback(() => {
@@ -347,6 +355,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralCompanyName((options?.referralCompanyName ?? "").trim().slice(0, 120));
       setReferralResumeLink("");
       setPlaceId(options?.placeId ?? null);
+      setAudience(freshAudienceChoice());
       setError(null);
       setOpen(true);
     }, []);
@@ -438,14 +447,14 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     ]);
 
     const goToPreview = useCallback(() => {
-      const err = validateCompose();
+      const err = validateCompose() ?? (audienceState.blocked ? AUDIENCE_BLOCKED_MESSAGE : null);
       if (err) {
         setError(err);
         return;
       }
       setError(null);
       setStep("preview");
-    }, [validateCompose]);
+    }, [validateCompose, audienceState.blocked]);
 
     const goBackToCompose = useCallback(() => {
       setError(null);
@@ -453,7 +462,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     }, []);
 
     const publish = useCallback(async () => {
-      const err = validateCompose();
+      const err = validateCompose() ?? (audienceState.blocked ? AUDIENCE_BLOCKED_MESSAGE : null);
       if (err) {
         setError(err);
         return;
@@ -466,6 +475,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         ...(careersPreset !== null ? { kind } : kind ? { kind } : {}),
         content,
         ...(placeId ? { placeId } : {}),
+        ...(toApiAudience(audience) ? { audience: toApiAudience(audience) } : {}),
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
@@ -476,7 +486,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
       closeFlow();
-    }, [category, careersPreset, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, validateCompose]);
+    }, [audience, audienceState.blocked, category, careersPreset, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, validateCompose]);
 
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
@@ -687,6 +697,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     </label>
                   ) : null}
                 </div>
+                <PostAudienceField value={audience} onChange={setAudience} onStateChange={setAudienceState} />
                 <footer className="career-hiring-flow__actions">
                   {careersHubFlow ? (
                     <Button type="button" variant="secondary" onClick={goToPreview}>
@@ -716,6 +727,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                   aria-label="Bulletin card preview"
                 >
                   <CareersActivityPostPreview {...careersActivityPreview} />
+                  <PostAudienceLabel label={audienceState.label} />
                 </article>
               </div>
             ) : null}
