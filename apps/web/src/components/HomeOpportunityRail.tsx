@@ -53,6 +53,7 @@ type HomeOpportunityRailProps = {
   opportunitiesFeedError?: boolean;
   /** Signed-in viewer id — own posts get a delete menu. */
   viewerPersonId?: string | null;
+  canManageWallPins?: boolean;
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
   bulletinRepliesLoading?: boolean;
   /** Opens the post composer; powers the "be the first to ask" button on an empty feed. */
@@ -121,6 +122,7 @@ export function HomeOpportunityRail({
   opportunitiesFeedLoading = false,
   opportunitiesFeedError = false,
   viewerPersonId = null,
+  canManageWallPins = false,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
   onPost,
@@ -134,6 +136,24 @@ export function HomeOpportunityRail({
   const filteredIntentcasts = (
     showingReplies ? [] : activeCategory === "all" ? intentcasts : intentcasts.filter((ic) => intentcastHomeLane(ic) === activeCategory)
   ).slice(0, HOME_OPPORTUNITY_RAIL_PAGE_SIZE);
+
+  const wallPins = new Map(filteredIntentcasts.filter((ic) => ic.wallPinnedAt).map((ic) => [ic.id, ic.wallPinnedAt!]));
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const toggleWallPin = async (id: string, pinned: boolean) => {
+    if (pinBusy || !canManageWallPins) return;
+    setPinBusy(true);
+    setPinError(null);
+    try {
+      const { error } = await api.patch(`/v1/admin/intentcasts/${id}/pin`, { pinned });
+      if (error) { setPinError(error.message ?? "Could not update pin. Try again."); return; }
+      await queryClient.invalidateQueries({ queryKey: ["home", "opportunity-rail"] });
+    } catch {
+      setPinError("Could not update pin. Try again.");
+    } finally {
+      setPinBusy(false);
+    }
+  };
 
   const activityRows: CareerFeedRowModel[] = filteredIntentcasts
     .map((ic) => mapIntentcastToRow(ic, { includeGuidancePosts: true }))
@@ -249,6 +269,7 @@ export function HomeOpportunityRail({
         ) : null}
         */}
       </div>
+      {pinError ? <p role="alert" className="home-ideal__opportunity-rail-error">{pinError}</p> : null}
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
           {railDeleteError}
@@ -296,6 +317,9 @@ export function HomeOpportunityRail({
         <div className="home-ideal__opportunity-feed home-ideal__opportunity-feed--rows" role="region" aria-label="Active requests">
           <IntentcastActivityRowsList
             rows={activityRows}
+            wallPins={wallPins}
+            onToggleWallPin={canManageWallPins ? (id, pinned) => { void toggleWallPin(id, pinned); } : undefined}
+            pinSubmitting={pinBusy}
             viewerPersonId={viewerPersonId}
             deleteSubmittingId={deleteSubmittingId}
             onRequestDelete={setDeleteConfirmId}

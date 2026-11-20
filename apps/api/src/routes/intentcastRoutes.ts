@@ -37,6 +37,7 @@ function parseExcludeCategories(raw: string | undefined): IntentcastCategory[] |
 export const FEED_PAGE_MAX = 48;
 
 const feedQuerySchema = z.object({
+  scope: z.literal("home_wall").optional(),
   // Anti-scraping: clamped to FEED_PAGE_MAX (the web asks for 48 at most).
   limit: z.coerce.number().int().min(1).max(100).default(20).transform((v) => Math.min(v, FEED_PAGE_MAX)),
   offset: z.coerce.number().int().min(0).default(0),
@@ -71,6 +72,13 @@ const updateIntentcastSchema = z.object({
 });
 
 export const intentcastRoutes: FastifyPluginAsync = async (app) => {
+  app.patch("/v1/admin/intentcasts/:id/pin", { preHandler: [app.authenticate, app.requireAdmin, app.requireNonDemoMutation] }, async (request, reply) => {
+    const params = intentcastParamsSchema.safeParse(request.params);
+    const body = z.object({ pinned: z.boolean() }).strict().safeParse(request.body);
+    if (!params.success || !body.success) throw new AppError(400, "WALL_PIN_BAD_REQUEST", "Invalid pin request.");
+    return reply.code(200).send(await app.intentcastService.setWallPin(request.actor, params.data.id, body.data.pinned));
+  });
+
   app.post(
     "/v1/intentcasts",
     { preHandler: [app.authenticate, app.requireNonDemoMutation] },
@@ -103,6 +111,10 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid intentcast feed query.");
     }
 
+    if (parsed.data.scope && (parsed.data.mine || parsed.data.authorHistory || parsed.data.status !== "open")) {
+      throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Home Wall scope requires the open shared feed.");
+    }
+
     if (parsed.data.authorHistory && !parsed.data.mine) {
       throw new AppError(
         400,
@@ -121,6 +133,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       parsed.data.limit,
       parsed.data.offset,
       {
+        homeWall: parsed.data.scope === "home_wall",
         category: parsed.data.category,
         status: parsed.data.status,
         mine: parsed.data.mine,

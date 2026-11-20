@@ -1,0 +1,23 @@
+.wall-pin-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-chip);
+  color: var(--brick);
+  background: var(--cream-dark);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  vertical-align: top;
+}
+.wall-pin-badge svg { flex-shrink: 0; }
+
+/* Admin actions also exist on other authors' posts. Keep the Home lane pill clear. */
+.home-ideal__opportunities .career-feed-rows__row--wall-pin-actions .career-feed-rows__lane-badge {
+  margin-right: calc(var(--space-lg) + var(--space-sm));
+}
