@@ -148,7 +148,7 @@ export function ProfileExperience({
         <header className="profile-page__exp-section-head profile-page__exp-section-head--edit">
           <div className="profile-page__exp-section-title-wrap">
             <IconBriefcase className="profile-page__exp-section-icon" aria-hidden />
-            <h2 className="profile-page__exp-section-title">Experience</h2>
+            <h2 className="profile-page__exp-section-title">{isEditing ? "My path" : "Experience"}</h2>
           </div>
           {isEditing ? (
             <button type="button" className="profile-page__exp-add-btn" onClick={openAddDialog}>

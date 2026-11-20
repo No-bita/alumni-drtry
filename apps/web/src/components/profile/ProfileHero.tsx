@@ -12,6 +12,9 @@ import {
 } from "../../lib/profileDisplay";
 import type { SocialPlatformKey } from "../../lib/socialLinks";
 import { MessageIcon } from "../MessageIcon";
+import { ProfileEditorActions } from "./ProfileEditorActions";
+import "./profile-editor.css";
+import "./person-profile.css";
 import { ProfileHeroSocialRow } from "./ProfileHeroSocialRow";
 
 type ProfileHeroProps = {
@@ -82,11 +85,15 @@ function ProfileHeroMoreMenu({
   showEdit,
   onEdit,
   onShare,
+  onCancel,
+  saving = false,
 }: {
   shareLabel: string;
   showEdit: boolean;
   onEdit?: () => void;
   onShare: () => void;
+  onCancel?: () => void;
+  saving?: boolean;
 }) {
   const menuRef = useRef<HTMLDetailsElement>(null);
 
@@ -113,6 +120,7 @@ function ProfileHeroMoreMenu({
         <IconMore />
       </summary>
       <div className="profile-page__hero-menu-panel" role="menu">
+        {onCancel ? <button type="button" role="menuitem" className="profile-page__hero-menu-item" disabled={saving} onClick={() => { closeMenu(); onCancel(); }}>Cancel editing</button> : null}
         {showEdit && onEdit ? (
           <button
             type="button"
@@ -187,6 +195,26 @@ export function ProfileHero({
       /* user cancelled share or clipboard denied */
     }
   };
+
+  if (!loading && isOwnProfile && isEditing) {
+    return <>
+      <header className="profile-editor__header">
+        <Link to="/search" className="profile-page__header-back" aria-label="Directory"><IconBack className="profile-page__header-back-icon" /><span>Directory</span></Link>
+        <ProfileEditorActions saving={saving} onSave={onSaveEdit} />
+        <ProfileHeroMoreMenu shareLabel={shareLabel} showEdit={false} onShare={handleShare} onCancel={onCancelEdit} saving={saving} />
+      </header>
+      <div className="person-profile__identity profile-editor__profile-identity">
+        <div className="person-profile__name-row"><div><p className="person-profile__cohort">IIT BHU{profile?.batchYear ? ` · Class of ${profile.batchYear}` : ""}</p><h1 id="profile-hero-heading">{profileDisplayName}</h1></div><Avatar name={profileDisplayName} size="md" /></div>
+        <div className="person-profile__metadata"><span>{[profile?.degreeName || profile?.degreeCode, profile?.departmentName || profile?.departmentCode].filter(Boolean).join(" · ")}</span>{loc ? <span><IconMapPin />{loc}</span> : null}</div>
+      </div>
+      {profile?.bio?.trim() ? <section className="profile-editor__bio person-profile__about"><div className="person-profile__section-head"><h2>About</h2></div><p>{profile.bio}</p></section> : null}
+      <section className="profile-editor__links" aria-labelledby="profile-editor-links-heading"><h2 id="profile-editor-links-heading">Links</h2>
+        <ProfileHeroSocialRow links={links} canManageLinks openPlatform={openSocialPlatform} onOpenPlatform={onOpenSocialPlatform}
+          onClosePlatform={onCloseSocialPlatform} socialDraft={socialDraft} onSocialDraftChange={onSocialDraftChange}
+          onSaveSocialLinks={onSaveSocialLinks} socialLinksBusy={socialLinksBusy} socialLinksError={socialLinksError} />
+      </section>
+    </>;
+  }
 
   return (
     <header className="profile-page__header" aria-labelledby="profile-hero-heading">

@@ -179,12 +179,12 @@ export function ProfileEngagementCards({
           ))}
         </ul>
       ) : isEditing && draftOpenTo && onDraftOpenToChange ? (
+        <>
         <ul className="profile-page__open-to-list profile-page__open-to-list--edit">
           {OPEN_TO_OPTION_IDS.map((id) => {
             const catalog = OPEN_TO_CATALOG[id];
             const selected = isOpenToSelected(draftOpenTo, id);
             const atLimit = !selected && !canSelectMoreOpenTo(draftOpenTo);
-            const description = draftOpenTo.descriptions[id] ?? "";
 
             return (
               <li
@@ -198,11 +198,22 @@ export function ProfileEngagementCards({
                     disabled={atLimit}
                     onChange={() => gate.toggle(id)}
                   />
-                  <span className="profile-page__engage-card-icon-wrap">
-                    <IconOpenToItem kind={id} className="profile-page__engage-card-icon" />
-                  </span>
                   <span className="profile-page__open-to-item-title">{catalog.title}</span>
+                  <svg className="profile-editor__option-mark" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    {selected ? <path d="m4 10 4 4 8-8" /> : <path d="M10 4v12M4 10h12" />}
+                  </svg>
                 </label>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="profile-editor__descriptions">
+          {OPEN_TO_OPTION_IDS.filter((id) => isOpenToSelected(draftOpenTo, id)).map((id) => {
+            const catalog = OPEN_TO_CATALOG[id];
+            const description = draftOpenTo.descriptions[id] ?? "";
+            const selected = true;
+            return <div key={id} className="profile-editor__description">
+              <label className="profile-editor__description-label" htmlFor={`profile-open-to-desc-${id}`}>{catalog.title} subheading</label>
                 {id === "coffee" && selected ? (
                   <p className="profile-page__engage-card-hint">
                     Coffee · {coffeeLimitOf(draftOpenTo)} a week ·{" "}
@@ -213,6 +224,7 @@ export function ProfileEngagementCards({
                 ) : null}
                 {selected ? (
                   <textarea
+                    id={`profile-open-to-desc-${id}`}
                     className="input input--textarea profile-page__open-to-edit-desc"
                     value={description}
                     placeholder={catalog.defaultDescription}
@@ -223,10 +235,10 @@ export function ProfileEngagementCards({
                     }
                   />
                 ) : null}
-              </li>
-            );
+            </div>;
           })}
-        </ul>
+        </div>
+        </>
       ) : displayItems.length > 0 ? (
         <ul className="profile-page__open-to-list">
           {displayItems.map((item) => (

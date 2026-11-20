@@ -26,7 +26,8 @@ describe('Profile preview/edit state',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Preview seam'}));
   expect(screen.queryByRole('heading',{name:'Admin tools'})).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Begin contact edit seam'}));
-  fireEvent.click(await screen.findByRole('button',{name:'Cancel',exact:true}));
+  fireEvent.click(await screen.findByLabelText('More options'));
+  fireEvent.click(screen.getByRole('menuitem',{name:'Cancel editing'}));
   await waitFor(()=>expect(screen.getByRole('heading',{name:'Admin tools'})).toBeTruthy());
   expect(screen.getByRole('heading',{name:'Admin email allowlist'})).toBeTruthy();
   client.clear();
