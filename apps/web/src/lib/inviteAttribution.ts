@@ -25,7 +25,8 @@ export function rememberInviteFromUrl(search: string, now = Date.now()): void {
  * credits brand-new members (first claim wins, no self-invites), so this is safe for everyone.
  */
 export async function claimRememberedInvite(now = Date.now()): Promise<void> {
-  let stored: Stored | null = null;
+  // Previous redundant initializer: let stored: Stored | null = null;
+  let stored: Stored | null;
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return;

@@ -231,11 +231,11 @@ export function AdminAnnouncementsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const years = batchRange(batchFrom, batchTo, MAX_BATCH_YEAR);
+  const years = useMemo(() => batchRange(batchFrom, batchTo, MAX_BATCH_YEAR), [batchFrom, batchTo]);
   const filters: AnnouncementFilters = useMemo(
     () => cleanFilters({ batchYears: years ?? [], departmentCodes: departments, placeIds: cities.map((c) => c.id) }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(years), departments, cities]
+    // Previous dependency expression: [JSON.stringify(years), departments, cities]
+    [years, departments, cities]
   );
   const debouncedFilters = useDebounced(filters);
   const preview = useQuery({

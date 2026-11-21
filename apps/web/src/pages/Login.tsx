@@ -229,6 +229,7 @@ export function Login() {
         if (err.code === "AUTH_RATE_LIMITED" && retryAfterSeconds != null) {
           const mins = Math.ceil(retryAfterSeconds / 60);
           msg += ` Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`;
+          // eslint-disable-next-line react-hooks/purity -- Runs only in the async submit event handler, never render.
           setRateLimitedUntil(Date.now() + retryAfterSeconds * 1000);
           if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
           rateLimitTimerRef.current = setTimeout(() => setRateLimitedUntil(null), retryAfterSeconds * 1000);
@@ -377,12 +378,14 @@ export function Login() {
       google_unverified: "Verify your email in Google, then try again.",
       google_failed: "Google sign-in failed. Try again from the home page or use email below.",
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Consume an external OAuth callback URL into the existing error UI.
     setError(map[err] ?? `Something went wrong (${err}).`);
     navigate("/login", { replace: true });
   }, [searchParams, navigate]);
 
   useEffect(() => {
     if (searchParams.get("reason") !== "session_expired") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the external session-expired URL before replacing it.
     setError("Your session expired. Please sign in again.");
     navigate("/login", { replace: true });
   }, [searchParams, navigate]);

@@ -161,12 +161,16 @@ export function mapIntentcastToRow(
   const chipsFallback = normalized.chips.filter(Boolean).slice(0, 6);
 
   let roleHeader: string;
-  let companySubtitle: string | null = null;
+  // Previous redundant initializer: let companySubtitle: string | null = null;
+  let companySubtitle: string | null;
   /** Feed description line — structured posts use parsed tail; legacy uses normalized summary. */
   let summaryText: string;
-  let employmentType: string | null = null;
-  let compensation: string | null = null;
-  let experience: string | null = null;
+  // Previous redundant initializer: let employmentType: string | null = null;
+  let employmentType: string | null;
+  // Previous redundant initializer: let compensation: string | null = null;
+  let compensation: string | null;
+  // Previous redundant initializer: let experience: string | null = null;
+  let experience: string | null;
   let roleListingUrl: string | null = null;
   let resumeListingUrl: string | null = null;
 
