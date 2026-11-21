@@ -17,6 +17,7 @@ import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { connectionThreadRoutes } from "./routes/connectionThreadRoutes.js";
 import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
+import { feedbackRoutes } from "./routes/feedbackRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
 import { matchRoutes } from "./routes/matchRoutes.js";
@@ -46,6 +47,7 @@ import { announcementRoutes } from "./routes/announcementRoutes.js";
 import { AdminPlacesService } from "./services/adminPlacesService.js";
 import { CampusMonthlyService } from "./services/campusMonthlyService.js";
 import { HomeSummaryService } from "./services/homeSummaryService.js";
+import { FeedbackService } from "./services/feedbackService.js";
 import { AnalyticsService } from "./services/analyticsService.js";
 import { CloudApiSender, RecordingSender, type WhatsAppSender } from "./whatsapp/client.js";
 import { WhatsAppService } from "./whatsapp/service.js";
@@ -157,6 +159,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const campusMonthlyService = new CampusMonthlyService(pool);
   const homeSummaryService = new HomeSummaryService(pool);
   const analyticsService = new AnalyticsService(pool);
+  const feedbackService = new FeedbackService(pool);
   const citiesService = new CitiesService(pool, contactRequestService);
   profileService.setResidenceSync(citiesService);
   app.decorate("authService", authService);
@@ -180,6 +183,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("adminMetricsService", adminMetricsService);
   app.decorate("campusMonthlyService", campusMonthlyService);
   app.decorate("homeSummaryService", homeSummaryService);
+  app.decorate("feedbackService", feedbackService);
   app.decorate("analyticsService", analyticsService);
   app.decorate("whatsappService", whatsappService);
   app.decorate("discoveryLimiter", new DiscoveryReadLimiter(pool, options.discoveryLimits));
@@ -294,6 +298,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(announcementRoutes);
   await app.register(adminMetricsRoutes);
   await app.register(campusMonthlyRoutes);
+  await app.register(feedbackRoutes);
 
   app.get("/", async (_request, reply) =>
     reply.code(200).send({
