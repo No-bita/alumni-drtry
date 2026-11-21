@@ -242,7 +242,7 @@ export function CityHome({
           </h2>
           {!all && data.postsHasMore ? (
             <button type="button" className="cities__link" disabled={loadingAll} onClick={() => void openAll()}>
-              {loadingAll ? "Loading…" : "View all posts →"}
+              {loadingAll ? "Loading…" : "View all posts"}
             </button>
           ) : null}
           {/* Newcomer opt-in belongs to this community section; the head row

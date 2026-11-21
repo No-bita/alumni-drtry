@@ -129,7 +129,7 @@ describe("Cities page: switching cities resets per-city state", () => {
     world(async () => ({ posts: [post("b1", "BLR EXPANDED MARKER")], nextCursor: null }));
     mount();
     await warmBothCities();
-    fireEvent.click(await screen.findByRole("button", { name: "View all posts →" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View all posts" }));
     expect(await screen.findByRole("button", { name: /BLR EXPANDED MARKER/ })).toBeTruthy();
 
     await switchCity("Bengaluru", "Pune", /Pune/);
@@ -138,7 +138,7 @@ describe("Cities page: switching cities resets per-city state", () => {
     expect(screen.queryByText(/BLR PREVIEW MARKER/)).toBeNull();
     expect(screen.getByRole("button", { name: /PUNE PREVIEW MARKER/ })).toBeTruthy();
     // The expansion state itself is reset: Pune offers its own "View all posts" again.
-    expect(screen.getByRole("button", { name: "View all posts →" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View all posts" })).toBeTruthy();
   });
 
   it("a posts request that resolves after the switch cannot overwrite the new city", async () => {
@@ -151,7 +151,7 @@ describe("Cities page: switching cities resets per-city state", () => {
     );
     mount();
     await warmBothCities();
-    fireEvent.click(await screen.findByRole("button", { name: "View all posts →" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View all posts" }));
 
     await switchCity("Bengaluru", "Pune", /Pune/);
 

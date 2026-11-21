@@ -17,23 +17,6 @@ type SearchResultRowProps = {
   onRowClick?: () => void;
 };
 
-function IconArrowRight({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.85"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
 export function SearchResultRow({ profile, style, resultIndex, searchSessionId, onRowClick }: SearchResultRowProps) {
   void resultIndex;
   const roleOrg = roleOrgLineFromSearchProfile(profile);
@@ -64,12 +47,10 @@ export function SearchResultRow({ profile, style, resultIndex, searchSessionId, 
         }}
       >
         View profile
-        <IconArrowRight className="search-result-row__cta-secondary-icon" />
       </Link>
     ) : (
       <span className="search-result-row__cta-secondary">
         View profile
-        <IconArrowRight className="search-result-row__cta-secondary-icon" />
       </span>
     );
 
