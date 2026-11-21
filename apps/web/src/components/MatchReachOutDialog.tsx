@@ -202,6 +202,16 @@ export function MatchReachOutDialog({
               e.preventDefault();
               if (details) setStep("preview");
             }}
+            onKeyDown={(e) => {
+              // Enter advances to Preview (same guarded path as the Preview action);
+              // Shift+Enter keeps its native newline in textareas. Selects, buttons and
+              // links keep their native Enter behavior, and IME composition is never
+              // interrupted. Preview only - Enter can never send from here.
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+              if ((e.target as HTMLElement).closest("button, a, select")) return;
+              e.preventDefault();
+              if (details) setStep("preview");
+            }}
           >
             <h2 id={titleId} className="match-dialog__title">
               Reach out to {name}
