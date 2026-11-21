@@ -14,9 +14,9 @@ test("deployment credential stripping stays nonterminal alongside reviewed CSP c
 test("SDK dependency is pinned and lockfile agrees; browser components do not import SDK", () => {
   const manifest = JSON.parse(readFileSync("package.json", "utf8"));
   const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
-  assert.equal(manifest.dependencies["@vercel/oidc"], "4.0.7");
-  assert.equal(lock.packages[""].dependencies["@vercel/oidc"], "4.0.7");
-  assert.equal(lock.packages["node_modules/@vercel/oidc"].version, "4.0.7");
+  assert.equal(manifest.dependencies["@vercel/oidc"], "4.0.9");
+  assert.equal(lock.packages[""].dependencies["@vercel/oidc"], "4.0.9");
+  assert.equal(lock.packages["node_modules/@vercel/oidc"].version, "4.0.9");
   const proxy = readFileSync("proxy.ts", "utf8");
   assert.match(proxy, /request: \{ headers: upstreamHeaders \}/);
   assert.doesNotMatch(proxy, /console\.|process\.env\.VERCEL_OIDC_TOKEN/);

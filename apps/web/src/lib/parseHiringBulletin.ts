@@ -290,7 +290,7 @@ export function extractStructuredCareerRoleLink(description: string): Structured
 
   let progressed = true;
   while (progressed) {
-    progressed = false;
+    // progressed = false; // Each non-progressing path already exits via break below.
     const roleLineMatch = working.match(ROLE_LINK_LINE_RE);
     if (roleLineMatch?.[1] && !listingUrl) {
       const ok = stripValidatedStructuredHttpUrl(roleLineMatch[1]);

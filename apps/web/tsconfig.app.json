@@ -24,7 +24,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "baseUrl": ".",
+    // "baseUrl": ".", // Retired in TS 6; paths below are relative to this config.
     "paths": {
       "@department-catalog": ["../api/src/constants/departmentCatalog.ts"]
     }
