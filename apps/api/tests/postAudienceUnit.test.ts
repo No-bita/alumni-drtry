@@ -6,6 +6,7 @@ import {
   buildAudienceSnapshot,
   institutionForEmail,
   institutionKey,
+  isAdminRole,
   isEveryone,
   listInstitutions,
   roundAudienceSize,
@@ -126,6 +127,18 @@ describe("visibility rule", () => {
     }
     expect(sql).toContain("combined_into_place_id");
   });
+  it("admins see every post; members and the default get no bypass", () => {
+    expect(audienceVisibleSql("i", "vp", { viewerIsAdmin: true })).toMatch(/^\(\s*TRUE\s+OR/);
+    expect(audienceVisibleSql("i", "vp", { viewerIsAdmin: false })).toMatch(/^\(\s*FALSE\s+OR/);
+    expect(audienceVisibleSql("i", "vp")).toMatch(/^\(\s*FALSE\s+OR/);
+    // Only a real boolean true turns the bypass on.
+    expect(audienceVisibleSql("i", "vp", { viewerIsAdmin: "true" as unknown as boolean })).toMatch(/^\(\s*FALSE\s+OR/);
+  });
+  it("admin means the actor's admin or super_admin role", () => {
+    expect(isAdminRole("admin")).toBe(true);
+    expect(isAdminRole("super_admin")).toBe(true);
+    for (const r of ["member", "user", "", null, undefined, "Admin"]) expect(isAdminRole(r)).toBe(false);
+  });
 });
 
 describe("read-path guard", () => {
@@ -142,11 +155,31 @@ describe("read-path guard", () => {
       .filter((f) => /(FROM|JOIN)\s+intentcasts\b|`intentcasts\s+\w/.test(readFileSync(f, "utf8")))
       .map((f) => path.relative(root, f).replaceAll("\\", "/"))
       .sort();
-    // intentcastRepo: feed, shared link, reply check use audienceVisibleSql; the rest are author-only or jobs.
-    // citiesRepo: city page posts use audienceVisibleSql. analyticsRepo: admin aggregates only.
-    expect(readers).toEqual(["repos/analyticsRepo.ts", "repos/citiesRepo.ts", "repos/intentcastRepo.ts"]);
+    // Reviewed readers of intentcasts (last review: Home Wall pinning, #246):
+    // - repos/analyticsRepo.ts: admin aggregates only; never returns post content to members.
+    // - repos/citiesRepo.ts: city page posts; audienceVisibleSql with the admin flag.
+    // - repos/intentcastRepo.ts: feed (incl. Home Wall pinned order), shared link use audienceVisibleSql with
+    //   the admin flag; reply check (isInAudience) uses it with no admin bypass; the rest are author-only or jobs.
+    // - services/intentcastService.ts: setWallPin (admins only) locks the post by id and clears stale pin
+    //   slots; it returns no post content, and decides visibility with findFeedItemVisibleToViewer.
+    expect(readers).toEqual([
+      "repos/analyticsRepo.ts",
+      "repos/citiesRepo.ts",
+      "repos/intentcastRepo.ts",
+      "services/intentcastService.ts"
+    ]);
+    const src = (f: string) => readFileSync(path.join(root, f), "utf8");
     for (const f of ["repos/citiesRepo.ts", "repos/intentcastRepo.ts"]) {
-      expect(readFileSync(path.join(root, f), "utf8")).toContain("audienceVisibleSql(");
+      expect(src(f)).toContain("audienceVisibleSql(");
     }
+    // Every reader that serves posts passes the admin flag, and the reply check never does.
+    expect(src("repos/citiesRepo.ts")).toContain('audienceVisibleSql("i", "vp", { viewerIsAdmin })');
+    const repo = src("repos/intentcastRepo.ts");
+    expect(repo).toContain('audienceVisibleSql("i", "vp", { viewerIsAdmin: input.viewerIsAdmin })');
+    expect(repo).toContain('audienceVisibleSql("i", "vp", { viewerIsAdmin })');
+    const reply = repo.slice(repo.indexOf("async isInAudience("), repo.indexOf("async isInAudience(") + 500);
+    expect(reply).toContain('audienceVisibleSql("i", "vp")}');
+    expect(reply).not.toContain("viewerIsAdmin");
+    expect(src("services/intentcastService.ts")).toContain("findFeedItemVisibleToViewer(intentcastId, actor.personId, true)");
   });
 });

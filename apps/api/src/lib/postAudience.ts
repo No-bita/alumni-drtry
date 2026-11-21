@@ -29,7 +29,7 @@ export interface InstitutionOption {
   domains: string[];
 }
 
-/** The copy stored on a post (migration 066). All null = Everyone. */
+/** The copy stored on a post (migration 067). All null = Everyone. */
 export interface AudienceSnapshot {
   emailDomains: string[] | null;
   institutionName: string | null;
@@ -228,13 +228,26 @@ export function personMatchesAudienceSql(
   )`;
 }
 
+/** Admins and super admins see every post. Taken from the signed-in actor's role, never from client input. */
+export function isAdminRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
+export type AudienceVisibilityOptions = {
+  /** From the actor's role (isAdminRole). Admins see all posts. Replies stay audience-bound (isInAudience). */
+  viewerIsAdmin?: boolean;
+};
+
 /**
  * THE visibility rule for a post `i` and viewer `vp` (both SQL aliases). Every read that shows a post to
- * someone other than its author must include it. The author always sees their own post.
+ * someone other than its author must include it. The author always sees their own post; admins see all.
+ * `viewerIsAdmin` is a server-side boolean and is written into the SQL as TRUE/FALSE (never user text).
  */
-export function audienceVisibleSql(i: string, vp: string): string {
+export function audienceVisibleSql(i: string, vp: string, options: AudienceVisibilityOptions = {}): string {
+  const admin = options.viewerIsAdmin === true ? "TRUE" : "FALSE";
   return `(
-    ${i}.author_person_id = ${vp}.id
+    ${admin}
+    OR ${i}.author_person_id = ${vp}.id
     OR ${personMatchesAudienceSql(vp, {
       emailDomains: `${i}.audience_email_domains`,
       batchYear: `${i}.audience_batch_year`,

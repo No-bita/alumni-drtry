@@ -1,5 +1,5 @@
 -- =====================================================================================================
--- Only if the API must be rolled back to a version without post audience (migration 066).
+-- Only if the API must be rolled back to a version without post audience (migration 067).
 -- NOT RUN. Needs separate approval before running anywhere. Run one PART at a time.
 --
 -- Why: an API without this feature ignores the audience columns, so narrowed posts would show to

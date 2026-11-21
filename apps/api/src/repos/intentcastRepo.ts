@@ -56,7 +56,7 @@ interface IntentcastFeedRow {
   audience_place_name: string | null;
 }
 
-/** Who can see a post: null = Everyone (migration 066). */
+/** Who can see a post: null = Everyone (migration 067). */
 export interface IntentcastAudienceView {
   /** "IIT (BHU) Varanasi · Bengaluru" */
   label: string;
@@ -183,6 +183,8 @@ export interface FeedInput {
   excludeAuthorSoftDeleted?: boolean;
   /** Omit rows in any of these categories (e.g. `guidance` for Careers activity — “Can help” hub). */
   excludeCategories?: IntentcastCategory[];
+  /** From the actor's role: admins see posts outside their audience. */
+  viewerIsAdmin?: boolean;
 }
 
 export interface CreateIntentcastResponseInput {
@@ -452,8 +454,8 @@ export class IntentcastRepo {
       );
     }
 
-    // Who can see each post (migration 066). `vp` is the viewer, joined below.
-    where.push(audienceVisibleSql("i", "vp"));
+    // Who can see each post (migration 067). `vp` is the viewer, joined below.
+    where.push(audienceVisibleSql("i", "vp", { viewerIsAdmin: input.viewerIsAdmin }));
 
     if (input.excludeCategories && input.excludeCategories.length > 0) {
       const placeholders = input.excludeCategories.map((cat) => {
@@ -619,7 +621,8 @@ export class IntentcastRepo {
    */
   async findFeedItemVisibleToViewer(
     intentcastId: string,
-    viewerPersonId: string
+    viewerPersonId: string,
+    viewerIsAdmin = false
   ): Promise<IntentcastFeedView | null> {
     const result = await this.db.query<IntentcastFeedRow>(
       `
@@ -682,8 +685,8 @@ export class IntentcastRepo {
             -- i.expires_at > now() AND
             i.status = 'open'
             AND i.author_soft_deleted_at IS NULL
-            -- Outside the audience looks exactly like closed or removed (migration 066).
-            AND ${audienceVisibleSql("i", "vp")}
+            -- Outside the audience looks exactly like closed or removed (migration 067).
+            AND ${audienceVisibleSql("i", "vp", { viewerIsAdmin })}
           )
         )
       LIMIT 1
@@ -833,7 +836,10 @@ export class IntentcastRepo {
     return result.rows[0] ?? null;
   }
 
-  /** Whether `viewerPersonId` is in the post's audience (or is its author). Says nothing about open/closed. */
+  /**
+   * Whether `viewerPersonId` is in the post's audience (or is its author). Says nothing about open/closed.
+   * No admin bypass: replying stays audience-bound even for admins.
+   */
   async isInAudience(intentcastId: string, viewerPersonId: string): Promise<boolean> {
     const result = await this.db.query(
       `

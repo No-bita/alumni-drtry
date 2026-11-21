@@ -87,7 +87,9 @@ See [post-audience.md](./post-audience.md).
   - If the author lacks a picked detail, the server returns 422 `AUDIENCE_DETAIL_MISSING`. If no one else matches, it returns 422 `AUDIENCE_EMPTY`.
   - The audience can't be changed after posting. `PATCH` ignores it.
 - Every post in `GET /v1/intentcasts`, `GET /v1/intentcasts/:id`, the create response and `GET /v1/cities/:placeId/posts` carries `audience`. It is `null` for Everyone, or `{ label, parts }`, where `parts` is a subset of `institution | batch | department | city`.
-- A narrowed post appears only to members who match every picked part on their current profile, plus its author. Everyone else gets the feed without it, 404 on the shared link, and 404 `INTENTCAST_NOT_FOUND` on `/respond`. That 404 is the same as for a missing post.
+- A narrowed post appears only to members who match every picked part on their current profile, plus its author and admins (actor role `admin` or `super_admin`). This holds in the feed, on the Home Wall (`scope=home_wall`, including pinned posts), on the shared link and on the city page. Everyone else gets the feed without it and 404 on the shared link.
+- Replies stay audience-bound for everyone, admins included. Anyone outside the audience gets 404 `INTENTCAST_NOT_FOUND` on `/respond`, the same as for a missing post.
+- `PATCH /v1/admin/intentcasts/:id/pin` can pin a narrowed post. Its audience is kept.
 - `GET /v1/intentcasts/audience-options` returns `{ institutions: [{ key, name }], ownInstitutionKey, batch, department, city }`.
   - Each of `batch`, `department` and `city` is `{ available, value, reason }`.
   - `reason` is `missing | pending_review | other_department | city_not_linked | city_pending`.

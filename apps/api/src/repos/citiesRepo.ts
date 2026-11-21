@@ -737,7 +737,15 @@ export class CitiesRepo {
   /* Wall posts tagged with a city                                       */
   /* ------------------------------------------------------------------ */
 
-  async cityPosts(placeId: string, viewerPersonId: string, viewerIsDemo: boolean, limit: number, since: Date | null = null, offset = 0): Promise<CityPostRow[]> {
+  async cityPosts(
+    placeId: string,
+    viewerPersonId: string,
+    viewerIsDemo: boolean,
+    limit: number,
+    since: Date | null = null,
+    offset = 0,
+    viewerIsAdmin = false
+  ): Promise<CityPostRow[]> {
     const r = await this.db.query<CityPostRow>(
       `
       SELECT i.id, i.author_person_id, p.full_name AS author_full_name,
@@ -752,8 +760,8 @@ export class CitiesRepo {
       -- Post expiry disabled (user request, 2026-11-21): expires_at no longer hides open posts.
       -- Commented out, not deleted: AND i.expires_at > now()
       WHERE i.place_id = $1::uuid AND i.status = 'open'
-        -- Who can see each post (migration 066).
-        AND ${audienceVisibleSql("i", "vp")}
+        -- Who can see each post (migration 067). Admins see all.
+        AND ${audienceVisibleSql("i", "vp", { viewerIsAdmin })}
         AND i.author_soft_deleted_at IS NULL
         AND p.deleted_at IS NULL AND p.suspended_at IS NULL AND p.full_name IS NOT NULL
         AND (${personIsDiscoverableForViewerSql("p", viewerIsDemo)} OR p.id = $2::uuid)

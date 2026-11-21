@@ -184,8 +184,9 @@ export class IntentcastService {
       if (!target.rows[0]) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
       await client.query("SELECT slot FROM wall_post_pins ORDER BY slot FOR UPDATE");
       const repo = new IntentcastRepo(client);
-      // Same visibility predicate as direct-link/feed reads, including audience once integrated.
-      const visible = await repo.findFeedItemVisibleToViewer(intentcastId, actor.personId);
+      // Same visibility predicate as direct-link/feed reads. The actor is an admin (checked above), and
+      // admins see every post, so a restricted post can be pinned; its audience still decides who sees it.
+      const visible = await repo.findFeedItemVisibleToViewer(intentcastId, actor.personId, true);
       if (!visible) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
       if (!pinned) {
         await client.query("UPDATE wall_post_pins SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL WHERE intentcast_id = $1", [intentcastId]);
@@ -270,10 +271,10 @@ export class IntentcastService {
   }
 
   /** One feed card if the viewer may see it (feed rules, or always when viewer is the author). */
-  async getFeedItemForViewer(viewerPersonId: string, intentcastId: string): Promise<IntentcastFeedView | null> {
+  async getFeedItemForViewer(viewerPersonId: string, intentcastId: string, viewerIsAdmin = false): Promise<IntentcastFeedView | null> {
     await this.intentcastRepo.expireOpenIntentcasts();
     await this.intentcastRepo.purgeAuthorSoftDeletedIntentcasts(500);
-    return this.intentcastRepo.findFeedItemVisibleToViewer(intentcastId, viewerPersonId);
+    return this.intentcastRepo.findFeedItemVisibleToViewer(intentcastId, viewerPersonId, viewerIsAdmin);
   }
 
   async listFeed(
@@ -288,6 +289,8 @@ export class IntentcastService {
       authorHistory?: boolean;
       excludeAuthorSoftDeleted?: boolean;
       excludeCategories?: IntentcastCategory[];
+      /** From the actor's role (isAdminRole): admins see posts outside their audience. */
+      viewerIsAdmin?: boolean;
     }
   ): Promise<IntentcastFeedOutput> {
     await this.intentcastRepo.expireOpenIntentcasts();
@@ -302,7 +305,8 @@ export class IntentcastService {
       mine: options?.mine,
       authorHistory: options?.authorHistory,
       excludeAuthorSoftDeleted: options?.excludeAuthorSoftDeleted,
-      excludeCategories: options?.excludeCategories
+      excludeCategories: options?.excludeCategories,
+      viewerIsAdmin: options?.viewerIsAdmin
     });
 
     return {
@@ -563,7 +567,8 @@ export class IntentcastService {
     if (intentcast.author_person_id === responderPersonId) {
       throw new AppError(400, "INTENTCAST_SELF_RESPONSE", "You cannot respond to your own intentcast.");
     }
-    // Outside the post's audience: the same answer as a post that doesn't exist (migration 066).
+    // Outside the post's audience: the same answer as a post that doesn't exist (migration 067).
+    // No admin bypass here: admins can see every post but reply only where they are in the audience.
     if (!(await this.intentcastRepo.isInAudience(intentcastId, responderPersonId))) {
       throw new AppError(404, "INTENTCAST_NOT_FOUND", "Intentcast not found.");
     }

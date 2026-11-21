@@ -15,8 +15,9 @@
 --                              ON DELETE RESTRICT, not SET NULL: clearing it would silently widen a
 --                              narrowed post to every city.
 --
--- Numbered 066: 065 is held by the unmerged code-only sign-in branch. The runner applies any
--- unapplied file, so the gap is harmless whichever merges first.
+-- Numbered 067: 066 is Home Wall pinning (066_wall_post_pins.sql) and 065 is held by the unmerged
+-- code-only sign-in branch. The runner applies any unapplied file, so the gap at 065 is harmless
+-- whichever merges first.
 
 ALTER TABLE intentcasts
   ADD COLUMN IF NOT EXISTS audience_email_domains TEXT[],

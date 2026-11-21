@@ -133,6 +133,8 @@ describe("intentcast expiry pause (commented out, not deleted)", () => {
         expireOpenIntentcasts: vi.fn(async () => 0),
         purgeAuthorSoftDeletedIntentcasts: vi.fn(async () => 0),
         findById: vi.fn(async () => intentcast),
+        // Post audience (migration 067): the replier is in this post's audience.
+        isInAudience: vi.fn(async () => true),
         createResponse: vi.fn(async () => ({})),
         listResponsesForIntentcast: vi.fn(async () => [responseView])
       };

@@ -8,8 +8,8 @@ import { SessionRepo } from "../src/repos/sessionRepo.js";
 import { SESSION_COOKIE } from "./helpers/login.js";
 
 /**
- * Wall post audience (migration 066): every read path shows a narrowed post only to people it matches.
- * Requires a disposable test database (DATABASE_URL) with migrations through 066. No emails are sent
+ * Wall post audience (migration 067): every read path shows a narrowed post only to people it matches.
+ * Requires a disposable test database (DATABASE_URL) with migrations through 067. No emails are sent
  * to real addresses: members are seeded directly with sessions.
  */
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -32,12 +32,13 @@ describe("Wall post audience (requires DB)", () => {
     place?: string | null;
     fullName?: string | null;
     city?: string | null;
+    role?: "alumni" | "admin" | "super_admin";
   } = {}): Promise<Member> {
     const email = `aud-${R}-${n++}@${f.domain ?? "iitbhu.ac.in"}`;
     const row = await db.query<{ id: string }>(
-      `INSERT INTO people (institutional_email, full_name, batch_year, department_code, residence_canonical_place_id, residence_city, profile_completed_at)
-       VALUES ($1, $2, $3, $4, $5::uuid, $6, now()) RETURNING id`,
-      [email, f.fullName === undefined ? `Member ${n}` : f.fullName, f.batch ?? null, f.dept ?? null, f.place ?? null, f.city ?? null]
+      `INSERT INTO people (institutional_email, full_name, batch_year, department_code, residence_canonical_place_id, residence_city, profile_completed_at, role)
+       VALUES ($1, $2, $3, $4, $5::uuid, $6, now(), $7) RETURNING id`,
+      [email, f.fullName === undefined ? `Member ${n}` : f.fullName, f.batch ?? null, f.dept ?? null, f.place ?? null, f.city ?? null, f.role ?? "alumni"]
     );
     const token = generateOpaqueToken(48);
     await new SessionRepo(db).create({
@@ -51,7 +52,7 @@ describe("Wall post audience (requires DB)", () => {
     return { id: row.rows[0]!.id, cookie: `${SESSION_COOKIE}=${token}` };
   }
 
-  const req = (method: "GET" | "POST", url: string, who: Member, payload?: unknown) =>
+  const req = (method: "GET" | "POST" | "PATCH", url: string, who: Member, payload?: unknown) =>
     app.inject({ method, url, headers: { cookie: who.cookie }, ...(payload !== undefined ? { payload: payload as object } : {}) });
   const post = (who: Member, audience: unknown, extra: Record<string, unknown> = {}) =>
     req("POST", "/v1/intentcasts", who, {
@@ -216,5 +217,48 @@ describe("Wall post audience (requires DB)", () => {
     expect(small.label).toBe("2006 batch");
     expect(["under10", "about"]).toContain(small.size);
     expect(Object.keys(small)).not.toContain("count");
+  });
+  it("admins see every post (feed, shared link, city page) but reply only inside the audience", async () => {
+    const author = await member({ batch: 2007, place: blr });
+    await member({ batch: 2007 });
+    const admin = await member({ batch: 1999, role: "admin" });
+    const superAdmin = await member({ domain: "iitb.ac.in", role: "super_admin" });
+    const outsider = await member({ batch: 1999 });
+    const p = (await post(author, { batch: true }, { placeId: blr })).json().intentcast as { id: string };
+    for (const who of [admin, superAdmin]) {
+      expect(await sees(who, p.id)).toBe(true);
+      const city = (await req("GET", `/v1/cities/${blr}/posts`, who)).json() as { items: Array<{ id: string; audience?: unknown }> };
+      expect(city.items.find((x) => x.id === p.id)?.audience).toEqual({ label: "2007 batch", parts: ["batch"] });
+    }
+    expect(await sees(outsider, p.id)).toBe(false);
+    // Seeing is not replying: an admin outside the audience gets the same 404 as a missing post.
+    const no = await req("POST", `/v1/intentcasts/${p.id}/respond`, admin, { message: "Happy to help with this" });
+    expect(no.statusCode).toBe(404);
+    expect(no.json()).toEqual(
+      (await req("POST", "/v1/intentcasts/00000000-0000-4000-8000-000000000000/respond", admin, { message: "Happy to help" })).json()
+    );
+  });
+
+  it("a pinned restricted post keeps its audience on the Home Wall", async () => {
+    await db.query("UPDATE wall_post_pins SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL");
+    const author = await member({ batch: 2008 });
+    const insider = await member({ batch: 2008 });
+    const outsider = await member({ batch: 2009 });
+    const admin = await member({ batch: 1998, role: "admin" });
+    const p = (await post(author, { batch: true })).json().intentcast as { id: string };
+    const pinRes = await req("PATCH", `/v1/admin/intentcasts/${p.id}/pin`, admin, { pinned: true });
+    expect(pinRes.statusCode, pinRes.body).toBe(200); // admins can pin a post outside their own audience
+    const wall = async (who: Member) =>
+      ((await req("GET", "/v1/intentcasts?scope=home_wall&limit=48", who)).json() as {
+        intentcasts: Array<{ id: string; wallPinnedAt: string | null; audience: { label: string } | null }>;
+      }).intentcasts;
+    for (const who of [insider, admin, author]) {
+      const first = (await wall(who))[0];
+      expect(first?.id).toBe(p.id);
+      expect(first?.wallPinnedAt).toBeTruthy();
+      expect(first?.audience?.label).toBe("2008 batch"); // shown as "Visible to: 2008 batch" on the card
+    }
+    expect((await wall(outsider)).some((x) => x.id === p.id)).toBe(false);
+    await db.query("UPDATE wall_post_pins SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL WHERE intentcast_id = $1", [p.id]);
   });
 });

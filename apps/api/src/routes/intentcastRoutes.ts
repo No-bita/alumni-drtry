@@ -2,12 +2,13 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
+import { isAdminRole } from "../lib/postAudience.js";
 import type { IntentcastCategory } from "../repos/intentcastRepo.js";
 
 const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", "guidance"]);
 
 /**
- * Who can see a post (migration 066): which choices are ticked, never their values (the server reads
+ * Who can see a post (migration 067): which choices are ticked, never their values (the server reads
  * those from the author's profile). Strict: unknown keys are refused, not ignored.
  */
 const audienceSchema = z
@@ -185,7 +186,9 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
         // Already safe on the server: deleted/suspended accounts are always excluded, and a post its author
         // removed is visible only to that author (for undo). This flag only hides it from the author too.
         excludeAuthorSoftDeleted: parsed.data.excludeAuthorSoftDeleted,
-        excludeCategories
+        excludeCategories,
+        // Admins see every post, including ones outside their audience (from the actor's role only).
+        viewerIsAdmin: isAdminRole(request.actor.role)
       }
     );
     return reply.code(200).send(result);
@@ -214,7 +217,8 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       }
       const intentcast = await app.intentcastService.getFeedItemForViewer(
         request.actor.personId,
-        params.data.id
+        params.data.id,
+        isAdminRole(request.actor.role)
       );
       if (!intentcast) {
         throw new AppError(404, "INTENTCAST_NOT_FOUND", "Intentcast not found.");

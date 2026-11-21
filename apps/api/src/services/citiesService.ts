@@ -149,7 +149,7 @@ function parseChapterLinks(raw: string | undefined): ChapterLinks {
 }
 
 /** Cities page (Bengaluru first): who lives in a city, who just arrived, and asks that pass the reach-out principle. */
-/** Who can see a city post: null = Everyone (migration 066). Same label as the Wall. */
+/** Who can see a city post: null = Everyone (migration 067). Same label as the Wall. */
 function cityPostAudience(p: CityPostRow): { label: string; parts: AudiencePart[] } | null {
   const batchYear = p.audience_batch_year != null ? Number(p.audience_batch_year) : null;
   const parts = audienceParts({
@@ -350,7 +350,7 @@ export class CitiesService implements ResidenceSync {
           this.repo.placeNames(place.id),
           this.repo.pendingNotesFor(viewer.personId),
           this.repo.openToPreferences([viewer.personId]),
-          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW + 1)
+          this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, POSTS_PREVIEW + 1, null, 0, Boolean(viewer.isAdmin))
         ]);
         const now = new Date();
         if (arrivals) {
@@ -476,7 +476,7 @@ export class CitiesService implements ResidenceSync {
   /** "View all posts": every open Wall post tagged with this city, newest first, paged. */
   async posts(placeId: string, viewer: CityViewer, offset: number) {
     const { place } = await this.visiblePlace(placeId, viewer);
-    const rows = await this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, CITY_POSTS_PAGE + 1, null, offset);
+    const rows = await this.repo.cityPosts(place.id, viewer.personId, viewer.isDemo, CITY_POSTS_PAGE + 1, null, offset, Boolean(viewer.isAdmin));
     return {
       posts: rows.slice(0, CITY_POSTS_PAGE).map((p) => this.toPost(p, viewer.personId)),
       nextCursor: rows.length > CITY_POSTS_PAGE ? String(offset + CITY_POSTS_PAGE) : null
