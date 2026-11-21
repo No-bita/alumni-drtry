@@ -21,14 +21,20 @@
   align-content: start;
 }
 
-@media (min-width: 1200px) {
-  .home-ideal__container {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
-    gap: 24px;
+/* Desktop structure matches the Careers hub: the whole page sits in the same
+   998px centered column (918px content + 40px gutters), the feed and rail go
+   two-column at the same 1024px breakpoint, and the rail is the same 360px
+   column starting at the same x, directly under the full-width hero row. */
+@media (min-width: 1024px) {
+  .home-dashboard--ideal .home-ideal__container,
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__container {
+    max-width: 998px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: 20px;
     align-items: start;
   }
 
-  /* Rail panels stack their actions full-width; side-by-side buttons overflow a 320px rail. */
+  /* Rail panels stack their actions full-width; side-by-side buttons overflow a 360px rail. */
   .home-ideal__rail .home-ideal__panel-actions {
     flex-wrap: wrap;
   }
@@ -42,15 +48,31 @@
    It also drops its card frame: the question and the search box sit directly
    on the page (the Careers pattern) instead of a box inside a bordered card,
    which read as secondary next to the Wall card. The search box keeps its own
-   border, radius and shadow. */
+   border, radius and shadow.
+   The hero is a direct child of the container and spans its full width, so the
+   heading + search sit at the top like the Careers hub header and the rail
+   starts below them instead of beside them. */
 .home-dashboard--ideal .home-ideal__intent-hero,
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
+  grid-column: 1 / -1;
   min-height: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;
+}
+
+@media (min-width: 640px) {
+  /* Careers-hub header location, translated: the Careers title starts lower
+     because its header band (min-height 180, vertically centered) leaves room
+     for the art. Home has no art, so the same title position is reproduced
+     with top padding. Must come after the frame-drop override above (equal
+     specificity, later wins). */
+  .home-dashboard--ideal .home-ideal__intent-hero,
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
+    padding-top: 55px;
+  }
 }
 
 .home-reassurance {

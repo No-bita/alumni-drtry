@@ -62,7 +62,7 @@ export function HomeAskBox() {
             if (error) setError(null);
           }}
         />
-        <button type="submit" className="home-ask__go" aria-label="Find alumni">
+        <button type="submit" className="home-ask__go" disabled={question.trim().length === 0} aria-label="Find alumni">
           <LineIcon name="arrow" />
         </button>
       </div>

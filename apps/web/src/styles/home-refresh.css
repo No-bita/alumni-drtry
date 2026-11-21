@@ -85,6 +85,12 @@
   outline-offset: 2px;
 }
 
+/* Careers pattern: the arrow rests muted until there is a question to send. */
+.home-ask__go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ---------- Buttons on Home: sentence case pills (the app-wide .btn stays uppercase) ---------- */
 .home-dashboard--ideal .btn,
 .home-dashboard--ideal .home-ideal__panel-actions .btn,

@@ -57,39 +57,60 @@
 }
 
 .home-ask__examples {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  /* 14px between rows: each chip's ::after reaches 7px out, so 7+7=14 keeps tap areas apart. */
-  gap: 14px var(--space-sm);
-  font-size: 13px;
+  /* Careers topic-chip pattern: even grid on phones, spreading pills on desktop. */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
+.home-ask__examples-label {
+  grid-column: 1 / -1;
+  font-size: 13px;
+}
+
 .home-ask__example {
-  padding: 4px 10px;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-chip);
-  background: rgba(253, 252, 247, 0.7);
+  min-height: 52px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: var(--surface);
   font: inherit;
+  font-weight: 600;
+  line-height: 1.25;
   color: var(--ink);
   cursor: pointer;
+}
+
+@media (min-width: 855px) {
+  .home-ask__examples {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .home-ask__examples-label {
+    grid-column: auto;
+    flex-basis: 100%;
+  }
+
+  .home-ask__example {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px 16px;
+    border-radius: 999px;
+  }
 }
 
 /* Phone-only example chips (short labels); hidden on desktop. */
 .home-ask__example--phone {
   display: none;
-}
-
-/* Same look; invisible ::after gives a 44px+ tap area. */
-.home-ask__example {
-  position: relative;
-}
-
-.home-ask__example::after {
-  content: "";
-  position: absolute;
-  inset: -7px 0;
 }
 
 .home-ask__example:hover,
@@ -703,21 +724,13 @@
     flex-direction: column;
   }
 
-  /* Phone: exactly two short example chips with "Try:" inline, kept on one line; desktop three hidden. */
-  .home-ask__examples {
-    flex-wrap: nowrap;
-    white-space: nowrap;
-    column-gap: 6px;
-  }
-
+  /* Phone: two short example chips in the grid; desktop three hidden. */
   .home-ask__example--full {
     display: none;
   }
 
   .home-ask__example--phone {
-    display: block;
-    font-size: 12px;
-    padding: 4px 8px;
+    display: flex;
   }
 
   .match-card__actions .btn {
