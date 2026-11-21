@@ -14,13 +14,18 @@ type FormFieldProps = {
    * id/aria-* props). FormField wires id, aria-describedby, aria-invalid and aria-required.
    */
   children: ReactElement;
+  /**
+   * Use when the actual control sits inside a wrapper (e.g. textarea with an inline
+   * counter): the label's htmlFor points at this control id instead of the child element.
+   */
+  controlId?: string;
 };
 
 /**
  * Shared field wrapper from the form design sheets: label on top, control, then helper or
  * error text. Owns the id/aria wiring so every form gets the same accessible structure.
  */
-export function FormField({ label, required = false, help, error, className = "", children }: FormFieldProps) {
+export function FormField({ label, required = false, help, error, className = "", children, controlId }: FormFieldProps) {
   const generatedId = useId();
   const helpId = `${generatedId}-help`;
   const errorId = `${generatedId}-error`;
@@ -28,27 +33,22 @@ export function FormField({ label, required = false, help, error, className = ""
 
   let control: ReactNode = children;
   if (isValidElement(children)) {
-    const childProps = children.props as { id?: string };
+    const childProps = children.props as { id?: string; "aria-describedby"?: string };
+    const mergedDescribedBy = [childProps["aria-describedby"], describedBy].filter(Boolean).join(" ") || undefined;
     control = cloneElement(children, {
       id: childProps.id ?? generatedId,
-      "aria-describedby": describedBy,
+      "aria-describedby": mergedDescribedBy,
       "aria-invalid": error ? true : undefined,
       "aria-required": required ? true : undefined,
     } as Partial<typeof children.props>);
   }
 
-  const controlId = isValidElement(children) ? ((children.props as { id?: string }).id ?? generatedId) : generatedId;
+  const labelFor = controlId ?? (isValidElement(children) ? ((children.props as { id?: string }).id ?? generatedId) : generatedId);
 
   return (
     <div className={`form-field${error ? " form-field--error" : ""}${className ? ` ${className}` : ""}`}>
-      <label className="form-field__label" htmlFor={controlId}>
+      <label className={`form-field__label${required ? " form-field__label--required" : ""}`} htmlFor={labelFor}>
         {label}
-        {required ? (
-          <span className="form-field__required" aria-hidden="true">
-            {" "}
-            *
-          </span>
-        ) : null}
       </label>
       {control}
       {error ? (

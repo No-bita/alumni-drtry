@@ -28,8 +28,8 @@ import {
 } from "../lib/parseHiringBulletin";
 import { queryKeys } from "../lib/queryKeys";
 import { useAuth } from "../contexts/AuthContext";
-import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
+import { FormActions, FormField } from "./forms";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
 import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
@@ -53,6 +53,35 @@ function tryNormalizeExternalHttpUrl(raw: string): string | null {
   } catch {
     return null;
   }
+}
+
+type ComposeErrorField = "kind" | "jobLink" | "headline" | "company" | "details" | "resume" | null;
+
+/** Maps validateCompose/publish error copy to the field it belongs to; null keeps the dialog-level error line. */
+function composeErrorField(message: string | null): ComposeErrorField {
+  if (!message) return null;
+  if (message.startsWith("Choose what this post")) return "kind";
+  if (message.startsWith("Add the job link") || message.startsWith("Job link must")) return "jobLink";
+  if (
+    message.startsWith("Add a role title") ||
+    message.startsWith("Role must") ||
+    message.startsWith("Referral headline") ||
+    message.startsWith("Add a headline") ||
+    message.startsWith("Headline must")
+  ) {
+    return "headline";
+  }
+  if (message.startsWith("Add the company") || message.startsWith("Company must")) return "company";
+  if (
+    message.startsWith("Add why you're a fit") ||
+    message.startsWith("Your fit answer") ||
+    message.startsWith("Add a bit more detail") ||
+    message.startsWith("Details must")
+  ) {
+    return "details";
+  }
+  if (message.startsWith("Resume Link must")) return "resume";
+  return null;
 }
 
 /** Structured tail lines below the fit text, parsed back out by extractStructuredCareerRoleLink for feed/preview display. */
@@ -489,6 +518,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       closeFlow();
     }, [audience, audienceState.blocked, category, careersPreset, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, validateCompose]);
 
+    const errorField = composeErrorField(error);
+
     const dialogAriaLabel =
       careersPreset === "referralSeeking"
         ? step === "compose"
@@ -582,8 +613,12 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
               <>
                 <div className="career-hiring-flow__grid">
                   {careersHubFlow ? (
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>What is this? *</span>
+                    <FormField
+                      label="What is this?"
+                      required
+                      error={errorField === "kind" ? error : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <select
                         className="input"
                         value={kind}
@@ -596,11 +631,10 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         <option value="offer">Offer — I’m offering something</option>
                         <option value="invitation">Invitation — join me for something</option>
                       </select>
-                    </label>
+                    </FormField>
                   ) : null}
                   {careersHubFlow ? null : (
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Category *</span>
+                    <FormField label="Category" required className="career-hiring-flow__field--wide">
                       <select
                         className="input"
                         value={category}
@@ -613,11 +647,15 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         <option value="guidance">Guidance</option>
                         <option value="general">General</option>
                       </select>
-                    </label>
+                    </FormField>
                   )}
                   {careersPreset === "referralSeeking" ? (
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Job link *</span>
+                    <FormField
+                      label="Job link"
+                      required
+                      error={errorField === "jobLink" ? error : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <input
                         className="input"
                         type="url"
@@ -628,10 +666,14 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         placeholder={referralJobLinkPlaceholder}
                         maxLength={2048}
                       />
-                    </label>
+                    </FormField>
                   ) : null}
-                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                    <span>{careersPreset === "referralSeeking" ? "Role *" : "Headline *"}</span>
+                  <FormField
+                    label={careersPreset === "referralSeeking" ? "Role" : "Headline"}
+                    required
+                    error={errorField === "headline" ? error : undefined}
+                    className="career-hiring-flow__field--wide"
+                  >
                     <input
                       ref={composeHeadlineRef}
                       className="input"
@@ -641,10 +683,14 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       maxLength={BULLETIN_TITLE_MAX_CHARS}
                       autoComplete="off"
                     />
-                  </label>
+                  </FormField>
                   {careersPreset === "referralSeeking" ? (
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Company *</span>
+                    <FormField
+                      label="Company"
+                      required
+                      error={errorField === "company" ? error : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <input
                         className="input"
                         value={referralCompanyName}
@@ -653,10 +699,15 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         maxLength={BULLETIN_TITLE_MAX_CHARS}
                         autoComplete="organization"
                       />
-                    </label>
+                    </FormField>
                   ) : null}
-                  <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                    <span>{careersPreset === "referralSeeking" ? "Why are you a fit for this role? *" : "Details *"}</span>
+                  <FormField
+                    label={careersPreset === "referralSeeking" ? "Why are you a fit for this role?" : "Details"}
+                    required
+                    error={errorField === "details" ? error : undefined}
+                    controlId={careersHubFlow ? undefined : "post-bulletin-details"}
+                    className="career-hiring-flow__field--wide"
+                  >
                     {careersHubFlow ? (
                       <textarea
                         className="input input--textarea"
@@ -669,6 +720,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     ) : (
                       <div className="career-hiring-flow__textarea-wrap">
                         <textarea
+                          id="post-bulletin-details"
                           className="input input--textarea"
                           rows={4}
                           value={body}
@@ -681,10 +733,13 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         </p>
                       </div>
                     )}
-                  </label>
+                  </FormField>
                   {careersPreset === "referralSeeking" ? (
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Resume link (optional)</span>
+                    <FormField
+                      label="Resume link (optional)"
+                      error={errorField === "resume" ? error : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <input
                         className="input"
                         type="url"
@@ -695,26 +750,18 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                         placeholder="https://…"
                         maxLength={2048}
                       />
-                    </label>
+                    </FormField>
                   ) : null}
                 </div>
                 <PostAudienceField value={audience} onChange={setAudience} onStateChange={setAudienceState} />
-                <footer className="career-hiring-flow__actions">
-                  {careersHubFlow ? (
-                    <Button type="button" variant="secondary" onClick={goToPreview}>
-                      Preview
-                    </Button>
-                  ) : (
-                    <>
-                      <Button type="button" variant="soft" onClick={closeFlow}>
-                        Cancel
-                      </Button>
-                      <Button type="button" variant="primary" onClick={goToPreview}>
-                        Preview
-                      </Button>
-                    </>
-                  )}
-                </footer>
+                {careersHubFlow ? (
+                  <FormActions primary={{ label: "Preview", onClick: goToPreview }} />
+                ) : (
+                  <FormActions
+                    secondary={{ label: "Cancel", onClick: closeFlow }}
+                    primary={{ label: "Preview", onClick: goToPreview }}
+                  />
+                )}
               </>
             ) : null}
 
@@ -733,7 +780,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
               </div>
             ) : null}
 
-            {error ? (
+            {error && errorField === null ? (
               <p className="career-hiring-flow__error" role="alert">
                 {error}
               </p>
@@ -741,27 +788,10 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
 
             {step === "preview" ? (
               <>
-                <footer className={careersHubFlow ? "career-hiring-flow__actions career-hiring-flow__actions--publish" : "career-hiring-flow__actions"}>
-                  {careersHubFlow ? (
-                    <>
-                      <Button type="button" variant="primary" onClick={goBackToCompose}>
-                        Back
-                      </Button>
-                      <Button type="button" variant="secondary" disabled={submitting} onClick={() => void publish()}>
-                        {submitting ? "Publishing…" : publishLabel}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button type="button" variant="soft" onClick={goBackToCompose}>
-                        Edit
-                      </Button>
-                      <Button type="button" variant="primary" disabled={submitting} onClick={() => void publish()}>
-                        {submitting ? "Publishing…" : publishLabel}
-                      </Button>
-                    </>
-                  )}
-                </footer>
+                <FormActions
+                  secondary={{ label: careersHubFlow ? "Back" : "Edit", onClick: goBackToCompose }}
+                  primary={{ label: submitting ? "Publishing…" : publishLabel, disabled: submitting, onClick: () => void publish() }}
+                />
                 <p className="career-hiring-flow__publish-note">Your post will go live instantly.</p>
               </>
             ) : null}

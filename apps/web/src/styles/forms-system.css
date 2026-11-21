@@ -16,7 +16,9 @@
   color: var(--ink);
 }
 
-.form-field__required {
+/* Required marker via ::after so it never pollutes the label's accessible/text content. */
+.form-field__label--required::after {
+  content: " *";
   color: var(--brick);
 }
 

@@ -33,6 +33,7 @@ import {
   noteLabel,
 } from "../lib/noteForm";
 import { Button } from "./Button";
+import { FormActions, FormField } from "./forms";
 import { NoteBody } from "./NoteBody";
 import "../styles/match.css";
 
@@ -205,61 +206,54 @@ export function MatchReachOutDialog({
             <h2 id={titleId} className="match-dialog__title">
               Reach out to {name}
             </h2>
-            <label htmlFor={ids.topic} className="match-dialog__label">
-              Topic
-            </label>
-            <select
-              id={ids.topic}
-              className="match-dialog__input"
-              value={purpose === "referral" ? "referral" : (adv.topic ?? "")}
-              required
-              onChange={(e) => {
-                const v = e.target.value;
-                setError(null);
-                if (v === "referral") {
-                  setPurpose("referral");
-                } else {
-                  setPurpose("advice");
-                  setAdv({ ...adv, topic: (v || null) as AdviceTopic | null });
-                }
-              }}
-            >
-              <option value="" disabled>
-                Select a topic
-              </option>
-              <option value="referral">Referral</option>
-              {ADVICE_TOPICS.map((t) => (
-                <option key={t} value={t}>
-                  {ADVICE_TOPIC_LABELS[t]}
+            <FormField label="Topic" required>
+              <select
+                id={ids.topic}
+                className="match-dialog__input"
+                value={purpose === "referral" ? "referral" : (adv.topic ?? "")}
+                required
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setError(null);
+                  if (v === "referral") {
+                    setPurpose("referral");
+                  } else {
+                    setPurpose("advice");
+                    setAdv({ ...adv, topic: (v || null) as AdviceTopic | null });
+                  }
+                }}
+              >
+                <option value="" disabled>
+                  Select a topic
                 </option>
-              ))}
-            </select>
+                <option value="referral">Referral</option>
+                {ADVICE_TOPICS.map((t) => (
+                  <option key={t} value={t}>
+                    {ADVICE_TOPIC_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
             {purpose === "referral" ? (
               <>
-                <label htmlFor={ids.job} className="match-dialog__label">
-                  Job link
-                </label>
-                <input
-                  id={ids.job}
-                  className="match-dialog__input"
-                  type="url"
-                  inputMode="url"
-                  placeholder="https://careers.company.com/…"
-                  value={ref.jobUrl}
-                  maxLength={NOTE_URL_MAX}
-                  aria-invalid={badJob}
-                  onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
-                />
-                {badJob ? (
-                  <p className="match-dialog__error" role="alert">
-                    Add the job link, starting with https://.
-                  </p>
-                ) : null}
+                <FormField
+                  label="Job link"
+                  error={badJob ? "Add the job link, starting with https://." : undefined}
+                >
+                  <input
+                    id={ids.job}
+                    className="match-dialog__input"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://careers.company.com/…"
+                    value={ref.jobUrl}
+                    maxLength={NOTE_URL_MAX}
+                    aria-invalid={badJob}
+                    onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
+                  />
+                </FormField>
                 <div className="match-dialog__pair">
-                  <div className="match-dialog__field">
-                    <label htmlFor={ids.role} className="match-dialog__label">
-                      Role
-                    </label>
+                  <FormField label="Role" className="match-dialog__field">
                     <input
                       id={ids.role}
                       className="match-dialog__input"
@@ -267,11 +261,8 @@ export function MatchReachOutDialog({
                       maxLength={NOTE_SHORT_FIELD_MAX}
                       onChange={(e) => setRef({ ...ref, role: e.target.value })}
                     />
-                  </div>
-                  <div className="match-dialog__field">
-                    <label htmlFor={ids.company} className="match-dialog__label">
-                      Company
-                    </label>
+                  </FormField>
+                  <FormField label="Company" className="match-dialog__field">
                     <input
                       id={ids.company}
                       className="match-dialog__input"
@@ -279,74 +270,65 @@ export function MatchReachOutDialog({
                       maxLength={NOTE_SHORT_FIELD_MAX}
                       onChange={(e) => setRef({ ...ref, company: e.target.value })}
                     />
-                  </div>
+                  </FormField>
                 </div>
-                <label htmlFor={ids.fit} className="match-dialog__label">
-                  Why you’re a fit
-                </label>
-                <textarea
-                  id={ids.fit}
-                  className="match-dialog__textarea"
-                  rows={5}
-                  value={ref.fit}
-                  maxLength={NOTE_FIT_MAX}
-                  placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
-                  aria-describedby={ids.fitCount}
-                  onChange={(e) => setRef({ ...ref, fit: e.target.value })}
-                />
+                <FormField label="Why you’re a fit">
+                  <textarea
+                    id={ids.fit}
+                    className="match-dialog__textarea"
+                    rows={5}
+                    value={ref.fit}
+                    maxLength={NOTE_FIT_MAX}
+                    placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
+                    aria-describedby={ids.fitCount}
+                    onChange={(e) => setRef({ ...ref, fit: e.target.value })}
+                  />
+                </FormField>
                 <p id={ids.fitCount} className="match-dialog__counter" aria-live="polite">
                   {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
                 </p>
-                <label htmlFor={ids.resume} className="match-dialog__label">
-                  Résumé link <span className="match-dialog__optional">(optional)</span>
-                </label>
-                <input
-                  id={ids.resume}
-                  className="match-dialog__input"
-                  type="url"
-                  inputMode="url"
-                  placeholder="Drive or Dropbox link"
-                  value={ref.resumeUrl}
-                  maxLength={NOTE_URL_MAX}
-                  aria-invalid={badResume}
-                  onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
-                />
-                {badResume ? (
-                  <p className="match-dialog__error" role="alert">
-                    The résumé link must start with https:// (or leave it empty).
-                  </p>
-                ) : null}
+                <FormField
+                  label="Résumé link (optional)"
+                  error={badResume ? "The résumé link must start with https:// (or leave it empty)." : undefined}
+                >
+                  <input
+                    id={ids.resume}
+                    className="match-dialog__input"
+                    type="url"
+                    inputMode="url"
+                    placeholder="Drive or Dropbox link"
+                    value={ref.resumeUrl}
+                    maxLength={NOTE_URL_MAX}
+                    aria-invalid={badResume}
+                    onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
+                  />
+                </FormField>
               </>
             ) : (
               <>
-                <label htmlFor={ids.question} className="match-dialog__label">
-                  Your question
-                </label>
-                <div className="match-dialog__textarea-wrap">
-                  <textarea
-                    id={ids.question}
-                    className="match-dialog__textarea"
-                    rows={6}
-                    value={adv.question}
-                    maxLength={NOTE_QUESTION_MAX}
-                    placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
-                    aria-describedby={ids.qCount}
-                    onChange={(e) => setAdv({ ...adv, question: e.target.value })}
-                  />
-                  <p id={ids.qCount} className="match-dialog__counter match-dialog__counter--inside" aria-live="polite">
-                    {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
-                  </p>
-                </div>
+                <FormField label="Your question" controlId={ids.question}>
+                  <div className="match-dialog__textarea-wrap">
+                    <textarea
+                      id={ids.question}
+                      className="match-dialog__textarea"
+                      rows={6}
+                      value={adv.question}
+                      maxLength={NOTE_QUESTION_MAX}
+                      placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
+                      aria-describedby={ids.qCount}
+                      onChange={(e) => setAdv({ ...adv, question: e.target.value })}
+                    />
+                    <p id={ids.qCount} className="match-dialog__counter match-dialog__counter--inside" aria-live="polite">
+                      {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
+                    </p>
+                  </div>
+                </FormField>
               </>
             )}
-            <div className="match-dialog__actions">
-              <Button type="button" variant="soft" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" disabled={!details}>
-                Preview
-              </Button>
-            </div>
+            <FormActions
+              secondary={{ label: "Cancel", onClick: onClose }}
+              primary={{ label: "Preview", disabled: !details, onClick: () => { if (details) setStep("preview"); } }}
+            />
           </form>
         ) : details ? (
           <>
@@ -360,14 +342,10 @@ export function MatchReachOutDialog({
                 {error}
               </p>
             ) : null}
-            <div className="match-dialog__actions">
-              <Button variant="soft" onClick={() => setStep("fields")} disabled={sending}>
-                Edit
-              </Button>
-              <Button variant="primary" onClick={() => void send()} disabled={sending}>
-                {sending ? "Sending…" : "Send"}
-              </Button>
-            </div>
+            <FormActions
+              secondary={{ label: "Edit", onClick: () => setStep("fields"), disabled: sending }}
+              primary={{ label: sending ? "Sending…" : "Send", disabled: sending, onClick: () => void send() }}
+            />
           </>
         ) : null}
       </div>
