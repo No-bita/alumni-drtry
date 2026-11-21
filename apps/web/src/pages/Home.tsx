@@ -38,8 +38,8 @@ import { useMinWidth } from "../hooks/useMinWidth";
 import "../styles/home-layout.css";
 import "../styles/home-refresh.css";
 
-/** Width at which Home shows its right-hand column (matches `.home-ideal__container` in home-layout.css). */
-const HOME_RAIL_MIN_PX = 1200;
+/** Width at which Home shows its right-hand column (matches `.home-ideal__container` in home-layout.css and the Careers hub grid breakpoint). */
+const HOME_RAIL_MIN_PX = 1024;
 
 // PARKED 2026-11-21 with the homepage callout: only the footprint strip used this.
 // const EMPTY_POSTS: IntentcastFeedItem[] = [];
@@ -817,8 +817,8 @@ export function Home() {
       />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
         <div className="home-ideal__container">
+          <HomeIntentHero />
           <div className="home-ideal__main">
-            <HomeIntentHero />
             {/* Below the rail width, the reachout cards sit between the search and the Wall. */}
             {!railVisible ? <div className="home-reachouts">{reachoutCards}</div> : null}
             <div className="home-activity">

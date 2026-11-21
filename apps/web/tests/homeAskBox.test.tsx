@@ -31,9 +31,16 @@ describe("HomeAskBox", () => {
     expect(screen.getByTestId("where").textContent).toBe("/match?q=Referral+at+Meesho");
   });
 
-  it("asks for more words instead of submitting an empty question", () => {
+  it("rests disabled until a question is typed, then asks for more words on a too-short question", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    const go = screen.getByRole("button", { name: "Find alumni" });
+    // Careers pattern: the arrow rests muted while the field is empty.
+    expect(go).toHaveProperty("disabled", true);
+    fireEvent.change(screen.getByLabelText("How can Alma Mater help you?"), {
+      target: { value: "hi" },
+    });
+    expect(go).toHaveProperty("disabled", false);
+    fireEvent.click(go);
     expect(screen.getByRole("alert").textContent).toBe("Write a few words about what you need.");
     expect(screen.queryByTestId("where")).toBeNull();
   });
