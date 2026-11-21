@@ -244,6 +244,13 @@ export function CityHome({
               {loadingAll ? "Loading…" : "View all posts →"}
             </button>
           ) : null}
+          {/* Newcomer opt-in belongs to this community section; the head row
+              wraps it under the heading instead of floating at the page edge. */}
+          {data.arrivalPrompt && !newcomer ? (
+            <button type="button" className="cities__link" onClick={onOptIn}>
+              Just moved? Show me as new in town ›
+            </button>
+          ) : null}
         </div>
         <p className="cities__note">Open posts from the Wall, filtered to {city}.</p>
         {posts.length > 0 ? (
@@ -311,13 +318,6 @@ export function CityHome({
         </div>
       </section>
 
-      <section className="cities__section cities-home__secondary" aria-label="More">
-        {data.arrivalPrompt && !newcomer ? (
-          <button type="button" className="cities__link" onClick={onOptIn}>
-            Just moved? Show me as new in town ›
-          </button>
-        ) : null}
-          </section>
         </div>
       </div>
 

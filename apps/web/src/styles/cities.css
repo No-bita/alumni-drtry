@@ -1009,13 +1009,22 @@
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  /* Equal-height rows: every tile in a row matches the tallest. */
+  grid-auto-rows: 1fr;
   gap: 10px;
+  min-width: 0;
+}
+
+.cities-home__tiles > li {
+  display: flex;
   min-width: 0;
 }
 
 .cities-home__tile {
   width: 100%;
   min-height: 44px;
+  /* Stretch to the equal grid row height set on .cities-home__tiles. */
+  flex: 1;
   display: flex;
   gap: 11px;
   align-items: flex-start;
@@ -1177,11 +1186,6 @@
   cursor: pointer;
 }
 
-.cities-home__secondary {
-  gap: 0;
-  justify-items: start;
-}
-
 /* Phone keeps a single column; desktop is the approved 2x2 tiles + requests-left / catch-all-right. */
 .cities-home__cols {
   display: grid;
@@ -1302,9 +1306,11 @@
   }
 }
 
-/* Phone: keep the bottom links scrollable clear of the floating dock (approved 19:33). */
+/* Phone: keep the bottom card scrollable clear of the floating dock. The
+   "Just moved?" link moved into the community section head, so the clearance
+   the old "More" section carried now lives on the side column (approved 19:33). */
 @media (max-width: 639px) {
-  .cities-home__secondary {
+  .cities-home__side {
     padding-bottom: 200px;
   }
 }

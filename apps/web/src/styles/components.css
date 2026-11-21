@@ -7692,6 +7692,16 @@ button.career-referrals-v3__matching-pill--editable:active {
   }
 }
 
+/* Referral/hiring composers (the non-blur overlay used by PostBulletinFlow's
+   careers preset and PostRoleHiringFlow): cap the dialog at 720px so the form
+   no longer stretches across desktop. The Wall compose keeps its 600px
+   blur-overlay cap above; below 640px the existing phone rule still wins. */
+@media (min-width: 640px) {
+  .career-hiring-flow__overlay:not(.career-hiring-flow__overlay--blur) > .career-hiring-flow__dialog {
+    width: min(720px, 100%);
+  }
+}
+
 .career-hiring-flow__head {
   display: flex;
   align-items: flex-start;
@@ -11129,6 +11139,23 @@ button.career-referrals-v3__matching-pill--editable:active {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+}
+
+/* Scoped quiet secondary for notification action rows (Accept/Decline): the
+   primary stays dark ink and leads, Decline recedes. Matches the approved
+   mockup; the warm-paper tokens used by the bb-post-card quiet secondary are
+   scoped to .home-dashboard--ideal, so the resolved values are used here. The
+   global .btn--secondary stays brick. */
+.notifications-page__item-actions .btn--secondary {
+  background: #f6efe2;
+  border: 1px solid #d8cbb8;
+  color: #4f453d;
+  font-weight: 560;
+}
+
+.notifications-page__item-actions .btn--secondary:hover {
+  background: #efe6d4;
+  border-color: #c9b99f;
 }
 
 .notifications-page__item-action-error {
