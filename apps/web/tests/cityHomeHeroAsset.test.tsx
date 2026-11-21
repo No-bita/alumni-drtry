@@ -33,6 +33,24 @@ const payload: CityPayload = {
 };
 
 describe("CityHome hero photo", () => {
+  it("other cities use the generic building photo, with no Bengaluru credit", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <CityHome
+          data={{ ...payload, place: { placeId: "pune", city: "Pune", country: "India", slug: "pune" } }}
+          profileId={null}
+          onChanged={() => {}}
+          onOptIn={() => {}}
+          onAsk={() => {}}
+          onNotice={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector("img.cities-home__photohero-img")!.getAttribute("src")).toBe("/app/login-hero-house.jpg");
+    expect(container.querySelector(".cities-home__photohero-credit")).toBeNull();
+    expect(screen.queryByRole("link", { name: "AjayTorvi" })).toBeNull();
+  });
+
   it("serves the placeholder from the app base, not the site root (Vite emits public/ under /app)", () => {
     const { container } = render(
       <MemoryRouter>
@@ -50,7 +68,7 @@ describe("CityHome hero photo", () => {
         <CityHome data={payload} profileId={null} onChanged={() => {}} onOptIn={() => {}} onAsk={() => {}} onNotice={() => {}} />
       </MemoryRouter>,
     );
-    const hero = container.querySelector(".cities-home__photohero")!;
+    const hero = container.querySelector(".cities-hub__header")!;
     expect(hero.querySelector(".cities-home__photohero-credit")?.textContent).toBe("Photo: AjayTorvi · CC BY-SA 4.0");
     expect(screen.getByRole("link", { name: "AjayTorvi" }).getAttribute("href")).toBe("https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg");
     expect(screen.getByRole("link", { name: "CC BY-SA 4.0" }).getAttribute("href")).toBe("https://creativecommons.org/licenses/by-sa/4.0/");

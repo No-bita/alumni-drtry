@@ -135,6 +135,7 @@ describe("Cities page: city home (local)", () => {
     authorFullName: "Asha Kamath",
     authorBatchYear: 2019,
     content,
+    kind: null,
     createdAt: new Date().toISOString(),
     viewerHasResponded: false,
     isMine: false,
@@ -151,7 +152,6 @@ describe("Cities page: city home (local)", () => {
     expect(screen.getByRole("heading", { name: "What do you need in Bengaluru?" })).toBeTruthy();
 
     expect(screen.getByRole("button", { name: /Housing & flatmates/ })).toBeTruthy();
-    expect(screen.getByText("Flats, flatmates and housing leads")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Neighborhoods/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Local services/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Meet people/ })).toBeTruthy();
@@ -162,6 +162,17 @@ describe("Cities page: city home (local)", () => {
     expect(screen.getByText(/Asha ’19 ·/)).toBeTruthy();
 
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
+
+    // Hub layout: Change city in the header (not the toolbar), search, and the "Your city" column.
+    const main = screen.getByRole("main");
+    expect(within(main).getByRole("button", { name: "Change city: Bengaluru" })).toBeTruthy();
+    expect(within(main).getByText("Get settled, find local help and meet alumni in Bengaluru.")).toBeTruthy();
+    expect(within(main).getByRole("searchbox", { name: "Ask alumni in Bengaluru" })).toBeTruthy();
+    const side = screen.getByRole("complementary", { name: "Your city" });
+    expect(within(side).getByRole("heading", { name: "At a glance" })).toBeTruthy();
+    expect(within(side).getByText(/alumni live here/).textContent).toBe("41 alumni live here");
+    expect(within(side).getByText(/open to city help/).textContent).toBe("6 open to city help");
+    expect(within(side).getByText(/new in town/).textContent).toBe("1 new in town");
 
     // Retired sections stay gone: alumni list, helper panel, meetups, arrivals.
     expect(screen.queryByRole("heading", { name: "Alumni in Bengaluru" })).toBeNull();
@@ -236,6 +247,77 @@ describe("Cities page: city home (local)", () => {
     mount();
     fireEvent.click(await screen.findByRole("button", { name: "Just moved? Show me as new in town ›" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+});
+
+describe("Cities page: hub layout", () => {
+  const post = (id: string, content: string, kind: "ask" | "offer" | "invitation" | null = "ask"): CityPayload["posts"][number] => ({
+    id,
+    authorPersonId: `a-${id}`,
+    authorFullName: "Asha Kamath",
+    authorBatchYear: 2019,
+    content,
+    kind,
+    createdAt: new Date().toISOString(),
+    viewerHasResponded: false,
+    isMine: false,
+  });
+
+  it("search opens Ask with the city set", async () => {
+    world(lists, payload());
+    mount();
+    const box = await screen.findByRole("searchbox", { name: "Ask alumni in Bengaluru" });
+    fireEvent.change(box, { target: { value: "Good schools in Whitefield" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    expect((await screen.findByTestId("where")).textContent).toBe("/match?q=Good+schools+in+Whitefield&city=Bengaluru");
+  });
+
+  it("shows the newest 4, View all expands without fetching when there is nothing more; tabs filter by type", async () => {
+    world(lists, payload({
+      posts: [
+        post("a1", "Ask one"),
+        post("o1", "Offer one", "offer"),
+        post("i1", "Cycling on Sunday", "invitation"),
+        post("a2", "Ask two"),
+        post("a3", "Ask three"),
+      ],
+      postsHasMore: false,
+    }));
+    mount();
+    const section = (await screen.findByRole("heading", { name: "From the Bengaluru community" })).closest("section")!;
+    expect(within(section).getAllByRole("listitem")).toHaveLength(4);
+    fireEvent.click(within(section).getByRole("button", { name: "View all posts" }));
+    expect(within(section).getAllByRole("listitem")).toHaveLength(5);
+    expect(apiGet).not.toHaveBeenCalledWith("/v1/cities/blr/posts", expect.anything());
+    fireEvent.click(within(section).getByRole("tab", { name: "Invitations" }));
+    expect(within(section).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(section).getByRole("button", { name: /Cycling on Sunday/ })).toBeTruthy();
+    fireEvent.click(within(section).getByRole("tab", { name: "Offers" }));
+    expect(within(section).getByRole("button", { name: /Offer one/ })).toBeTruthy();
+  });
+
+  it("an empty tab says so without the first-post hint", async () => {
+    world(lists, payload({ posts: [post("a1", "Ask one")] }));
+    mount();
+    const section = (await screen.findByRole("heading", { name: "From the Bengaluru community" })).closest("section")!;
+    fireEvent.click(within(section).getByRole("tab", { name: "Offers" }));
+    expect(within(section).getByText("No offers in Bengaluru right now.")).toBeTruthy();
+    expect(within(section).queryByText("Nothing to see here yet.")).toBeNull();
+  });
+
+  it("the shared reachout cards sit in the Your city column", async () => {
+    world(lists, payload());
+    const base = apiGet.getMockImplementation()!;
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/contact-requests/inbox") return { requests: [{ id: "i1" }] };
+      if (path === "/v1/contact-requests/sent") return { requests: [{ id: "s1", recipientFullName: "Sneha Nair", status: "pending", createdAt: new Date().toISOString() }] };
+      if (path === "/v1/careers/my-company-demand") return { demand: null };
+      return base(path);
+    });
+    mount();
+    const side = await screen.findByRole("complementary", { name: "Your city" });
+    expect(await within(side).findByRole("heading", { name: "Reachouts waiting for you" })).toBeTruthy();
+    expect(await within(side).findByRole("heading", { name: "Your reachouts" })).toBeTruthy();
   });
 });
 
