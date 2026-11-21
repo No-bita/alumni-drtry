@@ -7,8 +7,8 @@ afterEach(cleanup);
 describe("approved Careers feedback", () => {
   it("keeps the confirmation and dismiss action with status semantics", () => {
     const dismiss = vi.fn();
-    render(<CareersFeedback tone="success"><span>Role published. It's now under Roles from alumni.</span><button onClick={dismiss}>Dismiss</button></CareersFeedback>);
-    expect(screen.getByRole("status").textContent).toContain("Role published. It's now under Roles from alumni.");
+    render(<CareersFeedback tone="success"><span>Role published. It's now under Opportunities for you.</span><button onClick={dismiss}>Dismiss</button></CareersFeedback>);
+    expect(screen.getByRole("status").textContent).toContain("Role published. It's now under Opportunities for you.");
     expect(screen.getByRole("status").querySelector('[aria-hidden="true"]')?.textContent).toBe("✓");
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(dismiss).toHaveBeenCalledOnce();
@@ -27,7 +27,7 @@ describe("approved Careers feedback", () => {
     expect((company.match(/<CareersFeedback /g) ?? []).length).toBe(1);
     expect(page).toContain('<p className="careers__note" role="status">');
     expect(company).toContain('<p className="careers__note" role="status">');
-    expect(page).toContain('setNotice("Role published. It\'s now under Roles from alumni.")');
+    expect(page).toContain('setNotice("Role published. It\'s now under Opportunities for you.")');
     expect(page).toContain('onClick={() => void companies.refetch()}');
     expect(company).toContain('onClick={() => void query.refetch()}');
   });

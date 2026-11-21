@@ -89,7 +89,7 @@ export function CareerCompanyPage() {
       </h2>
       {posted ? (
         <p className="careers__note" role="status">
-          Posted. It&apos;s under Recent from alumni on <Link to="/intent/career">Careers</Link>.
+          Posted. It&apos;s on the <Link to="/home">Wall</Link>.
         </p>
       ) : (
         <>
