@@ -11,6 +11,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
+import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
+import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
 import { api, type IntentcastFeedItem } from "../api/client";
 import { BULLETIN_POST_MAX_LENGTH } from "../constants/bulletin";
 import {
@@ -40,6 +42,8 @@ type HiringStep = "compose" | "preview";
 type HiringEssentialShakeField = "roleTitle" | "company" | "location" | "employmentType";
 
 const SHAKE_ANIMATION_SUBSTR = "career-hiring-flow-field-shake";
+
+const AUDIENCE_BLOCKED_MESSAGE = "No one else matches this audience yet. Remove a choice under Who can see this.";
 
 const INITIAL_HIRING_FORM = {
   kind: "" as "" | "ask" | "offer" | "invitation",
@@ -104,6 +108,9 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
     const [hiringError, setHiringError] = useState<string | null>(null);
     const [hiringForm, setHiringForm] = useState({ ...INITIAL_HIRING_FORM });
     const [submitting, setSubmitting] = useState(false);
+    /** Who can see the post: Everyone each time the composer opens; fixed once posted. */
+    const [audience, setAudience] = useState<AudienceChoice>(freshAudienceChoice);
+    const [audienceState, setAudienceState] = useState<{ label: string | null; blocked: boolean }>({ label: null, blocked: false });
     const [shakeEssentialFields, setShakeEssentialFields] = useState<HiringEssentialShakeField[]>([]);
 
     const composeFirstFieldRef = useRef<HTMLInputElement>(null);
@@ -162,6 +169,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
 
     const openHiringFlow = useCallback(() => {
       setHiringOpen(true);
+      setAudience(freshAudienceChoice());
       setHiringStep("compose");
       setHiringError(null);
       setShakeEssentialFields([]);
@@ -214,10 +222,14 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
         setHiringError("Add a role summary (at least 10 characters) before preview.");
         return;
       }
+      if (audienceState.blocked) {
+        setHiringError(AUDIENCE_BLOCKED_MESSAGE);
+        return;
+      }
       setHiringError(null);
       setShakeEssentialFields([]);
       setHiringStep("preview");
-    }, [essentialsValid, hiringForm.kind, hiringForm.company, hiringForm.location, hiringForm.roleTitle, hiringForm.employmentType, hiringForm.summary]);
+    }, [audienceState.blocked, essentialsValid, hiringForm.kind, hiringForm.company, hiringForm.location, hiringForm.roleTitle, hiringForm.employmentType, hiringForm.summary]);
 
     const goBackToCompose = useCallback(() => {
       setHiringError(null);
@@ -247,10 +259,15 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       }
       setHiringError(null);
       setSubmitting(true);
+      if (audienceState.blocked) {
+        setHiringError(AUDIENCE_BLOCKED_MESSAGE);
+        return;
+      }
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
         category: "hiring",
         content,
         kind: hiringForm.kind || null,
+        ...(toApiAudience(audience) ? { audience: toApiAudience(audience) } : {}),
       });
       setSubmitting(false);
       if (apiErr || !data?.intentcast) {
@@ -263,7 +280,8 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       setHiringOpen(false);
       setHiringStep("compose");
       setHiringForm({ ...INITIAL_HIRING_FORM });
-    }, [hiringForm, onPublishSuccess, queryClient]);
+      setAudience(freshAudienceChoice());
+    }, [audience, audienceState.blocked, hiringForm, onPublishSuccess, queryClient]);
 
     useImperativeHandle(
       ref,
@@ -435,6 +453,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                       />
                     </label>
                   </div>
+                  <PostAudienceField value={audience} onChange={setAudience} onStateChange={setAudienceState} />
                   <footer className="career-hiring-flow__actions">
                     <Button type="button" variant="secondary" onClick={goToPreview}>
                       Preview
@@ -489,6 +508,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                             "Unable to build preview — go back and check required fields."}
                         </p>
                       )}
+                      <PostAudienceLabel label={audienceState.label} />
                     </article>
                   </div>
                 </>

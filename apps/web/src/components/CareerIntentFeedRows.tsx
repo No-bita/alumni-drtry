@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { PostAudienceLabel } from "./PostAudienceField";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { IntentcastFeedItem } from "../api/client";
@@ -58,6 +59,8 @@ export type CareerFeedRowModel = {
   roleListingUrl: string | null;
   /** Resume URL from structured referral composer (`Resume link:` line). */
   resumeListingUrl: string | null;
+  /** "IIT (BHU) Varanasi · Bengaluru" when the post is limited; null for Everyone. */
+  audienceLabel?: string | null;
 };
 
 function rowMatchesTab(row: CareerFeedRowModel, tab: CareerFeedTabId): boolean {
@@ -184,6 +187,7 @@ export function IntentcastActivityRowsList({
                       <p className="career-feed-rows__row-company">{row.companySubtitle}</p>
                     ) : null}
                     {description ? <p className="career-feed-rows__row-desc">{description}</p> : null}
+                    <PostAudienceLabel label={row.audienceLabel ?? null} className="career-feed-rows__audience" />
                     {row.roleListingUrl ? (
                       <p className="career-feed-rows__row-role-link">
                         <a href={row.roleListingUrl} target="_blank" rel="noopener noreferrer">

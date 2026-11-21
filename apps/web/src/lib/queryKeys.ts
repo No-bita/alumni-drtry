@@ -102,5 +102,9 @@ export const queryKeys = {
       ] as const,
     detail: (id: string) => ["intentcasts", "detail", id] as const,
     responses: (intentcastId: string) => ["intentcasts", "responses", intentcastId] as const,
+    /** The audience picker's choices for the signed-in author (their own batch, department, city). */
+    audienceOptions: () => ["intentcasts", "audience-options"] as const,
+    /** Rounded audience size for one choice (JSON of the request body). */
+    audiencePreview: (choiceKey: string) => ["intentcasts", "audience-preview", choiceKey] as const,
   },
 } as const;

@@ -49,6 +49,8 @@ import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog
 import { BulletinOwnPostMenu } from "./BulletinOwnPostMenu";
 import { BulletinPostCard } from "./BulletinPostCard";
 import { useBulletinComposeState } from "./useBulletinComposeState";
+import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
+import { toApiAudience } from "../lib/postAudience";
 import { useBulletinDialogController } from "./useBulletinDialogController";
 
 function hiringPreviewIntentcast(authorFullName: string, content: string): IntentcastFeedItem {
@@ -795,6 +797,10 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
       resetComposeFields,
       openCompose,
       validatePostInput,
+      audience,
+      setAudience,
+      audienceState,
+      setAudienceState,
     } = useBulletinComposeState({ maxLength: HIRING_COMPOSE_MAX_LENGTH });
 
     // const [hiringEmploymentType, setHiringEmploymentType] = useState("Full-time");
@@ -1126,7 +1132,9 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
 
     const handlePostIntentcast = async () => {
       const categoryForApi: BulletinCategory = lockedCategoryFilter ?? "hiring";
-      const validationError = validatePostInput();
+      const validationError =
+        validatePostInput() ??
+        (audienceState.blocked ? "No one else matches this audience yet. Remove a choice under Who can see this." : null);
       if (validationError) {
         setPostError(validationError);
         return;
@@ -1137,6 +1145,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
         category: categoryForApi,
         content: hiringComposeBody,
         kind: kind || null,
+        ...(toApiAudience(audience) ? { audience: toApiAudience(audience) } : {}),
       });
       setPostSubmitting(false);
       const posted = data?.intentcast;
@@ -1444,8 +1453,15 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                               parsed={parseHiringBulletin(hiringPreviewBody)}
                               composePreview
                             />
+                            <PostAudienceLabel label={audienceState.label} />
                           </div>
                         </div>
+                    <PostAudienceField
+                      value={audience}
+                      onChange={setAudience}
+                      onStateChange={setAudienceState}
+                      disabled={postSubmitting}
+                    />
                                         {postError ? <p className="home-dashboard__respond-error">{postError}</p> : null}
                     <div className="home-dashboard__respond-actions">
                       <Button
@@ -1827,6 +1843,7 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                     title={splitBody.title.trim() ? splitBody.title : ic.content.trim()}
                     summary={splitBody.summary}
                     footer={standardCardFooter}
+                    audienceLabel={ic.audience?.label ?? null}
                   />
                   {canEdit ? (
                     <p className="home-dashboard__bulletin-edit-hint">{formatEditWindowHint(ic.editableUntil)}</p>
@@ -1983,6 +2000,14 @@ export const BulletinPanel = forwardRef<BulletinPanelHandle, BulletinPanelProps>
                         bulletinAutoScrollPauseRef.current.wheelUntil = Date.now() + BULLETIN_AUTO_SCROLL_WHEEL_PAUSE_MS;
                       }}
                     >
+                    {highlightIntentcastId && highlightQuery.isError ? (
+                      <div className="post-unavailable" role="status">
+                        <p className="post-unavailable__title">This post isn&apos;t available to you</p>
+                        <p className="post-unavailable__body">
+                          It may have been shared with a smaller group of alumni, closed, or removed.
+                        </p>
+                      </div>
+                    ) : null}
                     <ul className="home-dashboard__bulletin-list" role="list">
                       {intentcasts.map(renderFeedItem)}
                     </ul>

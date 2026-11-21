@@ -3,8 +3,19 @@ import {
   BULLETIN_INTENTCAST_OPEN_DAYS
 } from "../constants/bulletin.js";
 import type { DbExecutor } from "../db/types.js";
-import { personIsDemoSql } from "../lib/demoPersonSql.js";
+import { personIsDemoSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
+import {
+  audienceLabel,
+  audienceParts,
+  audienceVisibleSql,
+  personMatchesAudienceSql,
+  resolvedPlaceSql,
+  type AudiencePart,
+  type AudienceSnapshot,
+  type AuthorAudienceFacts,
+  type AudienceUnavailableReason
+} from "../lib/postAudience.js";
 
 export type IntentcastStatus = "open" | "closed";
 export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "guidance";
@@ -37,6 +48,19 @@ interface IntentcastFeedRow {
   response_count: number;
   viewer_has_responded: boolean;
   author_is_demo: boolean;
+  audience_institution_name: string | null;
+  audience_batch_year: number | null;
+  audience_department_code: string | null;
+  audience_department_name: string | null;
+  audience_place_id: string | null;
+  audience_place_name: string | null;
+}
+
+/** Who can see a post: null = Everyone (migration 067). */
+export interface IntentcastAudienceView {
+  /** "IIT (BHU) Varanasi · Bengaluru" */
+  label: string;
+  parts: AudiencePart[];
 }
 
 export interface IntentcastFeedView {
@@ -71,6 +95,8 @@ export interface IntentcastFeedView {
   viewerHasResponded: boolean;
   /** Demo/test alumni author — matches `people.is_test_user` or demo institutional email prefixes. */
   authorIsDemo: boolean;
+  /** Null = Everyone. Fixed at posting. */
+  audience: IntentcastAudienceView | null;
 }
 
 export interface IntentcastFeedResult {
@@ -133,6 +159,8 @@ export interface CreateIntentcastInput {
   expiresAt: Date;
   /** Cities v1: a post made from a city page carries that city. */
   placeId?: string | null;
+  /** Who can see it (copied from the author at posting). Missing = Everyone. */
+  audience?: AudienceSnapshot | null;
 }
 
 export interface FeedInput {
@@ -155,6 +183,8 @@ export interface FeedInput {
   excludeAuthorSoftDeleted?: boolean;
   /** Omit rows in any of these categories (e.g. `guidance` for Careers activity — “Can help” hub). */
   excludeCategories?: IntentcastCategory[];
+  /** From the actor's role: admins see posts outside their audience. */
+  viewerIsAdmin?: boolean;
 }
 
 export interface CreateIntentcastResponseInput {
@@ -244,9 +274,47 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     authorDeletePurgeAt: row.author_delete_purge_at,
     responseCount: Number(row.response_count),
     viewerHasResponded: Boolean(row.viewer_has_responded),
-    authorIsDemo: Boolean(row.author_is_demo)
+    authorIsDemo: Boolean(row.author_is_demo),
+    audience: mapAudience(row)
   };
 }
+
+function mapAudience(row: Pick<
+  IntentcastFeedRow,
+  | "audience_institution_name"
+  | "audience_batch_year"
+  | "audience_department_code"
+  | "audience_department_name"
+  | "audience_place_id"
+  | "audience_place_name"
+>): IntentcastAudienceView | null {
+  const batchYear = row.audience_batch_year != null ? Number(row.audience_batch_year) : null;
+  const parts = audienceParts({
+    emailDomains: row.audience_institution_name ? [row.audience_institution_name] : null,
+    batchYear,
+    departmentCode: row.audience_department_code,
+    placeId: row.audience_place_id
+  });
+  if (parts.length === 0) return null;
+  const label =
+    audienceLabel({
+      institutionName: row.audience_institution_name,
+      batchYear,
+      departmentName: row.audience_department_name,
+      placeName: row.audience_place_name
+    }) ?? "A smaller group";
+  return { label, parts };
+}
+
+/** Audience columns for a feed row; needs the AUDIENCE_PLACE_JOIN join. */
+const AUDIENCE_SELECT = `
+        i.audience_institution_name,
+        i.audience_batch_year,
+        i.audience_department_code,
+        i.audience_department_name,
+        i.audience_place_id,
+        aud_place.city_label AS audience_place_name`;
+const AUDIENCE_PLACE_JOIN = `LEFT JOIN canonical_places aud_place ON aud_place.id = i.audience_place_id`;
 
 function mapResponseRow(row: IntentcastResponseViewRow): IntentcastResponseView {
   return {
@@ -268,11 +336,28 @@ export class IntentcastRepo {
   async create(input: CreateIntentcastInput): Promise<IntentcastRow> {
     const result = await this.db.query<IntentcastRow>(
       `
-      INSERT INTO intentcasts (author_person_id, content, category, kind, expires_at, editable_until, place_id)
-      VALUES ($1, $2, $3, $4, $5, now() + interval '5 minutes', $6::uuid)
+      INSERT INTO intentcasts (
+        author_person_id, content, category, kind, expires_at, editable_until, place_id,
+        audience_email_domains, audience_institution_name, audience_batch_year,
+        audience_department_code, audience_department_name, audience_place_id
+      )
+      VALUES ($1, $2, $3, $4, $5, now() + interval '5 minutes', $6::uuid, $7::text[], $8, $9, $10, $11, $12::uuid)
       RETURNING *
       `,
-      [input.authorPersonId, input.content, input.category, input.kind ?? null, input.expiresAt, input.placeId ?? null]
+      [
+        input.authorPersonId,
+        input.content,
+        input.category,
+        input.kind ?? null,
+        input.expiresAt,
+        input.placeId ?? null,
+        input.audience?.emailDomains ?? null,
+        input.audience?.institutionName ?? null,
+        input.audience?.batchYear ?? null,
+        input.audience?.departmentCode ?? null,
+        input.audience?.departmentName ?? null,
+        input.audience?.placeId ?? null
+      ]
     );
     return result.rows[0]!;
   }
@@ -369,6 +454,9 @@ export class IntentcastRepo {
       );
     }
 
+    // Who can see each post (migration 067). `vp` is the viewer, joined below.
+    where.push(audienceVisibleSql("i", "vp", { viewerIsAdmin: input.viewerIsAdmin }));
+
     if (input.excludeCategories && input.excludeCategories.length > 0) {
       const placeholders = input.excludeCategories.map((cat) => {
         const ph = bind(cat);
@@ -415,9 +503,10 @@ export class IntentcastRepo {
           WHERE r_v.intentcast_id = i.id
             AND r_v.responder_person_id = ${viewerPh}
         ) AS viewer_has_responded,
-        ${personIsDemoSql("p")} AS author_is_demo
+        ${personIsDemoSql("p")} AS author_is_demo,${AUDIENCE_SELECT}
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
+      ${AUDIENCE_PLACE_JOIN}
       LEFT JOIN people vp ON vp.id = ${viewerPh}::uuid
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN LATERAL (
@@ -502,9 +591,10 @@ export class IntentcastRepo {
               AND r_v.responder_person_id = $2::uuid
           )
         ) AS viewer_has_responded,
-        ${personIsDemoSql("p")} AS author_is_demo
+        ${personIsDemoSql("p")} AS author_is_demo,${AUDIENCE_SELECT}
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
+      ${AUDIENCE_PLACE_JOIN}
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN LATERAL (
         SELECT o.role_title, org.name::text AS org_name
@@ -531,7 +621,8 @@ export class IntentcastRepo {
    */
   async findFeedItemVisibleToViewer(
     intentcastId: string,
-    viewerPersonId: string
+    viewerPersonId: string,
+    viewerIsAdmin = false
   ): Promise<IntentcastFeedView | null> {
     const result = await this.db.query<IntentcastFeedRow>(
       `
@@ -567,9 +658,10 @@ export class IntentcastRepo {
           WHERE r_v.intentcast_id = i.id
             AND r_v.responder_person_id = $2::uuid
         ) AS viewer_has_responded,
-        ${personIsDemoSql("p")} AS author_is_demo
+        ${personIsDemoSql("p")} AS author_is_demo,${AUDIENCE_SELECT}
       FROM intentcasts i
       JOIN people p ON p.id = i.author_person_id
+      ${AUDIENCE_PLACE_JOIN}
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN LATERAL (
         SELECT o.role_title, org.name::text AS org_name
@@ -580,6 +672,7 @@ export class IntentcastRepo {
         ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
         LIMIT 1
       ) cur_occ ON TRUE
+      LEFT JOIN people vp ON vp.id = $2::uuid
       WHERE i.id = $1
         AND p.deleted_at IS NULL
         AND p.suspended_at IS NULL
@@ -592,6 +685,8 @@ export class IntentcastRepo {
             -- i.expires_at > now() AND
             i.status = 'open'
             AND i.author_soft_deleted_at IS NULL
+            -- Outside the audience looks exactly like closed or removed (migration 067).
+            AND ${audienceVisibleSql("i", "vp", { viewerIsAdmin })}
           )
         )
       LIMIT 1
@@ -739,6 +834,114 @@ export class IntentcastRepo {
       params
     );
     return result.rows[0] ?? null;
+  }
+
+  /**
+   * Whether `viewerPersonId` is in the post's audience (or is its author). Says nothing about open/closed.
+   * No admin bypass: replying stays audience-bound even for admins.
+   */
+  async isInAudience(intentcastId: string, viewerPersonId: string): Promise<boolean> {
+    const result = await this.db.query(
+      `
+      SELECT 1
+      FROM intentcasts i
+      LEFT JOIN people vp ON vp.id = $2::uuid
+      WHERE i.id = $1::uuid AND ${audienceVisibleSql("i", "vp")}
+      `,
+      [intentcastId, viewerPersonId]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * How many OTHER members an audience reaches right now: active accounts the author's feed rules would
+   * show the post to (demo authors count demo members, real authors real ones). For the size preview
+   * and the "no one matches" check only; never returned unrounded.
+   */
+  async countAudience(authorPersonId: string, authorIsDemo: boolean, a: AudienceSnapshot): Promise<number> {
+    const result = await this.db.query<{ n: string }>(
+      `
+      SELECT COUNT(*)::text AS n
+      FROM people v
+      WHERE v.id <> $1::uuid
+        AND v.deleted_at IS NULL
+        AND v.suspended_at IS NULL
+        AND ${personIsDiscoverableForViewerSql("v", authorIsDemo)}
+        AND ${personMatchesAudienceSql("v", {
+          emailDomains: "$2::text[]",
+          batchYear: "$3::int",
+          departmentCode: "$4::text",
+          placeId: "$5::uuid"
+        })}
+      `,
+      [authorPersonId, a.emailDomains, a.batchYear, a.departmentCode, a.placeId]
+    );
+    return Number(result.rows[0]?.n ?? "0");
+  }
+
+  /** The author's own details an audience can use, and why any of them can't be used. */
+  async loadAuthorAudienceFacts(
+    personId: string
+  ): Promise<(AuthorAudienceFacts & { institutionalEmail: string; isDemo: boolean }) | null> {
+    const result = await this.db.query<{
+      institutional_email: string;
+      is_demo: boolean;
+      batch_year: number | null;
+      department_code: string | null;
+      department_name: string | null;
+      department_other_text: string | null;
+      department_other_status: string | null;
+      raw_place_id: string | null;
+      place_id: string | null;
+      place_name: string | null;
+      place_status: string | null;
+      residence_city: string | null;
+    }>(
+      `
+      SELECT
+        p.institutional_email::text AS institutional_email,
+        ${personIsDemoSql("p")} AS is_demo,
+        COALESCE(p.batch_year, p.joining_year)::int AS batch_year,
+        NULLIF(lower(COALESCE(d.code, p.department_code)), 'other') AS department_code,
+        COALESCE(d.name, p.department_name) AS department_name,
+        p.department_other_text,
+        p.department_other_status,
+        p.residence_canonical_place_id AS raw_place_id,
+        rp.id AS place_id,
+        rp.city_label AS place_name,
+        rp.status AS place_status,
+        p.residence_city
+      FROM people p
+      LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN canonical_places rp ON rp.id = ${resolvedPlaceSql("p.residence_canonical_place_id")}
+      WHERE p.id = $1::uuid
+      `,
+      [personId]
+    );
+    const r = result.rows[0];
+    if (!r) return null;
+
+    let departmentUnavailable: AudienceUnavailableReason | null = null;
+    if (!r.department_code) {
+      if (r.department_other_text && r.department_other_status === "pending") departmentUnavailable = "pending_review";
+      else if (r.department_other_text && r.department_other_status === "approved") departmentUnavailable = "other_department";
+      else departmentUnavailable = "missing";
+    }
+    let placeUnavailable: AudienceUnavailableReason | null = null;
+    if (!r.place_id) placeUnavailable = r.residence_city && r.residence_city.trim() ? "city_not_linked" : "missing";
+    else if (r.place_status && r.place_status !== "approved") placeUnavailable = "city_pending";
+
+    return {
+      institutionalEmail: r.institutional_email,
+      isDemo: Boolean(r.is_demo),
+      batchYear: r.batch_year != null ? Number(r.batch_year) : null,
+      departmentCode: departmentUnavailable ? null : r.department_code,
+      departmentName: departmentUnavailable ? null : r.department_name ?? r.department_code,
+      departmentUnavailable,
+      placeId: placeUnavailable ? null : r.place_id,
+      placeName: placeUnavailable ? null : r.place_name,
+      placeUnavailable
+    };
   }
 
   async createResponse(input: CreateIntentcastResponseInput): Promise<IntentcastResponseRow> {

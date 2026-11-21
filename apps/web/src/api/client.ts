@@ -1,3 +1,4 @@
+import type { PostAudience } from "../lib/postAudience";
 import { getApiRateLimit, rateLimitedFetch } from "../lib/apiRateLimit";
 import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
@@ -430,6 +431,8 @@ export type IntentcastFeedItem = {
   viewerHasResponded: boolean;
   /** Author is demo/test alumni (`is_test_user` or batchdemo/platformdemo email prefixes). */
   authorIsDemo?: boolean;
+  /** Who can see it; null or missing = Everyone. Fixed once posted. */
+  audience?: PostAudience;
 };
 
 /** GET /v1/intentcasts/:id/responses (author only) */

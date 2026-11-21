@@ -89,3 +89,18 @@ describe("Home Wall pins", () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["home", "opportunity-rail"] }));
   });
 });
+
+describe("Home Wall pins with a post audience", () => {
+  it("a pinned restricted post shows who can see it next to the pin, so the admin knows the slot is narrowed", () => {
+    const toggle = vi.fn();
+    wrap(<IntentcastActivityRowsList rows={[{ ...row, audienceLabel: "2008 batch" }]} viewerPersonId="viewer"
+      deleteSubmittingId={null} onRequestDelete={vi.fn()}
+      wallPins={new Map([[row.id, "2026-11-20T13:00:00Z"]])} onToggleWallPin={toggle} />);
+    expect(screen.getByText("Pinned")).toBeTruthy();
+    expect(screen.getByText("Visible to: 2008 batch")).toBeTruthy();
+  });
+  it("a pinned Everyone post shows no audience line", () => {
+    rows({ admin: true, pinned: true });
+    expect(screen.queryByText(/Visible to:/)).toBeNull();
+  });
+});

@@ -77,6 +77,28 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `POST /v1/intentcasts/:id/respond`: creates a private response to the author.
 - `GET /v1/intentcasts/:id/responses`: returns `{ responses }` for the post author.
 
+### Post audience (who can see a post)
+
+See [post-audience.md](./post-audience.md).
+
+- `POST /v1/intentcasts` accepts an optional `audience`. Leave it out, or send `null` or `{}`, for Everyone (the default). Otherwise send `{ institution?: string | null, batch?: boolean, department?: boolean, city?: boolean }`, with no other keys (400 `AUDIENCE_BAD_REQUEST`).
+  - `institution` is an institute key from audience-options. `null` means all institutes. An unknown key gets 400 `AUDIENCE_BAD_REQUEST`.
+  - `batch`, `department` and `city` copy the author's own values at posting time. The client never sends values.
+  - If the author lacks a picked detail, the server returns 422 `AUDIENCE_DETAIL_MISSING`. If no one else matches, it returns 422 `AUDIENCE_EMPTY`.
+  - The audience can't be changed after posting. `PATCH` ignores it.
+- Every post in `GET /v1/intentcasts`, `GET /v1/intentcasts/:id`, the create response and `GET /v1/cities/:placeId/posts` carries `audience`. It is `null` for Everyone, or `{ label, parts }`, where `parts` is a subset of `institution | batch | department | city`.
+- A narrowed post appears only to members who match every picked part on their current profile, plus its author and admins (actor role `admin` or `super_admin`). This holds in the feed, on the Home Wall (`scope=home_wall`, including pinned posts), on the shared link and on the city page. Everyone else gets the feed without it and 404 on the shared link.
+- Replies stay audience-bound for everyone, admins included. Anyone outside the audience gets 404 `INTENTCAST_NOT_FOUND` on `/respond`, the same as for a missing post.
+- `PATCH /v1/admin/intentcasts/:id/pin` can pin a narrowed post. Its audience is kept.
+- `GET /v1/intentcasts/audience-options` returns `{ institutions: [{ key, name }], ownInstitutionKey, batch, department, city }`.
+  - Each of `batch`, `department` and `city` is `{ available, value, reason }`.
+  - `reason` is `missing | pending_review | other_department | city_not_linked | city_pending`.
+- `POST /v1/intentcasts/audience-preview` takes `{ audience }` and returns one of:
+  - `{ everyone: true, label: null, size: null }`
+  - `{ everyone: false, label, size: "none" | "under10" | "about", approx? }`
+
+  Sizes are rounded and an exact count is never returned. Each call counts as a discovery read.
+
 ## Careers (signed in)
 
 - `GET /v1/careers/company?name=&role=&cursor=`: the company screen. `{ company, current, past, pageInfo }`; each person `{ id, fullName, batchYear, roleTitle, organizationName, openToReferrals, yourNote }`. Matches a company the way Ask does (the company's name or its main company's name contains the typed name as whole words, ignoring capitals); current open-to-referrals first; 50 per page - pass the previous page's `pageInfo.nextCursor` as `cursor` for the next page (`null` when everything is loaded, invalid cursor answers 400 `CAREERS_BAD_REQUEST`); never the viewer; demo/test profiles follow Ask's rules. The first page of each lookup is logged in the search log as a referral question with `parser_source = 'careers'` (not for the demo account); later pages are the same lookup and not logged again. Same read budget as the directory, per page.

@@ -17,6 +17,19 @@ import {
   type IntentcastStatus
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
+import {
+  audienceLabel,
+  buildAudienceSnapshot,
+  institutionForEmail,
+  isEveryone,
+  listInstitutions,
+  roundAudienceSize,
+  type AudienceInput,
+  type AudiencePart,
+  type AudienceSize,
+  type AudienceSnapshot,
+  type AudienceUnavailableReason
+} from "../lib/postAudience.js";
 import type { EmailSender } from "./emailSender.js";
 
 function splitBulletinHeadlineAndDetails(raw: string): { headline: string; details: string } {
@@ -64,7 +77,37 @@ export interface CreateIntentcastInput {
   kind?: IntentcastKind | null;
   /** Cities v1: canonical place id when posted from a city page. */
   placeId?: string | null;
+  /** Who can see it. Missing or empty = Everyone. Values come from the author's profile, never the client. */
+  audience?: AudienceInput | null;
 }
+
+/** One of the author's own details, for the audience picker. */
+export interface AudienceOptionDetail {
+  available: boolean;
+  /** Shown beside the checkbox: "2025", "Materials Science", "Bengaluru". */
+  value: string | null;
+  reason: AudienceUnavailableReason | null;
+}
+
+export interface AudienceOptionsView {
+  institutions: Array<{ key: string; name: string }>;
+  /** The author's own institute key, listed first in the picker. */
+  ownInstitutionKey: string | null;
+  batch: AudienceOptionDetail;
+  department: AudienceOptionDetail;
+  city: AudienceOptionDetail;
+}
+
+export type AudiencePreviewView =
+  | { everyone: true; label: null; size: null }
+  | { everyone: false; label: string; size: AudienceSize["size"]; approx?: number };
+
+const AUDIENCE_PART_WORDS: Record<AudiencePart, string> = {
+  institution: "institute",
+  batch: "batch",
+  department: "department",
+  city: "city"
+};
 
 export interface IntentcastFeedOutput {
   intentcasts: IntentcastFeedView[];
@@ -141,8 +184,9 @@ export class IntentcastService {
       if (!target.rows[0]) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
       await client.query("SELECT slot FROM wall_post_pins ORDER BY slot FOR UPDATE");
       const repo = new IntentcastRepo(client);
-      // Same visibility predicate as direct-link/feed reads, including audience once integrated.
-      const visible = await repo.findFeedItemVisibleToViewer(intentcastId, actor.personId);
+      // Same visibility predicate as direct-link/feed reads. The actor is an admin (checked above), and
+      // admins see every post, so a restricted post can be pinned; its audience still decides who sees it.
+      const visible = await repo.findFeedItemVisibleToViewer(intentcastId, actor.personId, true);
       if (!visible) throw new AppError(404, "INTENTCAST_NOT_FOUND", "Post not found.");
       if (!pinned) {
         await client.query("UPDATE wall_post_pins SET intentcast_id = NULL, pinned_at = NULL, pinned_by_person_id = NULL WHERE intentcast_id = $1", [intentcastId]);
@@ -198,6 +242,7 @@ export class IntentcastService {
         throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Unknown city.");
       }
     }
+    const audience = await this.resolveAudience(authorPersonId, input.audience ?? null, { requireSomeone: true });
     const expiresAt = new Date(
       Date.now() + BULLETIN_INTENTCAST_OPEN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -208,7 +253,8 @@ export class IntentcastService {
         category: input.category,
         kind: input.kind ?? null,
         expiresAt,
-        placeId: input.placeId ?? null
+        placeId: input.placeId ?? null,
+        audience: audience.snapshot
       })
       .catch((err: unknown) => {
         // Unknown city id (foreign key): a bad request, not a server error.
@@ -225,10 +271,10 @@ export class IntentcastService {
   }
 
   /** One feed card if the viewer may see it (feed rules, or always when viewer is the author). */
-  async getFeedItemForViewer(viewerPersonId: string, intentcastId: string): Promise<IntentcastFeedView | null> {
+  async getFeedItemForViewer(viewerPersonId: string, intentcastId: string, viewerIsAdmin = false): Promise<IntentcastFeedView | null> {
     await this.intentcastRepo.expireOpenIntentcasts();
     await this.intentcastRepo.purgeAuthorSoftDeletedIntentcasts(500);
-    return this.intentcastRepo.findFeedItemVisibleToViewer(intentcastId, viewerPersonId);
+    return this.intentcastRepo.findFeedItemVisibleToViewer(intentcastId, viewerPersonId, viewerIsAdmin);
   }
 
   async listFeed(
@@ -243,6 +289,8 @@ export class IntentcastService {
       authorHistory?: boolean;
       excludeAuthorSoftDeleted?: boolean;
       excludeCategories?: IntentcastCategory[];
+      /** From the actor's role (isAdminRole): admins see posts outside their audience. */
+      viewerIsAdmin?: boolean;
     }
   ): Promise<IntentcastFeedOutput> {
     await this.intentcastRepo.expireOpenIntentcasts();
@@ -257,7 +305,8 @@ export class IntentcastService {
       mine: options?.mine,
       authorHistory: options?.authorHistory,
       excludeAuthorSoftDeleted: options?.excludeAuthorSoftDeleted,
-      excludeCategories: options?.excludeCategories
+      excludeCategories: options?.excludeCategories,
+      viewerIsAdmin: options?.viewerIsAdmin
     });
 
     return {
@@ -416,6 +465,88 @@ export class IntentcastService {
     }
   }
 
+  /** What the audience picker can offer this author: institutes, and their own batch, department, city. */
+  async getAudienceOptions(authorPersonId: string): Promise<AudienceOptionsView> {
+    const facts = await this.intentcastRepo.loadAuthorAudienceFacts(authorPersonId);
+    if (!facts) throw new AppError(404, "PERSON_NOT_FOUND", "Member not found.");
+    const institutions = listInstitutions();
+    const own = institutionForEmail(facts.institutionalEmail, institutions);
+    return {
+      institutions: institutions.map((i) => ({ key: i.key, name: i.name })),
+      ownInstitutionKey: own?.key ?? null,
+      batch: {
+        available: facts.batchYear !== null,
+        value: facts.batchYear !== null ? String(facts.batchYear) : null,
+        reason: facts.batchYear !== null ? null : "missing"
+      },
+      department: {
+        available: !facts.departmentUnavailable,
+        value: facts.departmentName,
+        reason: facts.departmentUnavailable
+      },
+      city: {
+        available: !facts.placeUnavailable,
+        value: facts.placeName,
+        reason: facts.placeUnavailable
+      }
+    };
+  }
+
+  /** Label and rounded size of an audience, for the picker. Never an exact count. */
+  async previewAudience(authorPersonId: string, input: AudienceInput | null): Promise<AudiencePreviewView> {
+    const resolved = await this.resolveAudience(authorPersonId, input, { requireSomeone: false });
+    if (!resolved.label) return { everyone: true, label: null, size: null };
+    const size = roundAudienceSize(resolved.count ?? 0);
+    return size.size === "about"
+      ? { everyone: false, label: resolved.label, size: "about", approx: size.approx }
+      : { everyone: false, label: resolved.label, size: size.size };
+  }
+
+  /**
+   * Build the stored audience from the author's real details. Refuses a detail the author doesn't have,
+   * an unknown institute, and (when posting) an audience no one else matches.
+   */
+  private async resolveAudience(
+    authorPersonId: string,
+    input: AudienceInput | null,
+    opts: { requireSomeone: boolean }
+  ): Promise<{ snapshot: AudienceSnapshot | null; label: string | null; count: number | null }> {
+    if (!input || (!input.institution && !input.batch && !input.department && !input.city)) {
+      return { snapshot: null, label: null, count: null };
+    }
+    const facts = await this.intentcastRepo.loadAuthorAudienceFacts(authorPersonId);
+    if (!facts) throw new AppError(404, "PERSON_NOT_FOUND", "Member not found.");
+    const built = buildAudienceSnapshot(input, facts, listInstitutions());
+    if (!built.ok) {
+      if (built.reason === "unknown_institution") {
+        throw new AppError(400, "AUDIENCE_BAD_REQUEST", "Unknown institute.");
+      }
+      const words = built.missing.map((m) => AUDIENCE_PART_WORDS[m]).join(", ");
+      throw new AppError(
+        422,
+        "AUDIENCE_DETAIL_MISSING",
+        `Your profile doesn't have a usable ${words} yet, so you can't limit the post by it.`
+      );
+    }
+    if (isEveryone(built.snapshot)) return { snapshot: null, label: null, count: null };
+    const label =
+      audienceLabel({
+        institutionName: built.snapshot.institutionName,
+        batchYear: built.snapshot.batchYear,
+        departmentName: built.snapshot.departmentName,
+        placeName: built.snapshot.placeId ? facts.placeName : null
+      }) ?? "A smaller group";
+    const count = await this.intentcastRepo.countAudience(authorPersonId, facts.isDemo, built.snapshot);
+    if (opts.requireSomeone && count === 0) {
+      throw new AppError(
+        422,
+        "AUDIENCE_EMPTY",
+        "No one else matches all of these yet, so nobody would see your post. Remove one and try again."
+      );
+    }
+    return { snapshot: built.snapshot, label, count };
+  }
+
   async respondToIntentcast(
     responderPersonId: string,
     intentcastId: string,
@@ -435,6 +566,11 @@ export class IntentcastService {
     }
     if (intentcast.author_person_id === responderPersonId) {
       throw new AppError(400, "INTENTCAST_SELF_RESPONSE", "You cannot respond to your own intentcast.");
+    }
+    // Outside the post's audience: the same answer as a post that doesn't exist (migration 067).
+    // No admin bypass here: admins can see every post but reply only where they are in the audience.
+    if (!(await this.intentcastRepo.isInAudience(intentcastId, responderPersonId))) {
+      throw new AppError(404, "INTENTCAST_NOT_FOUND", "Intentcast not found.");
     }
 
     const message = input.message.trim();

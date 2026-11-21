@@ -24,7 +24,7 @@ Exact predicates live in `listFeed()` — **do not duplicate them here verbatim*
 
 `scope=home_wall` opts the shared, open feed into Wall pin ranking. It cannot be combined with `mine`, `authorHistory`, or closed status. Careers and other feeds keep the ordering below and receive no pin marker.
 
-For Home Wall only, visible pinned posts sort before the normal ranking, newest `pinned_at` first. This happens in SQL before pagination. All existing post and author eligibility checks still apply. Pinning is not a visibility or audience override. When audience controls are integrated, their viewer predicate must remain in both the feed and `findFeedItemVisibleToViewer`, which also gates pin mutations.
+For Home Wall only, visible pinned posts sort before the normal ranking, newest `pinned_at` first. This happens in SQL before pagination. All existing post and author eligibility checks still apply. Pinning is not a visibility or audience override. The post audience rule (`audienceVisibleSql`, see [post-audience.md](./post-audience.md)) applies in both the feed and `findFeedItemVisibleToViewer`, which also gates pin mutations. Admins see every post, so they can pin a restricted one. Members outside its audience still don't see it, and the pinned card shows "Visible to: …".
 
 Admins and super-admins can use `PATCH /v1/admin/intentcasts/:id/pin` with `{ "pinned": true }` or `{ "pinned": false }`. Demo sessions cannot mutate pins. Two fixed database slots enforce a global maximum of two pins, including concurrent requests. Re-pinning an already pinned post is idempotent and keeps its original time. At the limit, a new pin returns `WALL_PIN_LIMIT`; an admin must unpin a post explicitly. No notifications are sent.
 
