@@ -19,6 +19,7 @@ import {
   type NewcomerOffer,
 } from "../../lib/cities";
 import { CitySheet, Initials } from "./CitySheet";
+import { FormActions, FormField } from "../forms";
 
 const NOTE_MIN = 10;
 const NOTE_MAX = 3000;
@@ -74,17 +75,16 @@ export function NewcomerNoteSheet({
       onClose={onClose}
     >
       <div className="cities-sheet__body">
-        <label htmlFor={noteId} className="cities__label">
-          Your note
-        </label>
-        <textarea
-          id={noteId}
-          className="cities__textarea"
-          rows={5}
-          maxLength={NOTE_MAX}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
+        <FormField label="Your note">
+          <textarea
+            id={noteId}
+            className="cities__textarea"
+            rows={5}
+            maxLength={NOTE_MAX}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </FormField>
         <p className="cities__infobox">
           {name} sees your name, batch and this note, and can accept or decline. Contact details are shared only if they accept.
         </p>
@@ -93,12 +93,10 @@ export function NewcomerNoteSheet({
             {error}
           </p>
         ) : null}
-        <button type="button" className="cities__primary" disabled={tooShort || busy} onClick={() => void send()}>
-          {busy ? "Sending…" : `Send to ${name}`}
-        </button>
-        <button type="button" className="cities__textbtn cities__textbtn--center" onClick={onClose} disabled={busy}>
-          Cancel
-        </button>
+        <FormActions
+          secondary={{ label: "Cancel", onClick: onClose, disabled: busy }}
+          primary={{ label: busy ? "Sending…" : `Send to ${name}`, disabled: tooShort || busy, onClick: () => void send() }}
+        />
       </div>
     </CitySheet>
   );
@@ -158,27 +156,26 @@ export function CityAskComposer({
   return (
     <CitySheet title={`Ask ${name} for help`} lead={<Initials name={person.fullName} />} subtitle={personSubtitle(person)} busy={busy} onClose={onClose}>
       <div className="cities-sheet__body">
-        <label htmlFor={whenId} className="cities__label">
-          {mode === "moving" ? "When are you moving?" : "When are you visiting?"} <span className="cities__optional">(required)</span>
-        </label>
-        {mode === "moving" ? (
-          <select id={whenId} className="cities__input" value={when} onChange={(e) => setWhen(e.target.value)}>
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            id={whenId}
-            className="cities__input"
-            value={when}
-            maxLength={80}
-            placeholder="e.g. 12–15 Nov"
-            onChange={(e) => setWhen(e.target.value)}
-          />
-        )}
+        <FormField label={mode === "moving" ? "When are you moving?" : "When are you visiting?"} required>
+          {mode === "moving" ? (
+            <select id={whenId} className="cities__input" value={when} onChange={(e) => setWhen(e.target.value)}>
+              {months.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={whenId}
+              className="cities__input"
+              value={when}
+              maxLength={80}
+              placeholder="e.g. 12–15 Nov"
+              onChange={(e) => setWhen(e.target.value)}
+            />
+          )}
+        </FormField>
         <fieldset className="cities__fieldset">
           <legend className="cities__label">
             One thing you need <span className="cities__optional">(required)</span>
@@ -198,18 +195,12 @@ export function CityAskComposer({
           </div>
         </fieldset>
         {need === "Other" ? (
-          <>
-            <label htmlFor={otherId} className="cities__label">
-              What do you need?
-            </label>
+          <FormField label="What do you need?">
             <input id={otherId} className="cities__input" maxLength={80} value={otherNeed} onChange={(e) => setOtherNeed(e.target.value)} />
-          </>
+          </FormField>
         ) : null}
         {need ? (
-          <>
-            <label htmlFor={noteId} className="cities__label">
-              Your note
-            </label>
+          <FormField label="Your note">
             <textarea
               id={noteId}
               className="cities__textarea"
@@ -221,7 +212,7 @@ export function CityAskComposer({
                 setNote(e.target.value);
               }}
             />
-          </>
+          </FormField>
         ) : null}
         <p className="cities__infobox">
           {name} sees your name, batch and this note, and can accept or decline. Your contact details are shared only if they accept.
@@ -231,12 +222,10 @@ export function CityAskComposer({
             {error}
           </p>
         ) : null}
-        <button type="button" className="cities__primary" disabled={!ready || busy} onClick={() => void send()}>
-          {busy ? "Sending…" : "Send ask"}
-        </button>
-        <button type="button" className="cities__textbtn cities__textbtn--center" onClick={onClose} disabled={busy}>
-          Cancel
-        </button>
+        <FormActions
+          secondary={{ label: "Cancel", onClick: onClose, disabled: busy }}
+          primary={{ label: busy ? "Sending…" : "Send ask", disabled: !ready || busy, onClick: () => void send() }}
+        />
       </div>
     </CitySheet>
   );
@@ -269,28 +258,25 @@ export function CityReplySheet({ post, onClose, onSent }: { post: CityPost; onCl
     <CitySheet title={`Reply to ${name}`} subtitle="Only they see your reply." busy={busy} onClose={onClose}>
       <div className="cities-sheet__body">
         <blockquote className="cities__quote">{post.content}</blockquote>
-        <label htmlFor={replyId} className="cities__label">
-          Your reply
-        </label>
-        <textarea
-          id={replyId}
-          className="cities__textarea"
-          rows={4}
-          maxLength={BULLETIN_REPLY_MAX_LENGTH}
-          value={msg}
-          onChange={(e) => setMsg(e.target.value)}
-        />
+        <FormField label="Your reply">
+          <textarea
+            id={replyId}
+            className="cities__textarea"
+            rows={4}
+            maxLength={BULLETIN_REPLY_MAX_LENGTH}
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+          />
+        </FormField>
         {error ? (
           <p className="cities__error" role="alert">
             {error}
           </p>
         ) : null}
-        <button type="button" className="cities__primary" disabled={!ok || busy} onClick={() => void send()}>
-          {busy ? "Sending…" : "Send reply"}
-        </button>
-        <button type="button" className="cities__textbtn cities__textbtn--center" onClick={onClose} disabled={busy}>
-          Cancel
-        </button>
+        <FormActions
+          secondary={{ label: "Cancel", onClick: onClose, disabled: busy }}
+          primary={{ label: busy ? "Sending…" : "Send reply", disabled: !ok || busy, onClick: () => void send() }}
+        />
       </div>
     </CitySheet>
   );

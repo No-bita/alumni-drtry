@@ -10,6 +10,7 @@ import {
   type HelpKind,
 } from "../../lib/cities";
 import { CitySheet, Initials } from "./CitySheet";
+import { FormActions, FormField } from "../forms";
 
 function offerError(code: string | undefined): string {
   switch (code) {
@@ -72,19 +73,17 @@ export function OfferHelpSheet({
       onClose={onClose}
     >
       <div className="cities-sheet__body">
-        <label htmlFor={lineId} className="cities__label">
-          One line about you <span className="cities__optional">(optional)</span>
-        </label>
-        <textarea
-          id={lineId}
-          className="cities__textarea"
-          rows={3}
-          maxLength={OFFER_LINE_MAX}
-          value={line}
-          placeholder="e.g. Six years in Bengaluru, live in HSR and work in Koramangala."
-          onChange={(e) => setLine(e.target.value)}
-        />
-        <p className="cities__hint">Shown with your offer. {OFFER_LINE_MAX} characters.</p>
+        <FormField label="One line about you (optional)" help={`Shown with your offer. ${OFFER_LINE_MAX} characters.`}>
+          <textarea
+            id={lineId}
+            className="cities__textarea"
+            rows={3}
+            maxLength={OFFER_LINE_MAX}
+            value={line}
+            placeholder="e.g. Six years in Bengaluru, live in HSR and work in Koramangala."
+            onChange={(e) => setLine(e.target.value)}
+          />
+        </FormField>
 
         <fieldset className="cities__fieldset">
           <legend className="cities__label">What you can help with</legend>
@@ -112,12 +111,10 @@ export function OfferHelpSheet({
             {error}
           </p>
         ) : null}
-        <button type="button" className="cities__primary" disabled={kinds.length === 0 || busy} onClick={() => void send()}>
-          {busy ? "Sending…" : "Send offer"}
-        </button>
-        <button type="button" className="cities__textbtn cities__textbtn--center" onClick={onClose} disabled={busy}>
-          Cancel
-        </button>
+        <FormActions
+          secondary={{ label: "Cancel", onClick: onClose, disabled: busy }}
+          primary={{ label: busy ? "Sending…" : "Send offer", disabled: kinds.length === 0 || busy, onClick: () => void send() }}
+        />
       </div>
     </CitySheet>
   );
