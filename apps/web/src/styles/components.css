@@ -21689,3 +21689,9 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
     gap: 12px;
   }
 }
+
+/* Preserve post text and keep pasted URLs inside narrow Wall cards. */
+.wall-post-body-links { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wall-post-body-links a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.wall-post-body-links a:hover { color: var(--brick); }
+.wall-post-body-links a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }

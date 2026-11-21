@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { IntentcastFeedItem } from "../api/client";
 import { api } from "../api/client";
 import { CAREER_FEED_INCLUDE_GUIDANCE, mapIntentcastToRow, laneBadgeLabel } from "../lib/careerFeedRow";
+import { PostBodyLinks } from "./PostBodyLinks";
 import { Avatar } from "./Avatar";
 import { BulletinDeleteIntentcastDialog } from "./BulletinDeleteIntentcastDialog";
 import { WallPinBadge } from "./WallPinBadge";
@@ -135,6 +136,8 @@ export type IntentcastActivityRowsListProps = {
    * Use for inbound-reply lists where row ids are not intentcast ids.
    */
   ownerDeleteMenu?: boolean;
+  /** Wall post bodies only; other shared surfaces retain plain text. */
+  linkifyBody?: boolean;
 };
 
 /** Shared row layout for Careers activity and Home Active Requests. */
@@ -145,6 +148,7 @@ export function IntentcastActivityRowsList({
   onRequestDelete,
   listClassName,
   ownerDeleteMenu = true,
+  linkifyBody = false,
   wallPins,
   onToggleWallPin,
   pinSubmitting = false,
@@ -186,7 +190,7 @@ export function IntentcastActivityRowsList({
                     {row.companySubtitle ? (
                       <p className="career-feed-rows__row-company">{row.companySubtitle}</p>
                     ) : null}
-                    {description ? <p className="career-feed-rows__row-desc">{description}</p> : null}
+                    {description ? <p className="career-feed-rows__row-desc">{linkifyBody ? <PostBodyLinks text={description} /> : description}</p> : null}
                     <PostAudienceLabel label={row.audienceLabel ?? null} className="career-feed-rows__audience" />
                     {row.roleListingUrl ? (
                       <p className="career-feed-rows__row-role-link">
