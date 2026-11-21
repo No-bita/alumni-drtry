@@ -78,6 +78,8 @@ export const queryKeys = {
   career: {
     /** Careers activity feed — excludes guidance server-side (`excludeCategories=guidance`). */
     intentFeed: () => ["career", "intent-feed", "exclude-guidance"] as const,
+    /** Careers "Opportunities for you": roles alumni posted (`category=hiring`). */
+    roles: () => ["career", "intent-feed", "hiring"] as const,
   },
   intentcasts: {
     all: ["intentcasts"] as const,

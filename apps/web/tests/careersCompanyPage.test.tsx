@@ -158,7 +158,7 @@ describe("Careers company screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Post it on the Wall" }));
     expect(wall.open).toHaveBeenCalledWith({ careersPreset: "referralSeeking", referralCompanyName: "Microsoft", headline: "SDE" });
     wall.onPublish?.();
-    expect(await screen.findByText(/Posted\. It's under Recent from alumni/)).toBeTruthy();
+    expect(await screen.findByText(/Posted\. It's on the/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Try another company" }).getAttribute("href")).toBe("/intent/career");
   });
 

@@ -49,14 +49,21 @@ export async function fetchMyCompanyDemand(signal: AbortSignal): Promise<Company
   return (await assertApiGet<{ demand: CompanyDemand }>("/v1/careers/my-company-demand", signal)).demand;
 }
 
-/** "Other things alumni can help with": each opens Ask with its topic chosen. */
-export const CAREER_HELP_TOPICS = [
-  { category: "interview_prep", label: "Interview prep" },
-  { category: "career_switch", label: "Explore a switch" },
-  { category: "higher_studies", label: "Higher studies" },
-  { category: "relocation", label: "Moving cities" },
-] as const;
-
 export const askWithTopicPath = (category: string) => `/match?cat=${encodeURIComponent(category)}`;
+
+/** Ask with a typed question already filled in (Ask works out the company, role and topic itself). */
+export const askWithQuestionPath = (question: string) => `/match?q=${encodeURIComponent(question.trim())}`;
+
+export type CareerTopicIcon = "referral" | "interview" | "switch" | "studies" | "advice";
+
+/** Careers shortcuts under the search: each opens Ask, with its topic chosen when Ask has one. */
+export const CAREER_HELP_TOPICS: ReadonlyArray<{ label: string; to: string; icon: CareerTopicIcon }> = [
+  { label: "Get a referral", to: askWithTopicPath("referral"), icon: "referral" },
+  { label: "Prepare for interviews", to: askWithTopicPath("interview_prep"), icon: "interview" },
+  { label: "Explore a switch", to: askWithTopicPath("career_switch"), icon: "switch" },
+  { label: "Higher studies", to: askWithTopicPath("higher_studies"), icon: "studies" },
+  // Ask has no general advice topic, so this opens Ask with nothing chosen.
+  { label: "Get career advice", to: "/match", icon: "advice" },
+];
 
 

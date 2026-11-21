@@ -10,7 +10,6 @@ const authState = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/CareerIntentFeedRows", () => ({ CareerIntentFeedRows: () => <p>Existing feed and filters</p> }));
 vi.mock("../src/components/PostRoleHiringFlow", async () => {
   const { useImperativeHandle } = await import("react");
   return { PostRoleHiringFlow: ({ ref }: { ref: import("react").Ref<{ open: () => void }> }) => { useImperativeHandle(ref, () => ({ open: flows.hiring })); return null; } };
@@ -76,41 +75,55 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Careers page", () => {
-  it("a brand-new member: search first, topics, and only the sections that have something (plus the hiring invite)", async () => {
+  it("a brand-new member: title, search, shortcuts, the hiring invite and quick links; empty sections stay hidden", async () => {
     world();
     mount();
-    expect(screen.getByRole("heading", { name: "Get referred where you're applying." })).toBeTruthy();
-    expect(await screen.findByText(/No alumni have said they're open to referrals yet/)).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Your asks" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Recent from alumni" })).toBeNull();
-    expect(screen.getByText("Hiring? Post a role and alumni will see it here.")).toBeTruthy();
-    for (const link of screen.getAllByRole("link", { name: "Browse all alumni" })) expect(link.getAttribute("href")).toBe("/search");
+    expect(screen.getByRole("heading", { level: 1, name: "Careers" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search careers" })).toBeTruthy();
+    expect(await screen.findByText("Hiring? Post a role and alumni will see it here.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Your reachouts" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Asks waiting for you" })).toBeNull();
+    for (const gone of ["Your asks", "You can help", "Recent from alumni", "Roles from alumni", "Get referred where you're applying."]) {
+      expect(screen.queryByRole("heading", { name: gone })).toBeNull();
+    }
+    const links = screen.getByRole("heading", { name: "Quick links" }).closest("section")!;
+    expect(within(links).getByRole("link", { name: "Browse all alumni" }).getAttribute("href")).toBe("/search");
+    fireEvent.click(within(links).getByRole("button", { name: "Companies you can get referred to" }));
+    expect(await within(links).findByText(/No alumni have said they're open to referrals yet/)).toBeTruthy();
   });
 
-  it("company search: needs a name, then opens the company screen with the role", async () => {
+  it("search: needs 3 characters, then opens Ask with the question filled in", async () => {
     world();
     mount();
-    const find = screen.getByRole("button", { name: "Find alumni" }) as HTMLButtonElement;
-    expect(find.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText("Where are you applying?"), { target: { value: "Razorpay" } });
-    fireEvent.change(screen.getByPlaceholderText("e.g. Product manager"), { target: { value: "Product manager" } });
-    fireEvent.click(find);
-    expect((await screen.findByTestId("where")).textContent).toBe("/intent/career/company?name=Razorpay&role=Product+manager");
+    const go = screen.getByRole("button", { name: "Search" }) as HTMLButtonElement;
+    const box = screen.getByRole("searchbox", { name: "Search careers" });
+    fireEvent.change(box, { target: { value: "PM" } });
+    expect(go.disabled).toBe(true);
+    fireEvent.change(box, { target: { value: "Referral for PM at Razorpay" } });
+    expect(go.disabled).toBe(false);
+    fireEvent.click(go);
+    expect((await screen.findByTestId("where")).textContent).toBe("/match?q=Referral%20for%20PM%20at%20Razorpay");
   });
 
-  it("topic shortcuts open Ask with the topic chosen", () => {
+  it("shortcuts open Ask on their topic; career advice opens Ask with nothing chosen; Moving cities is gone", () => {
     world();
     mount();
-    expect(screen.getByRole("link", { name: "Interview prep" }).getAttribute("href")).toBe("/match?cat=interview_prep");
-    expect(screen.getByRole("link", { name: "Explore a switch" }).getAttribute("href")).toBe("/match?cat=career_switch");
-    expect(screen.getByRole("link", { name: "Higher studies" }).getAttribute("href")).toBe("/match?cat=higher_studies");
-    expect(screen.getByRole("link", { name: "Moving cities" }).getAttribute("href")).toBe("/match?cat=relocation");
+    const nav = screen.getByRole("navigation", { name: "What do you need help with?" });
+    expect(within(nav).getByRole("link", { name: "Get a referral" }).getAttribute("href")).toBe("/match?cat=referral");
+    expect(within(nav).getByRole("link", { name: "Prepare for interviews" }).getAttribute("href")).toBe("/match?cat=interview_prep");
+    expect(within(nav).getByRole("link", { name: "Explore a switch" }).getAttribute("href")).toBe("/match?cat=career_switch");
+    expect(within(nav).getByRole("link", { name: "Higher studies" }).getAttribute("href")).toBe("/match?cat=higher_studies");
+    expect(within(nav).getByRole("link", { name: "Get career advice" }).getAttribute("href")).toBe("/match");
+    expect(screen.queryByRole("link", { name: "Moving cities" })).toBeNull();
   });
 
-  it("companies you can get referred to: five, then See all; each opens its company screen", async () => {
+  it("companies you can get referred to: a quick link that opens the list; five, then See all; each opens its company screen", async () => {
     world({ companies: Array.from({ length: 7 }, (_, i) => ({ company: `Co ${i}`, alumni: 7 - i })) });
     mount();
+    const toggle = screen.getByRole("button", { name: "Companies you can get referred to" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     const first = await screen.findByRole("link", { name: /Co 0/ });
     expect(first.getAttribute("href")).toBe("/intent/career/company?name=Co+0");
     expect(first.textContent).toContain("7 alumni");
@@ -119,40 +132,45 @@ describe("Careers page", () => {
     expect(screen.getByRole("link", { name: /Co 6/ }).textContent).toContain("1 alum");
   });
 
-  it("your asks: the latest three with status, going to Notifications", async () => {
+  it("your reachouts: the latest three with status, going to Notifications", async () => {
     const now = new Date().toISOString();
     world({ sent: [1, 2, 3, 4].map((i) => ({ id: `n${i}`, recipientFullName: `Alum ${i}`, status: i === 1 ? "accepted" : "pending", createdAt: now })) });
     mount();
-    const section = (await screen.findByRole("heading", { name: "Your asks" })).closest("section")!;
+    const section = (await screen.findByRole("heading", { name: "Your reachouts" })).closest("section")!;
     const rows = within(section).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
+    expect(within(section).getByText("Accepted")).toBeTruthy();
     expect(within(section).getByRole("link", { name: "All" }).getAttribute("href")).toBe("/notifications");
     expect(rows[0]!.querySelector("a")!.getAttribute("href")).toBe("/notifications");
   });
 
-  it("you can help: asks waiting, demand for your company, and Offer help to your Open-to settings", async () => {
+  it("asks waiting for you: count, demand for your company, and Offer help to your Open-to settings", async () => {
     world({ openTo: ["referrals"], inbox: 2, demand: { company: "Razorpay", asks: 4, days: 30 } });
     mount();
-    const section = (await screen.findByRole("heading", { name: "You can help" })).closest("section")!;
-    expect(within(section).getByRole("link", { name: /Asks waiting for you/ }).getAttribute("href")).toBe("/notifications");
+    const section = (await screen.findByRole("heading", { name: "Asks waiting for you" })).closest("section")!;
+    expect((await within(section).findByRole("link", { name: "2 asks waiting for you" })).getAttribute("href")).toBe("/notifications");
     expect(await within(section).findByText("4 asks about Razorpay in the last 30 days")).toBeTruthy();
     expect(within(section).getByText("You're open to referrals, so you can show up for them.")).toBeTruthy();
     expect(within(section).getByRole("link", { name: "Offer help: update what you're open to" }).getAttribute("href")).toBe("/profiles/me1?edit=open-to");
   });
 
-  it("roles and recent posts from alumni; Post a role opens the role form; See all shows the full feed", async () => {
-    const role = post("r1", "hiring", "Backend Engineer\n\nJoin our team");
-    const ask = post("m1", "mentorship", "Advice on switching to product\n\nLooking for 20 minutes");
-    world({ posts: [role, ask] });
+  it("opportunities: roles alumni posted (hiring only), four then View all jobs; Post a role opens the role form", async () => {
+    const roles = Array.from({ length: 6 }, (_, i) => post(`r${i}`, "hiring", `Backend Engineer ${i}\n\nJoin our team`));
+    world({ posts: roles });
     mount();
-    const roles = (await screen.findByRole("heading", { name: "Roles from alumni" })).closest("section")!;
-    expect(await within(roles).findByText(mapIntentcastToRow(role)!.roleHeader)).toBeTruthy();
-    fireEvent.click(within(roles).getByRole("button", { name: "Post a role" }));
+    const section = (await screen.findByRole("heading", { name: "Opportunities for you" })).closest("section")!;
+    expect(await within(section).findByText(mapIntentcastToRow(roles[0]!)!.roleHeader)).toBeTruthy();
+    expect(apiGet.mock.calls.some(([p]) => String(p).includes("category=hiring"))).toBe(true);
+    expect(within(section).getAllByRole("listitem")).toHaveLength(4);
+    const first = within(section).getAllByRole("listitem")[0]!.querySelector("a")!;
+    expect(first.getAttribute("href")).toBe("/profiles/a-r0");
+    expect(first.textContent).toContain("Posted by Author r0");
+    fireEvent.click(within(section).getByRole("button", { name: "View all jobs (6)" }));
+    expect(within(section).getAllByRole("listitem")).toHaveLength(6);
+    fireEvent.click(within(section).getByRole("button", { name: "Post a role" }));
     expect(flows.hiring).toHaveBeenCalledOnce();
-    const recent = screen.getByRole("heading", { name: "Recent from alumni" }).closest("section")!;
-    expect(within(recent).getByText(mapIntentcastToRow(ask)!.roleHeader)).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "All posts from alumni" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "See all" }));
-    expect(within(screen.getByRole("region", { name: "All posts from alumni" })).getByText("Existing feed and filters")).toBeTruthy();
+    const links = screen.getByRole("heading", { name: "Quick links" }).closest("section")!;
+    fireEvent.click(within(links).getByRole("button", { name: "Post a role" }));
+    expect(flows.hiring).toHaveBeenCalledTimes(2);
   });
 });
