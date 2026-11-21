@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { WallShareButton } from "./WallShareButton";
+import { wallPostAnchorId } from "../lib/wallShare";
 import { PostAudienceLabel } from "./PostAudienceField";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -138,6 +140,10 @@ export type IntentcastActivityRowsListProps = {
   ownerDeleteMenu?: boolean;
   /** Wall post bodies only; other shared surfaces retain plain text. */
   linkifyBody?: boolean;
+  /** Wall posts (not reply rows): each row gets a share button and a `#wall-<id>` link target. */
+  shareable?: boolean;
+  /** A post opened from a shared link: highlighted with "Shared with you" for a few seconds. */
+  highlightedId?: string | null;
 };
 
 /** Shared row layout for Careers activity and Home Active Requests. */
@@ -152,6 +158,8 @@ export function IntentcastActivityRowsList({
   wallPins,
   onToggleWallPin,
   pinSubmitting = false,
+  shareable = false,
+  highlightedId = null,
 }: IntentcastActivityRowsListProps) {
   return (
     <ul className={listClassName ? `career-feed-rows__list ${listClassName}` : "career-feed-rows__list"} role="list">
@@ -176,8 +184,14 @@ export function IntentcastActivityRowsList({
         const detailTags = [...detailChipCandidates, ...secondaryTags].slice(0, 5);
         const { role: authorRoleTitle, org: authorOrgName } = splitAuthorRoleOrg(row.authorRoleLine);
         return (
-          <li key={row.id}>
+          <li
+            key={row.id}
+            id={shareable ? wallPostAnchorId(row.id) : undefined}
+            tabIndex={shareable ? -1 : undefined}
+            className={highlightedId === row.id ? "career-feed-rows__item--shared" : undefined}
+          >
             <article className={`career-feed-rows__row${isOwn ? " career-feed-rows__row--own" : ""}${onToggleWallPin ? " career-feed-rows__row--wall-pin-actions" : ""}`}>
+              {highlightedId === row.id ? <p className="career-feed-rows__shared-badge">Shared with you</p> : null}
               <div className="career-feed-rows__row-layout">
                 <div className="career-feed-rows__row-primary">
                   <div className="career-feed-rows__row-primary-body">
@@ -282,6 +296,7 @@ export function IntentcastActivityRowsList({
                     ) : null}
                   </div>
                   <div className="career-feed-rows__rail-bottom">
+                    {shareable ? <WallShareButton postId={row.id} audienceLabel={row.audienceLabel ?? null} /> : null}
                     {row.postedRelative ? (
                       <time className="career-feed-rows__rail-time" dateTime={row.postedAtIso}>
                         {row.postedRelative}

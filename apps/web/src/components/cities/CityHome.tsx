@@ -5,6 +5,7 @@ import "../../styles/hub-cards.css";
 import { PostAudienceLabel } from "../PostAudienceField";
 import { HubSideCard } from "../HubSideCard";
 import { LineIcon } from "../LineIcon";
+import { WallShareButton } from "../WallShareButton";
 import { formatRelativeTime } from "../../lib/formatRelativeTime";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../../lib/bulletinPostCardUtils";
 import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN, buildMatchSearch } from "../../lib/matchApi";
@@ -426,6 +427,7 @@ export function CityHome({
           ) : null}
           <PostAudienceLabel label={openPost.audience?.label ?? null} />
           {postBody(openPost.content) ? <p className="cities__post">{postBody(openPost.content)}</p> : null}
+          <WallShareButton postId={openPost.id} audienceLabel={openPost.audience?.label ?? null} variant="labelled" />
         </CitySheet>
       ) : null}
     </>
