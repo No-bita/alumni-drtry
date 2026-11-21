@@ -12,7 +12,7 @@ import { AUTH_SESSION_QUERY_KEY } from "../src/lib/authSessionQuery";
 import { startAuthWithWakeRetry } from "../src/lib/authStartRetry";
 function PauseProbe() { const state = useSyncExternalStore(subscribeApiRateLimit, getApiRateLimit); return <span>{state.paused ? "paused" : "active"}</span>; }
 const limited = (headers = {}) => new Response('<html><title>Just a moment...</title></html>', { status: 429, headers: { 'content-type': 'text/html', 'cf-mitigated': 'challenge', ...headers } });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); resetApiWarmupForTests(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); resetApiWarmupForTests(); window.sessionStorage.clear(); });
 describe('temporary infrastructure request brake', () => {
  it('recognizes non-JSON challenge429 and stops all subsequent automatic paths', async () => {
   const fetch = vi.fn().mockResolvedValue(limited()); vi.stubGlobal('fetch', fetch);
