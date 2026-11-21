@@ -319,6 +319,7 @@ export function HomeOpportunityRail({
         <div className="home-ideal__opportunity-feed home-ideal__opportunity-feed--rows" role="region" aria-label="Active requests">
           <IntentcastActivityRowsList
             rows={activityRows}
+            linkifyBody
             wallPins={wallPins}
             onToggleWallPin={canManageWallPins ? (id, pinned) => { void toggleWallPin(id, pinned); } : undefined}
             pinSubmitting={pinBusy}
