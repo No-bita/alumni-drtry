@@ -634,7 +634,8 @@
   color: var(--ink);
 }
 
-.careers-hub__search-input:focus {
+.careers-hub__search-input:focus,
+.careers .careers-hub__search-input:focus-visible {
   outline: none;
 }
 
