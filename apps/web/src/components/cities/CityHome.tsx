@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import "../../styles/careers.css";
+import "../../styles/hub-cards.css";
 import { PostAudienceLabel } from "../PostAudienceField";
+import { HubSideCard } from "../HubSideCard";
+import { LineIcon } from "../LineIcon";
 import { formatRelativeTime } from "../../lib/formatRelativeTime";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../../lib/bulletinPostCardUtils";
+import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN, buildMatchSearch } from "../../lib/matchApi";
 import {
   endArrival,
   fetchCityPosts,
@@ -19,6 +25,10 @@ export type CityAskStarter = { headline?: string; body?: string };
 
 /** File: `apps/web/public/media/city-hero-placeholder.jpg`, served under the app base (`/app/media/...`). */
 const CITY_HERO_PLACEHOLDER = publicAsset("media/city-hero-placeholder.jpg");
+/** Every other city: the building photo used on Careers, Business and sign-in (no city landmark). */
+const CITY_HERO_GENERIC = publicAsset("login-hero-house.jpg");
+/** Newest posts shown before "View all posts". */
+const POSTS_PREVIEW = 4;
 
 function postTitle(content: string): string {
   const { title } = splitBulletinPostBody(stripBulletinUiCategory(content));
@@ -30,10 +40,14 @@ function postBody(content: string): string {
   return (summary ?? "").trim();
 }
 
+/** The Bengaluru photo shows Vidhan Soudha, so only Bengaluru uses it. */
+function isBengaluru(place: CityPayload["place"]): boolean {
+  return place.city.trim().toLowerCase() === "bengaluru" || place.slug.startsWith("bengaluru");
+}
+
 type Shortcut = {
   id: "housing" | "neighbourhoods" | "services" | "people";
   label: string;
-  example: string;
   icon: "home" | "pin" | "wrench" | "people";
   /** Starting headline for the Wall composer; the member edits it before posting. */
   starter: (city: string) => string;
@@ -42,34 +56,18 @@ type Shortcut = {
 const KIND_LABEL = { ask: "Ask", offer: "Offer", invitation: "Invitation" } as const;
 
 const SHORTCUTS: Shortcut[] = [
-  {
-    id: "housing",
-    label: "Housing & flatmates",
-    example: "Flats, flatmates and housing leads",
-    icon: "home",
-    starter: (city) => `Housing or flatmates in ${city}`,
-  },
-  {
-    id: "neighbourhoods",
-    label: "Neighborhoods",
-    example: "Where to live and how to get around",
-    icon: "pin",
-    starter: (city) => `Neighbourhoods or commute in ${city}`,
-  },
-  {
-    id: "services",
-    label: "Local services",
-    example: "Doctors, internet, repairs and everyday needs",
-    icon: "wrench",
-    starter: (city) => `Local services in ${city}`,
-  },
-  {
-    id: "people",
-    label: "Meet people",
-    example: "Local groups, coffee meetups and things to do",
-    icon: "people",
-    starter: (city) => `Meeting people in ${city}`,
-  },
+  { id: "housing", label: "Housing & flatmates", icon: "home", starter: (city) => `Housing or flatmates in ${city}` },
+  { id: "neighbourhoods", label: "Neighborhoods", icon: "pin", starter: (city) => `Neighbourhoods or commute in ${city}` },
+  { id: "services", label: "Local services", icon: "wrench", starter: (city) => `Local services in ${city}` },
+  { id: "people", label: "Meet people", icon: "people", starter: (city) => `Meeting people in ${city}` },
+];
+
+type PostTab = "all" | "ask" | "offer" | "invitation";
+const POST_TABS: ReadonlyArray<{ id: PostTab; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "ask", label: "Asks" },
+  { id: "offer", label: "Offers" },
+  { id: "invitation", label: "Invitations" },
 ];
 
 function ShortcutIcon({ icon }: { icon: Shortcut["icon"] }) {
@@ -89,28 +87,23 @@ function ShortcutIcon({ icon }: { icon: Shortcut["icon"] }) {
   );
 }
 
-function PenIcon() {
-  return (
-    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-    </svg>
-  );
-}
-
 /**
- * The city landing for someone who lives here (local) or just arrived (newcomer), needs first: four task
- * shortcuts that prefill a Wall ask, the city's open Wall requests, then one open ask. Requests open
- * read-only; there are no reply counts or buttons here while the response model is unsettled.
+ * The city page (hub layout, like Careers and Business). Header with the city as title and Change city;
+ * search opens Ask with the city set; four shortcuts prefill a Wall ask tagged with this city; the
+ * community card lists the city's open Wall posts (read-only sheet, no reply counts); the side column
+ * ("Your city") holds the shared reachout cards (passed in as `side`) and an at-a-glance card with the
+ * new-in-town entry. Retired on purpose: the alumni list and the "update your city" links (#239).
  */
-// `profileId` stays in the props type but is intentionally not destructured: its only consumer (the
-// "Moved away? Update your city" link) was removed; keeping the prop leaves the LocationPage call site unchanged.
+// `profileId` stays in the props type but is intentionally not destructured (see #239).
 export function CityHome({
   data,
   onChanged,
   onOptIn,
   onAsk,
   onNotice,
+  onChangeCity,
+  switcherOpen = false,
+  side,
 }: {
   data: CityPayload;
   profileId: string | null;
@@ -118,12 +111,27 @@ export function CityHome({
   onOptIn: () => void;
   onAsk: (starter: CityAskStarter) => void;
   onNotice: (text: string) => void;
+  /** Opens the city switcher (the "Change city" control in the header). */
+  onChangeCity?: () => void;
+  switcherOpen?: boolean;
+  /** Extra cards at the top of the side column (the page passes the shared reachout cards). */
+  side?: ReactNode;
 }) {
+  const navigate = useNavigate();
+  const searchId = useId();
+  const tabsId = useId();
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const city = data.place.city;
   const newcomer = data.viewerRole === "newcomer" && data.myArrival !== null;
+  const yourCity = data.viewerRole === "local" || data.viewerRole === "newcomer";
+  const bengaluru = isBengaluru(data.place);
+  const [question, setQuestion] = useState("");
+  const [tab, setTab] = useState<PostTab>("all");
   const [stopping, setStopping] = useState(false);
   const [openPost, setOpenPost] = useState<CityPost | null>(null);
-  /** "View all posts" expansion: null until opened, then the full paged list. */
+  /** Preview expanded to every post already loaded (before or without paging). */
+  const [expanded, setExpanded] = useState(false);
+  /** "View all posts" paging: null until opened, then the full paged list. */
   const [all, setAll] = useState<{ posts: CityPost[]; nextCursor: string | null } | null>(null);
   const [loadingAll, setLoadingAll] = useState(false);
 
@@ -141,6 +149,8 @@ export function CityHome({
   };
 
   const openAll = async () => {
+    setExpanded(true);
+    if (!data.postsHasMore || all) return;
     setLoadingAll(true);
     try {
       setAll(await fetchCityPosts(data.place.placeId, null, new AbortController().signal));
@@ -164,44 +174,59 @@ export function CityHome({
     }
   };
 
-  const posts = all ? all.posts : data.posts;
+  const source = all ? all.posts : data.posts;
+  const filtered = tab === "all" ? source : source.filter((p) => p.kind === tab);
+  const shown = expanded ? filtered : filtered.slice(0, POSTS_PREVIEW);
+  const canViewAll = !expanded && (filtered.length > POSTS_PREVIEW || data.postsHasMore);
+  const canSearch = question.trim().length >= MATCH_QUESTION_MIN;
+
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canSearch) return;
+    navigate(`/match${buildMatchSearch({ question, overrides: { city } })}`);
+  };
 
   return (
     <>
-      <header className="cities__header cities-home__hero">
-        {/* Shared city photo; source and license remain linked. */}
-        <div className="cities-home__photohero">
-          <img className="cities-home__photohero-img" src={CITY_HERO_PLACEHOLDER} alt="" />
-          <span className="cities-home__photohero-shade" aria-hidden />
-          <h1 className="cities-home__photohero-city">{city}</h1>
-          <span className="cities-home__photohero-badge">
-            {data.viewerRole === "local" || data.viewerRole === "newcomer" ? "Your city" : "Exploring"}
-          </span>
-          <p className="cities-home__photohero-credit">
-            Photo:{" "}
-            <a
-              href="https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg"
-              target="_blank"
-              rel="noreferrer"
+      <header className="careers-hub__header cities-hub__header">
+        <div className="careers-hub__intro">
+          <div className="cities-hub__titlerow">
+            <h1 className="careers-hub__title">{city}</h1>
+            <span className="cities-hub__badge">{yourCity ? "Your city" : "Exploring"}</span>
+          </div>
+          <p className="careers-hub__lede">Get settled, find local help and meet alumni in {city}.</p>
+          {onChangeCity ? (
+            <button
+              type="button"
+              className="cities-hub__change"
+              aria-label={`Change city: ${city}`}
+              aria-haspopup="dialog"
+              aria-expanded={switcherOpen}
+              onClick={onChangeCity}
             >
-              AjayTorvi
-            </a>{" "}
-            ·{" "}
-            <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
-              CC BY-SA 4.0
-            </a>
-          </p>
-        </div>
-        {newcomer ? (
-          <>
-            <p className="cities__count">
-              Shown as new to local alumni for {data.myArrival!.daysLeft} more {data.myArrival!.daysLeft === 1 ? "day" : "days"}
-            </p>
-            <button type="button" className="cities__textbtn" disabled={stopping} onClick={() => void stop()}>
-              Stop showing me as new
+              Change city
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </button>
-          </>
-        ) : null}
+          ) : null}
+        </div>
+        <div className="careers-hub__art cities-hub__art">
+          <img className="cities-home__photohero-img" src={bengaluru ? CITY_HERO_PLACEHOLDER : CITY_HERO_GENERIC} alt="" />
+        </div>
+          {bengaluru ? (
+            // Shared city photo; source and license remain linked.
+            <p className="cities-home__photohero-credit cities-hub__credit">
+              Photo:{" "}
+              <a href="https://commons.wikimedia.org/wiki/File:Vidhan_Soudha_-_Bangalore.jpg" target="_blank" rel="noreferrer">
+                AjayTorvi
+              </a>{" "}
+              ·{" "}
+              <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
+                CC BY-SA 4.0
+              </a>
+            </p>
+          ) : null}
       </header>
 
       {/* Offers stay visible to the newcomer after "Stop showing me as new" (until their 30 days end). */}
@@ -209,118 +234,177 @@ export function CityHome({
         <NewcomerOffersSection offers={data.offers} previousCity={data.myArrival?.previousCity ?? null} onChanged={onChanged} />
       ) : null}
 
-      <section className="cities__section" aria-labelledby="cities-home-need">
-        <h2 id="cities-home-need" className="cities-home__title">
+      <form className="careers-hub__search" role="search" onSubmit={onSearch}>
+        <label htmlFor={searchId} className="careers-hub__sr">
+          Ask alumni in {city}
+        </label>
+        <span className="careers-hub__search-icon" aria-hidden>
+          <LineIcon name="search" />
+        </span>
+        <input
+          id={searchId}
+          className="careers-hub__search-input"
+          type="search"
+          value={question}
+          maxLength={MATCH_QUESTION_MAX}
+          placeholder={`Ask about housing, neighbourhoods or people in ${city}…`}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <button type="submit" className="careers-hub__search-go" disabled={!canSearch} aria-label="Search">
+          <LineIcon name="arrow" />
+        </button>
+      </form>
+
+      <section className="cities-hub__needs" aria-labelledby="cities-home-need">
+        <h2 id="cities-home-need" className="cities-hub__needs-title">
           What do you need in {city}?
         </h2>
-        <ul className="cities-home__tiles">
+        <div className="careers-hub__topics">
           {SHORTCUTS.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                className="cities-home__tile"
-                onClick={() => onAsk({ headline: s.starter(city) })}
-              >
-                <span className="cities-home__tile-icon">
-                  <ShortcutIcon icon={s.icon} />
-                </span>
-                <span className="cities-home__tile-copy">
-                  <span className="cities-home__tile-label">{s.label}</span>
-                  <span className="cities-home__tile-example">{s.example}</span>
-                </span>
-              </button>
-            </li>
+            <button key={s.id} type="button" className="careers-hub__topic" onClick={() => onAsk({ headline: s.starter(city) })}>
+              <span className="careers-hub__topic-icon" aria-hidden>
+                <ShortcutIcon icon={s.icon} />
+              </span>
+              {s.label}
+            </button>
           ))}
-        </ul>
+        </div>
       </section>
 
-      <div className="cities-home__cols">
-        <section className="cities__section" aria-labelledby="cities-home-requests">
-          <div className="cities__head cities__head--row cities-home__reqhead">
-          <h2 id="cities-home-requests" className="cities__h2">
-            From the {city} community
-          </h2>
-          {!all && data.postsHasMore ? (
-            <button type="button" className="cities__link" disabled={loadingAll} onClick={() => void openAll()}>
-              {loadingAll ? "Loading…" : "View all posts"}
-            </button>
-          ) : null}
-          {/* Newcomer opt-in belongs to this community section; the head row
-              wraps it under the heading instead of floating at the page edge. */}
-          {data.arrivalPrompt && !newcomer ? (
-            <button type="button" className="cities__link" onClick={onOptIn}>
-              Just moved? Show me as new in town ›
-            </button>
-          ) : null}
-        </div>
-        <p className="cities__note">Open posts from the Wall, filtered to {city}.</p>
-        {posts.length > 0 ? (
-          <ul className="cities__cards">
-            {posts.map((p) => (
-              <li key={p.id}>
-                <button type="button" className="cities-home__request" onClick={() => setOpenPost(p)}>
-                  <span className="cities-home__request-copy">
-                    <span className="cities-home__request-title">{postTitle(p.content)}</span>
-                    {postBody(p.content) ? <span className="cities-home__request-body">{postBody(p.content)}</span> : null}
-                    {p.audience ? <span className="cities-home__request-audience">Visible to: {p.audience.label}</span> : null}
-                    <span className="cities-home__request-meta">
-                      {p.kind ? <span className="cities__chip cities-home__kind">{KIND_LABEL[p.kind]}</span> : null}
-                      {[
-                        p.isMine ? "You" : `${firstName(p.authorFullName)}${yy(p.authorBatchYear) ? ` ${yy(p.authorBatchYear)}` : ""}`,
-                        formatRelativeTime(p.createdAt),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </span>
-                  <span className="cities-home__chevron" aria-hidden>
-                    ›
-                  </span>
-                </button>
+      <div className="cities-hub__grid">
+        <aside className="cities-hub__side" aria-label="Your city">
+          {side}
+          <HubSideCard id="cities-glance-title" title="At a glance" icon="people">
+            <ul className="cities-hub__facts">
+              <li>
+                <strong>{data.counts.alumni}</strong> {data.counts.alumni === 1 ? "alum lives here" : "alumni live here"}
               </li>
+              <li>
+                <strong>{data.counts.openToCityHelp}</strong> open to city help
+              </li>
+              {data.arrivals ? (
+                <li>
+                  <strong>{data.arrivals.total}</strong> new in town
+                </li>
+              ) : null}
+            </ul>
+            {newcomer ? (
+              <div className="cities-hub__newcomer">
+                <p className="hub-card__note">
+                  Shown as new to local alumni for {data.myArrival!.daysLeft} more {data.myArrival!.daysLeft === 1 ? "day" : "days"}
+                </p>
+                <button type="button" className="hub-card__more" disabled={stopping} onClick={() => void stop()}>
+                  Stop showing me as new
+                </button>
+              </div>
+            ) : data.arrivalPrompt ? (
+              <button type="button" className="hub-card__more" onClick={onOptIn}>
+                Just moved? Show me as new in town ›
+              </button>
+            ) : null}
+          </HubSideCard>
+        </aside>
+
+        <section className="hub-card cities-hub__community" aria-labelledby="cities-home-requests">
+          <div className="hub-card__head">
+            <span className="hub-card__icon" aria-hidden>
+              <LineIcon name="wall" />
+            </span>
+            <div className="hub-card__heading">
+              <h2 id="cities-home-requests" className="hub-card__title">
+                From the {city} community
+              </h2>
+              <p className="cities__note">Open posts from the Wall, filtered to {city}.</p>
+            </div>
+            <button type="button" className="hub-card__pill" onClick={() => onAsk({})}>
+              Ask the community
+            </button>
+          </div>
+
+          <div className="hub-tabs cities-hub__tabs" role="tablist" aria-label="Post type">
+            {POST_TABS.map((t, index) => (
+              <button
+                key={t.id}
+                ref={(el) => {
+                  tabRefs.current[index] = el;
+                }}
+                type="button"
+                role="tab"
+                id={`${tabsId}-${t.id}`}
+                aria-selected={tab === t.id}
+                aria-controls={`${tabsId}-panel`}
+                tabIndex={tab === t.id ? 0 : -1}
+                className="hub-tab"
+                onClick={() => setTab(t.id)}
+                onKeyDown={(e) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+                  e.preventDefault();
+                  const last = POST_TABS.length - 1;
+                  const next =
+                    e.key === "Home" ? 0 : e.key === "End" ? last : e.key === "ArrowRight" ? (index === last ? 0 : index + 1) : index === 0 ? last : index - 1;
+                  setTab(POST_TABS.at(next)!.id);
+                  tabRefs.current.at(next)?.focus();
+                }}
+              >
+                {t.label}
+              </button>
             ))}
-          </ul>
-        ) : loadingAll && !all ? (
-          <p className="cities__note" role="status">
-            Loading…
-          </p>
-        ) : (
-          <div className="cities-home__hint">
-            <p>
-              <strong>Nothing to see here yet.</strong>
-              <br />
-              Have a question about {city}? Be the first to ask.
-            </p>
           </div>
-        )}
-        {all?.nextCursor ? (
-          <button type="button" className="cities__secondary" disabled={loadingAll} onClick={() => void loadMore()}>
-            {loadingAll ? "Loading…" : "Show more"}
-          </button>
-        ) : null}
+
+          <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} className="cities-hub__panel">
+            {shown.length > 0 ? (
+              <ul className="cities__cards">
+                {shown.map((p) => (
+                  <li key={p.id}>
+                    <button type="button" className="cities-home__request" onClick={() => setOpenPost(p)}>
+                      <span className="cities-home__request-copy">
+                        <span className="cities-home__request-title">{postTitle(p.content)}</span>
+                        {postBody(p.content) ? <span className="cities-home__request-body">{postBody(p.content)}</span> : null}
+                        {p.audience ? <span className="cities-home__request-audience">Visible to: {p.audience.label}</span> : null}
+                        <span className="cities-home__request-meta">
+                          {p.kind ? <span className="cities__chip cities-home__kind">{KIND_LABEL[p.kind]}</span> : null}
+                          {[
+                            p.isMine ? "You" : `${firstName(p.authorFullName)}${yy(p.authorBatchYear) ? ` ${yy(p.authorBatchYear)}` : ""}`,
+                            formatRelativeTime(p.createdAt),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                      <span className="cities-home__chevron" aria-hidden>
+                        ›
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : loadingAll && !all ? (
+              <p className="cities__note" role="status">
+                Loading…
+              </p>
+            ) : source.length > 0 ? (
+              <p className="cities__note">No {POST_TABS.find((t) => t.id === tab)!.label.toLowerCase()} in {city} right now.</p>
+            ) : (
+              <div className="cities-home__hint">
+                <p>
+                  <strong>Nothing to see here yet.</strong>
+                  <br />
+                  Have a question about {city}? Be the first to ask.
+                </p>
+              </div>
+            )}
+            {canViewAll ? (
+              <button type="button" className="cities__link cities-hub__viewall" disabled={loadingAll} onClick={() => void openAll()}>
+                {loadingAll ? "Loading…" : "View all posts"}
+              </button>
+            ) : null}
+            {all?.nextCursor ? (
+              <button type="button" className="cities__secondary" disabled={loadingAll} onClick={() => void loadMore()}>
+                {loadingAll ? "Loading…" : "Show more"}
+              </button>
+            ) : null}
+          </div>
         </section>
-
-        <div className="cities-home__side">
-          <section className="cities__section" aria-labelledby="cities-home-ask">
-        <div className="cities-home__askcard">
-          <span className="cities-home__tile-icon">
-            <PenIcon />
-          </span>
-          <div className="cities-home__ask-copy">
-            <h2 id="cities-home-ask" className="cities-home__ask-title">
-              Can’t find what you need?
-            </h2>
-            <p className="cities-home__ask-note">
-              Ask the {city} community. A specific question, a useful lead or anything you’re figuring out.
-            </p>
-          </div>
-          <button type="button" className="cities-home__askbtn" onClick={() => onAsk({})}>
-            Ask the community
-          </button>
-        </div>
-      </section>
-
-        </div>
       </div>
 
       {openPost ? (

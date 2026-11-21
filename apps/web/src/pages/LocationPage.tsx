@@ -8,6 +8,8 @@ import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
 import { CityHome } from "../components/cities/CityHome";
 import { CitySwitcherSheet } from "../components/cities/CitySwitcherSheet";
 import { NoCityPrompt, SavedCityCard } from "../components/cities/NoCityPrompt";
+import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
+import { YourReachoutsCard } from "../components/YourReachoutsCard";
 import { useAuth } from "../contexts/AuthContext";
 import {
   CITIES_KEY,
@@ -82,6 +84,8 @@ export function LocationPage() {
   const toolbarCity = data?.place.city ?? target?.city ?? "Cities";
   const cities = list.data?.cities ?? [];
   let body: React.ReactNode;
+  /** The city page itself (hub layout): its header holds the city title and Change city, so the toolbar doesn't. */
+  let onCityHome = false;
 
   if (list.isPending || (placeId !== null && city.isPending)) {
     body = (
@@ -149,6 +153,7 @@ export function LocationPage() {
       </section>
     );
   } else {
+    onCityHome = true;
     body = (
       <CityHome
         key={data.place.placeId}
@@ -158,6 +163,14 @@ export function LocationPage() {
         onOptIn={() => setOptIn({ placeId: data.place.placeId, cityName: data.place.city })}
         onAsk={(starter) => openWall({ ...starter, placeId: data.place.placeId })}
         onNotice={setNotice}
+        onChangeCity={() => setSwitcherOpen(true)}
+        switcherOpen={switcherOpen}
+        side={
+          <>
+            <ReachoutsWaitingCard />
+            <YourReachoutsCard />
+          </>
+        }
       />
     );
   }
@@ -168,6 +181,7 @@ export function LocationPage() {
         variant="home"
         avatarName={displayName}
         appToolbarLead={
+          onCityHome ? undefined : (
           <div className="nav-app-toolbar__welcome">
             <ToolbarTitle className="nav-app-toolbar__welcome-title cities-toolbar-title">
               <button type="button" className="cities-toolbar-picker" aria-label={`Change city: ${toolbarCity}`} aria-haspopup="dialog" aria-expanded={switcherOpen} title={toolbarCity} onClick={() => setSwitcherOpen(true)}>
@@ -176,9 +190,10 @@ export function LocationPage() {
               </button>
             </ToolbarTitle>
           </div>
+          )
         }
       />
-      <main className="cities">
+      <main className={onCityHome ? "cities cities--hub" : "cities"}>
         {notice ? (
           <div className="cities__notice" role="status">
             <span>{notice}</span>
@@ -220,7 +235,7 @@ export function LocationPage() {
       <PostBulletinFlow
         ref={flowRef}
         onPublishSuccess={() => {
-          setNotice("Posted. It’s on the Wall and under Get together.");
+          setNotice(`Posted. It’s on the Wall and in the ${data?.place.city ?? "city"} community.`);
           refresh();
         }}
       />

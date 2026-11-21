@@ -14,6 +14,8 @@ describe("city draft board copy", () => {
     expect(page).not.toMatch(/Event created\. It now appears/);
     expect(page).not.toContain("CITY_REQUEST_SAVED_NOTICE");
     expect(page).not.toContain("CITY_EVENT_SAVED_NOTICE");
-    expect(page).toContain("Posted. It’s on the Wall and under Get together.");
+    // The Get together section is gone: the notice names the city community instead.
+    expect(page).not.toContain("under Get together");
+    expect(page).toContain("Posted. It’s on the Wall and in the ${data?.place.city ?? \"city\"} community.");
   });
 });
