@@ -1,0 +1,156 @@
+/* Business (/intent/business). Header, search and shortcuts reuse the Careers hub classes (careers.css);
+   cards come from hub-cards.css. Phone first: search, shortcuts, your business (side), opportunities.
+   From 1024px the side column sits to the right of Relevant opportunities. */
+
+.business__grid {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.business__side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* Side column empty (new member): take no room. */
+.business__side:empty {
+  display: none;
+}
+
+.business__opps {
+  min-width: 0;
+}
+
+.business__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-muted);
+  overflow-x: auto;
+}
+
+.business__tab {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.business__tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.business__tab:focus-visible {
+  outline: 3px solid var(--ochre, var(--brick));
+  outline-offset: -3px;
+}
+
+.business__rows {
+  margin-top: 12px;
+}
+
+.business__view-all {
+  margin-top: 4px;
+}
+
+/* ---------- Your requests ---------- */
+.business-requests__item {
+  padding: 10px 2px;
+  display: grid;
+  gap: 8px;
+}
+
+.business-requests__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.business-requests__resolve {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.business-requests__choices {
+  display: grid;
+  gap: 6px;
+}
+
+.business-requests__options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.business-requests__options .hub-card__pill {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.business-requests__error {
+  color: var(--brick);
+}
+
+@media (min-width: 1024px) {
+  .business__grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas: "opps side";
+    align-items: start;
+    gap: 20px;
+  }
+
+  .business__side {
+    grid-area: side;
+  }
+
+  .business__opps {
+    grid-area: opps;
+  }
+}
+
+/* Nothing in "Your business" yet: opportunities take the full width. */
+@media (min-width: 1024px) {
+  .business__grid:has(> .business__side:empty) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "opps";
+  }
+}
+
+/* Wrapper that borrows the Wall's row layout without its card frame. */
+.business__wall-rows.home-ideal__opportunities {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* Phones: "Post a request" drops under the heading instead of squeezing it. */
+@media (max-width: 479px) {
+  .business__opps > .hub-card__head {
+    flex-wrap: wrap;
+  }
+
+  .business__opps > .hub-card__head > .hub-card__heading {
+    flex: 1 1 calc(100% - 46px);
+  }
+
+  .business__opps > .hub-card__head > .hub-card__pill {
+    margin-left: 46px;
+  }
+}

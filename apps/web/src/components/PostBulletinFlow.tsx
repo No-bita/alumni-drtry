@@ -355,6 +355,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralCompanyName((options?.referralCompanyName ?? "").trim().slice(0, 120));
       setReferralResumeLink("");
       setPlaceId(options?.placeId ?? null);
+      setKind(options?.kind ?? "");
       setAudience(freshAudienceChoice());
       setError(null);
       setOpen(true);

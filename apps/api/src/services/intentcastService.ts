@@ -14,6 +14,7 @@ import {
   type IntentcastKind,
   type IntentcastFeedView,
   type IntentcastResponseView,
+  type IntentcastResolvedOutcome,
   type IntentcastStatus
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
@@ -442,7 +443,8 @@ export class IntentcastService {
     return view;
   }
 
-  async closeIntentcast(authorPersonId: string, intentcastId: string): Promise<void> {
+  /** Close your own open post. With an outcome it closes as resolved (Business progress steps). */
+  async closeIntentcast(authorPersonId: string, intentcastId: string, outcome?: IntentcastResolvedOutcome): Promise<void> {
     await this.intentcastRepo.expireOpenIntentcasts();
     await this.intentcastRepo.purgeAuthorSoftDeletedIntentcasts(500);
     const existing = await this.intentcastRepo.findById(intentcastId);
@@ -459,7 +461,9 @@ export class IntentcastService {
       throw new AppError(409, "INTENTCAST_NOT_OPEN", "Intentcast is not open.");
     }
 
-    const closed = await this.intentcastRepo.closeManually(intentcastId, authorPersonId);
+    const closed = outcome
+      ? await this.intentcastRepo.closeResolved(intentcastId, authorPersonId, outcome)
+      : await this.intentcastRepo.closeManually(intentcastId, authorPersonId);
     if (!closed) {
       throw new AppError(409, "INTENTCAST_NOT_OPEN", "Intentcast is already closed.");
     }

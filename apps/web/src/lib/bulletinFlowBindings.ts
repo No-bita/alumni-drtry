@@ -25,6 +25,8 @@ export type PostBulletinOpenOptions = {
   referralCompanyName?: string;
   /** Cities: tag the post with this canonical place so it shows under the city's Get together. */
   placeId?: string;
+  /** Preselect Ask / Offer / Invitation (Business "Post a request" opens with Ask chosen). */
+  kind?: "ask" | "offer" | "invitation";
 };
 
 export type PostBulletinFlowHandleShape = {

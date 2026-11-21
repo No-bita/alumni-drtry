@@ -81,6 +81,12 @@ export const queryKeys = {
     /** Careers "Opportunities for you": roles alumni posted (`category=hiring`). */
     roles: () => ["career", "intent-feed", "hiring"] as const,
   },
+  business: {
+    /** Business "Relevant opportunities": Startups-lane Wall posts. */
+    opportunities: () => ["business", "opportunities"] as const,
+    /** Your own open Business requests. */
+    myRequests: () => ["business", "my-requests"] as const,
+  },
   intentcasts: {
     all: ["intentcasts"] as const,
     /** Prefix for all bulletin feed queries (public + mine); use with `invalidateQueries`. */

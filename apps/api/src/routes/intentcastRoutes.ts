@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
 import { isAdminRole } from "../lib/postAudience.js";
-import type { IntentcastCategory } from "../repos/intentcastRepo.js";
+import { INTENTCAST_RESOLVED_OUTCOMES, type IntentcastCategory } from "../repos/intentcastRepo.js";
 
 const intentcastCategoryEnum = z.enum(["hiring", "mentorship", "collaboration", "guidance"]);
 
@@ -75,6 +75,11 @@ const feedQuerySchema = z.object({
 const intentcastParamsSchema = z.object({
   id: z.string().uuid()
 });
+
+/** Optional body for closing: `{ outcome }` closes as resolved (Business progress steps, migration 068). */
+const closeIntentcastSchema = z
+  .object({ outcome: z.enum(INTENTCAST_RESOLVED_OUTCOMES).optional() })
+  .strict();
 
 const receivedResponsesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(48),
@@ -259,7 +264,12 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       if (!params.success) {
         throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid intentcast id.");
       }
-      await app.intentcastService.closeIntentcast(request.actor.personId, params.data.id);
+      // No body (or an empty one) = a plain close, as before.
+      const body = closeIntentcastSchema.safeParse(request.body ?? {});
+      if (!body.success) {
+        throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid close payload.");
+      }
+      await app.intentcastService.closeIntentcast(request.actor.personId, params.data.id, body.data.outcome);
       return reply.code(204).send();
     }
   );

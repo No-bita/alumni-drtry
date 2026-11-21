@@ -71,7 +71,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `GET /v1/intentcasts`: returns `{ intentcasts, pageInfo }`.
 - `GET /v1/intentcasts/:id`: returns `{ intentcast }` if visible to the viewer.
 - `PATCH /v1/intentcasts/:id`: edits an open post during the edit window.
-- `PATCH /v1/intentcasts/:id/close`: closes a post.
+- `PATCH /v1/intentcasts/:id/close`: closes a post (author only, open posts only). Optional body `{ outcome }`: `got_help_here`, `sorted_elsewhere` or `no_longer_needed` closes it as resolved (`closed_reason = 'resolved'`, migration 068). No body, or `{}`, is the plain close. Any other key or value gets 400 `INTENTCAST_BAD_REQUEST`. See [business-page.md](./business-page.md).
 - `DELETE /v1/intentcasts/:id`: author-removes a post.
 - `POST /v1/intentcasts/:id/restore`: restores an author-removed post within the retention window.
 - `POST /v1/intentcasts/:id/respond`: creates a private response to the author.

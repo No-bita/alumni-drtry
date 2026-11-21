@@ -40,8 +40,8 @@ function intentSidebarActive(slug: NavIntentSlug, pathname: string): boolean {
       return pathname.startsWith("/intent/career");
     case "location":
       return pathname.startsWith("/intent/location");
-    case "build":
-      return pathname.startsWith("/intent/build");
+    case "business":
+      return pathname.startsWith("/intent/business");
     case "events":
       return pathname === "/events";
     default: {
@@ -58,7 +58,7 @@ function BottomDockIntentIcon({ slug }: { slug: NavIntentSlug }) {
       return <IconBriefcase className={cls} />;
     case "location":
       return <IconCity className={cls} />;
-    case "build":
+    case "business":
       return <IconHammer className={cls} />;
     case "events":
       return <IconCalendar className={cls} />;
@@ -76,7 +76,7 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
       return <IconBriefcase className={cls} />;
     case "location":
       return <IconCity className={cls} />;
-    case "build":
+    case "business":
       return <IconHammer className={cls} />;
     case "events":
       return <IconCalendar className={cls} />;
@@ -313,7 +313,7 @@ export function Nav({
 
   const intentNavSlugs = NAV_INTENT_SLUGS.filter((slug) => {
     if (slug === "events") return isDevHubPagesEnabled;
-    if (slug === "build") return isBuildIntentPageEnabled;
+    if (slug === "business") return isBuildIntentPageEnabled;
     return true;
   });
 

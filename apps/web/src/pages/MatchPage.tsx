@@ -41,8 +41,10 @@ export function MatchPage() {
   const hasQuestion = state.question.length >= MATCH_QUESTION_MIN;
 
   const questionId = useId();
-  // Draft follows the URL question until the user types; no effect needed.
-  const [draft, setDraft] = useState({ forQuestion: state.question, text: state.question });
+  // Draft follows the URL question until the user types; no effect needed. `?draft=` (Business
+  // shortcuts) fills the box with a starter sentence to finish, without searching yet.
+  const starter = state.question ? "" : (searchParams.get("draft") ?? "").slice(0, MATCH_QUESTION_MAX);
+  const [draft, setDraft] = useState({ forQuestion: state.question, text: state.question || starter });
   const draftQuestion = draft.forQuestion === state.question ? draft.text : state.question;
   const setDraftQuestion = (text: string) => setDraft({ forQuestion: state.question, text });
   const [reachOutTo, setReachOutTo] = useState<{ result: MatchResult; rank: number } | null>(null);
@@ -150,6 +152,11 @@ export function MatchPage() {
               value={draftQuestion}
               maxLength={MATCH_QUESTION_MAX}
               autoComplete="off"
+              autoFocus={Boolean(starter)}
+              onFocus={(e) => {
+                // Starter sentence: put the cursor at its end, ready to finish it.
+                if (starter) e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length);
+              }}
               onChange={(e) => setDraftQuestion(e.target.value)}
             />
             <button

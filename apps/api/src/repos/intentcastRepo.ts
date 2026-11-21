@@ -17,6 +17,10 @@ import {
   type AudienceUnavailableReason
 } from "../lib/postAudience.js";
 
+/** How an author says a resolved request ended (migration 068). */
+export const INTENTCAST_RESOLVED_OUTCOMES = ["got_help_here", "sorted_elsewhere", "no_longer_needed"] as const;
+export type IntentcastResolvedOutcome = (typeof INTENTCAST_RESOLVED_OUTCOMES)[number];
+
 export type IntentcastStatus = "open" | "closed";
 export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "guidance";
 /** Ask / Offer / Invitation: the author's own statement of what their post is (approved 19:30). */
@@ -792,6 +796,35 @@ export class IntentcastRepo {
       RETURNING *
       `,
       [intentcastId, actorPersonId]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /**
+   * Author closes their own open post as RESOLVED with an outcome (Business progress steps, migration 068).
+   * Same guards as closeManually; a resolved post is closed, so it leaves the feed like any other.
+   */
+  async closeResolved(
+    intentcastId: string,
+    actorPersonId: string,
+    outcome: IntentcastResolvedOutcome
+  ): Promise<IntentcastRow | null> {
+    const result = await this.db.query<IntentcastRow>(
+      `
+      UPDATE intentcasts
+      SET
+        status = 'closed',
+        closed_reason = 'resolved',
+        resolved_outcome = $3,
+        closed_at = now(),
+        closed_by_person_id = $2
+      WHERE id = $1
+        AND author_person_id = $2
+        AND status = 'open'
+        AND author_soft_deleted_at IS NULL
+      RETURNING *
+      `,
+      [intentcastId, actorPersonId, outcome]
     );
     return result.rows[0] ?? null;
   }
