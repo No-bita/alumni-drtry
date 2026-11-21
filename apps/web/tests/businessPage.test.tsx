@@ -136,6 +136,7 @@ describe("Business page", () => {
     expect(await within(section).findByText("Pilot customers for a B2B tool")).toBeTruthy();
     expect(within(section).queryByText("Looking for a flatmate")).toBeNull();
     expect(within(section).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(section).getAllByRole("button", { name: "Share this post" })).toHaveLength(4);
     fireEvent.click(within(section).getByRole("button", { name: "View all (5)" }));
     expect(within(section).getAllByRole("listitem")).toHaveLength(5);
     fireEvent.click(within(section).getByRole("tab", { name: "Offers" }));

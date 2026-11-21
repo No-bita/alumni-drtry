@@ -62,6 +62,12 @@ describe("signed out, under /app", () => {
     expect(calls.every((u) => u.startsWith("/v1/"))).toBe(true);
   });
 
+  it("a shared Wall post link keeps its #wall-… through sign-in", async () => {
+    signedOutAt("/app/home#wall-11111111-1111-4111-8111-111111111111");
+    await waitFor(() => expect(window.location.pathname).toBe("/app/login"));
+    expect(takeReturnTo()).toBe("/home#wall-11111111-1111-4111-8111-111111111111");
+  });
+
   it("the sign-in page stays put (no redirect loop) and remembers nothing", async () => {
     signedOutAt("/app/login");
     await new Promise((r) => setTimeout(r, 50));

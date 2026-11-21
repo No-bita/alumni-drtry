@@ -1,0 +1,166 @@
+/* Share a Wall post (icon beside a post's time; labelled button in a post's detail sheet). */
+.wall-share {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.wall-share__btn {
+  min-width: 44px;
+  min-height: 44px;
+  margin: -12px 0 -12px -6px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  cursor: pointer;
+}
+
+.wall-share__btn:hover {
+  color: var(--ink);
+}
+
+.wall-share__btn:focus-visible {
+  outline: 3px solid var(--ochre, var(--brick));
+  outline-offset: -2px;
+}
+
+.wall-share__btn--done {
+  color: var(--badge-open-text, var(--ink));
+}
+
+/* Confirmation text: read out always; shown for a narrowed post's note and for errors. */
+.wall-share__msg {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wall-share__msg--visible {
+  position: absolute;
+  right: 0;
+  /* Opens above the button so the confirmation stays over its own post instead of covering the next one. */
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  width: max-content;
+  max-width: min(260px, 70vw);
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.wall-share__msg--error {
+  background: var(--brick);
+}
+
+/* Labelled (detail sheet): a pill, message underneath in the flow. */
+.wall-share--labelled {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.wall-share--labelled .wall-share__btn {
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink);
+}
+
+.wall-share--labelled .wall-share__msg--visible {
+  position: static;
+  max-width: none;
+  box-shadow: none;
+}
+
+/* Wall rows: share sits left of the time. */
+.career-feed-rows__rail-bottom {
+  align-items: center;
+  gap: 4px;
+}
+
+/* A post opened from a shared link. */
+.career-feed-rows__list > li[id^="wall-"]:focus {
+  outline: none;
+}
+
+.career-feed-rows__item--shared > .career-feed-rows__row {
+  box-shadow: 0 0 0 2px var(--brick), 0 10px 30px color-mix(in srgb, var(--brick) 16%, transparent);
+  transition: box-shadow 0.4s ease;
+}
+
+.career-feed-rows__shared-badge {
+  margin: 0 0 8px;
+  justify-self: start;
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--brick);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wall-share-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wall-share-notice__dismiss {
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brick);
+  cursor: pointer;
+}
+
+/* Careers roles: the share button is a sibling of the row link, at its bottom right. */
+.careers-hub__role-item {
+  position: relative;
+}
+
+.careers-hub__role-item > .wall-share {
+  position: absolute;
+  right: 0;
+  bottom: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .career-feed-rows__item--shared > .career-feed-rows__row {
+    transition: none;
+  }
+}
+
+/* Keep a row's confirmation above neighbouring rows (rows lift on hover, which starts a new layer). */
+.career-feed-rows__list > li:has(.wall-share__msg--visible),
+.careers-hub__role-item:has(.wall-share__msg--visible) {
+  position: relative;
+  z-index: 6;
+}

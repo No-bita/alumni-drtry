@@ -11,6 +11,7 @@ import { HubSideCard } from "../components/HubSideCard";
 import { LineIcon as Icon } from "../components/LineIcon";
 import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
 import { YourReachoutsCard } from "../components/YourReachoutsCard";
+import { WallShareButton } from "../components/WallShareButton";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { publicAsset } from "../lib/appBase";
@@ -178,7 +179,7 @@ export function CareerPage() {
                     const initial = (companyName || row.roleHeader).trim().charAt(0).toUpperCase() || "·";
                     const meta = [row.companySubtitle, row.experience, row.employmentType].filter(Boolean).join(" · ");
                     return (
-                      <li key={item.id}>
+                      <li key={item.id} className="careers-hub__role-item">
                         <Link to={`/profiles/${item.authorPersonId}`} className="careers-hub__role">
                           <span className="careers-hub__role-tile" aria-hidden>
                             {initial}
@@ -197,6 +198,8 @@ export function CareerPage() {
                           </span>
                           {row.postedRelative ? <span className="careers-hub__role-time">{row.postedRelative}</span> : null}
                         </Link>
+                        {/* Sibling of the row link (a button can't sit inside a link). */}
+                        <WallShareButton postId={item.id} audienceLabel={item.audience?.label ?? null} />
                       </li>
                     );
                   })}

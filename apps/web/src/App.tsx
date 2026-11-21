@@ -71,8 +71,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [beganWhileLoading] = useState(auth.status === "loading");
   if (auth.status === "unauthenticated") {
-    // Come back here after signing in.
-    rememberReturnTo(`${location.pathname}${location.search}`);
+    // Come back here after signing in (the #… too, e.g. a shared Wall post: #wall-<id>).
+    rememberReturnTo(`${location.pathname}${location.search}${location.hash}`);
     return <Navigate to="/login" replace />;
   }
   if (beganWhileLoading && !(auth.status === "authenticated" && auth.myProfileError)) {
