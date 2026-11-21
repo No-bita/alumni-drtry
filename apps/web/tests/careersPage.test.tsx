@@ -175,6 +175,10 @@ describe("Careers page", () => {
     const first = within(section).getAllByRole("listitem")[0]!.querySelector("a")!;
     expect(first.getAttribute("href")).toBe("/profiles/a-r0");
     expect(first.textContent).toContain("Posted by Author r0");
+    // Each role can be shared; the button sits beside the row link (not inside it).
+    const share = within(section).getAllByRole("button", { name: "Share this post" });
+    expect(share).toHaveLength(4);
+    expect(share[0]!.closest("a")).toBeNull();
     fireEvent.click(within(section).getByRole("button", { name: "View all jobs (6)" }));
     expect(within(section).getAllByRole("listitem")).toHaveLength(6);
     fireEvent.click(within(section).getByRole("button", { name: "Post a role" }));
