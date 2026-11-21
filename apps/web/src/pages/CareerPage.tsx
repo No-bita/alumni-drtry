@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
@@ -6,7 +6,11 @@ import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { PostRoleHiringFlow, type PostRoleHiringFlowHandle } from "../components/PostRoleHiringFlow";
-import type { ContactRequestsInboxResponse, IntentcastFeedResponse } from "../api/client";
+import type { IntentcastFeedResponse } from "../api/client";
+import { HubSideCard } from "../components/HubSideCard";
+import { LineIcon as Icon } from "../components/LineIcon";
+import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
+import { YourReachoutsCard } from "../components/YourReachoutsCard";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { publicAsset } from "../lib/appBase";
@@ -16,16 +20,11 @@ import {
   askWithQuestionPath,
   careersCompanyPath,
   careersKeys,
-  fetchMyCompanyDemand,
   fetchReferralCompanies,
-  type CareerTopicIcon,
 } from "../lib/careers";
 import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
-import { parseOpenToPreferences } from "../lib/openToPreferences";
 import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
-import { SENT_NOTES_QUERY_KEY, fetchSentNotes, sentNoteStatusLabel } from "../lib/sentNotes";
-import { formatRelativeTime } from "../lib/formatRelativeTime";
 
 /** How many roles show before "View all jobs". */
 const ROLES_PREVIEW = 4;
@@ -56,13 +55,6 @@ export function CareerPage() {
     queryFn: ({ signal }) => fetchReferralCompanies(signal),
     enabled: signedIn,
   });
-  const sent = useQuery({ queryKey: SENT_NOTES_QUERY_KEY, queryFn: ({ signal }) => fetchSentNotes(signal), enabled: signedIn });
-  const inbox = useQuery({
-    queryKey: ["contact-requests", "inbox"],
-    queryFn: ({ signal }) => assertApiGet<ContactRequestsInboxResponse>("/v1/contact-requests/inbox", signal),
-    enabled: signedIn,
-  });
-  const demand = useQuery({ queryKey: careersKeys.myCompanyDemand(), queryFn: ({ signal }) => fetchMyCompanyDemand(signal), enabled: signedIn });
   const rolesFeed = useQuery({
     queryKey: queryKeys.career.roles(),
     queryFn: ({ signal }) =>
@@ -82,12 +74,6 @@ export function CareerPage() {
   if (!signedIn) return null;
 
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
-  const openTo = parseOpenToPreferences(auth.myProfile?.openToPreferences)?.selected ?? [];
-  const waiting = inbox.data?.requests.length ?? 0;
-  const myDemand = demand.data ?? null;
-  // Asks waiting for you: anyone who has said what they can help with, has asks waiting, or works somewhere.
-  const showHelper = openTo.length > 0 || waiting > 0 || myDemand !== null;
-  const reachouts = (sent.data?.requests ?? []).slice(0, 3);
   const shownRoles = showAllRoles ? roles : roles.slice(0, ROLES_PREVIEW);
   const companyList = companies.data ?? [];
   const shownCompanies = showAllCompanies ? companyList : companyList.slice(0, COMPANIES_PREVIEW);
@@ -155,18 +141,18 @@ export function CareerPage() {
         </nav>
 
         <div className="careers-hub__grid">
-          <section className="careers-hub__card careers-hub__opps" aria-labelledby="careers-opps-title">
-            <div className="careers-hub__card-head">
-              <span className="careers-hub__card-icon" aria-hidden>
+          <section className="hub-card careers-hub__opps" aria-labelledby="careers-opps-title">
+            <div className="hub-card__head">
+              <span className="hub-card__icon" aria-hidden>
                 <Icon name="referral" />
               </span>
-              <div className="careers-hub__card-heading">
-                <h2 id="careers-opps-title" className="careers-hub__h2">
+              <div className="hub-card__heading">
+                <h2 id="careers-opps-title" className="hub-card__title">
                   Opportunities for you
                 </h2>
                 <p className="careers__note">Roles shared by alumni.</p>
               </div>
-              <button type="button" className="careers-hub__pill" onClick={() => hiringFlowRef.current?.open()}>
+              <button type="button" className="hub-card__pill" onClick={() => hiringFlowRef.current?.open()}>
                 Post a role
               </button>
             </div>
@@ -230,67 +216,22 @@ export function CareerPage() {
           </section>
 
           <aside className="careers-hub__side" aria-label="Your activity and quick links">
-            {reachouts.length > 0 ? (
-              <SideCard id="careers-reachouts-title" title="Your reachouts" icon="advice" action={<Link to="/notifications" className="careers__more">All</Link>}>
-                <ul className="careers-hub__list">
-                  {reachouts.map((n) => (
-                    <li key={n.id}>
-                      <Link to="/notifications" className="careers-hub__item">
-                        <span className="careers-hub__item-main">
-                          <span className="careers-hub__item-title">{n.recipientFullName?.trim() || "An alum"}</span>
-                          <span className="careers__row-meta">Sent {formatRelativeTime(n.createdAt)}</span>
-                        </span>
-                        <span className={`careers__status careers__status--${n.status}`}>{sentNoteStatusLabel(n)}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </SideCard>
-            ) : null}
+            <YourReachoutsCard />
 
-            {showHelper ? (
-              <SideCard id="careers-help-title" title="Asks waiting for you" icon="inbox" tone="warm">
-                <p className="careers__note">Juniors and peers are looking for people like you.</p>
-                <Link to="/notifications" className="careers-hub__item careers-hub__item--boxed" aria-label={`${waiting} ${waiting === 1 ? "ask" : "asks"} waiting for you`}>
-                  <span className="careers-hub__item-title">{waiting === 1 ? "1 ask waiting" : `${waiting} asks waiting`}</span>
-                  <span className="careers__count" aria-hidden>
-                    {waiting}
-                  </span>
-                </Link>
-                {myDemand ? (
-                  <div className="careers-hub__demand">
-                    <span className="careers-hub__item-title">
-                      {myDemand.asks === 0
-                        ? `No one has asked about ${myDemand.company} in the last ${myDemand.days} days`
-                        : `${myDemand.asks} ${myDemand.asks === 1 ? "ask" : "asks"} about ${myDemand.company} in the last ${myDemand.days} days`}
-                    </span>
-                    <span className="careers__row-meta">
-                      {openTo.includes("referrals")
-                        ? "You're open to referrals, so you can show up for them."
-                        : "Say you're open to referrals to show up for them."}
-                    </span>
-                  </div>
-                ) : null}
-                {auth.myProfile?.id ? (
-                  <Link to={`/profiles/${auth.myProfile.id}?edit=open-to`} className="careers__more">
-                    Offer help: update what you&apos;re open to
-                  </Link>
-                ) : null}
-              </SideCard>
-            ) : null}
+            <ReachoutsWaitingCard />
 
-            <SideCard id="careers-links-title" title="Quick links" icon="links">
-              <ul className="careers-hub__list">
+            <HubSideCard id="careers-links-title" title="Quick links" icon="links">
+              <ul className="hub-card__list">
                 <li>
                   <button
                     type="button"
-                    className="careers-hub__item careers-hub__item--button"
+                    className="hub-card__item hub-card__item--button"
                     aria-expanded={companiesOpen}
                     aria-controls="careers-referral-companies"
                     onClick={() => setCompaniesOpen((v) => !v)}
                   >
-                    <span className="careers-hub__item-title">Companies you can get referred to</span>
-                    <span className="careers-hub__chev" aria-hidden data-open={companiesOpen ? "true" : "false"}>
+                    <span className="hub-card__item-title">Companies you can get referred to</span>
+                    <span className="hub-card__chev" aria-hidden data-open={companiesOpen ? "true" : "false"}>
                       <Icon name="chevron" />
                     </span>
                   </button>
@@ -335,23 +276,23 @@ export function CareerPage() {
                   </div>
                 </li>
                 <li>
-                  <Link to="/search" className="careers-hub__item">
-                    <span className="careers-hub__item-title">Browse all alumni</span>
-                    <span className="careers-hub__chev" aria-hidden>
+                  <Link to="/search" className="hub-card__item">
+                    <span className="hub-card__item-title">Browse all alumni</span>
+                    <span className="hub-card__chev" aria-hidden>
                       <Icon name="chevron" />
                     </span>
                   </Link>
                 </li>
                 <li>
-                  <button type="button" className="careers-hub__item careers-hub__item--button" onClick={() => hiringFlowRef.current?.open()}>
-                    <span className="careers-hub__item-title">Post a role</span>
-                    <span className="careers-hub__chev" aria-hidden>
+                  <button type="button" className="hub-card__item hub-card__item--button" onClick={() => hiringFlowRef.current?.open()}>
+                    <span className="hub-card__item-title">Post a role</span>
+                    <span className="hub-card__chev" aria-hidden>
                       <Icon name="chevron" />
                     </span>
                   </button>
                 </li>
               </ul>
-            </SideCard>
+            </HubSideCard>
           </aside>
         </div>
       </main>
@@ -366,88 +307,5 @@ export function CareerPage() {
         }}
       />
     </div>
-  );
-}
-
-function SideCard({
-  id,
-  title,
-  icon,
-  action,
-  tone,
-  children,
-}: {
-  id: string;
-  title: string;
-  icon: CareerTopicIcon | "links" | "inbox";
-  action?: ReactNode;
-  tone?: "warm";
-  children: ReactNode;
-}) {
-  return (
-    <section className={`careers-hub__card careers-hub__side-card${tone === "warm" ? " careers-hub__side-card--warm" : ""}`} aria-labelledby={id}>
-      <div className="careers-hub__card-head">
-        <span className="careers-hub__card-icon" aria-hidden>
-          <Icon name={icon} />
-        </span>
-        <h2 id={id} className="careers-hub__h2">
-          {title}
-        </h2>
-        {action ?? null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-type IconName = CareerTopicIcon | "links" | "inbox" | "search" | "arrow" | "chevron";
-
-/** Simple line icons (decorative; every use is aria-hidden). */
-function Icon({ name }: { name: IconName }) {
-  const paths: Record<IconName, ReactNode> = {
-    referral: (
-      <>
-        <rect x="3" y="7" width="18" height="13" rx="2" />
-        <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M3 12.5h18M11 12v2h2v-2" />
-      </>
-    ),
-    interview: <path d="M12 3 3 7.5 12 12l9-4.5L12 3ZM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5" />,
-    switch: <path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5" />,
-    studies: (
-      <>
-        <path d="M2.5 9 12 4.5 21.5 9 12 13.5 2.5 9Z" />
-        <path d="M6.5 11v4.5c1.4 1.4 3.3 2 5.5 2s4.1-.6 5.5-2V11M21.5 9v5" />
-      </>
-    ),
-    advice: (
-      <>
-        <path d="M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H8.5L4 19.5Z" />
-        <path d="M8.5 10h.01M12 10h.01M15.5 10h.01" />
-      </>
-    ),
-    links: (
-      <>
-        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" />
-      </>
-    ),
-    inbox: (
-      <>
-        <path d="M4 13.5 6.2 6A2 2 0 0 1 8.1 4.5h7.8a2 2 0 0 1 1.9 1.5l2.2 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-4.5Z" />
-        <path d="M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20" />
-      </>
-    ),
-    search: (
-      <>
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="m16 16 4 4" />
-      </>
-    ),
-    arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
-    chevron: <path d="m9 6 6 6-6 6" />,
-  };
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">
-      {paths[name]}
-    </svg>
   );
 }

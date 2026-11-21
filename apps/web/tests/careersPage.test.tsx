@@ -82,8 +82,8 @@ describe("Careers page", () => {
     expect(screen.getByRole("searchbox", { name: "Search careers" })).toBeTruthy();
     expect(await screen.findByText("Hiring? Post a role and alumni will see it here.")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Your reachouts" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Asks waiting for you" })).toBeNull();
-    for (const gone of ["Your asks", "You can help", "Recent from alumni", "Roles from alumni", "Get referred where you're applying."]) {
+    expect(screen.queryByRole("heading", { name: "Reachouts waiting for you" })).toBeNull();
+    for (const gone of ["Your asks", "You can help", "Asks waiting for you", "Recent from alumni", "Roles from alumni", "Get referred where you're applying."]) {
       expect(screen.queryByRole("heading", { name: gone })).toBeNull();
     }
     const links = screen.getByRole("heading", { name: "Quick links" }).closest("section")!;
@@ -144,14 +144,24 @@ describe("Careers page", () => {
     expect(rows[0]!.querySelector("a")!.getAttribute("href")).toBe("/notifications");
   });
 
-  it("asks waiting for you: count, demand for your company, and Offer help to your Open-to settings", async () => {
+  it("reachouts waiting for you: count, searches for your company, and Offer help to your Open-to settings", async () => {
     world({ openTo: ["referrals"], inbox: 2, demand: { company: "Razorpay", asks: 4, days: 30 } });
     mount();
-    const section = (await screen.findByRole("heading", { name: "Asks waiting for you" })).closest("section")!;
-    expect((await within(section).findByRole("link", { name: "2 asks waiting for you" })).getAttribute("href")).toBe("/notifications");
-    expect(await within(section).findByText("4 asks about Razorpay in the last 30 days")).toBeTruthy();
-    expect(within(section).getByText("You're open to referrals, so you can show up for them.")).toBeTruthy();
+    const section = (await screen.findByRole("heading", { name: "Reachouts waiting for you" })).closest("section")!;
+    expect((await within(section).findByRole("link", { name: "2 waiting for your reply" })).getAttribute("href")).toBe("/notifications");
+    expect(await within(section).findByText("4 searches for Razorpay in the last 30 days")).toBeTruthy();
+    expect(within(section).getByText("You're open to referrals, so you can show up in those searches.")).toBeTruthy();
     expect(within(section).getByRole("link", { name: "Offer help: update what you're open to" }).getAttribute("href")).toBe("/profiles/me1?edit=open-to");
+    expect(section.textContent).not.toMatch(/\basks?\b/i);
+  });
+
+  it("reachouts waiting for you: shows 0 when nothing waits but you work somewhere", async () => {
+    world({ inbox: 0, demand: { company: "Razorpay", asks: 1, days: 30 } });
+    mount();
+    const section = (await screen.findByRole("heading", { name: "Reachouts waiting for you" })).closest("section")!;
+    expect(await within(section).findByRole("link", { name: "0 waiting for your reply" })).toBeTruthy();
+    expect(within(section).getByText("1 search for Razorpay in the last 30 days")).toBeTruthy();
+    expect(within(section).getByText("Say you're open to referrals to show up in those searches.")).toBeTruthy();
   });
 
   it("opportunities: roles alumni posted (hiring only), four then View all jobs; Post a role opens the role form", async () => {

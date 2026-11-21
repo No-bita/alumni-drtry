@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SearchProfileView } from "../api/client";
+import { LineIcon } from "./LineIcon";
+import "../styles/hub-cards.css";
 import { buildInviteLink, buildWhatsAppShareUrl, copyText } from "../lib/inviteLink";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import "../styles/home-network-invite.css";
@@ -81,9 +83,14 @@ export function HomeNetworkPanel({
   if (!hasConfirmedCount) {
     return (
       <section className="home-ideal__panel" aria-labelledby="home-network-heading">
-        <h2 id="home-network-heading" className="home-ideal__panel-title">
-          Bring your batchmates here
-        </h2>
+        <div className="home-network__head">
+          <span className="hub-card__icon" aria-hidden>
+            <LineIcon name="people" />
+          </span>
+          <h2 id="home-network-heading" className="home-ideal__panel-title">
+            Bring your batchmates here
+          </h2>
+        </div>
         <div className="home-ideal__panel-actions">
           <button
             type="button"
@@ -101,9 +108,14 @@ export function HomeNetworkPanel({
 
   return (
     <section className="home-ideal__panel" aria-labelledby="home-network-heading">
-      <h2 id="home-network-heading" className="home-ideal__panel-title">
-        {batchTitle(countLabel ?? String(members.length))}
-      </h2>
+      <div className="home-network__head">
+        <span className="hub-card__icon" aria-hidden>
+          <LineIcon name="people" />
+        </span>
+        <h2 id="home-network-heading" className="home-ideal__panel-title">
+          {batchTitle(countLabel ?? String(members.length))}
+        </h2>
+      </div>
       <div className="home-ideal__panel-actions">
         <button
           type="button"

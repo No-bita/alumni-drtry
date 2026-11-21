@@ -1,0 +1,146 @@
+/* Home refresh (borrowed from Careers): search box, reachout cards, sentence-case pill buttons, icon
+   card headers and the few-posts Wall invite. Scoped to Home; the shared cards live in hub-cards.css. */
+
+/* Reachout cards between the search and the Wall below the rail width (1200px). */
+.home-reachouts {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ---------- Search box: icon, placeholder and arrow inside one box ---------- */
+.home-dashboard--ideal .home-ask {
+  min-width: 0;
+}
+
+/* Narrow phones: the two example chips wrap instead of widening the hero past its card. */
+@media (max-width: 359px) {
+  .home-dashboard--ideal .home-ask__examples {
+    flex-wrap: wrap;
+    white-space: normal;
+    row-gap: 6px;
+  }
+}
+
+.home-ask__box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.home-ask__box:focus-within {
+  border-color: var(--brick);
+}
+
+.home-ask__box-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--ink-muted);
+}
+
+.home-ask__field {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.home-ask__field::placeholder {
+  color: var(--ink-muted);
+}
+
+.home-ask__field:focus,
+.home-ask .home-ask__field:focus-visible {
+  outline: none;
+}
+
+.home-ask__go {
+  flex: none;
+  width: 48px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: var(--brick);
+  color: var(--cream);
+  cursor: pointer;
+}
+
+.home-ask__go:focus-visible {
+  outline: 3px solid var(--ochre, var(--brick));
+  outline-offset: 2px;
+}
+
+/* ---------- Buttons on Home: sentence case pills (the app-wide .btn stays uppercase) ---------- */
+.home-dashboard--ideal .btn,
+.home-dashboard--ideal .home-ideal__panel-actions .btn,
+.home-dashboard--ideal .bb-post-card__actions .btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+/* ---------- Card headers: icon in a circle + serif title ---------- */
+/* Top-aligned so it sits beside the title when the subtitle wraps. */
+.home-dashboard--ideal .home-ideal__opportunities-header > .home-wall__icon {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.home-dashboard--ideal .home-ideal__opportunities-header > .home-ideal__opportunities-headcopy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-network__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-network__head > .home-ideal__panel-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Few posts: invite under the feed ---------- */
+.home-wall-invite {
+  margin-top: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  border: 1px dashed var(--border-muted);
+  border-radius: 14px;
+}
+
+.home-wall-invite__text {
+  margin: 0;
+  flex: 1 1 240px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.home-wall-invite__post {
+  flex: none;
+}

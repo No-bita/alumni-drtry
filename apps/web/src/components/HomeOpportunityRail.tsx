@@ -16,9 +16,13 @@ import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
 import { WallEmptyPrompt } from "./WallEmptyPrompt";
+import { LineIcon } from "./LineIcon";
+import "../styles/hub-cards.css";
 
 /** How long the rings around "Post to The Wall" play once the empty-Wall card settles. */
 const POST_RIPPLE_MS = 1300;
+/** Fewer posts than this (but at least one) adds the "Post to the Wall" invite under the feed. */
+const FEW_POSTS = 3;
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
 import type { HomeOpportunityCategoryLegacy } from "../lib/homeOpportunityCategory";
@@ -219,6 +223,9 @@ export function HomeOpportunityRail({
   return (
     <section className="home-ideal__opportunities ds-surface-card" aria-labelledby="home-opportunities-heading">
       <header className="home-ideal__opportunities-header ds-section-head">
+        <span className="hub-card__icon home-wall__icon" aria-hidden>
+          <LineIcon name="wall" />
+        </span>
         <div className="home-ideal__opportunities-headcopy">
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
             The Wall
@@ -231,7 +238,7 @@ export function HomeOpportunityRail({
             className={`btn btn--secondary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
             onClick={onPost}
           >
-            Post to The Wall
+            Post to the Wall
           </button>
         ) : null}
       </header>
@@ -327,6 +334,15 @@ export function HomeOpportunityRail({
             deleteSubmittingId={deleteSubmittingId}
             onRequestDelete={setDeleteConfirmId}
           />
+          {/* Only 1–2 posts: a short invite under them (the fully empty Wall has its own prompt). */}
+          {onPost && feedTab === "all" && activityRows.length < FEW_POSTS ? (
+            <div className="home-wall-invite">
+              <p className="home-wall-invite__text">Ask for help or share an opportunity. Every alum here can see it.</p>
+              <button type="button" className="btn btn--secondary home-wall-invite__post" onClick={onPost}>
+                Post to the Wall
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
       </div>
