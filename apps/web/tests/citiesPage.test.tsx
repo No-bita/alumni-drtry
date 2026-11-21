@@ -213,7 +213,7 @@ describe("Cities page: city home (local)", () => {
       return base(path);
     });
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "View all posts →" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View all posts" }));
     expect(await screen.findByRole("button", { name: /Request 20/ })).toBeTruthy();
     expect(apiGet).toHaveBeenCalledWith("/v1/cities/blr/posts", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
@@ -227,7 +227,7 @@ describe("Cities page: city home (local)", () => {
     mount();
     expect(await screen.findByText("Nothing to see here yet.")).toBeTruthy();
     expect(screen.getByText(/Be the first to ask/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "View all posts →" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View all posts" })).toBeNull();
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
   });
 
