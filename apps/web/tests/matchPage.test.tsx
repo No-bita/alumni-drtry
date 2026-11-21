@@ -384,3 +384,27 @@ describe("MatchPage — from a Careers topic shortcut", () => {
     await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?q=Moving+to+Pune+for+work"));
   });
 });
+
+describe("MatchPage starter sentence (?draft=, from Business shortcuts)", () => {
+  it("fills the box without searching, then searches the finished question on its topic", async () => {
+    post.mockResolvedValue({ data: { intent: { ...intent, category: "founder_advice", company: null, role: null }, needsDetail: false, results: [], fallback: null } });
+    mount("/match?draft=I%27m+looking+for+a+co-founder+or+early+hire+for+&cat=founder_advice");
+    const box = screen.getByLabelText("Your question") as HTMLInputElement;
+    expect(box.value).toBe("I'm looking for a co-founder or early hire for ");
+    expect(post).not.toHaveBeenCalled();
+    fireEvent.change(box, { target: { value: "I'm looking for a co-founder or early hire for a D2C snacks brand" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post.mock.calls[0]![1]).toEqual({
+      question: "I'm looking for a co-founder or early hire for a D2C snacks brand",
+      overrides: { category: "founder_advice" },
+    });
+    expect(screen.getByTestId("search").textContent).not.toContain("draft=");
+  });
+
+  it("a real question in the link wins over a starter", () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [], fallback: null } });
+    mount("/match?q=Referral+at+Razorpay&draft=ignored");
+    expect((screen.getByLabelText("Your question") as HTMLInputElement).value).toBe("Referral at Razorpay");
+  });
+});

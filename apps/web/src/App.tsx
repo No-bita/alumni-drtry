@@ -37,7 +37,7 @@ const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ defaul
 const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const CareerCompanyPage = lazy(() => import("./pages/CareerCompanyPage").then((m) => ({ default: m.CareerCompanyPage })));
-const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
+const BusinessPage = lazy(() => import("./pages/BusinessPage").then((m) => ({ default: m.BusinessPage })));
 const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
 const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
@@ -318,15 +318,17 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/intent/build"
+          path="/intent/business"
           element={
             <RequireAuth>
               <ProfileGate mode="home">
-                {isBuildIntentPageEnabled ? <BuildPage /> : <Navigate to="/home" replace />}
+                {isBuildIntentPageEnabled ? <BusinessPage /> : <Navigate to="/home" replace />}
               </ProfileGate>
             </RequireAuth>
           }
         />
+        {/* The Build hub became Business: old links keep working. */}
+        <Route path="/intent/build" element={<Navigate to="/intent/business" replace />} />
         <Route
           path="/intent/:intentSlug"
           element={

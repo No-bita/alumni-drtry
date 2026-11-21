@@ -5,7 +5,7 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 const LINKS = [
   { id: "careers", label: "Careers", to: "/intent/career" },
   { id: "cities", label: "Cities", to: "/intent/location" },
-  { id: "startups", label: "Startups", to: "/intent/build" },
+  { id: "startups", label: "Startups", to: "/intent/business" },
   { id: "directory", label: "All alumni", to: "/search" },
 ] as const;
 

@@ -19,7 +19,7 @@ function navAvatarName(
 }
 
 /**
- * `/intent/location` → location lens; `/intent/build` → build hub (see App.tsx); `/intent/career` → career hub.
+ * `/intent/location` → location lens; `/intent/business` → Business page (see App.tsx; `/intent/build` redirects there); `/intent/career` → career hub.
  */
 export function IntentPage() {
   const { intentSlug } = useParams();
