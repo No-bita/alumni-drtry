@@ -1,6 +1,8 @@
 # Business page
 
-`/intent/business` (formerly the Build hub; `/intent/build` redirects). The page stays off in production until `VITE_ENABLE_BUILD_INTENT_PAGE=true` is set on the deploy; local dev always shows it.
+`/intent/business` (formerly the Build hub; `/intent/build` redirects). The page is available to signed-in members who pass the existing profile gate. It does not require a feature flag. Request resolution requires the API deployment and migration 068 before the web release.
+
+<!-- Former release gate, retained for history: VITE_ENABLE_BUILD_INTENT_PAGE=true. -->
 
 ## What's on it
 
