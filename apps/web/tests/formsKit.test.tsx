@@ -40,6 +40,41 @@ describe("forms kit FormField", () => {
     expect(screen.getByLabelText("Details").tagName).toBe("TEXTAREA");
   });
 
+  it("wires required/error state onto the nested controlId control, not the wrapper", () => {
+    render(
+      <FormField label="Details" required error="Required." controlId="real-control">
+        <div className="wrap" data-testid="wrap">
+          <textarea id="real-control" />
+        </div>
+      </FormField>
+    );
+    const control = screen.getByLabelText("Details");
+    const alert = screen.getByRole("alert");
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    expect(control.getAttribute("aria-required")).toBe("true");
+    expect(control.getAttribute("aria-describedby")).toContain(alert.id);
+    const wrap = screen.getByTestId("wrap");
+    expect(wrap.getAttribute("aria-invalid")).toBeNull();
+    expect(wrap.getAttribute("aria-required")).toBeNull();
+    expect(wrap.getAttribute("aria-describedby")).toBeNull();
+    expect(wrap.getAttribute("id")).toBeNull();
+  });
+
+  it("keeps a nested control's own aria-describedby (e.g. an inline counter) when wiring error text", () => {
+    render(
+      <FormField label="Your question" error="Required." controlId="q">
+        <div className="wrap">
+          <textarea id="q" aria-describedby="q-counter" />
+          <p id="q-counter">0 / 500</p>
+        </div>
+      </FormField>
+    );
+    const control = screen.getByLabelText("Your question");
+    const alert = screen.getByRole("alert");
+    expect(control.getAttribute("aria-describedby")).toContain("q-counter");
+    expect(control.getAttribute("aria-describedby")).toContain(alert.id);
+  });
+
   it("shows errors as an alert linked to the control", () => {
     render(
       <FormField label="Role" error="Add a role title (at least 3 characters).">

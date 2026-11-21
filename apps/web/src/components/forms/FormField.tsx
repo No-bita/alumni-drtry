@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
 
 type FormFieldProps = {
   label: string;
@@ -17,9 +17,39 @@ type FormFieldProps = {
   /**
    * Use when the actual control sits inside a wrapper (e.g. textarea with an inline
    * counter): the label's htmlFor points at this control id instead of the child element.
+   * The aria-describedby / aria-invalid / aria-required wiring is applied to that nested
+   * control, not the wrapper.
    */
   controlId?: string;
 };
+
+type AriaWiring = {
+  describedBy?: string;
+  invalid: boolean;
+  required: boolean;
+};
+
+/**
+ * Applies the field's aria wiring to the nested element whose id is controlId,
+ * merging with any aria-describedby already on it (e.g. an inline counter).
+ */
+function wireNestedControl(node: ReactNode, controlId: string, wiring: AriaWiring): ReactNode {
+  if (Array.isArray(node)) return Children.map(node, (child) => wireNestedControl(child, controlId, wiring));
+  if (!isValidElement(node)) return node;
+  const props = node.props as { id?: string; "aria-describedby"?: string; children?: ReactNode };
+  if (props.id === controlId) {
+    const mergedDescribedBy = [props["aria-describedby"], wiring.describedBy].filter(Boolean).join(" ") || undefined;
+    return cloneElement(node, {
+      "aria-describedby": mergedDescribedBy,
+      "aria-invalid": wiring.invalid ? true : undefined,
+      "aria-required": wiring.required ? true : undefined,
+    } as Partial<typeof node.props>);
+  }
+  if (props.children) {
+    return cloneElement(node, {}, wireNestedControl(props.children, controlId, wiring));
+  }
+  return node;
+}
 
 /**
  * Shared field wrapper from the form design sheets: label on top, control, then helper or
@@ -33,14 +63,20 @@ export function FormField({ label, required = false, help, error, className = ""
 
   let control: ReactNode = children;
   if (isValidElement(children)) {
-    const childProps = children.props as { id?: string; "aria-describedby"?: string };
-    const mergedDescribedBy = [childProps["aria-describedby"], describedBy].filter(Boolean).join(" ") || undefined;
-    control = cloneElement(children, {
-      id: childProps.id ?? generatedId,
-      "aria-describedby": mergedDescribedBy,
-      "aria-invalid": error ? true : undefined,
-      "aria-required": required ? true : undefined,
-    } as Partial<typeof children.props>);
+    if (controlId) {
+      // The labelled control is nested inside a wrapper element: the aria wiring must
+      // land on that control (matching the label's htmlFor), never on the wrapper.
+      control = wireNestedControl(children, controlId, { describedBy, invalid: !!error, required });
+    } else {
+      const childProps = children.props as { id?: string; "aria-describedby"?: string };
+      const mergedDescribedBy = [childProps["aria-describedby"], describedBy].filter(Boolean).join(" ") || undefined;
+      control = cloneElement(children, {
+        id: childProps.id ?? generatedId,
+        "aria-describedby": mergedDescribedBy,
+        "aria-invalid": error ? true : undefined,
+        "aria-required": required ? true : undefined,
+      } as Partial<typeof children.props>);
+    }
   }
 
   const labelFor = controlId ?? (isValidElement(children) ? ((children.props as { id?: string }).id ?? generatedId) : generatedId);
