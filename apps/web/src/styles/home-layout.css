@@ -38,10 +38,19 @@
   }
 }
 
-/* The hero now holds only the question, the box and one reassurance line. */
+/* The hero now holds only the question, the box and one reassurance line.
+   It also drops its card frame: the question and the search box sit directly
+   on the page (the Careers pattern) instead of a box inside a bordered card,
+   which read as secondary next to the Wall card. The search box keeps its own
+   border, radius and shadow. */
 .home-dashboard--ideal .home-ideal__intent-hero,
 .home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero {
   min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .home-reassurance {
