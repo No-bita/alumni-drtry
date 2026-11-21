@@ -29,7 +29,7 @@ type Props = {
   postId: string;
   /** The post's audience label when it's narrowed (null = Everyone): a narrowed post shows the confirmation on screen. */
   audienceLabel?: string | null;
-  /** Icon only (Wall rows) or icon + "Share" (a post's detail sheet). */
+  /** Icon only (Wall rows); the labelled variant (a post's detail sheet) adds an in-flow confirmation. */
   variant?: "icon" | "labelled";
 };
 
@@ -84,11 +84,15 @@ export function WallShareButton({ postId, audienceLabel = null, variant = "icon"
       <button
         type="button"
         className={`wall-share__btn${done ? " wall-share__btn--done" : ""}`}
-        aria-label={variant === "icon" ? label : undefined}
+        aria-label={label}
         onClick={() => void onClick()}
       >
         {done ? <CheckIcon /> : <ShareNodesIcon />}
-        {variant === "labelled" ? <span>Share</span> : null}
+        {variant === "labelled" ? (
+          <span className="wall-share__btn-label" aria-hidden="true">
+            Share
+          </span>
+        ) : null}
       </button>
       {/* Visible for a narrowed post's confirmation and for errors; screen readers hear every confirmation. */}
       <span

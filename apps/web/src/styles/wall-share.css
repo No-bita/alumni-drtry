@@ -75,7 +75,7 @@
   background: var(--brick);
 }
 
-/* Labelled (detail sheet): a pill, message underneath in the flow. */
+/* Labelled (detail sheet): icon-only pill (the word stays for assistive tech), message underneath in the flow. */
 .wall-share--labelled {
   display: grid;
   justify-items: start;
@@ -84,9 +84,18 @@
 
 .wall-share--labelled .wall-share__btn {
   margin: 0;
-  padding: 0 16px;
+  padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   color: var(--ink);
+}
+
+.wall-share__btn-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .wall-share--labelled .wall-share__msg--visible {

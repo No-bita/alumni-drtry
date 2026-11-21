@@ -314,7 +314,7 @@ describe("Cities: share from a post's detail sheet", () => {
     fireEvent.click(screen.getByRole("button", { name: /Flatmate near HSR/ }));
     const dialog = screen.getByRole("dialog");
     await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "Share" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Share this post" }));
     });
     expect((navigator.clipboard.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(URL_A);
     expect(within(dialog).getByRole("status").textContent).toBe("Copied.");
