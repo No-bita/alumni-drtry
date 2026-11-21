@@ -162,7 +162,7 @@ describe("sharing", () => {
     expect(writeText).toHaveBeenCalledWith(URL_A);
   });
 
-  it("button: checkmark and 'Link copied.' for 2 seconds, read out but not shown for an Everyone post", async () => {
+  it("button: checkmark and 'Copied.' for 2 seconds, read out but not shown for an Everyone post", async () => {
     stubNavigator({ clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<WallShareButton postId={ID_A} />);
     await act(async () => {
@@ -170,7 +170,7 @@ describe("sharing", () => {
     });
     expect(screen.getByRole("button", { name: "Link shared" })).toBeTruthy();
     const status = screen.getByRole("status");
-    expect(status.textContent).toBe("Link copied.");
+    expect(status.textContent).toBe("Copied.");
     expect(status.classList.contains("wall-share__msg--visible")).toBe(false);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(WALL_SHARE_CONFIRM_MS);
@@ -179,14 +179,14 @@ describe("sharing", () => {
     expect(status.textContent).toBe("");
   });
 
-  it("a narrowed post shows that only its audience can open the link", async () => {
+  it("a narrowed post shows the same short confirmation", async () => {
     stubNavigator({ clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<WallShareButton postId={ID_A} audienceLabel="IIT (BHU) Varanasi · Bengaluru" />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Share this post" }));
     });
     const status = screen.getByRole("status");
-    expect(status.textContent).toBe("Link copied. Only people in its audience can open this link.");
+    expect(status.textContent).toBe("Copied.");
     expect(status.classList.contains("wall-share__msg--visible")).toBe(true);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(WALL_SHARE_NOTE_MS);
@@ -317,7 +317,7 @@ describe("Cities: share from a post's detail sheet", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Share" }));
     });
     expect((navigator.clipboard.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(URL_A);
-    expect(within(dialog).getByRole("status").textContent).toBe("Link copied.");
+    expect(within(dialog).getByRole("status").textContent).toBe("Copied.");
   });
 });
 

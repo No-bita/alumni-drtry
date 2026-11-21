@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { WALL_SHARE_AUDIENCE_NOTE, shareWallPost } from "../lib/wallShare";
+import { shareWallPost } from "../lib/wallShare";
 import "../styles/wall-share.css";
 
 /** How long the confirmation shows. A narrowed post's note stays a little longer so it can be read. */
@@ -27,7 +27,7 @@ function CheckIcon() {
 
 type Props = {
   postId: string;
-  /** The post's audience label when it's narrowed (null = Everyone): adds the "only its audience" note. */
+  /** The post's audience label when it's narrowed (null = Everyone): a narrowed post shows the confirmation on screen. */
   audienceLabel?: string | null;
   /** Icon only (Wall rows) or icon + "Share" (a post's detail sheet). */
   variant?: "icon" | "labelled";
@@ -35,7 +35,7 @@ type Props = {
 
 /**
  * Share a Wall post's link: the phone's share sheet where there is one, otherwise copy it. A checkmark and
- * "Link copied" confirm a copy; a narrowed post also shows that only its audience can open the link. If
+ * "Copied" confirm a copy; a narrowed post shows that confirmation on screen. If
  * copying fails, nothing claims success and an inline message says so.
  */
 export function WallShareButton({ postId, audienceLabel = null, variant = "icon" }: Props) {
@@ -73,9 +73,9 @@ export function WallShareButton({ postId, audienceLabel = null, variant = "icon"
       show("Couldn't copy the link. Try again.", false, WALL_SHARE_NOTE_MS);
       return;
     }
-    const base = result === "copied" ? "Link copied." : "Shared.";
-    if (narrowed) show(`${base} ${WALL_SHARE_AUDIENCE_NOTE}`, true, WALL_SHARE_NOTE_MS);
-    else show(result === "copied" ? "Link copied." : null, true, WALL_SHARE_CONFIRM_MS);
+    const base = result === "copied" ? "Copied." : "Shared.";
+    if (narrowed) show(base, true, WALL_SHARE_NOTE_MS);
+    else show(result === "copied" ? "Copied." : null, true, WALL_SHARE_CONFIRM_MS);
   };
 
   const label = done ? "Link shared" : "Share this post";
@@ -90,7 +90,7 @@ export function WallShareButton({ postId, audienceLabel = null, variant = "icon"
         {done ? <CheckIcon /> : <ShareNodesIcon />}
         {variant === "labelled" ? <span>Share</span> : null}
       </button>
-      {/* Visible for a narrowed post's note and for errors; screen readers hear every confirmation. */}
+      {/* Visible for a narrowed post's confirmation and for errors; screen readers hear every confirmation. */}
       <span
         className={`wall-share__msg${message && (narrowed || message.tone === "error" || variant === "labelled") ? " wall-share__msg--visible" : ""}${message?.tone === "error" ? " wall-share__msg--error" : ""}`}
         role="status"

@@ -14,9 +14,6 @@ export const WALL_ROUTE = "/home";
 const HASH_PREFIX = "wall-";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Shown with a narrowed post's link: people outside its audience get "isn't available". */
-export const WALL_SHARE_AUDIENCE_NOTE = "Only people in its audience can open this link.";
-
 /** DOM id of a post on The Wall (also the link's `#…` target). */
 export function wallPostAnchorId(postId: string): string {
   return `${HASH_PREFIX}${postId}`;
