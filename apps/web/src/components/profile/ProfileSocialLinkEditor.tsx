@@ -1,6 +1,6 @@
 import { useId, type FormEvent } from "react";
 import { Button } from "../Button";
-import { Input } from "../Input";
+import { FormField } from "../forms";
 import {
   SOCIAL_LINK_PLACEHOLDERS,
   socialPlatformLabel,
@@ -48,17 +48,18 @@ export function ProfileSocialLinkEditor({
         {value.trim() ? "Edit" : "Add"} {platformLabel}
       </p>
       <form className="profile-page__social-link-editor-form" onSubmit={handleSubmit}>
-        {errorMessage ? <p className="body-text profile-page__error-text">{errorMessage}</p> : null}
-        <Input
-          label={`${platformLabel} URL`}
-          type="url"
-          inputMode="url"
-          autoComplete="url"
-          placeholder={SOCIAL_LINK_PLACEHOLDERS[platform]}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoFocus
-        />
+        <FormField label={`${platformLabel} URL`} error={errorMessage}>
+          <input
+            className="input"
+            type="url"
+            inputMode="url"
+            autoComplete="url"
+            placeholder={SOCIAL_LINK_PLACEHOLDERS[platform]}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            autoFocus
+          />
+        </FormField>
         <div className="profile-page__social-link-editor-actions">
           <Button type="submit" variant="secondary" disabled={busy}>
             {busy ? "Saving…" : "Save"}

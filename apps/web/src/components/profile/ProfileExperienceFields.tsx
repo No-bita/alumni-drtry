@@ -1,4 +1,4 @@
-import { Input } from "../Input";
+import { FormField } from "../forms";
 import {
   PROFILE_OCCUPATION_TYPE_OPTIONS,
   type OccupationDraft,
@@ -7,6 +7,8 @@ import {
 type ProfileExperienceFieldsProps = {
   draft: OccupationDraft;
   onDraftChange: (patch: Partial<OccupationDraft>) => void;
+  /** Per-field validation messages from the owning dialog (keys are draft field names). */
+  errors?: { roleTitle?: string; endMonth?: string };
   showRemove?: boolean;
   onRemove?: () => void;
 };
@@ -14,6 +16,7 @@ type ProfileExperienceFieldsProps = {
 export function ProfileExperienceFields({
   draft,
   onDraftChange,
+  errors,
   showRemove = false,
   onRemove,
 }: ProfileExperienceFieldsProps) {
@@ -31,38 +34,42 @@ export function ProfileExperienceFields({
           ) : null}
         </div>
       ) : null}
-      <Input
-        label="Role"
-        value={draft.roleTitle}
-        onChange={(e) => onDraftChange({ roleTitle: e.target.value })}
-      />
-      <Input
-        label="Company"
-        value={draft.organizationName}
-        onChange={(e) => onDraftChange({ organizationName: e.target.value })}
-      />
-      <label className="ui-label input-field__label" htmlFor={`exp-type-${draft.id}`}>
-        Employment type
-      </label>
-      <select
-        id={`exp-type-${draft.id}`}
-        className="input profile-page__exp-edit-select"
-        value={draft.occupationTypeCode}
-        onChange={(e) => onDraftChange({ occupationTypeCode: e.target.value })}
-      >
-        {PROFILE_OCCUPATION_TYPE_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <div className="profile-page__exp-edit-dates">
-        <Input
-          label="Start"
-          type="month"
-          value={draft.startMonth}
-          onChange={(e) => onDraftChange({ startMonth: e.target.value })}
+      <FormField label="Role" required error={errors?.roleTitle}>
+        <input
+          className="input"
+          value={draft.roleTitle}
+          onChange={(e) => onDraftChange({ roleTitle: e.target.value })}
         />
+      </FormField>
+      <FormField label="Company">
+        <input
+          className="input"
+          value={draft.organizationName}
+          onChange={(e) => onDraftChange({ organizationName: e.target.value })}
+        />
+      </FormField>
+      <FormField label="Employment type">
+        <select
+          className="input profile-page__exp-edit-select"
+          value={draft.occupationTypeCode}
+          onChange={(e) => onDraftChange({ occupationTypeCode: e.target.value })}
+        >
+          {PROFILE_OCCUPATION_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </FormField>
+      <div className="profile-page__exp-edit-dates">
+        <FormField label="Start">
+          <input
+            className="input"
+            type="month"
+            value={draft.startMonth}
+            onChange={(e) => onDraftChange({ startMonth: e.target.value })}
+          />
+        </FormField>
         <label className="profile-page__exp-edit-current">
           <input
             type="checkbox"
@@ -77,12 +84,14 @@ export function ProfileExperienceFields({
           Current role
         </label>
         {!draft.isCurrent ? (
-          <Input
-            label="End"
-            type="month"
-            value={draft.endMonth}
-            onChange={(e) => onDraftChange({ endMonth: e.target.value })}
-          />
+          <FormField label="End" error={errors?.endMonth}>
+            <input
+              className="input"
+              type="month"
+              value={draft.endMonth}
+              onChange={(e) => onDraftChange({ endMonth: e.target.value })}
+            />
+          </FormField>
         ) : null}
       </div>
     </div>

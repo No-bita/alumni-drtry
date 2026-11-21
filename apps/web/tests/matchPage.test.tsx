@@ -203,6 +203,40 @@ describe("MatchPage", () => {
     });
   });
 
+  it("Enter advances to Preview from single-line fields and the message textarea; Shift+Enter stays a newline", async () => {
+    post.mockResolvedValue({
+      data: { intent, needsDetail: false, results: [result], fallback: null },
+    });
+    mount("/match?q=Need+a+referral+at+Razorpay");
+    fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
+    fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "referral" } });
+    fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
+    const fit = screen.getByLabelText("Why you’re a fit") as HTMLTextAreaElement;
+
+    // Enter while the note is still invalid does nothing - no preview, no send.
+    fireEvent.keyDown(fit, { key: "Enter" });
+    expect(screen.queryByText("Referral request")).toBeNull();
+
+    fireEvent.change(fit, { target: { value: FIT } });
+
+    // Shift+Enter in the message textarea stays a native newline, no preview.
+    fireEvent.keyDown(fit, { key: "Enter", shiftKey: true });
+    expect(screen.queryByText("Referral request")).toBeNull();
+    expect(screen.getByLabelText("Why you’re a fit")).toBeTruthy();
+
+    // Enter in a single-line field advances to Preview.
+    fireEvent.keyDown(screen.getByLabelText("Role"), { key: "Enter" });
+    expect(screen.getByText("Referral request")).toBeTruthy();
+
+    // Back on the fields, Enter in the message textarea also advances to Preview.
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.keyDown(screen.getByLabelText("Why you’re a fit"), { key: "Enter" });
+    expect(screen.getByText("Referral request")).toBeTruthy();
+
+    // Enter can never send: no post happened, only the preview card.
+    expect(post).not.toHaveBeenCalledWith("/v1/contact-requests", expect.anything());
+  });
+
   it("an advice question opens the advice form with its topic and the question to start from", async () => {
     post.mockImplementation(async (path: string) =>
       path === "/v1/match"

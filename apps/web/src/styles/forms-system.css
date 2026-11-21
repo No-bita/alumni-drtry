@@ -1,0 +1,310 @@
+/* Shared form patterns from the In-App Form Design sheets (field, choice cards,
+   sectioned cards, stepper, action row). Builds on tokens.css and the audited
+   form-controls.css control sizing; these classes own layout and state styling only. */
+
+/* ---------- FormField ---------- */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 6px);
+  text-align: left;
+}
+
+.form-field__label {
+  font-size: var(--text-ui-body, 13px);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Required marker via ::after so it never pollutes the label's accessible/text content. */
+.form-field__label--required::after {
+  content: " *";
+  color: var(--brick);
+}
+
+.form-field__help {
+  margin: 0;
+  font-size: var(--text-small-note, 11px);
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.form-field__error {
+  margin: 0;
+  font-size: var(--text-small-note, 11px);
+  line-height: 1.5;
+  color: #a33327;
+  font-weight: 600;
+}
+
+.form-field--error .input,
+.form-field--error input,
+.form-field--error select,
+.form-field--error textarea {
+  border-color: #a33327;
+}
+
+/* ---------- ChoiceCards ---------- */
+.choice-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 10px);
+}
+
+.choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm, 10px);
+  width: 100%;
+  padding: 14px var(--space-md, 16px);
+  background: var(--cream, #faf6ef);
+  border: 1px solid var(--rule, rgba(58, 42, 30, 0.11));
+  border-radius: var(--radius-card, 14px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.choice-card:hover {
+  border-color: rgba(58, 42, 30, 0.28);
+}
+
+.choice-card:focus-visible {
+  outline: 2px solid var(--brick);
+  outline-offset: 2px;
+}
+
+.choice-card--checked {
+  border-color: var(--brick);
+  box-shadow: 0 0 0 1px var(--brick);
+  background: rgba(139, 58, 42, 0.05);
+}
+
+.choice-card__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-muted);
+}
+
+.choice-card--checked .choice-card__icon {
+  color: var(--brick);
+}
+
+.choice-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.choice-card__title {
+  font-size: var(--text-body, 15px);
+  font-weight: 600;
+}
+
+.choice-card__description {
+  font-size: var(--text-ui-body, 13px);
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.choice-card__check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule, rgba(58, 42, 30, 0.25));
+  position: relative;
+}
+
+.choice-card--checked .choice-card__check {
+  border-color: var(--brick);
+  background: var(--brick);
+}
+
+.choice-card--checked .choice-card__check::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 4.5px;
+  width: 6px;
+  height: 3.5px;
+  border-left: 1.6px solid var(--cream, #faf6ef);
+  border-bottom: 1.6px solid var(--cream, #faf6ef);
+  transform: rotate(-45deg);
+}
+
+/* ---------- SectionCardList ---------- */
+.section-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 10px);
+}
+
+.section-card-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 10px);
+  width: 100%;
+  padding: 14px var(--space-md, 16px);
+  background: var(--cream, #faf6ef);
+  border: 1px solid var(--rule, rgba(58, 42, 30, 0.11));
+  border-radius: var(--radius-card, 14px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  transition: border-color 120ms ease;
+}
+
+.section-card-row:hover {
+  border-color: rgba(58, 42, 30, 0.28);
+}
+
+.section-card-row:focus-visible {
+  outline: 2px solid var(--brick);
+  outline-offset: 2px;
+}
+
+.section-card-row__icon {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.section-card-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.section-card-row__title {
+  font-size: var(--text-body, 15px);
+  font-weight: 600;
+}
+
+.section-card-row__description {
+  font-size: var(--text-ui-body, 13px);
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.section-card-row__status {
+  flex: none;
+  font-size: var(--text-small-note, 11px);
+  font-weight: 600;
+  color: var(--brick);
+}
+
+.section-card-row__status--complete {
+  color: #3f6b3a;
+}
+
+.section-card-row__chevron {
+  flex: none;
+  color: var(--ink-faint, rgba(58, 42, 30, 0.42));
+  display: inline-flex;
+}
+
+/* ---------- FormStepperHeader ---------- */
+.form-stepper {
+  display: flex;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.form-stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  flex: 1;
+}
+
+.form-stepper__marker {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1.5px solid var(--rule, rgba(58, 42, 30, 0.25));
+  position: relative;
+  z-index: 1;
+}
+
+.form-stepper__step--current .form-stepper__marker {
+  background: var(--brick);
+  border-color: var(--brick);
+  color: var(--cream, #faf6ef);
+}
+
+.form-stepper__step--done .form-stepper__marker {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream, #faf6ef);
+}
+
+.form-stepper__label {
+  font-size: var(--text-small-note, 11px);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.form-stepper__step--current .form-stepper__label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.form-stepper__connector {
+  position: absolute;
+  top: 13px;
+  left: calc(50% + 16px);
+  right: calc(-50% + 16px);
+  height: 1.5px;
+  background: var(--rule, rgba(58, 42, 30, 0.18));
+}
+
+.form-stepper__step--done .form-stepper__connector {
+  background: var(--ink);
+}
+
+/* ---------- FormActions ---------- */
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm, 10px);
+  margin-top: var(--space-md, 16px);
+}
+
+.form-actions__left,
+.form-actions__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 10px);
+}
+
+.form-actions__left:empty {
+  display: none;
+}
+
+/* On narrow phones the row stays one line but actions can shrink. */
+@media (max-width: 480px) {
+  .form-actions {
+    gap: var(--space-xs, 6px);
+  }
+}

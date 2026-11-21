@@ -25,13 +25,13 @@ export function ProfileExperienceFormDialog({
 }: ProfileExperienceFormDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [localDraft, setLocalDraft] = useState<OccupationDraft | null>(() => open && draft ? { ...draft } : null);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ roleTitle?: string; endMonth?: string }>({});
 
   const [source, setSource] = useState({ open, draft });
   if (source.open !== open || source.draft !== draft) {
     setSource({ open, draft });
     setLocalDraft(open && draft ? { ...draft } : null);
-    setError(null);
+    setFieldErrors({});
   }
 
   useBodyScrollLock(open);
@@ -49,7 +49,14 @@ export function ProfileExperienceFormDialog({
   const handleConfirm = () => {
     const validation = validateOccupationDraft(localDraft);
     if (validation) {
-      setError(validation);
+      // Show the message on the field it belongs to (FormField error state).
+      if (validation.startsWith("Role title")) {
+        setFieldErrors({ roleTitle: validation });
+      } else if (validation.startsWith("End date")) {
+        setFieldErrors({ endMonth: validation });
+      } else {
+        setFieldErrors({ roleTitle: validation });
+      }
       return;
     }
     onConfirm(localDraft);
@@ -91,6 +98,7 @@ export function ProfileExperienceFormDialog({
         </p>
         <ProfileExperienceFields
           draft={localDraft}
+          errors={fieldErrors}
           onDraftChange={(patch) => {
             setLocalDraft((prev) => {
               if (!prev) return prev;
@@ -100,10 +108,15 @@ export function ProfileExperienceFormDialog({
               }
               return next;
             });
-            setError(null);
+            // Clear only the errors whose fields were just edited.
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              if ("roleTitle" in patch) delete next.roleTitle;
+              if ("endMonth" in patch || "startMonth" in patch || "isCurrent" in patch) delete next.endMonth;
+              return next;
+            });
           }}
         />
-        {error ? <p className="profile-page__exp-dialog-error">{error}</p> : null}
         <div className="profile-page__exp-dialog-actions">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel

@@ -13,11 +13,11 @@ import {
   type WhenSuits,
 } from "../../lib/cities";
 import { CitySheet, Initials } from "./CitySheet";
+import { FormActions, FormField } from "../forms";
 
 /** Screen 3: ask for coffee. A reason is required; the recipient's weekly limit is checked again on send. */
 export function CoffeeAskSheet({ alum, onClose, onSent }: { alum: CityAlum; onClose: () => void; onSent: () => void }) {
   const reasonId = useId();
-  const hintId = useId();
   const [reason, setReason] = useState("");
   const [when, setWhen] = useState<WhenSuits | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,21 +65,20 @@ export function CoffeeAskSheet({ alum, onClose, onSent }: { alum: CityAlum; onCl
           <p className="cities__capacity">
             {name} takes {limit} coffee {limit === 1 ? "ask" : "asks"} a week · {left} {left === 1 ? "spot" : "spots"} left
           </p>
-          <label htmlFor={reasonId} className="cities__label">
-            Why {name}? <span className="cities__optional">(required)</span>
-          </label>
-          <textarea
-            id={reasonId}
-            className="cities__textarea"
-            rows={4}
-            maxLength={COFFEE_REASON_MAX}
-            value={reason}
-            aria-describedby={hintId}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <p id={hintId} className="cities__hint">
-            Say what you share or what you’d like to learn. At least {COFFEE_REASON_MIN} characters.
-          </p>
+          <FormField
+            label={`Why ${name}?`}
+            required
+            help={`Say what you share or what you’d like to learn. At least ${COFFEE_REASON_MIN} characters.`}
+          >
+            <textarea
+              id={reasonId}
+              className="cities__textarea"
+              rows={4}
+              maxLength={COFFEE_REASON_MAX}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </FormField>
           <fieldset className="cities__fieldset">
             <legend className="cities__label">When suits you</legend>
             <div className="cities__chips">
@@ -104,12 +103,10 @@ export function CoffeeAskSheet({ alum, onClose, onSent }: { alum: CityAlum; onCl
               {error}
             </p>
           ) : null}
-          <button type="button" className="cities__primary" disabled={tooShort || busy} onClick={() => void send()}>
-            {busy ? "Sending…" : "Send ask"}
-          </button>
-          <button type="button" className="cities__textbtn cities__textbtn--center" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
+          <FormActions
+            secondary={{ label: "Cancel", onClick: onClose, disabled: busy }}
+            primary={{ label: busy ? "Sending…" : "Send ask", disabled: tooShort || busy, onClick: () => void send() }}
+          />
         </div>
       )}
     </CitySheet>

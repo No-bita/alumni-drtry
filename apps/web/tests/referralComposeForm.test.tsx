@@ -53,10 +53,12 @@ function fillApprovedForm() {
 describe("approved referral compose form", () => {
   it("shows the approved fields: required job link, role, company, fit; optional resume", () => {
     mount();
-    expect(screen.getByLabelText(/Job link \*/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Role \*/)).toBeTruthy();
-    expect(screen.getByLabelText(/Company \*/)).toBeTruthy();
-    expect(screen.getByLabelText(/Why are you a fit for this role\? \*/)).toBeTruthy();
+    // Required fields are marked with a visual asterisk (CSS) and aria-required on the control.
+    for (const name of ["Job link", "Role", "Company", "Why are you a fit for this role?"]) {
+      const control = screen.getByLabelText(name);
+      expect(control).toBeTruthy();
+      expect(control.getAttribute("aria-required")).toBe("true");
+    }
     expect(screen.getByLabelText(/Resume link \(optional\)/)).toBeTruthy();
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
