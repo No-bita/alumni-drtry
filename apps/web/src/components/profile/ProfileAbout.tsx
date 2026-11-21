@@ -1,6 +1,6 @@
 import type { PublicProfileView } from "../../api/client";
 import { profileShowsAboutSection } from "../../lib/profileAbout";
-import { Input } from "../Input";
+import { FormField } from "../forms";
 import { RESIDENCE_COUNTRY_LIST_ID, RESIDENCE_COUNTRY_NAMES } from "../../lib/countries";
 
 type ProfileAboutProps = {
@@ -62,39 +62,47 @@ export function ProfileAbout({
             Personal email and mobile are private. They are only shared when you choose to disclose
             them in a conversation.
           </p>
-          <Input
-            label="Personal email (optional)"
-            type="email"
-            autoComplete="email"
-            value={draftPersonalEmail}
-            onChange={(e) => onDraftPersonalEmail(e.target.value)}
-          />
-          <Input
-            label="Mobile (optional)"
-            type="tel"
-            autoComplete="tel"
-            value={draftMobilePhone}
-            onChange={(e) => onDraftMobilePhone(e.target.value)}
-          />
-          <Input
-            label="Country of residence (optional)"
-            value={draftResidenceCountry}
-            onChange={(e) => onDraftResidenceCountry(e.target.value)}
-            autoComplete="country-name"
-            list={RESIDENCE_COUNTRY_LIST_ID}
-          />
+          <FormField label="Personal email (optional)">
+            <input
+              className="input"
+              type="email"
+              autoComplete="email"
+              value={draftPersonalEmail}
+              onChange={(e) => onDraftPersonalEmail(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Mobile (optional)">
+            <input
+              className="input"
+              type="tel"
+              autoComplete="tel"
+              value={draftMobilePhone}
+              onChange={(e) => onDraftMobilePhone(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Country of residence (optional)">
+            <input
+              className="input"
+              value={draftResidenceCountry}
+              onChange={(e) => onDraftResidenceCountry(e.target.value)}
+              autoComplete="country-name"
+              list={RESIDENCE_COUNTRY_LIST_ID}
+            />
+          </FormField>
           <datalist id={RESIDENCE_COUNTRY_LIST_ID}>
             {RESIDENCE_COUNTRY_NAMES.map((name) => (
               <option key={name} value={name} />
             ))}
           </datalist>
-          <Input
-            id="profile-residence-city"
-            label="City of residence (optional)"
-            value={draftResidenceCity}
-            onChange={(e) => onDraftResidenceCity(e.target.value)}
-            autoComplete="address-level2"
-          />
+          <FormField label="City of residence (optional)">
+            <input
+              id="profile-residence-city"
+              className="input"
+              value={draftResidenceCity}
+              onChange={(e) => onDraftResidenceCity(e.target.value)}
+              autoComplete="address-level2"
+            />
+          </FormField>
         </div>
       ) : null}
     </article>
