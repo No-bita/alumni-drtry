@@ -100,7 +100,7 @@ describe("The Wall", () => {
     expect(screen.getByText("Ask for help, or share an opportunity, with every alum here.")).toBeTruthy();
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Post to The Wall" }));
+    fireEvent.click(screen.getByRole("button", { name: "Post to the Wall" }));
     expect(onPost).toHaveBeenCalledTimes(1);
   });
 });

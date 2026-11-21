@@ -28,10 +28,18 @@ import { HomeIntentHero } from "../components/HomeIntentHero";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
+// Replaced by the "Your reachouts" card (Careers style); component kept.
+// import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
+import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
+import { YourReachoutsCard } from "../components/YourReachoutsCard";
+import { useMinWidth } from "../hooks/useMinWidth";
 // PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
 // import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
+import "../styles/home-refresh.css";
+
+/** Width at which Home shows its right-hand column (matches `.home-ideal__container` in home-layout.css). */
+const HOME_RAIL_MIN_PX = 1200;
 
 // PARKED 2026-11-21 with the homepage callout: only the footprint strip used this.
 // const EMPTY_POSTS: IntentcastFeedItem[] = [];
@@ -630,6 +638,7 @@ export function Home() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
+  const railVisible = useMinWidth(HOME_RAIL_MIN_PX);
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
   const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("all");
@@ -791,6 +800,13 @@ export function Home() {
     });
   };
 
+  const reachoutCards = (
+    <>
+      <ReachoutsWaitingCard />
+      <YourReachoutsCard />
+    </>
+  );
+
   return (
     <>
       <PostBulletinFlow ref={bulletinFlowRef} onPublishSuccess={handleBulletinPublishSuccess} />
@@ -803,8 +819,10 @@ export function Home() {
         <div className="home-ideal__container">
           <div className="home-ideal__main">
             <HomeIntentHero />
+            {/* Below the rail width, the reachout cards sit between the search and the Wall. */}
+            {!railVisible ? <div className="home-reachouts">{reachoutCards}</div> : null}
             <div className="home-activity">
-              <HomeSentNotesLine />
+              {/* <HomeSentNotesLine /> replaced by YourReachoutsCard. */}
               {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented
                   out, code kept (same expiry change that disables auto-expiry). Replies on your posts
                   remain available via the Replies tab.
@@ -838,6 +856,7 @@ export function Home() {
             />
           </div>
           <aside className="home-ideal__rail" aria-label="Your network">
+            {railVisible ? reachoutCards : null}
             <HomeNetworkPanel
               members={batchList}
               directoryHref={batchDirectorySearchHref}

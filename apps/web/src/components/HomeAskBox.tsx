@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN, matchHref } from "../lib/matchApi";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+import { LineIcon } from "./LineIcon";
 import "../styles/match.css";
 
 const EXAMPLE_QUESTIONS = [
@@ -42,14 +43,18 @@ export function HomeAskBox() {
       <label htmlFor={inputId} className="visually-hidden">
         How can Alma Mater help you?
       </label>
-      <div className="home-ask__row">
+      <div className="home-ask__box">
+        <span className="home-ask__box-icon" aria-hidden>
+          <LineIcon name="search" />
+        </span>
         <input
           id={inputId}
-          className="home-ask__input"
+          className="home-ask__field"
           type="text"
           value={question}
           maxLength={MATCH_QUESTION_MAX}
           autoComplete="off"
+          placeholder="Ask for a referral, advice, or help moving cities…"
           aria-describedby={hintId}
           aria-invalid={error ? true : undefined}
           onChange={(e) => {
@@ -57,8 +62,8 @@ export function HomeAskBox() {
             if (error) setError(null);
           }}
         />
-        <button type="submit" className="btn btn--primary home-ask__submit">
-          Find alumni
+        <button type="submit" className="home-ask__go" aria-label="Find alumni">
+          <LineIcon name="arrow" />
         </button>
       </div>
       {error ? (
