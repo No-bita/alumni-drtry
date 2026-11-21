@@ -1,4 +1,5 @@
 import { Button } from "./Button";
+import { FormField } from "./forms";
 import { DEPARTMENTS } from "../constants/departments";
 import { BATCH_YEARS } from "../constants/batchYears";
 import { OCCUPATION_FILTER_OPTIONS } from "../constants/occupationTypes";
@@ -54,10 +55,7 @@ export function DirectoryFiltersForm({
       ) : null}
 
       <div className="directory-filters">
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-company">
-            Company
-          </label>
+        <FormField label="Company" className="directory-filters__field">
           <input
             id="directory-filter-company"
             type="text"
@@ -69,12 +67,9 @@ export function DirectoryFiltersForm({
             autoComplete="organization"
             aria-label="Company"
           />
-        </div>
+        </FormField>
 
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-residence-city">
-            City
-          </label>
+        <FormField label="City" className="directory-filters__field">
           <input
             id="directory-filter-residence-city"
             type="text"
@@ -85,12 +80,9 @@ export function DirectoryFiltersForm({
             autoComplete="address-level2"
             aria-label="Filter by city of residence"
           />
-        </div>
+        </FormField>
 
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-residence-country">
-            Country
-          </label>
+        <FormField label="Country" className="directory-filters__field">
           <input
             id="directory-filter-residence-country"
             type="text"
@@ -101,12 +93,9 @@ export function DirectoryFiltersForm({
             autoComplete="country-name"
             aria-label="Filter by country of residence"
           />
-        </div>
+        </FormField>
 
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-batch-year">
-            Graduation batch
-          </label>
+        <FormField label="Graduation batch" className="directory-filters__field">
           <select
             id="directory-filter-batch-year"
             className="input directory-filters__select"
@@ -123,12 +112,9 @@ export function DirectoryFiltersForm({
               </option>
             ))}
           </select>
-        </div>
+        </FormField>
 
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-department">
-            Department
-          </label>
+        <FormField label="Department" className="directory-filters__field">
           <select
             id="directory-filter-department"
             className="input directory-filters__select"
@@ -143,12 +129,9 @@ export function DirectoryFiltersForm({
               </option>
             ))}
           </select>
-        </div>
+        </FormField>
 
-        <div className="directory-filters__field">
-          <label className="directory-filters__field-label" htmlFor="directory-filter-occupation">
-            Occupation type
-          </label>
+        <FormField label="Occupation type" className="directory-filters__field">
           <select
             id="directory-filter-occupation"
             className="input directory-filters__select"
@@ -162,7 +145,7 @@ export function DirectoryFiltersForm({
               </option>
             ))}
           </select>
-        </div>
+        </FormField>
       </div>
 
       {onSearch ? (
