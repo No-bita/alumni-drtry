@@ -1,5 +1,5 @@
 import type { PublicProfileView } from "../../api/client";
-import { Input } from "../Input";
+import { FormField } from "../forms";
 
 type ProfileDepartmentEditProps = {
   profile: PublicProfileView | null | undefined;
@@ -26,14 +26,16 @@ export function ProfileDepartmentEdit({
         This shows on your public profile once approved. The department itself stays locked after onboarding.
       </p>
       <div className="profile-page__edit-grid">
-        <Input
-          id="profile-department-other"
-          label="Your department (shown instead of Other)"
-          value={draftDepartmentOtherText}
-          onChange={(e) => onDraftDepartmentOtherText(e.target.value.slice(0, 80))}
-          maxLength={80}
-          autoComplete="off"
-        />
+        <FormField label="Your department (shown instead of Other)">
+          <input
+            id="profile-department-other"
+            className="input"
+            value={draftDepartmentOtherText}
+            onChange={(e) => onDraftDepartmentOtherText(e.target.value.slice(0, 80))}
+            maxLength={80}
+            autoComplete="off"
+          />
+        </FormField>
         {profile.departmentOtherStatus === "pending" ? (
           <p className="profile-about__review-note" role="status">
             We review your department before it shows on your profile. Changing it sends it back for review.
