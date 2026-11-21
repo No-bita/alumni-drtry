@@ -157,8 +157,11 @@ describe("Wall post audience (requires DB)", () => {
     const insider = await member({ batch: 2003 });
     const outsider = await member({ batch: 2004 });
     const p = (await post(author, { batch: true }, { placeId: blr })).json().intentcast as { id: string };
-    const cityIds = async (who: Member) =>
-      ((await req("GET", `/v1/cities/${blr}/posts`, who)).json() as { items: Array<{ id: string; audience?: unknown }> }).items;
+    const cityIds = async (who: Member) => {
+      const response = await req("GET", `/v1/cities/${blr}/posts`, who);
+      expect(response.statusCode, response.body).toBe(200);
+      return (response.json() as { posts: Array<{ id: string; audience?: unknown }> }).posts;
+    };
     const seen = (await cityIds(insider)).find((x) => x.id === p.id);
     expect(seen?.audience).toEqual({ label: "2003 batch", parts: ["batch"] });
     expect((await cityIds(outsider)).some((x) => x.id === p.id)).toBe(false);
@@ -227,8 +230,10 @@ describe("Wall post audience (requires DB)", () => {
     const p = (await post(author, { batch: true }, { placeId: blr })).json().intentcast as { id: string };
     for (const who of [admin, superAdmin]) {
       expect(await sees(who, p.id)).toBe(true);
-      const city = (await req("GET", `/v1/cities/${blr}/posts`, who)).json() as { items: Array<{ id: string; audience?: unknown }> };
-      expect(city.items.find((x) => x.id === p.id)?.audience).toEqual({ label: "2007 batch", parts: ["batch"] });
+      const response = await req("GET", `/v1/cities/${blr}/posts`, who);
+      expect(response.statusCode, response.body).toBe(200);
+      const city = response.json() as { posts: Array<{ id: string; audience?: unknown }> };
+      expect(city.posts.find((x) => x.id === p.id)?.audience).toEqual({ label: "2007 batch", parts: ["batch"] });
     }
     expect(await sees(outsider, p.id)).toBe(false);
     // Seeing is not replying: an admin outside the audience gets the same 404 as a missing post.
