@@ -9,8 +9,8 @@ import {
   type AnimationEvent,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button } from "./Button";
 import { CareerIntentFlowChrome } from "./CareerIntentFlowChrome";
+import { FormActions, FormField } from "./forms";
 import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
 import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
 import { api, type IntentcastFeedItem } from "../api/client";
@@ -162,6 +162,15 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
       return () => window.cancelAnimationFrame(id);
     }, [hiringOpen, hiringStep]);
 
+    // Maps compose validation copy to its field; anything else stays a dialog-level alert.
+    const hiringErrorField: "kind" | "summary" | null = !hiringError
+      ? null
+      : hiringError.startsWith("Choose what this post")
+        ? "kind"
+        : hiringError.startsWith("Add a role summary")
+          ? "summary"
+          : null;
+
     const dialogAriaLabel =
       hiringStep === "compose"
         ? "Post a role to alumni, step 1 of 2: Write"
@@ -193,7 +202,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
     );
 
     const onEssentialShakeEnd = useCallback(
-      (field: HiringEssentialShakeField) => (e: AnimationEvent<HTMLLabelElement>) => {
+      (field: HiringEssentialShakeField) => (e: AnimationEvent<HTMLDivElement>) => {
         if (e.target !== e.currentTarget) return;
         if (!String(e.animationName).includes(SHAKE_ANIMATION_SUBSTR)) return;
         clearEssentialShake(field);
@@ -308,8 +317,12 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
               {hiringStep === "compose" ? (
                 <>
                   <div className="career-hiring-flow__grid">
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide" htmlFor="hiring-flow-kind">
-                      <span>What is this? *</span>
+                    <FormField
+                      label="What is this?"
+                      required
+                      error={hiringErrorField === "kind" ? hiringError : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <select
                         id="hiring-flow-kind"
                         className="input"
@@ -323,61 +336,64 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                         <option value="offer">Offer — I’m offering something</option>
                         <option value="invitation">Invitation — join me for something</option>
                       </select>
-                    </label>
-                    <label
+                    </FormField>
+                    <div
                       className={`career-hiring-flow__field${essentialShakeClass("roleTitle")}`}
                       onAnimationEnd={onEssentialShakeEnd("roleTitle")}
                     >
-                      <span>Role *</span>
-                      <input
-                        ref={composeFirstFieldRef}
-                        className="input"
-                        value={hiringForm.roleTitle}
-                        onChange={(e) => setHiringForm((prev) => ({ ...prev, roleTitle: e.target.value }))}
-                        placeholder="Backend Engineer"
-                      />
-                    </label>
-                    <label
+                      <FormField label="Role" required>
+                        <input
+                          ref={composeFirstFieldRef}
+                          className="input"
+                          value={hiringForm.roleTitle}
+                          onChange={(e) => setHiringForm((prev) => ({ ...prev, roleTitle: e.target.value }))}
+                          placeholder="Backend Engineer"
+                        />
+                      </FormField>
+                    </div>
+                    <div
                       className={`career-hiring-flow__field${essentialShakeClass("company")}`}
                       onAnimationEnd={onEssentialShakeEnd("company")}
                     >
-                      <span>Company *</span>
-                      <input
-                        className="input"
-                        value={hiringForm.company}
-                        onChange={(e) => setHiringForm((prev) => ({ ...prev, company: e.target.value }))}
-                        placeholder="Razorpay"
-                      />
-                    </label>
-                    <label
+                      <FormField label="Company" required>
+                        <input
+                          className="input"
+                          value={hiringForm.company}
+                          onChange={(e) => setHiringForm((prev) => ({ ...prev, company: e.target.value }))}
+                          placeholder="Razorpay"
+                        />
+                      </FormField>
+                    </div>
+                    <div
                       className={`career-hiring-flow__field${essentialShakeClass("location")}`}
                       onAnimationEnd={onEssentialShakeEnd("location")}
                     >
-                      <span>Location *</span>
-                      <input
-                        className="input"
-                        value={hiringForm.location}
-                        onChange={(e) => setHiringForm((prev) => ({ ...prev, location: e.target.value }))}
-                        placeholder="Bengaluru"
-                      />
-                    </label>
-                    <label
+                      <FormField label="Location" required>
+                        <input
+                          className="input"
+                          value={hiringForm.location}
+                          onChange={(e) => setHiringForm((prev) => ({ ...prev, location: e.target.value }))}
+                          placeholder="Bengaluru"
+                        />
+                      </FormField>
+                    </div>
+                    <div
                       className={`career-hiring-flow__field${essentialShakeClass("employmentType")}`}
                       onAnimationEnd={onEssentialShakeEnd("employmentType")}
                     >
-                      <span>Employment type *</span>
-                      <select
-                        className="input"
-                        value={hiringForm.employmentType}
-                        onChange={(e) => setHiringForm((prev) => ({ ...prev, employmentType: e.target.value }))}
-                      >
-                        <option>Full-time</option>
-                        <option>Internship</option>
-                        <option>Contract</option>
-                      </select>
-                    </label>
-                    <label className="career-hiring-flow__field" htmlFor="hiring-flow-experience-years">
-                      <span>Experience</span>
+                      <FormField label="Employment type" required>
+                        <select
+                          className="input"
+                          value={hiringForm.employmentType}
+                          onChange={(e) => setHiringForm((prev) => ({ ...prev, employmentType: e.target.value }))}
+                        >
+                          <option>Full-time</option>
+                          <option>Internship</option>
+                          <option>Contract</option>
+                        </select>
+                      </FormField>
+                    </div>
+                    <FormField label="Experience" controlId="hiring-flow-experience-years">
                       <div className="career-hiring-flow__input-slot">
                         <input
                           id="hiring-flow-experience-years"
@@ -398,9 +414,8 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                           years
                         </span>
                       </div>
-                    </label>
-                    <label className="career-hiring-flow__field" htmlFor="hiring-flow-compensation-lpa">
-                      <span>Compensation</span>
+                    </FormField>
+                    <FormField label="Compensation" controlId="hiring-flow-compensation-lpa">
                       <div className="career-hiring-flow__input-slot">
                         <input
                           id="hiring-flow-compensation-lpa"
@@ -420,18 +435,16 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                           LPA
                         </span>
                       </div>
-                    </label>
-                    <label className="career-hiring-flow__field">
-                      <span>How to apply?</span>
+                    </FormField>
+                    <FormField label="How to apply?">
                       <input
                         className="input"
                         value={hiringForm.applyMethod}
                         onChange={(e) => setHiringForm((prev) => ({ ...prev, applyMethod: e.target.value }))}
                         placeholder="Email / Application link / Message"
                       />
-                    </label>
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Link to Job Description</span>
+                    </FormField>
+                    <FormField label="Link to Job Description" className="career-hiring-flow__field--wide">
                       <input
                         className="input"
                         type="text"
@@ -441,9 +454,13 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                         onChange={(e) => setHiringForm((prev) => ({ ...prev, jdLink: e.target.value }))}
                         placeholder="https://…"
                       />
-                    </label>
-                    <label className="career-hiring-flow__field career-hiring-flow__field--wide">
-                      <span>Role summary *</span>
+                    </FormField>
+                    <FormField
+                      label="Role summary"
+                      required
+                      error={hiringErrorField === "summary" ? hiringError : undefined}
+                      className="career-hiring-flow__field--wide"
+                    >
                       <textarea
                         className="input input--textarea"
                         rows={4}
@@ -451,14 +468,10 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                         onChange={(e) => setHiringForm((prev) => ({ ...prev, summary: e.target.value }))}
                         placeholder="Work on scalable backend systems that power millions of transactions every day."
                       />
-                    </label>
+                    </FormField>
                   </div>
                   <PostAudienceField value={audience} onChange={setAudience} onStateChange={setAudienceState} />
-                  <footer className="career-hiring-flow__actions">
-                    <Button type="button" variant="secondary" onClick={goToPreview}>
-                      Preview
-                    </Button>
-                  </footer>
+                  <FormActions primary={{ label: "Preview", onClick: goToPreview }} />
                 </>
               ) : null}
 
@@ -514,7 +527,7 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
                 </>
               ) : null}
 
-              {hiringError ? (
+              {hiringError && hiringErrorField === null ? (
                 <p className="career-hiring-flow__error" role="alert">
                   {hiringError}
                 </p>
@@ -522,14 +535,10 @@ export const PostRoleHiringFlow = forwardRef<PostRoleHiringFlowHandle, PostRoleH
 
               {hiringStep === "preview" ? (
                 <>
-                  <footer className="career-hiring-flow__actions career-hiring-flow__actions--publish">
-                    <Button type="button" variant="primary" onClick={goBackToCompose}>
-                      Back
-                    </Button>
-                    <Button type="button" variant="secondary" disabled={submitting} onClick={() => void publishHiringPost()}>
-                      {submitting ? "Publishing…" : "Publish role"}
-                    </Button>
-                  </footer>
+                  <FormActions
+                    secondary={{ label: "Back", onClick: goBackToCompose }}
+                    primary={{ label: submitting ? "Publishing…" : "Publish role", disabled: submitting, onClick: () => void publishHiringPost() }}
+                  />
                   <p className="career-hiring-flow__publish-note">Your role will go live instantly.</p>
                 </>
               ) : null}
