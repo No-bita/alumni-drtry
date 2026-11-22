@@ -13308,12 +13308,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   flex-shrink: 0;
 }
 
-.profile-page__open-to-edit-desc {
-  width: 100%;
-  min-height: 56px;
-  font-size: 13px;
-}
-
 .profile-page__engage-card-head-copy {
   display: grid;
   gap: 2px;
@@ -13334,14 +13328,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
 
 .profile-page__open-to-item--edit-disabled .profile-page__open-to-edit-toggle {
   cursor: not-allowed;
-}
-
-.profile-page__open-to-item-desc {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--stone);
 }
 
 .profile-page__skeleton-line--open-to-icon {

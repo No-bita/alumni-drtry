@@ -14,6 +14,8 @@ type Props = {
   onboardingIncomplete: boolean;
   privateContact?: { personalEmail?: string | null; mobilePhone?: string | null };
   openTo: OpenToPreferences | null;
+  /** Areas of experience, in the member's order. */
+  areas?: string[];
   onPreviewChange?: (preview: boolean) => void;
   onEdit: () => void;
   onSignOut: () => void;
@@ -61,7 +63,7 @@ function SignOutActions({ onSignOut, onSignOutEverywhere }: { onSignOut: () => v
   </div>;
 }
 
-export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, onEdit, onSignOut, onSignOutEverywhere }: Props) {
+export function PersonProfileView({ profile, occupations, links, isOwnProfile, onboardingIncomplete, privateContact, openTo, areas = [], onEdit, onSignOut, onSignOutEverywhere }: Props) {
   const [shareStatus, setShareStatus] = useState('Share');
   const owner = isOwnProfile;
   const city = residenceLine(profile.residenceCity, profile.residenceCountry);
@@ -84,6 +86,7 @@ export function PersonProfileView({ profile, occupations, links, isOwnProfile, o
     {owner ? <div className="person-profile__account-actions"><button type="button" onClick={onEdit}><Icon kind="edit" />Edit profile</button>{onboardingIncomplete ? <Link to="/onboarding">Finish your profile</Link> : null}</div> : null}
     {profile.bio?.trim() ? <section className="person-profile__about">{head('About')}<p>{profile.bio}</p></section> : null}
     {(choices.length > 0 || owner) ? <section className="person-profile__open-to">{head('Open to', edit('Edit Open to'))}{choices.length ? <ul>{choices.map(item => <li key={item.id}><span>{item.title}</span></li>)}</ul> : <p className="person-profile__muted">Nothing selected.</p>}</section> : null}
+    {(areas.length > 0 || owner) ? <section className="person-profile__areas">{head('Areas of experience', edit('Edit areas of experience'))}{areas.length ? <ul>{areas.map(label => <li key={label}>{label}</li>)}</ul> : <p className="person-profile__muted">No areas added. Ask uses them to find you.</p>}</section> : null}
     {(sorted.length > 0 || owner) ? <section className="person-profile__path">{head('My path', edit('Edit experience'))}{sorted.length ? <ol>{sorted.map(occupation => <li key={occupation.id}><h3>{occupation.roleTitle}</h3>{formatOccupationCompanyTypeLine(occupation) ? <p>{formatOccupationCompanyTypeLine(occupation)}</p> : null}{formatOccupationDatesDurationLine(occupation) ? <small>{formatOccupationDatesDurationLine(occupation)}</small> : null}{occupation.description?.trim() ? <p>{occupation.description}</p> : null}</li>)}</ol> : <p className="person-profile__muted">No experience added.</p>}</section> : null}
     {(links.length > 0 || owner) ? <section className="person-profile__links">{head('Links', edit('Edit links'))}<div className="person-profile__link-row">{links.map(link => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"><Icon kind="link" />{link.label || link.platform}</a>)}<button type="button" onClick={() => void share()}><Icon kind="share" />{shareStatus}</button></div></section> : <button type="button" className="person-profile__share" onClick={() => void share()}><Icon kind="share" />{shareStatus}</button>}
     {owner ? <section className="person-profile__contact">{head('Contact', edit('Edit contact details'))}<p className="person-profile__privacy"><Icon kind="lock" />Private · hidden from alumni</p><dl><div><dt><Icon kind="mail" />Personal email</dt><dd>{privateContact?.personalEmail || 'Not added'}</dd></div><div><dt><Icon kind="phone" />Phone</dt><dd>{privateContact?.mobilePhone || 'Not added'}</dd></div></dl></section> : null}

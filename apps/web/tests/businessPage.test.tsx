@@ -51,7 +51,7 @@ function world({ feed = [] as IntentcastFeedItem[], mine = [] as IntentcastFeedI
   authState.value = {
     status: "authenticated",
     person: { personId: "me1", institutionalEmail: "a@iitbhu.ac.in", role: "alumni" },
-    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: [], descriptions: {} } },
+    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: [] } },
   };
   apiGet.mockImplementation(async (path: string) => {
     if (path.includes("mine=true")) return { intentcasts: mine, pageInfo: {} };

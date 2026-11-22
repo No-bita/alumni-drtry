@@ -11,7 +11,6 @@ import {
   createEmptyOpenToPreferences,
   isOpenToSelected,
   openToDisplayItems,
-  setOpenToDescription,
   type OpenToPreferences,
 } from "../../lib/openToPreferences";
 import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
@@ -123,6 +122,9 @@ type ProfileEngagementCardsProps = {
   onDraftOpenToChange?: (next: OpenToPreferences) => void;
   /** One line above the editor, e.g. why the member was sent here from Cities. */
   editNotice?: string | null;
+  /** Editing, a referrals/mentorship/advising tag is on and no areas yet: suggest adding them. */
+  showAreasPrompt?: boolean;
+  onAddAreas?: () => void;
 };
 
 export function ProfileEngagementCards({
@@ -132,6 +134,8 @@ export function ProfileEngagementCards({
   draftOpenTo,
   onDraftOpenToChange,
   editNotice = null,
+  showAreasPrompt = false,
+  onAddAreas,
 }: ProfileEngagementCardsProps) {
   const auth = useAuth();
   const personId = auth.status === "authenticated" ? auth.person.personId : null;
@@ -164,6 +168,14 @@ export function ProfileEngagementCards({
             </p>
           ) : null}
           {isEditing && editNotice ? <p className="profile-page__engage-card-hint" role="status">{editNotice}</p> : null}
+          {isEditing && showAreasPrompt && onAddAreas ? (
+            <p className="profile-page__areas-prompt">
+              Add your areas of experience so the right people find you.{" "}
+              <button type="button" className="profile-page__inline-link" onClick={onAddAreas}>
+                Add areas
+              </button>
+            </p>
+          ) : null}
         </div>
       </header>
       {loading ? (
@@ -184,7 +196,6 @@ export function ProfileEngagementCards({
             const catalog = OPEN_TO_CATALOG[id];
             const selected = isOpenToSelected(draftOpenTo, id);
             const atLimit = !selected && !canSelectMoreOpenTo(draftOpenTo);
-            const description = draftOpenTo.descriptions[id] ?? "";
 
             return (
               <li
@@ -211,18 +222,6 @@ export function ProfileEngagementCards({
                     </button>
                   </p>
                 ) : null}
-                {selected ? (
-                  <textarea
-                    className="input input--textarea profile-page__open-to-edit-desc"
-                    value={description}
-                    placeholder={catalog.defaultDescription}
-                    rows={2}
-                    aria-label={`${catalog.title} subheading`}
-                    onChange={(e) =>
-                      onDraftOpenToChange(setOpenToDescription(draftOpenTo, id, e.target.value))
-                    }
-                  />
-                ) : null}
               </li>
             );
           })}
@@ -236,7 +235,6 @@ export function ProfileEngagementCards({
               </span>
               <div className="profile-page__open-to-item-copy">
                 <p className="profile-page__open-to-item-title">{item.title}</p>
-                <p className="profile-page__open-to-item-desc">{item.description}</p>
               </div>
             </li>
           ))}

@@ -56,7 +56,7 @@ describe("POST /v1/match (integration)", () => {
           `Match ${key} ${run}`,
           opts.completed === false ? null : new Date(),
           opts.suspended ? new Date() : null,
-          opts.openTo ? JSON.stringify({ selected: opts.openTo, descriptions: {} }) : null,
+          opts.openTo ? JSON.stringify({ selected: opts.openTo }) : null,
           opts.city ? CITY : null,
           opts.city ? "Germany" : null,
           opts.city ? placeId : null

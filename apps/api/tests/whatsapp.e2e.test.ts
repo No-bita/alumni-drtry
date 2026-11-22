@@ -83,7 +83,7 @@ describe("WhatsApp bot (integration)", () => {
     );
     await db.query(`UPDATE people SET open_to_preferences = $2::jsonb WHERE id = $1`, [
       alum.personId,
-      JSON.stringify({ selected: ["referrals"], descriptions: {} }),
+      JSON.stringify({ selected: ["referrals"] }),
     ]);
   });
 

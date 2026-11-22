@@ -8,7 +8,6 @@ import {
   openToDisplayItems,
   openToPreferencesForEdit,
   parseOpenToPreferences,
-  setOpenToDescription,
   toggleOpenToSelection,
 } from "../../src/lib/openToPreferences";
 
@@ -18,14 +17,12 @@ describe("parseOpenToPreferences", () => {
     expect(parseOpenToPreferences("x")).toBeNull();
     expect(parseOpenToPreferences([])).toBeNull();
   });
-  it("parses the modern shape, dropping unknown and duplicate ids", () => {
+  it("parses the modern shape, dropping unknown and duplicate ids and any old per-tag lines", () => {
     const r = parseOpenToPreferences({
       selected: ["coffee", "coffee", "nope", 5, "intros"],
       descriptions: { coffee: "  hi  ", nope: "x" },
     });
-    expect(r?.selected).toEqual(["coffee", "intros"]);
-    expect(r?.descriptions.coffee).toBe("hi");
-    expect(r?.descriptions.intros).toBe(OPEN_TO_CATALOG.intros.defaultDescription);
+    expect(r).toEqual({ selected: ["coffee", "intros"] });
   });
   it("returns null when nothing valid is selected", () => {
     expect(parseOpenToPreferences({ selected: ["nope"] })).toBeNull();
@@ -33,31 +30,26 @@ describe("parseOpenToPreferences", () => {
   });
   it("parses the legacy enabled shape", () => {
     const r = parseOpenToPreferences({ coffee: { enabled: true, description: " tea " }, speaking: { enabled: false } });
-    expect(r?.selected).toEqual(["coffee"]);
-    expect(r?.descriptions.coffee).toBe("tea");
+    expect(r).toEqual({ selected: ["coffee"] });
   });
 });
 
 describe("normalizeOpenToPreferences", () => {
-  it("caps selection and description length", () => {
+  it("caps the selection and keeps only tags and the coffee limit", () => {
     const r = normalizeOpenToPreferences({
       selected: ["referrals", "coffee", "mentorship", "hiring", "advising", "speaking", "intros"],
-      descriptions: { referrals: "x".repeat(900) },
+      limits: { coffee: 3 },
     });
+    expect(r).toEqual({ selected: ["referrals", "coffee", "mentorship", "hiring", "advising"], limits: { coffee: 3 } });
     expect(r.selected).toHaveLength(OPEN_TO_MAX_SELECTED);
-    expect(r.descriptions.referrals).toHaveLength(500);
-    expect(r.descriptions.speaking).toBeUndefined();
   });
 });
 
 describe("selection helpers", () => {
-  it("toggles on with the default description and off again", () => {
+  it("toggles a tag on and off again", () => {
     const on = toggleOpenToSelection(createEmptyOpenToPreferences(), "coffee");
-    expect(on.selected).toEqual(["coffee"]);
-    expect(on.descriptions.coffee).toBe(OPEN_TO_CATALOG.coffee.defaultDescription);
-    const off = toggleOpenToSelection(on, "coffee");
-    expect(off.selected).toEqual([]);
-    expect(off.descriptions.coffee).toBeUndefined();
+    expect(on).toEqual({ selected: ["coffee"] });
+    expect(toggleOpenToSelection(on, "coffee")).toEqual({ selected: [] });
   });
   it("refuses a sixth selection", () => {
     let p = createEmptyOpenToPreferences();
@@ -66,21 +58,13 @@ describe("selection helpers", () => {
     expect(canSelectMoreOpenTo(p)).toBe(false);
     expect(toggleOpenToSelection(p, "hiring")).toBe(p);
   });
-  it("only edits descriptions of selected options", () => {
-    const p = createEmptyOpenToPreferences();
-    expect(setOpenToDescription(p, "coffee", "x")).toBe(p);
-    const on = toggleOpenToSelection(p, "coffee");
-    expect(setOpenToDescription(on, "coffee", "x").descriptions.coffee).toBe("x");
-  });
   it("copies saved prefs for editing and renders display items", () => {
     expect(openToPreferencesForEdit(null)).toEqual(createEmptyOpenToPreferences());
-    const saved = { selected: ["coffee"] as const, descriptions: { coffee: "tea" } };
-    const input = { selected: [...saved.selected], descriptions: saved.descriptions };
+    const input = { selected: ["coffee" as const] };
     const edit = openToPreferencesForEdit(input);
     expect(edit.selected).not.toBe(input.selected);
     expect(openToDisplayItems(null)).toEqual([]);
-    expect(openToDisplayItems(edit)).toEqual([
-      { id: "coffee", title: "Coffee chats", description: "tea", icon: "coffee" },
-    ]);
+    expect(openToDisplayItems(edit)).toEqual([{ id: "coffee", title: "Coffee chats", icon: "coffee" }]);
+    expect(Object.values(OPEN_TO_CATALOG).every((entry) => Object.keys(entry).sort().join() === "icon,title")).toBe(true);
   });
 });

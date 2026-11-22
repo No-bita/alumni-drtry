@@ -60,6 +60,7 @@ export interface PublicProfileOutput {
   profile: PublicProfileBaseView;
   occupations: OccupationView[];
   links: ProfileLinkView[];
+  areas: string[];
 }
 
 const CURSOR_V2 = 2;
@@ -352,7 +353,7 @@ export class DiscoveryService {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
     }
 
-    const { profile, occupations, links } = bundle;
-    return { profile, occupations, links };
+    const { profile, occupations, links, areas } = bundle;
+    return { profile, occupations, links, areas };
   }
 }

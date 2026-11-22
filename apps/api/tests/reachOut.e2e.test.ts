@@ -42,10 +42,10 @@ describe("reach-out loop (integration)", () => {
   });
 
   it("profile save with no tags clears them instead of failing", async () => {
-    await db.query(`UPDATE people SET open_to_preferences = '{"selected":["coffee"],"descriptions":{}}' WHERE id = $1`, [asker.personId]);
+    await db.query(`UPDATE people SET open_to_preferences = '{"selected":["coffee"]}' WHERE id = $1`, [asker.personId]);
     const res = await req("PATCH", "/v1/me/profile", asker.cookie, {
       residenceCity: "Pune",
-      openToPreferences: { selected: [], descriptions: {} }
+      openToPreferences: { selected: [] }
     });
     expect(res.statusCode, res.body).toBe(200);
     const row = (await db.query(`SELECT open_to_preferences, residence_city FROM people WHERE id = $1`, [asker.personId])).rows[0];

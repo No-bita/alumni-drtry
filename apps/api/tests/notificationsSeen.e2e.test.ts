@@ -32,7 +32,7 @@ describe("notification seen state (integration, local test database only)", () =
       await db.query(
         `UPDATE people SET full_name = $2, batch_year = 2019, profile_completed_at = now(), onboarding_completed_at = now(),
                            open_to_preferences = $3::jsonb WHERE id = $1`,
-        [p.personId, `${key} ${run}`, JSON.stringify({ selected: ["coffee"], descriptions: {} })]
+        [p.personId, `${key} ${run}`, JSON.stringify({ selected: ["coffee"] })]
       );
       return { ...p, email };
     };

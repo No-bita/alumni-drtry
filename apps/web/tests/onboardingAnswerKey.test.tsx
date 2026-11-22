@@ -100,7 +100,7 @@ describe("onboarding without the optional screens", () => {
   });
 
   it("leaves previously saved open-to preferences untouched", async () => {
-    profile.openToPreferences = { selected: ["coffee"], descriptions: { coffee: "Saved earlier" } };
+    profile.openToPreferences = { selected: ["coffee"] };
     await reachResidence();
     await finishFromResidence();
     await waitFor(() => expect(profilePatch()).toBeTruthy());
