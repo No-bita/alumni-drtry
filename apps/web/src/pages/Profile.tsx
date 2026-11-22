@@ -57,6 +57,7 @@ import {
   type OpenToPreferences,
 } from "../lib/openToPreferences";
 import { browsingLimitFromError } from "../lib/browsingLimits";
+import { safeWebHref } from "../lib/webUrl";
 import { AREAS_PROMPT_OPEN_TO, areasChanged, normalizeAreasForSave } from "../lib/personAreas";
 
 export function Profile() {
@@ -854,9 +855,13 @@ export function Profile() {
                 <ul className="profile-page__links-editor profile-page__links-editor--other">
                   {sidebarOtherLinks.map((link) => (
                     <li key={link.id}>
-                      <a href={link.url} target="_blank" rel="noopener noreferrer">
-                        {link.platform}
-                      </a>
+                      {safeWebHref(link.url) ? (
+                        <a href={safeWebHref(link.url)!} target="_blank" rel="noopener noreferrer">
+                          {link.platform}
+                        </a>
+                      ) : (
+                        <span>{link.platform}</span>
+                      )}
                       <button
                         type="button"
                         className="profile-page__link-remove"

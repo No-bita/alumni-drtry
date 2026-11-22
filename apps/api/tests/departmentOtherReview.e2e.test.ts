@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -48,7 +49,7 @@ describe("department Other review (integration, local test database only)", () =
     const person = async (key: string) => {
       const p = await loginForTest(app, `dor-${key}-${run}@iitbhu.ac.in`);
       await db.query(
-        `UPDATE people SET full_name = $2, batch_year = 2019, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
+        `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = 2019, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
         [p.personId, `DOR ${key} ${run}`]
       );
       return p;

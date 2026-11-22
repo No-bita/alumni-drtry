@@ -205,7 +205,7 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers,
-      payload: { fullName: "E2E Profile View User", batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: "E2E Profile View User", batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     expect(patchRes.statusCode, patchRes.body).toBe(200);
 
@@ -334,13 +334,13 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersA,
-      payload: { fullName: `E2E Alpha ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: `E2E Alpha ${marker}`, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     const patchB = await app.inject({
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersB,
-      payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: `E2E Beta ${marker}`, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     expect(patchA.statusCode, patchA.body).toBe(200);
     expect(patchB.statusCode, patchB.body).toBe(200);
@@ -376,7 +376,7 @@ describe("e2e: full flow", () => {
       const complete = await app.inject({
         method: "PATCH", url: "/v1/me/profile",
         headers: { cookie: `${cookieName}=${seedCookie}` },
-        payload: { fullName: `${label} ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+        payload: { fullName: `${label} ${marker}`, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
       });
       expect(complete.statusCode, complete.body).toBe(200);
     }
@@ -470,13 +470,13 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersA,
-      payload: { fullName: exactQ, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: exactQ, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     const patchB = await app.inject({
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersB,
-      payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: `Alpha Other ${marker}`, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     expect(patchA.statusCode, patchA.body).toBe(200);
     expect(patchB.statusCode, patchB.body).toBe(200);
@@ -498,7 +498,7 @@ describe("e2e: full flow", () => {
       method: "PATCH",
       url: "/v1/me/profile",
       headers: headersC,
-      payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse", markMinimumProfileComplete: true },
+      payload: { fullName: `Observer Only ${marker}`, batchYear: 2020, departmentCode: "cse", degreeCode: "btech", markMinimumProfileComplete: true },
     });
     expect(patchC.statusCode, patchC.body).toBe(200);
 

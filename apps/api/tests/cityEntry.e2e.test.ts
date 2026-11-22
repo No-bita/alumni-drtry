@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { env } from "../src/config/env.js";
 import { CITY_SUBMISSIONS_MAX } from "../src/services/placeReviewService.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -47,7 +48,7 @@ describe("city entry: typed text is kept in every outcome (integration, local te
     const person = async (key: string) => {
       const p = await loginForTest(app, `ce-${key}-${run}@iitbhu.ac.in`);
       await db.query(
-        `UPDATE people SET full_name = $2, batch_year = 2019, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
+        `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = 2019, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
         [p.personId, `${key} ${run}`]
       );
       who[key] = p;

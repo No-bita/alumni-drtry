@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { composeNoteMessage, validateNoteDetails } from "../src/lib/noteDetails.js";
 import { loginForTest } from "./helpers/login.js";
 import { adviceNote, referralNote } from "./helpers/note.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -27,7 +28,7 @@ describe("note form rules (integration, local test database only)", () => {
     db = new Pool({ connectionString: process.env.DATABASE_URL });
     sender = await loginForTest(app, `note-sender-${run}@iitbhu.ac.in`);
     for (let i = 0; i < 4; i += 1) recipients.push(await loginForTest(app, `note-rcpt${i}-${run}@iitbhu.ac.in`));
-    await db.query(`UPDATE people SET full_name = 'Note Sender', profile_completed_at = now() WHERE id = $1`, [sender.personId]);
+    await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = 'Note Sender', profile_completed_at = now() WHERE id = $1`, [sender.personId]);
   });
 
   afterAll(async () => {

@@ -7,6 +7,7 @@ import { sharedTag } from "../src/services/citiesService.js";
 import { loginForTest } from "./helpers/login.js";
 
 import { assertDisposableCitiesDatabase } from "./helpers/disposableDatabase.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string; email: string };
@@ -57,7 +58,7 @@ describe("Cities v1 API (integration, local test database only)", () => {
       const email = `cty-${key}-${run}@iitbhu.ac.in`;
       const p = await loginForTest(app, email);
       await db.query(
-        `UPDATE people SET full_name = $2, batch_year = $3, profile_completed_at = now(), onboarding_completed_at = now(),
+        `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = $3, profile_completed_at = now(), onboarding_completed_at = now(),
                            open_to_preferences = $4::jsonb WHERE id = $1`,
         [
           p.personId,

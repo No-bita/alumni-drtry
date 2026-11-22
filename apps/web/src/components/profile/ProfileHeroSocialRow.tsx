@@ -8,6 +8,7 @@ import {
   type SocialPlatformKey,
 } from "../../lib/socialLinks";
 import { ProfileSocialLinkEditor } from "./ProfileSocialLinkEditor";
+import { safeWebHref } from "../../lib/webUrl";
 
 function IconExternal({ className }: { className?: string }) {
   return (
@@ -174,12 +175,13 @@ export function ProfileHeroSocialRow({
           );
         }
 
-        if (!link) return null;
+        const href = link ? safeWebHref(link.url) : null;
+        if (!link || !href) return null;
 
         return (
           <li key={link.id}>
             <a
-              href={link.url}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="profile-page__hero-social-link"
@@ -192,10 +194,12 @@ export function ProfileHeroSocialRow({
         );
       })}
       {!canManageLinks
-        ? otherLinks.map((link) => (
+        ? otherLinks.map((link) => {
+            const href = safeWebHref(link.url);
+            return href ? (
             <li key={link.id}>
               <a
-                href={link.url}
+                href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="profile-page__hero-social-link"
@@ -204,7 +208,8 @@ export function ProfileHeroSocialRow({
                 <IconExternal className="profile-page__hero-social-external" />
               </a>
             </li>
-          ))
+            ) : null;
+          })
         : null}
     </ul>
   );

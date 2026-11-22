@@ -5,6 +5,7 @@ import { env } from "../src/config/env.js";
 import { generateOpaqueToken, hashSecret } from "../src/lib/crypto.js";
 import { SessionRepo } from "../src/repos/sessionRepo.js";
 import { SESSION_COOKIE } from "./helpers/login.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL } from "./helpers/identity.js";
 
 /**
  * Areas of experience (migration 069) and the removed per-tag lines (070).
@@ -22,7 +23,8 @@ describe("Areas of experience (requires DB)", () => {
 
   async function member(opts: { complete?: boolean } = {}): Promise<Member> {
     const row = await db.query<{ id: string }>(
-      `INSERT INTO people (institutional_email, full_name, profile_completed_at) VALUES ($1, $2, ${opts.complete === false ? "NULL" : "now()"}) RETURNING id`,
+      `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, profile_completed_at)
+       VALUES ($1, $2, 2019, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, ${opts.complete === false ? "NULL" : "now()"}) RETURNING id`,
       [`areas-${R}-${n++}@iitbhu.ac.in`, `Member ${n}`]
     );
     const token = generateOpaqueToken(48);

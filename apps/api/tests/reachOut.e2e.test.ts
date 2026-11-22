@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
 import { adviceNote, referralNote } from "./helpers/note.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -28,7 +29,7 @@ describe("reach-out loop (integration)", () => {
     const ft = (await db.query<{ id: string }>(`SELECT id FROM occupation_types WHERE code = 'full_time_employment'`)).rows[0]!.id;
     const org = (await db.query<{ id: string }>(`INSERT INTO organizations (name, approval_status) VALUES ($1, 'approved') RETURNING id`, [ORG])).rows[0]!.id;
     for (const [p, name] of [[asker, "Asker"], [alum, "Alum Person"], [other, "Other"]] as const) {
-      await db.query(`UPDATE people SET full_name = $2, profile_completed_at = now() WHERE id = $1`, [p.personId, `${name} ${run}`]);
+      await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = $2, profile_completed_at = now() WHERE id = $1`, [p.personId, `${name} ${run}`]);
     }
     await db.query(
       `INSERT INTO occupations (person_id, occupation_type_id, organization_id, role_title, is_current) VALUES ($1, $2, $3, 'Product Manager', true)`,
