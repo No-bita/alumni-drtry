@@ -30,6 +30,8 @@ describe("domain allowlist", () => {
     expect(DOMAIN_DIRECTORY["iitb.ac.in"]).toEqual({ institution: "IIT Bombay", type: "institute" });
     expect(DOMAIN_DIRECTORY["iitbombay.org"]).toEqual({ institution: "IIT Bombay", type: "alumni-association" });
     expect(DOMAIN_DIRECTORY["iima.ac.in"]).toEqual({ institution: "IIM Ahmedabad", type: "institute" });
+    expect(DOMAIN_DIRECTORY["iiml.ac.in"]).toEqual({ institution: "IIM Lucknow", type: "institute" });
+    expect(DOMAIN_DIRECTORY["iiml.org"]).toEqual({ institution: "IIM Lucknow", type: "alumni-association" });
     expect(DOMAIN_DIRECTORY["iitg.ac.in"]).toEqual({ institution: "IIT Guwahati", type: "institute" });
     expect(DOMAIN_DIRECTORY["iitgn.ac.in"]).toEqual({ institution: "IIT Gandhinagar", type: "institute" });
   });

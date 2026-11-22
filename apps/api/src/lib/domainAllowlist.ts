@@ -11,6 +11,8 @@ export const DOMAIN_DIRECTORY: Readonly<Record<string, { institution: string; ty
   "iitb.ac.in": { institution: "IIT Bombay", type: "institute" },
   "iitbombay.org": { institution: "IIT Bombay", type: "alumni-association" },
   "iima.ac.in": { institution: "IIM Ahmedabad", type: "institute" },
+  "iiml.ac.in": { institution: "IIM Lucknow", type: "institute" },
+  "iiml.org": { institution: "IIM Lucknow", type: "alumni-association" },
   "iitg.ac.in": { institution: "IIT Guwahati", type: "institute" },
   "iitgn.ac.in": { institution: "IIT Gandhinagar", type: "institute" }
 };
