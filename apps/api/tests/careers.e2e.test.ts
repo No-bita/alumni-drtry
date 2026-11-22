@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
 import { adviceNote, referralNote } from "./helpers/note.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL, TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -45,7 +46,7 @@ describe("Careers API (integration, local test database only)", () => {
     const person = async (key: string, name: string, batch: number, openTo: string[], test = false) => {
       const p = await loginForTest(app, `car-${key}-${run}@iitbhu.ac.in`);
       await db.query(
-        `UPDATE people SET full_name = $2, batch_year = $3, profile_completed_at = now(), onboarding_completed_at = now(),
+        `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = $3, profile_completed_at = now(), onboarding_completed_at = now(),
                            open_to_preferences = $4::jsonb, is_test_user = $5 WHERE id = $1`,
         [p.personId, `${name} ${run}`, batch, JSON.stringify({ selected: openTo }), test],
       );
@@ -64,7 +65,7 @@ describe("Careers API (integration, local test database only)", () => {
     await job(c, main, "Analyst", false);
     await job(c, other, "Manager", true);
     await job(viewer.personId, main, "Intern", true); // the viewer: never listed
-    await db.query(`UPDATE people SET full_name = 'Viewer', profile_completed_at = now() WHERE id = $1`, [viewer.personId]);
+    await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = 'Viewer', profile_completed_at = now() WHERE id = $1`, [viewer.personId]);
   });
 
   afterAll(async () => {
@@ -150,8 +151,8 @@ describe("Careers API (integration, local test database only)", () => {
     )).rows[0]!.id;
     // Direct SQL seeds: 60 real sign-ins would exhaust the suite-wide per-IP auth budget.
     await db.query(
-      `INSERT INTO people (institutional_email, full_name, batch_year, profile_completed_at, onboarding_completed_at)
-       SELECT $1 || i::text || $2, $3 || lpad(i::text, 3, '0') || $4, 2020, now(), now()
+      `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, profile_completed_at, onboarding_completed_at)
+       SELECT $1 || i::text || $2, $3 || lpad(i::text, 3, '0') || $4, 2020, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, now(), now()
        FROM generate_series(1, 60) AS i`,
       [`car-page-`, `-${run}@iitbhu.ac.in`, `Pager `, ` ${run}`],
     );

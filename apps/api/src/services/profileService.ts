@@ -65,6 +65,30 @@ function withCoffeeLimitRule(next: OpenToPreferences, current: OpenToPreferences
   throw new AppError(400, "COFFEE_LIMIT_REQUIRED", "Choose how many coffee asks a week you're happy to get.");
 }
 
+/** Identity a profile needs before onboarding can finish: what onboarding's first section asks for. */
+export type IdentityDetail = "name" | "department" | "department name" | "degree" | "graduation year";
+
+export function missingIdentityDetails(p: {
+  fullName: string | null;
+  departmentId: string | null;
+  departmentCode: string | null;
+  departmentOtherText: string | null;
+  degreeId: string | null;
+  batchYear: number | null;
+}): IdentityDetail[] {
+  const missing: IdentityDetail[] = [];
+  if (!p.fullName?.trim()) missing.push("name");
+  if (!p.departmentId) missing.push("department");
+  else if ((p.departmentCode ?? "").toLowerCase() === "other" && !p.departmentOtherText?.trim()) missing.push("department name");
+  if (!p.degreeId) missing.push("degree");
+  if (p.batchYear == null) missing.push("graduation year");
+  return missing;
+}
+
+function joinDetails(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
 export class ProfileService {
   private readonly personRepo: PersonRepo;
 
@@ -308,15 +332,31 @@ export class ProfileService {
       }
     }
 
-    let nextProfileCompletedAt = current.profileCompletedAt;
-    if (input.markMinimumProfileComplete === true) {
-      if (!nextFullName?.trim()) {
+    // Finishing onboarding needs the identity onboarding asks for. Those fields freeze once it's done,
+    // so nothing may be marked complete while one is missing (the database enforces the same rule).
+    const completing =
+      (input.markMinimumProfileComplete === true && current.profileCompletedAt == null) ||
+      (input.markOnboardingComplete === true && current.onboardingCompletedAt == null);
+    if (completing) {
+      const missing = missingIdentityDetails({
+        fullName: nextFullName,
+        departmentId: nextDepartmentId,
+        departmentCode: nextDepartmentCode,
+        departmentOtherText: nextDepartmentOtherText,
+        degreeId: nextDegreeId,
+        batchYear: nextBatchYear
+      });
+      if (missing.length > 0) {
         throw new AppError(
           400,
-          "PROFILE_MINIMUM_INCOMPLETE",
-          "Save your name and details (step 1) before completing this step."
+          "PROFILE_IDENTITY_INCOMPLETE",
+          `Add your ${joinDetails(missing)} before finishing your profile.`
         );
       }
+    }
+
+    let nextProfileCompletedAt = current.profileCompletedAt;
+    if (input.markMinimumProfileComplete === true) {
       nextProfileCompletedAt = nextProfileCompletedAt ?? new Date();
     }
 

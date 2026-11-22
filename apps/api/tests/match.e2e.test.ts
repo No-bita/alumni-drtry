@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL, TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -48,9 +49,9 @@ describe("POST /v1/match (integration)", () => {
       opts: { openTo?: string[]; completed?: boolean; suspended?: boolean; city?: boolean } = {}
     ) => {
       const r = await db.query<{ id: string }>(
-        `INSERT INTO people (institutional_email, full_name, batch_year, bio, profile_completed_at, suspended_at,
+        `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, bio, profile_completed_at, suspended_at,
                              open_to_preferences, residence_city, residence_country, residence_canonical_place_id)
-         VALUES ($1, $2, 2018, 'Happy to help juniors.', $3, $4, $5::jsonb, $6, $7, $8) RETURNING id`,
+         VALUES ($1, $2, 2018, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, 'Happy to help juniors.', $3, $4, $5::jsonb, $6, $7, $8) RETURNING id`,
         [
           `match-${key}-${run}@iitbhu.ac.in`,
           `Match ${key} ${run}`,
@@ -78,7 +79,7 @@ describe("POST /v1/match (integration)", () => {
     await job(await person("incomplete", { completed: false }), "Product Manager", orgX, true);
     await job(await person("berliner", { city: true, openTo: ["coffee"] }), "Software Engineer", orgZ, true);
     // The viewer also works at ORG_X and must never match themselves.
-    await db.query(`UPDATE people SET full_name = 'Viewer', profile_completed_at = now() WHERE id = $1`, [viewer.personId]);
+    await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = 'Viewer', profile_completed_at = now() WHERE id = $1`, [viewer.personId]);
     await job(viewer.personId, "Product Manager", orgX, true);
   });
 

@@ -3,6 +3,7 @@
  * Same rules as the API (apps/api/src/lib/noteDetails.ts); the API checks them again.
  */
 import type { MatchCategory } from "./matchApi";
+import { isWebUrl as isWebLink } from "./webUrl";
 
 export type NotePurpose = "referral" | "advice";
 
@@ -49,14 +50,7 @@ export function topicForCategory(category: MatchCategory | null | undefined): Ad
 }
 
 export function isWebUrl(value: string): boolean {
-  const v = value.trim();
-  if (!/^https?:\/\//i.test(v) || v.length > NOTE_URL_MAX || /\s/.test(v)) return false;
-  try {
-    const u = new URL(v);
-    return (u.protocol === "http:" || u.protocol === "https:") && u.hostname.includes(".");
-  } catch {
-    return false;
-  }
+  return isWebLink(value, NOTE_URL_MAX);
 }
 
 const oneLine = (v: string) => v.replace(/\s+/g, " ").trim();

@@ -11,6 +11,7 @@ import { scrubEvent } from "../src/lib/sentry.js";
 import { LINK_TTL_MS, signLinkToken, verifyLinkToken } from "../src/whatsapp/linkToken.js";
 import { testEmailCapture } from "../src/services/emailSender.js";
 import { SESSION_COOKIE, loginForTest } from "./helpers/login.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -34,7 +35,7 @@ describe("security hardening (local test database only)", () => {
     b = await loginForTest(app, `sec-b-${run}@iitbhu.ac.in`);
     admin = await loginForTest(app, `sec-admin-${run}@iitbhu.ac.in`);
     await db.query(`UPDATE people SET role = 'admin' WHERE id = $1`, [admin.personId]);
-    await db.query(`UPDATE people SET full_name = 'Sec ' || id::text, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = ANY($1::uuid[])`, [
+    await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = 'Sec ' || id::text, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = ANY($1::uuid[])`, [
       [a.personId, b.personId, admin.personId]
     ]);
   });

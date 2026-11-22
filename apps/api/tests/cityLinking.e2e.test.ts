@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { env } from "../src/config/env.js";
 import { PlaceReviewService, historySummary } from "../src/services/placeReviewService.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -48,7 +49,7 @@ describe("city linking (integration, local test database only)", () => {
     db = new Pool({ connectionString: process.env.DATABASE_URL });
     const person = async (key: string) => {
       const p = await loginForTest(app, `ln-${key.toLowerCase()}-${run}@iitbhu.ac.in`);
-      await db.query(`UPDATE people SET full_name = $2, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`, [
+      await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = $2, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`, [
         p.personId,
         `${key} ${run}`,
       ]);

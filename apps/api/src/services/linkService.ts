@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
 import { LinkRepo, type ProfileLinkView } from "../repos/linkRepo.js";
+import { PROFILE_LINK_URL_MAX, isWebUrl } from "../lib/webUrl.js";
 
 export interface UpsertLinkInput {
   platform: string;
@@ -14,6 +15,14 @@ function normalizeLinkText(value: string | null | undefined): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Profile links must be ordinary web links (the database refuses anything else too, migration 072). */
+function requireWebUrl(url: string): string {
+  if (!isWebUrl(url, PROFILE_LINK_URL_MAX)) {
+    throw new AppError(400, "LINK_NOT_WEB", "Use a web link that starts with http:// or https://.");
+  }
+  return url;
 }
 
 function isPgUniqueViolation(error: unknown): boolean {
@@ -38,7 +47,7 @@ export class LinkService {
 
   async createMyLink(personId: string, input: UpsertLinkInput): Promise<ProfileLinkView> {
     const platform = input.platform.trim();
-    const url = input.url.trim();
+    const url = requireWebUrl(input.url.trim());
     const label = normalizeLinkText(input.label);
 
     try {
@@ -67,7 +76,7 @@ export class LinkService {
     }
 
     const platform = patch.platform !== undefined ? patch.platform.trim() : current.platform;
-    const url = patch.url !== undefined ? patch.url.trim() : current.url;
+    const url = patch.url !== undefined ? requireWebUrl(patch.url.trim()) : current.url;
     const label = patch.label !== undefined ? normalizeLinkText(patch.label) : current.label;
 
     try {

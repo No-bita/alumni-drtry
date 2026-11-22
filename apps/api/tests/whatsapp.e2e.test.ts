@@ -8,6 +8,7 @@ import { signLinkToken, verifyLinkToken, verifyWebhookSignature } from "../src/w
 import { MAX_ASKS_PER_DAY, MENU, companyFromReply } from "../src/whatsapp/service.js";
 import { loginForTest } from "./helpers/login.js";
 import { adviceNote, referralNote } from "./helpers/note.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -56,7 +57,7 @@ describe("WhatsApp bot (integration)", () => {
     app.inject({ method, url, headers: { cookie }, ...(p ? { payload: p } : {}) });
   const onboard = (p: Who, name: string) =>
     db.query(
-      `UPDATE people SET full_name = $2, profile_completed_at = now(), onboarding_completed_at = now(), batch_year = 2019 WHERE id = $1`,
+      `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, profile_completed_at = now(), onboarding_completed_at = now(), batch_year = 2019 WHERE id = $1`,
       [p.personId, `${name} ${run}`]
     );
   const linkVia = async (p: Who, waId: string) => {

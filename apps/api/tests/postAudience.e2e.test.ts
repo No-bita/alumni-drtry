@@ -6,6 +6,7 @@ import { generateOpaqueToken, hashSecret } from "../src/lib/crypto.js";
 import { institutionKey } from "../src/lib/postAudience.js";
 import { SessionRepo } from "../src/repos/sessionRepo.js";
 import { SESSION_COOKIE } from "./helpers/login.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL } from "./helpers/identity.js";
 
 /**
  * Wall post audience (migration 067): every read path shows a narrowed post only to people it matches.
@@ -36,9 +37,16 @@ describe("Wall post audience (requires DB)", () => {
   } = {}): Promise<Member> {
     const email = `aud-${R}-${n++}@${f.domain ?? "iitbhu.ac.in"}`;
     const row = await db.query<{ id: string }>(
-      `INSERT INTO people (institutional_email, full_name, batch_year, department_code, residence_canonical_place_id, residence_city, profile_completed_at, role)
-       VALUES ($1, $2, $3, $4, $5::uuid, $6, now(), $7) RETURNING id`,
-      [email, f.fullName === undefined ? `Member ${n}` : f.fullName, f.batch ?? null, f.dept ?? null, f.place ?? null, f.city ?? null, f.role ?? "alumni"]
+      `INSERT INTO people (institutional_email, full_name, batch_year, department_code, department_id, degree_id, residence_canonical_place_id, residence_city, profile_completed_at, role)
+       VALUES ($1, $2, $3, $4, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, $5::uuid, $6, now(), $7) RETURNING id`,
+      // 1999: a batch no test narrows to, so members without one given never match by accident.
+      [email, f.fullName === undefined ? `Member ${n}` : f.fullName, f.batch ?? 1999, f.dept ?? null, f.place ?? null, f.city ?? null, f.role ?? "alumni"]
+    );
+    // A completed profile always has a department and batch now (migration 073). These tests match audiences on the
+    // department code from the email, so the chosen department is cleared again, as on older rows; "no batch" likewise.
+    await db.query(
+      `UPDATE people SET department_id = NULL${f.batch === null ? ", batch_year = NULL" : ""} WHERE id = $1`,
+      [row.rows[0]!.id]
     );
     const token = generateOpaqueToken(48);
     await new SessionRepo(db).create({

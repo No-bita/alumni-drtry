@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { loginForTest } from "./helpers/login.js";
 import { assertDisposableCitiesDatabase } from "./helpers/disposableDatabase.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 const run = Date.now();
 let failures = 0;
@@ -35,7 +36,7 @@ const placeB = await place(`Tieburg ${run}`);
 
 const login = await loginForTest(app, `df-${run}@iitbhu.ac.in`);
 await db.query(
-  `UPDATE people SET full_name = $2, batch_year = 2016, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
+  `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = 2016, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
   [login.personId, `Verify ${run}`]
 );
 const auth = { cookie: login.cookie };
@@ -103,7 +104,7 @@ check("open post still listed", ids.has(aliveId));
 // 6. Author visibility exclusions (UPDATE only; each state restored so checks stay independent).
 const author2 = await loginForTest(app, `df2-${run}@iitbhu.ac.in`);
 await db.query(
-  `UPDATE people SET full_name = $2, batch_year = 2017, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
+  `UPDATE people SET ${TEST_IDENTITY_SET}, full_name = $2, batch_year = 2017, profile_completed_at = now(), onboarding_completed_at = now() WHERE id = $1`,
   [author2.personId, `VerifyTwo ${run}`]
 );
 const auth2 = { cookie: author2.cookie };

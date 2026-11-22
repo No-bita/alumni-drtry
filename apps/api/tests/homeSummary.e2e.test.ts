@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { createApp } from "../src/app.js";
 import { HomeSummaryService, HOME_SUMMARY_CACHE_MS } from "../src/services/homeSummaryService.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Counts = { alumni: number; companies: number; openToReferrals: number };
@@ -45,8 +46,8 @@ describe("GET /v1/home/summary (integration)", () => {
     const person = async (key: string, opts: { openTo?: string[]; completed?: boolean; suspended?: boolean } = {}) =>
       (
         await db.query<{ id: string }>(
-          `INSERT INTO people (institutional_email, full_name, batch_year, profile_completed_at, suspended_at, open_to_preferences)
-           VALUES ($1, $2, 2019, $3, $4, $5::jsonb) RETURNING id`,
+          `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, profile_completed_at, suspended_at, open_to_preferences)
+           VALUES ($1, $2, 2019, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, $3, $4, $5::jsonb) RETURNING id`,
           [
             `home-${key}-${run}@iitbhu.ac.in`,
             `Home ${key} ${run}`,

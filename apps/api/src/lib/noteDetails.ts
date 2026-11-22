@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import type { MatchCategory } from "./matchIntent.js";
+import { isWebUrl as isWebLink } from "./webUrl.js";
 
 export const NOTE_FIT_MIN = 80;
 export const NOTE_FIT_MAX = 500;
@@ -61,13 +62,7 @@ const tidy = (v: string | null | undefined) => (v ?? "").replace(/[\u0000-\u0008
 const oneLine = (v: string | null | undefined) => tidy(v).replace(/\s+/g, " ");
 
 export function isWebUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value) || value.length > NOTE_URL_MAX || /\s/.test(value)) return false;
-  try {
-    const u = new URL(value);
-    return (u.protocol === "http:" || u.protocol === "https:") && u.hostname.includes(".");
-  } catch {
-    return false;
-  }
+  return isWebLink(value, NOTE_URL_MAX);
 }
 
 /** Checks the fields and returns them cleaned, or throws {@link NoteDetailsError}. */

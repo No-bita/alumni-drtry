@@ -5,6 +5,7 @@ import { EmailDeliveryUnconfirmedError, TestCaptureEmailSender, testEmailCapture
 import { sanitizeEventMetadata, UsageEventRateLimiter } from "../src/lib/betaUsageEventTypes.js";
 import type { AnalyticsReport } from "../src/repos/analyticsRepo.js";
 import { loginForTest } from "./helpers/login.js";
+import { TEST_IDENTITY_SET } from "./helpers/identity.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 type Who = { cookie: string; personId: string };
@@ -43,7 +44,7 @@ describe("GET /v1/admin/analytics (integration)", () => {
     other = await loginForTest(app, `an-other-${run}@iitbhu.ac.in`);
     await db.query(`UPDATE people SET role = 'admin' WHERE id = $1`, [admin.personId]);
     for (const [p, name] of [[asker, "Asker"], [alum, "Alum"], [other, "Other"]] as const) {
-      await db.query(`UPDATE people SET full_name = $2, profile_completed_at = now() WHERE id = $1`, [p.personId, `${name} ${run}`]);
+      await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = $2, profile_completed_at = now() WHERE id = $1`, [p.personId, `${name} ${run}`]);
     }
     await db.query(`UPDATE people SET open_to_preferences = $2::jsonb WHERE id = $1`, [
       alum.personId,

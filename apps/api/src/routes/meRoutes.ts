@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AppError } from "../lib/errors.js";
 import type { UpdateMyProfileInput } from "../services/profileService.js";
 import { COFFEE_LIMIT_OPTIONS, OPEN_TO_MAX_SELECTED, OPEN_TO_OPTION_IDS } from "../lib/openToPreferences.js";
+import { PROFILE_LINK_URL_MAX, isWebUrl } from "../lib/webUrl.js";
 
 const maxProfileBatchYear = new Date().getUTCFullYear() + 5;
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -98,16 +99,22 @@ const occupationPatchSchema = z
     }
   });
 
+/** Only http(s) web links: anything else (javascript:, data:, …) is refused. */
+const webLinkSchema = z
+  .string()
+  .max(PROFILE_LINK_URL_MAX)
+  .refine((value) => isWebUrl(value.trim(), PROFILE_LINK_URL_MAX), { message: "not_web" });
+
 const createLinkSchema = z.object({
   platform: z.string().trim().min(1).max(80),
-  url: z.string().url().max(2048),
+  url: webLinkSchema,
   label: z.string().max(120).nullable().optional()
 });
 
 const patchLinkSchema = z
   .object({
     platform: z.string().trim().min(1).max(80).optional(),
-    url: z.string().url().max(2048).optional(),
+    url: webLinkSchema.optional(),
     label: z.string().max(120).nullable().optional()
   })
   .superRefine((value, ctx) => {
@@ -118,6 +125,12 @@ const patchLinkSchema = z
       });
     }
   });
+
+function linkPayloadError(error: z.ZodError): AppError {
+  return error.issues.some((issue) => issue.path[0] === "url" && issue.message === "not_web")
+    ? new AppError(400, "LINK_NOT_WEB", "Use a web link that starts with http:// or https://.")
+    : new AppError(400, "LINK_BAD_REQUEST", "Invalid link payload.");
+}
 
 const uuidParamSchema = z.object({
   id: z.string().uuid()
@@ -222,9 +235,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
       const parsed = createLinkSchema.safeParse(request.body);
-      if (!parsed.success) {
-        throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link payload.");
-      }
+      if (!parsed.success) throw linkPayloadError(parsed.error);
 
       const link = await app.linkService.createMyLink(request.actor.personId, parsed.data);
       return reply.code(201).send({ link });
@@ -237,9 +248,8 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const params = uuidParamSchema.safeParse(request.params);
       const parsed = patchLinkSchema.safeParse(request.body);
-      if (!params.success || !parsed.success) {
-        throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link update payload.");
-      }
+      if (!params.success) throw new AppError(400, "LINK_BAD_REQUEST", "Invalid link update payload.");
+      if (!parsed.success) throw linkPayloadError(parsed.error);
 
       const link = await app.linkService.updateMyLink(request.actor.personId, params.data.id, parsed.data);
       return reply.code(200).send({ link });

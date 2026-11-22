@@ -5,6 +5,7 @@ import { env } from "../src/config/env.js";
 import { generateOpaqueToken, hashSecret } from "../src/lib/crypto.js";
 import { SessionRepo } from "../src/repos/sessionRepo.js";
 import { SESSION_COOKIE } from "./helpers/login.js";
+import { TEST_DEGREE_ID_SQL, TEST_DEPARTMENT_ID_SQL } from "./helpers/identity.js";
 
 /**
  * Business progress steps (migration 068): an author closes a request as resolved with an outcome.
@@ -22,7 +23,8 @@ describe("Resolve a request (requires DB)", () => {
 
   async function member(): Promise<Member> {
     const row = await db.query<{ id: string }>(
-      `INSERT INTO people (institutional_email, full_name, profile_completed_at) VALUES ($1, $2, now()) RETURNING id`,
+      `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, profile_completed_at)
+       VALUES ($1, $2, 2019, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, now()) RETURNING id`,
       [`res-${R}-${n++}@iitbhu.ac.in`, `Member ${n}`]
     );
     const token = generateOpaqueToken(48);
