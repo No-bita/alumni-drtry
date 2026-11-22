@@ -575,6 +575,8 @@ input[type="reset"]:not(:disabled) {
   text-decoration: none;
   color: var(--nav-sidebar-text-muted);
   border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
   transition:
     background 0.15s ease,
     color 0.15s ease,
@@ -920,6 +922,8 @@ input[type="reset"]:not(:disabled) {
     text-align: center;
     line-height: 1.15;
     border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
     box-sizing: border-box;
     min-width: 0;
   }
