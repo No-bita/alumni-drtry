@@ -1,0 +1,67 @@
+/* Feedback dialog chrome. Same shell language as the reachout dialog (match.css), kept
+   self-contained so the nav does not pull in the match page's stylesheet. */
+.feedback-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--page-x);
+  background: rgba(28, 20, 16, 0.45);
+}
+.feedback-dialog {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 2 * var(--page-x));
+  overflow: auto;
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: 0 24px 64px rgba(28, 20, 16, 0.25);
+}
+.feedback-dialog__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.feedback-dialog__close:hover,
+.feedback-dialog__close:focus-visible {
+  background: var(--cream);
+  color: var(--ink);
+}
+.feedback-dialog__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.feedback-dialog__body {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+.feedback-dialog__form {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.feedback-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+}

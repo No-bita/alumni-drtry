@@ -1,14 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNotificationsList } from "../lib/notificationsQueries";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { useAuth } from "../contexts/AuthContext";
 import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
 import { NAV_INTENT_LABELS, NAV_INTENT_SLUGS, type NavIntentSlug } from "../constants/intents";
-import { FEEDBACK_WHATSAPP_URL } from "../lib/feedbackLink";
 import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
 import { isDevHubPagesEnabled } from "../lib/devHubPages";
 import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
+import { FeedbackDialog } from "./FeedbackDialog";
 import { Avatar } from "./Avatar";
 import { avatarLabelFromEmail } from "../lib/emailDisplayName";
 import {
@@ -280,6 +280,9 @@ export function Nav({
     (item) => item.unseen && item.kind !== "connection_thread_reply"
   ).length;
 
+  // In-app feedback form (replaced the WhatsApp feedback link).
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
   const handleSignOut = async () => {
     if (auth.status === "authenticated") {
       await auth.logout();
@@ -448,15 +451,14 @@ export function Nav({
                 </li>
               ) : null}
               <li>
-                <a
+                <button
+                  type="button"
                   className="nav-sidebar__link"
-                  href={FEEDBACK_WHATSAPP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => setFeedbackOpen(true)}
                 >
                   <IconFeedback className="nav-sidebar__icon" />
                   <span className="nav-sidebar__link-label">Feedback</span>
-                </a>
+                </button>
               </li>
             </ul>
           </nav>
@@ -548,15 +550,14 @@ export function Nav({
               </li>
             ) : null}
             <li className="nav-bottom-dock__item">
-              <a
+              <button
+                type="button"
                 className="nav-bottom-dock__link"
-                href={FEEDBACK_WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={() => setFeedbackOpen(true)}
               >
                 <IconFeedback className="nav-bottom-dock__icon" />
                 <span className="nav-bottom-dock__label">Feedback</span>
-              </a>
+              </button>
             </li>
             <li className="nav-bottom-dock__item">
               {myProfileId ? (
@@ -572,6 +573,7 @@ export function Nav({
             </li>
           </ul>
         </nav>
+        {feedbackOpen ? <FeedbackDialog onClose={() => setFeedbackOpen(false)} /> : null}
       </>
     );
   }

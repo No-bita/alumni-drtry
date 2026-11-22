@@ -26,6 +26,7 @@ import {
   type CitiesMetrics,
 } from "../lib/adminAnalytics";
 import { MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
+import { adminFeedbackQueryKey, fetchAdminFeedback } from "../lib/feedbackApi";
 import "../styles/admin-analytics.css";
 
 const SECTIONS = [
@@ -42,6 +43,7 @@ const SECTIONS = [
   ["whatsapp", "WhatsApp pilot"],
   ["cities", "Cities"],
   ["operations", "Operations"],
+  ["feedback", "Feedback"],
 ] as const;
 
 const HOME_EVENT_LABELS: Record<string, string> = {
@@ -108,7 +110,7 @@ function Section({ id, title, note, children }: { id: string; title: string; not
   );
 }
 
-function Table({ caption, head, rows, empty }: { caption: string; head: string[]; rows: ReactNode[][]; empty: string }) {
+function Table({ caption, head, rows, empty, textColumns = false }: { caption: string; head: string[]; rows: ReactNode[][]; empty: string; /** Text tables (e.g. feedback) keep every column left-aligned instead of the numeric default. */ textColumns?: boolean }) {
   return (
     <div className="aa-table-wrap">
       <table className="aa-table">
@@ -116,7 +118,7 @@ function Table({ caption, head, rows, empty }: { caption: string; head: string[]
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th key={h} scope="col" className={i === 0 ? undefined : "aa-num"}>
+              <th key={h} scope="col" className={i === 0 || textColumns ? undefined : "aa-num"}>
                 {h}
               </th>
             ))}
@@ -133,7 +135,7 @@ function Table({ caption, head, rows, empty }: { caption: string; head: string[]
             rows.map((r, i) => (
               <tr key={i}>
                 {r.map((cell, j) => (
-                  <td key={j} className={j === 0 ? undefined : "aa-num"}>
+                  <td key={j} className={j === 0 || textColumns ? undefined : "aa-num"}>
                     {cell}
                   </td>
                 ))}
@@ -576,6 +578,33 @@ function CitiesSection({ m }: { m: CitiesMetrics }) {
 }
 
 /** /admin/analytics — every analytics number on one screen (admins only; the API enforces it). */
+/** Member feedback submitted in-app, newest first. Private to admins; the author is shown so they can follow up. */
+function FeedbackSection() {
+  const auth = useAuth();
+  const isAdmin = auth.status === "authenticated" && auth.person.role !== "alumni";
+  const feedback = useQuery({
+    queryKey: adminFeedbackQueryKey,
+    queryFn: ({ signal }) => fetchAdminFeedback(signal),
+    enabled: isAdmin,
+  });
+
+  return (
+    <Section id="feedback" title="Feedback" note="Newest first. Private member feedback submitted in-app.">
+      <Table
+        caption="Member feedback"
+        head={["When", "Member", "Message"]}
+        textColumns
+        empty={feedback.isPending ? "Loading feedback…" : feedback.isError ? "Couldn't load feedback." : "No feedback yet."}
+        rows={(feedback.data ?? []).map((f) => [
+          new Date(f.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+          f.authorFullName ?? "Member",
+          f.message,
+        ])}
+      />
+    </Section>
+  );
+}
+
 export function AdminAnalyticsPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -702,6 +731,7 @@ export function AdminAnalyticsPage() {
               <>
                 <Report r={query.data} />
                 {cities.data ? <CitiesSection m={cities.data} /> : null}
+                <FeedbackSection />
               </>
             )}
           </>
