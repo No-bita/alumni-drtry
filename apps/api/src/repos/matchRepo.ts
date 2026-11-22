@@ -303,7 +303,9 @@ export class MatchRepo {
             (SELECT string_agg(concat_ws(' ', o.role_title, o.description, org.name::text), ' ')
              FROM occupations o
              LEFT JOIN organizations org ON org.id = o.organization_id
-             WHERE o.person_id = p.id)
+             WHERE o.person_id = p.id),
+            -- Areas of experience: like the rest of this text they only reorder results, never qualify anyone.
+            (SELECT string_agg(pa.label, ' ') FROM person_areas pa WHERE pa.person_id = p.id)
           ) AS text
         ) hay ON TRUE
         ${laterals}

@@ -17,7 +17,7 @@ const invitedBySchema = z.object({
 const openToPreferencesSchema = z
   .object({
     selected: z.array(openToOptionIdSchema).max(OPEN_TO_MAX_SELECTED),
-    descriptions: z.partialRecord(openToOptionIdSchema, z.string().max(500)).default({}),
+    // The per-tag lines were removed. Older app versions still send `descriptions`; zod drops unknown keys.
     /** Cities v1: coffee asks a week (1, 2, 3 or 5). Required when coffee is turned on. */
     limits: z
       .object({
@@ -37,16 +37,6 @@ const openToPreferencesSchema = z
         message: "Open-to selections must be unique.",
         path: ["selected"],
       });
-    }
-    const descriptions = value.descriptions ?? {};
-    for (const key of Object.keys(descriptions)) {
-      if (!unique.has(key as (typeof OPEN_TO_OPTION_IDS)[number])) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Descriptions may only be set for selected open-to options.",
-          path: ["descriptions"],
-        });
-      }
     }
   });
 

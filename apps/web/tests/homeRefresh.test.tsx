@@ -29,7 +29,7 @@ function signedIn(openTo: string[] = []) {
   authState.value = {
     status: "authenticated",
     person: { personId: "p1", institutionalEmail: "a@iitbhu.ac.in", role: "alumni" },
-    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: openTo, descriptions: {} } },
+    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: openTo } },
   };
 }
 

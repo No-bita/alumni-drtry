@@ -52,7 +52,7 @@ describe("GET /v1/home/summary (integration)", () => {
             `Home ${key} ${run}`,
             opts.completed === false ? null : new Date(),
             opts.suspended ? new Date() : null,
-            opts.openTo ? JSON.stringify({ selected: opts.openTo, descriptions: {} }) : null
+            opts.openTo ? JSON.stringify({ selected: opts.openTo }) : null
           ]
         )
       ).rows[0]!.id;

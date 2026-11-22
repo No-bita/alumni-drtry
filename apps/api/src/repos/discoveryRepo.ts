@@ -152,11 +152,18 @@ export interface PublicProfileBundleView {
   profile: PublicProfileBaseView;
   occupations: OccupationView[];
   links: ProfileLinkView[];
+  /** Areas of experience, in the member's order. */
+  areas: string[];
 }
 
 interface PublicProfileBundleRow extends PublicProfileBaseRow {
   occupations_json: unknown;
   links_json: unknown;
+  areas_json: unknown;
+}
+
+function mapAreasJson(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((label): label is string => typeof label === "string") : [];
 }
 
 export function mapSearchRow(row: SearchProfileRow): SearchProfileView {
@@ -704,7 +711,11 @@ export class DiscoveryRepo {
             ) AS link_row
           ),
           '[]'::json
-        ) AS links_json
+        ) AS links_json,
+        COALESCE(
+          (SELECT json_agg(pa.label ORDER BY pa.position) FROM person_areas pa WHERE pa.person_id = p.id),
+          '[]'::json
+        ) AS areas_json
       FROM people p
       LEFT JOIN departments d ON d.id = p.department_id
       LEFT JOIN degrees g ON g.id = p.degree_id
@@ -729,7 +740,8 @@ export class DiscoveryRepo {
     return {
       profile: mapPublicRow(row),
       occupations: mapOccupationsJson(row.occupations_json),
-      links: mapLinksJson(row.links_json)
+      links: mapLinksJson(row.links_json),
+      areas: mapAreasJson(row.areas_json)
     };
   }
 

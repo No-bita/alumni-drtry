@@ -30,6 +30,9 @@ export const queryKeys = {
     all: ["profiles"] as const,
     detail: (id: string) => ["profiles", "detail", id] as const,
   },
+  areas: {
+    suggestions: (query: string) => ["areas", "suggestions", query] as const,
+  },
   home: {
     batchSnapshot: (personId: string, batchYear: number, dept: string) =>
       ["home", "batch-snapshot", personId, batchYear, dept] as const,

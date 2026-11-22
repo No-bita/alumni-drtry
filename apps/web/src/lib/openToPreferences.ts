@@ -24,7 +24,6 @@ export const COFFEE_LIMIT_DEFAULT: CoffeeLimit = 2;
 export type OpenToPreferences = {
   /** Up to OPEN_TO_MAX_SELECTED option ids, in display order. */
   selected: OpenToOptionId[];
-  descriptions: Partial<Record<OpenToOptionId, string>>;
   /** Per-tag limits. Only `coffee` today; kept only while coffee is selected. */
   limits?: { coffee?: CoffeeLimit };
 };
@@ -53,59 +52,48 @@ export function withCoffeeLimit(prefs: OpenToPreferences, limit: CoffeeLimit): O
 
 export type OpenToCatalogEntry = {
   title: string;
-  defaultDescription: string;
   icon: OpenToOptionId;
 };
 
 export const OPEN_TO_CATALOG: Record<OpenToOptionId, OpenToCatalogEntry> = {
   referrals: {
     title: "Referrals",
-    defaultDescription: "Happy to refer for relevant roles",
     icon: "referrals",
   },
   coffee: {
     title: "Coffee chats",
-    defaultDescription: "Open for casual conversations",
     icon: "coffee",
   },
   mentorship: {
     title: "Mentorship",
-    defaultDescription: "Happy to mentor and guide",
     icon: "mentorship",
   },
   hiring: {
     title: "Hiring help",
-    defaultDescription: "Can help hire or refer candidates to my team",
     icon: "hiring",
   },
   advising: {
     title: "Advising",
-    defaultDescription: "Open to advising startups or side projects",
     icon: "advising",
   },
   speaking: {
     title: "Speaking",
-    defaultDescription: "Available for panels, talks, or campus sessions",
     icon: "speaking",
   },
   intros: {
     title: "Introductions",
-    defaultDescription: "Happy to make warm intros in my network",
     icon: "intros",
   },
   collaboration: {
     title: "Collaboration",
-    defaultDescription: "Interested in research or project collaborations",
     icon: "collaboration",
   },
   city_help: {
     title: "Settling into my city",
-    defaultDescription: "Happy to help newcomers settle into my city",
     icon: "city_help",
   },
   study_advice: {
     title: "Higher-studies advice",
-    defaultDescription: "Happy to advise on MS, MBA or PhD plans",
     icon: "study_advice",
   },
 };
@@ -113,7 +101,6 @@ export const OPEN_TO_CATALOG: Record<OpenToOptionId, OpenToCatalogEntry> = {
 export type OpenToDisplayItem = {
   id: OpenToOptionId;
   title: string;
-  description: string;
   icon: OpenToOptionId;
 };
 
@@ -121,7 +108,7 @@ function isOpenToOptionId(value: string): value is OpenToOptionId {
   return (OPEN_TO_OPTION_IDS as readonly string[]).includes(value);
 }
 
-function isLegacyEntry(value: unknown): value is { enabled: boolean; description?: string } {
+function isLegacyEntry(value: unknown): value is { enabled: boolean } {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -132,22 +119,19 @@ function isLegacyEntry(value: unknown): value is { enabled: boolean; description
 
 function parseLegacyRecord(raw: Record<string, unknown>): OpenToPreferences | null {
   const selected: OpenToOptionId[] = [];
-  const descriptions: Partial<Record<OpenToOptionId, string>> = {};
 
   for (const id of OPEN_TO_OPTION_IDS) {
     const entry = raw[id];
     if (!isLegacyEntry(entry) || !entry.enabled) continue;
     selected.push(id);
-    const description = typeof entry.description === "string" ? entry.description.trim() : "";
-    if (description) descriptions[id] = description;
   }
 
   if (selected.length === 0) return null;
-  return normalizeOpenToPreferences({ selected, descriptions });
+  return normalizeOpenToPreferences({ selected });
 }
 
 export function createEmptyOpenToPreferences(): OpenToPreferences {
-  return { selected: [], descriptions: {} };
+  return { selected: [] };
 }
 
 export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
@@ -163,20 +147,12 @@ export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
         selected.push(item);
       }
     }
-    const descriptions: Partial<Record<OpenToOptionId, string>> = {};
-    if (obj.descriptions && typeof obj.descriptions === "object" && !Array.isArray(obj.descriptions)) {
-      for (const [key, value] of Object.entries(obj.descriptions)) {
-        if (isOpenToOptionId(key) && typeof value === "string") {
-          descriptions[key] = value.trim();
-        }
-      }
-    }
     if (selected.length === 0) return null;
     const rawLimits = obj.limits && typeof obj.limits === "object" && !Array.isArray(obj.limits)
       ? (obj.limits as Record<string, unknown>)
       : null;
     const limits = rawLimits && isCoffeeLimit(rawLimits.coffee) ? { coffee: rawLimits.coffee } : undefined;
-    return normalizeOpenToPreferences({ selected, descriptions, ...(limits ? { limits } : {}) });
+    return normalizeOpenToPreferences({ selected, ...(limits ? { limits } : {}) });
   }
 
   return parseLegacyRecord(obj);
@@ -190,15 +166,8 @@ export function normalizeOpenToPreferences(input: OpenToPreferences): OpenToPref
     selected.push(id);
   }
 
-  const descriptions: Partial<Record<OpenToOptionId, string>> = {};
-  for (const id of selected) {
-    const raw = input.descriptions[id]?.trim() ?? "";
-    const fallback = OPEN_TO_CATALOG[id].defaultDescription;
-    descriptions[id] = (raw || fallback).slice(0, 500);
-  }
-
   const coffee = selected.includes("coffee") && isCoffeeLimit(input.limits?.coffee) ? input.limits!.coffee : undefined;
-  return coffee ? { selected, descriptions, limits: { coffee } } : { selected, descriptions };
+  return coffee ? { selected, limits: { coffee } } : { selected };
 }
 
 export function openToPreferencesForEdit(
@@ -208,7 +177,6 @@ export function openToPreferencesForEdit(
   const normalized = normalizeOpenToPreferences(saved);
   return {
     selected: [...normalized.selected],
-    descriptions: { ...normalized.descriptions },
     ...(normalized.limits ? { limits: { ...normalized.limits } } : {}),
   };
 }
@@ -224,33 +192,11 @@ export function canSelectMoreOpenTo(prefs: OpenToPreferences): boolean {
 export function toggleOpenToSelection(prefs: OpenToPreferences, id: OpenToOptionId): OpenToPreferences {
   if (isOpenToSelected(prefs, id)) {
     const selected = prefs.selected.filter((x) => x !== id);
-    const descriptions = { ...prefs.descriptions };
-    delete descriptions[id];
     const limits = id === "coffee" || !prefs.limits ? undefined : { ...prefs.limits };
-    return limits && Object.keys(limits).length > 0 ? { selected, descriptions, limits } : { selected, descriptions };
+    return limits && Object.keys(limits).length > 0 ? { selected, limits } : { selected };
   }
   if (!canSelectMoreOpenTo(prefs)) return prefs;
-  const catalog = OPEN_TO_CATALOG[id];
-  return {
-    ...prefs,
-    selected: [...prefs.selected, id],
-    descriptions: {
-      ...prefs.descriptions,
-      [id]: prefs.descriptions[id]?.trim() || catalog.defaultDescription,
-    },
-  };
-}
-
-export function setOpenToDescription(
-  prefs: OpenToPreferences,
-  id: OpenToOptionId,
-  description: string,
-): OpenToPreferences {
-  if (!isOpenToSelected(prefs, id)) return prefs;
-  return {
-    ...prefs,
-    descriptions: { ...prefs.descriptions, [id]: description },
-  };
+  return { ...prefs, selected: [...prefs.selected, id] };
 }
 
 /** Items shown on the profile Open to card (selected only, fixed titles). */
@@ -259,13 +205,6 @@ export function openToDisplayItems(saved: OpenToPreferences | null | undefined):
   const normalized = normalizeOpenToPreferences(saved);
   return normalized.selected.map((id) => {
     const catalog = OPEN_TO_CATALOG[id];
-    const description =
-      normalized.descriptions[id]?.trim() || catalog.defaultDescription;
-    return {
-      id,
-      title: catalog.title,
-      description,
-      icon: catalog.icon,
-    };
+    return { id, title: catalog.title, icon: catalog.icon };
   });
 }
