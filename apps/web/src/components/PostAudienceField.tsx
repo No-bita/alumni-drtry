@@ -100,10 +100,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
       >
         <span className="post-audience__summary-text">
           <span className="post-audience__summary-label">{label}</span>
-          <span className="post-audience__summary-hint">{everyone ? "All institutes. Change" : "Change"}</span>
-        </span>
-        <span aria-hidden className="post-audience__caret">
-          {open ? "▴" : "▾"}
+          <span className="post-audience__summary-hint">Change</span>
         </span>
       </button>
 

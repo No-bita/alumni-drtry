@@ -38,8 +38,10 @@
 }
 
 .post-audience__summary-text {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
   min-width: 0;
 }
 
@@ -47,17 +49,20 @@
   font-size: 15px;
   font-weight: 600;
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .post-audience__summary-hint {
-  font-size: 12px;
-  color: var(--ink-muted);
-}
-
-.post-audience__caret {
+  margin-left: auto;
   flex: none;
-  font-size: 14px;
-  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--brick);
+  border: 1px solid var(--brick);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
 }
 
 .post-audience__panel {
