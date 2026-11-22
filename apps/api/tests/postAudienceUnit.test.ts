@@ -42,6 +42,13 @@ describe("institutes", () => {
   it("leaves out institutes whose domains are not allowed", () => {
     expect(listInstitutions(new Set(["iitbhu.ac.in"])).map((i) => i.name)).toEqual(["IIT (BHU) Varanasi"]);
   });
+
+  it("groups both IIM Lucknow domains under one institute", () => {
+    const options = listInstitutions(new Set(["iiml.ac.in", "iiml.org"]));
+    expect(options).toEqual([
+      { key: expect.any(String), name: "IIM Lucknow", domains: ["iiml.ac.in", "iiml.org"] }
+    ]);
+  });
   it("keys are stable slugs", () => {
     expect(institutionKey("IIT (BHU) Varanasi")).toBe("iit-bhu-varanasi");
   });
