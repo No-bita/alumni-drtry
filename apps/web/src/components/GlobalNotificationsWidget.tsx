@@ -76,8 +76,6 @@ export function GlobalNotificationsWidget() {
         <header className="global-notifications-widget__head">
           <div>
             <h2>Notifications</h2>
-            {/* Messaging paused: message notifications are hidden while messaging is off. Original: Connection requests, bulletin replies, and new messages */}
-            <p>Connection requests and bulletin replies</p>
           </div>
           <div className="global-notifications-widget__head-actions">
             {hasUnseen ? (

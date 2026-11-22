@@ -41,9 +41,6 @@ export function NotificationsPage() {
           </button>
         ) : null}
       </div>
-      {/* Messaging paused: message notifications are hidden while messaging is off. Original: Connection requests, bulletin replies, and new messages */}
-      <p className="notifications-page__sub">Connection requests and bulletin replies</p>
-
       {listQuery.isPending ? (
         <p className="notifications-page__loading" role="status">
           Loading notifications…
