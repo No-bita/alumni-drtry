@@ -16,6 +16,7 @@ import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
 import { WallEmptyPrompt } from "./WallEmptyPrompt";
+import { useWallShareTarget } from "../hooks/useWallShareTarget";
 import { LineIcon } from "./LineIcon";
 import "../styles/hub-cards.css";
 
@@ -137,6 +138,13 @@ export function HomeOpportunityRail({
   // Temporary shared content is intentional. Personal matching remains parked.
   const [feedTab, setFeedTab] = useState<"all" | "for-you">("all");
   const feedTabsId = useId();
+  // Opened from a shared post link (#wall-<id>): find it, scroll to it, mark it "Shared with you".
+  const showAllPosts = useCallback(() => setFeedTab("all"), []);
+  const share = useWallShareTarget({
+    intentcasts,
+    feedLoading: opportunitiesFeedLoading,
+    ensureVisible: showAllPosts,
+  });
   const feedTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const showingReplies = activeCategory === "replies";
   const filteredIntentcasts = (
@@ -161,7 +169,12 @@ export function HomeOpportunityRail({
     }
   };
 
-  const activityRows: CareerFeedRowModel[] = filteredIntentcasts
+  // A shared post that isn't in the loaded page shows first.
+  const withShared =
+    share.extraPost && !filteredIntentcasts.some((ic) => ic.id === share.extraPost!.id)
+      ? [share.extraPost, ...filteredIntentcasts]
+      : filteredIntentcasts;
+  const activityRows: CareerFeedRowModel[] = withShared
     .map((ic) => mapIntentcastToRow(ic, { includeGuidancePosts: true }))
     .filter((r): r is CareerFeedRowModel => r != null);
 
@@ -279,6 +292,14 @@ export function HomeOpportunityRail({
         */}
       </div>
       {pinError ? <p role="alert" className="home-ideal__opportunity-rail-error">{pinError}</p> : null}
+      {share.notice ? (
+        <p role="status" className="home-ideal__opportunity-rail-error wall-share-notice">
+          {share.notice}{" "}
+          <button type="button" className="wall-share-notice__dismiss" onClick={share.dismissNotice}>
+            Dismiss
+          </button>
+        </p>
+      ) : null}
       {railDeleteError ? (
         <p className="home-dashboard__bulletin-inline-error home-ideal__opportunity-rail-error" role="alert">
           {railDeleteError}
@@ -328,6 +349,8 @@ export function HomeOpportunityRail({
             rows={activityRows}
             linkifyBody
             wallPins={wallPins}
+            shareable
+            highlightedId={share.highlightedId}
             onToggleWallPin={canManageWallPins ? (id, pinned) => { void toggleWallPin(id, pinned); } : undefined}
             pinSubmitting={pinBusy}
             viewerPersonId={viewerPersonId}

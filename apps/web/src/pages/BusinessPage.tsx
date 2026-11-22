@@ -228,6 +228,7 @@ export function BusinessPage() {
                     onRequestDelete={() => {}}
                     ownerDeleteMenu={false}
                     linkifyBody
+                    shareable
                     listClassName="business__rows"
                   />
                   </div>
