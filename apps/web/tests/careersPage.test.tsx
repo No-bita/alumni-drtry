@@ -37,7 +37,7 @@ function world(w: World = {}) {
   authState.value = {
     status: "authenticated",
     person: { personId: "p1", institutionalEmail: "a@iitbhu.ac.in", role: "alumni" },
-    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: w.openTo ?? [], descriptions: {} } },
+    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: w.openTo ?? [] } },
   };
   apiGet.mockImplementation(async (path: string) => {
     if (path === "/v1/careers/referral-companies") return { companies: w.companies ?? [] };

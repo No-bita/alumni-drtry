@@ -29,7 +29,7 @@ function Harness({ start, onValue }: { start: OpenToPreferences; onValue: (v: Op
 describe("Coffee weekly limit (screen 4)", () => {
   it("turning coffee on asks for a limit (default 2) and saves it with the tag", () => {
     let last: OpenToPreferences | null = null;
-    render(<Harness start={{ selected: [], descriptions: {} }} onValue={(v) => (last = v)} />);
+    render(<Harness start={{ selected: [] }} onValue={(v) => (last = v)} />);
     fireEvent.click(screen.getByRole("button", { name: /Coffee chats/ }));
     const dialog = screen.getByRole("dialog", { name: "Open to coffee" });
     expect(within(dialog).getByRole("radio", { name: "2" }).getAttribute("aria-checked")).toBe("true");
@@ -42,7 +42,7 @@ describe("Coffee weekly limit (screen 4)", () => {
 
   it("Not now leaves coffee off", () => {
     let last: OpenToPreferences | null = null;
-    render(<Harness start={{ selected: [], descriptions: {} }} onValue={(v) => (last = v)} />);
+    render(<Harness start={{ selected: [] }} onValue={(v) => (last = v)} />);
     fireEvent.click(screen.getByRole("button", { name: /Coffee chats/ }));
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(last).toBeNull();
@@ -50,12 +50,12 @@ describe("Coffee weekly limit (screen 4)", () => {
   });
 
   it("limits survive parse/normalize, go when coffee goes, and legacy coffee reads as 2", () => {
-    const parsed = parseOpenToPreferences({ selected: ["coffee", "mentorship"], descriptions: {}, limits: { coffee: 5 } })!;
+    const parsed = parseOpenToPreferences({ selected: ["coffee", "mentorship"], limits: { coffee: 5 } })!;
     expect(parsed.limits).toEqual({ coffee: 5 });
     expect(normalizeOpenToPreferences(parsed).limits).toEqual({ coffee: 5 });
     expect(toggleOpenToSelection(parsed, "coffee").limits).toBeUndefined();
-    expect(parseOpenToPreferences({ selected: ["coffee"], descriptions: {}, limits: { coffee: 99 } })!.limits).toBeUndefined();
-    const legacy = parseOpenToPreferences({ selected: ["coffee"], descriptions: {} })!;
+    expect(parseOpenToPreferences({ selected: ["coffee"], limits: { coffee: 99 } })!.limits).toBeUndefined();
+    const legacy = parseOpenToPreferences({ selected: ["coffee"] })!;
     expect(coffeeLimitOf(legacy)).toBe(2);
     expect(coffeeNeedsLimit(legacy)).toBe(true);
   });

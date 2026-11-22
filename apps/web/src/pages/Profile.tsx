@@ -11,6 +11,7 @@ import { ProfileAbout } from "../components/profile/ProfileAbout";
 import { ProfileDepartmentEdit } from "../components/profile/ProfileDepartmentEdit";
 import { ProfileExperience } from "../components/profile/ProfileExperience";
 import { ProfileEngagementCards } from "../components/profile/ProfileEngagementCards";
+import { PROFILE_AREAS_INPUT_ID, ProfileAreasCard } from "../components/profile/ProfileAreasCard";
 import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
 import { ProfileIitBhu } from "../components/profile/ProfileIitBhu";
 import { Button } from "../components/Button";
@@ -19,6 +20,7 @@ import { PageStateBlock } from "../components/PageStateBlock";
 import {
   type AdminAllowedEmailsResponse,
   api,
+  type MeAreasResponse,
   type MeLinksResponse,
   type ProfileLinkView,
   type ProfileResponse,
@@ -55,6 +57,7 @@ import {
   type OpenToPreferences,
 } from "../lib/openToPreferences";
 import { browsingLimitFromError } from "../lib/browsingLimits";
+import { AREAS_PROMPT_OPEN_TO, areasChanged, normalizeAreasForSave } from "../lib/personAreas";
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -80,6 +83,7 @@ export function Profile() {
   const [draftOpenTo, setDraftOpenTo] = useState<OpenToPreferences>(() =>
     openToPreferencesForEdit(null),
   );
+  const [draftAreas, setDraftAreas] = useState<string[]>([]);
   const [draftOccupations, setDraftOccupations] = useState<OccupationDraft[]>([]);
   const [editLinks, setEditLinks] = useState<ProfileLinkView[]>([]);
   const [draftSocialLinks, setDraftSocialLinks] = useState(emptySocialLinkDraft);
@@ -180,6 +184,7 @@ export function Profile() {
       setDraftDepartmentOtherText(p.departmentOtherText ?? "");
       setDraftOpenTo(openToPreferencesForEdit(parseOpenToPreferences(p.openToPreferences) ?? null));
     }
+    setDraftAreas(profileQuery.data?.areas ?? []);
     setDraftOccupations(occupationsToDrafts(profileQuery.data?.occupations ?? []));
     clearOrganizationIdCache();
     setDraftSocialLinks(socialLinksDraftFromProfile(profileQuery.data?.links ?? []));
@@ -342,6 +347,16 @@ export function Profile() {
       setEditError(profileError.message ?? profileError.code);
       return;
     }
+    if (areasChanged(data.areas ?? [], draftAreas)) {
+      const { error: areasError } = await api.put<MeAreasResponse>("/v1/me/areas", {
+        areas: normalizeAreasForSave(draftAreas),
+      });
+      if (areasError) {
+        setSaving(false);
+        setEditError(areasError.message ?? areasError.code);
+        return;
+      }
+    }
     if (cityEditFromCitiesRef.current && (draftResidenceCity.trim() || null) !== (data.profile.residenceCity ?? null)) {
       trackBetaUsageEvent("cities_city_updated");
     }
@@ -414,6 +429,7 @@ export function Profile() {
     draftResidenceCountry,
     draftResidenceCity,
     draftOpenTo,
+    draftAreas,
     draftOccupations,
     draftSocialLinks,
     persistSocialLinks,
@@ -624,6 +640,7 @@ export function Profile() {
             isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
             privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
             openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
+            areas={data?.areas ?? []}
             onEdit={() => void beginEdit()}
             onSignOut={() => { void auth.logout().then(() => navigate("/signed-out", { replace: true })); }}
             onSignOutEverywhere={auth.status === "authenticated" && !auth.person.isDemo ? () => auth.logoutAll().then(() => navigate("/signed-out", { replace: true, state: { plain: true } })) : undefined} />
@@ -653,14 +670,29 @@ export function Profile() {
 
         <div className="profile-page__engage-wrap">
           <section id="profile-open-to" className="profile-page__engage-row" aria-label="Profile highlights">
-            <ProfileEngagementCards
-              loading={loading}
-              openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
-              isEditing={isOwnProfile && isEditing}
-              draftOpenTo={isEditing ? draftOpenTo : undefined}
-              onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
-              editNotice={openToNotice}
-            />
+            <div className="profile-page__engage-stack">
+              <ProfileEngagementCards
+                loading={loading}
+                openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
+                isEditing={isOwnProfile && isEditing}
+                draftOpenTo={isEditing ? draftOpenTo : undefined}
+                onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
+                editNotice={openToNotice}
+                showAreasPrompt={
+                  isEditing &&
+                  draftAreas.length === 0 &&
+                  draftOpenTo.selected.some((tag) => (AREAS_PROMPT_OPEN_TO as readonly string[]).includes(tag))
+                }
+                onAddAreas={() => {
+                  const el = document.getElementById(PROFILE_AREAS_INPUT_ID) as HTMLInputElement | null;
+                  el?.focus({ preventScroll: true });
+                  el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+                }}
+              />
+              {isOwnProfile && isEditing ? (
+                <ProfileAreasCard draftAreas={draftAreas} onDraftAreasChange={setDraftAreas} />
+              ) : null}
+            </div>
             {orgFlag}
             <ProfileExperience
               loading={loading}

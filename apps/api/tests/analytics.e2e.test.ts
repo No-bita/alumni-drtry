@@ -47,7 +47,7 @@ describe("GET /v1/admin/analytics (integration)", () => {
     }
     await db.query(`UPDATE people SET open_to_preferences = $2::jsonb WHERE id = $1`, [
       alum.personId,
-      JSON.stringify({ selected: ["referrals"], descriptions: {} }),
+      JSON.stringify({ selected: ["referrals"] }),
     ]);
     const ft = (await db.query<{ id: string }>(`SELECT id FROM occupation_types WHERE code = 'full_time_employment'`)).rows[0]!.id;
     const org = (await db.query<{ id: string }>(`INSERT INTO organizations (name, approval_status) VALUES ($1, 'approved') RETURNING id`, [ORG])).rows[0]!.id;

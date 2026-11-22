@@ -16,11 +16,6 @@ export const OPEN_TO_OPTION_IDS = [
 
 export type OpenToOptionId = (typeof OPEN_TO_OPTION_IDS)[number];
 
-export type OpenToPreferenceEntry = {
-  enabled: boolean;
-  description: string;
-};
-
 /** Coffee asks a week someone is happy to get (Cities v1). There is no "unlimited". */
 export const COFFEE_LIMIT_OPTIONS = [1, 2, 3, 5] as const;
 export type CoffeeLimit = (typeof COFFEE_LIMIT_OPTIONS)[number];
@@ -34,7 +29,6 @@ export function isCoffeeLimit(value: unknown): value is CoffeeLimit {
 /** Stored on `people.open_to_preferences` (JSONB). */
 export type OpenToPreferences = {
   selected: OpenToOptionId[];
-  descriptions: Partial<Record<OpenToOptionId, string>>;
   /** Only present when coffee is selected and a limit was chosen. */
   limits?: { coffee?: CoffeeLimit };
 };
@@ -49,7 +43,7 @@ function isOpenToOptionId(value: string): value is OpenToOptionId {
   return (OPEN_TO_OPTION_IDS as readonly string[]).includes(value);
 }
 
-function isLegacyEntry(value: unknown): value is { enabled: boolean; description?: string } {
+function isLegacyEntry(value: unknown): value is { enabled: boolean } {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -60,18 +54,15 @@ function isLegacyEntry(value: unknown): value is { enabled: boolean; description
 
 function parseLegacyRecord(raw: Record<string, unknown>): OpenToPreferences | null {
   const selected: OpenToOptionId[] = [];
-  const descriptions: Partial<Record<OpenToOptionId, string>> = {};
 
   for (const id of OPEN_TO_OPTION_IDS) {
     const entry = raw[id];
     if (!isLegacyEntry(entry) || !entry.enabled) continue;
     selected.push(id);
-    const description = typeof entry.description === "string" ? entry.description.trim() : "";
-    if (description) descriptions[id] = description;
   }
 
   if (selected.length === 0) return null;
-  return normalizeOpenToPreferencesForStorage({ selected, descriptions });
+  return normalizeOpenToPreferencesForStorage({ selected });
 }
 
 export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
@@ -87,14 +78,6 @@ export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
         selected.push(item);
       }
     }
-    const descriptions: Partial<Record<OpenToOptionId, string>> = {};
-    if (obj.descriptions && typeof obj.descriptions === "object" && !Array.isArray(obj.descriptions)) {
-      for (const [key, value] of Object.entries(obj.descriptions)) {
-        if (isOpenToOptionId(key) && typeof value === "string") {
-          descriptions[key] = value.trim();
-        }
-      }
-    }
     if (selected.length === 0) return null;
     const limits = obj.limits && typeof obj.limits === "object" && !Array.isArray(obj.limits)
       ? (obj.limits as Record<string, unknown>)
@@ -102,7 +85,6 @@ export function parseOpenToPreferences(raw: unknown): OpenToPreferences | null {
     const coffee = limits?.coffee;
     return normalizeOpenToPreferencesForStorage({
       selected,
-      descriptions,
       ...(isCoffeeLimit(coffee) ? { limits: { coffee } } : {}),
     });
   }
@@ -118,15 +100,9 @@ export function normalizeOpenToPreferencesForStorage(input: OpenToPreferences): 
     selected.push(id);
   }
 
-  const descriptions: Partial<Record<OpenToOptionId, string>> = {};
-  for (const id of selected) {
-    const description = (input.descriptions[id] ?? "").trim().slice(0, 500);
-    descriptions[id] = description;
-  }
-
   const coffee = input.limits?.coffee;
   if (selected.includes("coffee") && isCoffeeLimit(coffee)) {
-    return { selected, descriptions, limits: { coffee } };
+    return { selected, limits: { coffee } };
   }
-  return { selected, descriptions };
+  return { selected };
 }

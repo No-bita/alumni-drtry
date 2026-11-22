@@ -27,6 +27,7 @@ import { citiesRoutes } from "./routes/citiesRoutes.js";
 import { CitiesService } from "./services/citiesService.js";
 import { homeRoutes } from "./routes/homeRoutes.js";
 import { meRoutes } from "./routes/meRoutes.js";
+import { areaRoutes } from "./routes/areaRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { orgRoutes } from "./routes/orgRoutes.js";
 import { AuthService } from "./services/authService.js";
@@ -38,6 +39,7 @@ import { ConsoleEmailSender, ResendEmailSender, testEmailCapture, type EmailSend
 import { IntentcastService } from "./services/intentcastService.js";
 import { NotificationService } from "./services/notificationService.js";
 import { LinkService } from "./services/linkService.js";
+import { PersonAreaService } from "./services/personAreaService.js";
 import { OccupationService } from "./services/occupationService.js";
 import { AdminMetricsService } from "./services/adminMetricsService.js";
 import { AdminPeopleService } from "./services/adminPeopleService.js";
@@ -138,6 +140,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const profileService = new ProfileService(pool);
   const occupationService = new OccupationService(pool);
   const linkService = new LinkService(pool);
+  const personAreaService = new PersonAreaService(pool);
   const organizationService = new OrganizationService(pool);
   const discoveryService = new DiscoveryService(pool);
   const adminPlacesService = new AdminPlacesService(pool, clearResidenceCitiesCache);
@@ -166,6 +169,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("profileService", profileService);
   app.decorate("occupationService", occupationService);
   app.decorate("linkService", linkService);
+  app.decorate("personAreaService", personAreaService);
   app.decorate("organizationService", organizationService);
   app.decorate("discoveryService", discoveryService);
   app.decorate("matchService", matchService);
@@ -273,6 +277,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   await app.register(authRoutes);
   await app.register(meRoutes);
+  await app.register(areaRoutes);
   await app.register(discoveryRoutes);
   await app.register(matchRoutes);
   await app.register(careersRoutes);

@@ -63,7 +63,7 @@ describe("Cities v1 API (integration, local test database only)", () => {
           p.personId,
           `${name} ${run}`,
           batch,
-          openTo.length ? JSON.stringify({ selected: openTo, descriptions: {}, ...(limit ? { limits: { coffee: limit } } : {}) }) : null
+          openTo.length ? JSON.stringify({ selected: openTo, ...(limit ? { limits: { coffee: limit } } : {}) }) : null
         ]
       );
       who[key] = { ...p, email };
@@ -187,15 +187,15 @@ describe("Cities v1 API (integration, local test database only)", () => {
   });
 
   it("coffee needs a weekly limit to turn on, and the list says who is open (check 1)", async () => {
-    const off = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"], descriptions: {} } });
+    const off = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"] } });
     expect(off.statusCode).toBe(400);
     expect(off.json().code).toBe("COFFEE_LIMIT_REQUIRED");
-    expect((await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"], descriptions: {}, limits: { coffee: 4 } } })).statusCode).toBe(400);
-    const on = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"], descriptions: {}, limits: { coffee: 3 } } });
+    expect((await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"], limits: { coffee: 4 } } })).statusCode).toBe(400);
+    const on = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee"], limits: { coffee: 3 } } });
     expect(on.statusCode).toBe(200);
     expect(on.json().profile.openToPreferences.limits).toEqual({ coffee: 3 });
     // A later save without limits keeps the stored one.
-    const keep = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee", "intros"], descriptions: {} } });
+    const keep = await req("PATCH", "/v1/me/profile", who.poster!, { openToPreferences: { selected: ["coffee", "intros"] } });
     expect(keep.json().profile.openToPreferences.limits).toEqual({ coffee: 3 });
 
     const page = (await req("GET", `/v1/cities/${blr}/alumni?filter=coffee`, who.local!)).json() as { items: Array<{ person: { id: string }; coffee: { open: boolean; spotsLeft: number | null } }> };

@@ -76,6 +76,8 @@ export const api = {
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, ...init }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "DELETE", body: body ? JSON.stringify(body) : undefined }),
 };
@@ -476,7 +478,7 @@ export type ReceivedBulletinRepliesFeedResponse = {
 /** GET /v1/intentcasts/:id — one card if the viewer may see it */
 export type IntentcastSingleResponse = { intentcast: IntentcastFeedItem };
 
-/** GET /v1/profiles/:id returns { profile, occupations, links } */
+/** GET /v1/profiles/:id returns { profile, occupations, links, areas } */
 export type PublicProfileView = {
   id: string;
   fullName: string;
@@ -526,7 +528,12 @@ export type ProfileResponse = {
   profile: PublicProfileView;
   occupations: OccupationView[];
   links: ProfileLinkView[];
+  /** Areas of experience, in the member's order (absent from older API versions). */
+  areas?: string[];
 };
+
+/** PUT /v1/me/areas returns the list as stored. */
+export type MeAreasResponse = { areas: string[] };
 
 /** GET /v1/admin/metrics */
 export type AdminMetricsResponse = {

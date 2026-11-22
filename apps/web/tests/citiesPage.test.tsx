@@ -81,7 +81,7 @@ function world(list: CitiesList, city: CityPayload | null) {
   authState.value = {
     status: "authenticated",
     person: { personId: "p1", institutionalEmail: "a@iitbhu.ac.in", role: "alumni" },
-    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: ["mentorship"], descriptions: {} } },
+    myProfile: { id: "me1", fullName: "Me", openToPreferences: { selected: ["mentorship"] } },
     refetch: vi.fn(),
   };
   apiGet.mockImplementation(async (path: string) => {

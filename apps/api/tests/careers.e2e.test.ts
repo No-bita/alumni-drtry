@@ -47,7 +47,7 @@ describe("Careers API (integration, local test database only)", () => {
       await db.query(
         `UPDATE people SET full_name = $2, batch_year = $3, profile_completed_at = now(), onboarding_completed_at = now(),
                            open_to_preferences = $4::jsonb, is_test_user = $5 WHERE id = $1`,
-        [p.personId, `${name} ${run}`, batch, JSON.stringify({ selected: openTo, descriptions: {} }), test],
+        [p.personId, `${name} ${run}`, batch, JSON.stringify({ selected: openTo }), test],
       );
       people[key] = p;
       return p.personId;

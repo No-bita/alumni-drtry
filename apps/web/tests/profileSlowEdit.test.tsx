@@ -15,7 +15,7 @@ it('keeps contact edit pending until profile loads, then hydrates drafts before 
  await act(async()=>{await new Promise(r=>setTimeout(r,25))});
  expect(screen.getByTestId('url').textContent).toBe('?edit=contact');
  expect(screen.queryByRole('button',{name:'Save',exact:true})).toBeNull();
- await act(async()=>{state.resolve?.({profile:{id:'p1',fullName:'Sample Alum',departmentCode:'cse',degreeName:'BTech',batchYear:2020,residenceCity:'Bengaluru',residenceCountry:'India',openToPreferences:{selected:['coffee'],descriptions:{coffee:'Saved context'}}},occupations:[],links:[]})});
+ await act(async()=>{state.resolve?.({profile:{id:'p1',fullName:'Sample Alum',departmentCode:'cse',degreeName:'BTech',batchYear:2020,residenceCity:'Bengaluru',residenceCountry:'India',openToPreferences:{selected:['coffee']}},occupations:[],links:[]})});
  await screen.findByRole('button',{name:'Save',exact:true});
  await waitFor(()=>expect(screen.getByTestId('url').textContent).toBe(''));
  expect((screen.getByLabelText('City of residence (optional)') as HTMLInputElement).value).toBe('Bengaluru');
