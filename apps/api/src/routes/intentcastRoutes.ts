@@ -17,9 +17,11 @@ const audienceSchema = z
     institution: z.string().min(1).max(80).nullable().optional(),
     batch: z.boolean().optional(),
     department: z.boolean().optional(),
-    city: z.boolean().optional()
+    city: z.boolean().optional(),
+    cityPlaceId: z.string().uuid().optional()
   })
-  .strict();
+  .strict()
+  .refine((value) => !value.cityPlaceId || value.city === true, { message: "A city target requires city audience." });
 
 const createIntentcastSchema = z.object({
   category: intentcastCategoryEnum,

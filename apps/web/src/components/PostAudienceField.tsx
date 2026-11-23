@@ -22,6 +22,7 @@ type Props = {
    */
   onStateChange?: (state: { label: string | null; blocked: boolean }) => void;
   disabled?: boolean;
+  cityTarget?: { placeId: string; name: string };
 };
 
 const PREVIEW_DEBOUNCE_MS = 350;
@@ -37,7 +38,7 @@ async function fetchJson<T>(p: Promise<{ data?: T; error?: { code: string; messa
  * own batch, department and city, combined with AND. Shows the label the post will carry and a rounded
  * size. The audience can't be changed after posting.
  */
-export function PostAudienceField({ value, onChange, onStateChange, disabled }: Props) {
+export function PostAudienceField({ value, onChange, onStateChange, disabled, cityTarget }: Props) {
   const baseId = useId();
   const [open, setOpen] = useState(false);
   const everyone = isEveryoneChoice(value);
@@ -69,7 +70,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
   const sizeLine = audienceSizeLine(settled ? preview.data : undefined, everyone);
   const blocked = Boolean(settled && preview.data && !preview.data.everyone && preview.data.size === "none");
 
-  const o = options.data;
+  const o = useMemo(() => options.data && cityTarget ? { ...options.data, city: { available: true, value: cityTarget.name, reason: null } } : options.data, [options.data, cityTarget]);
   const label = settled && preview.data && !preview.data.everyone ? preview.data.label : choiceLabel(value, o);
   const reportedLabel = everyone ? null : label;
 
@@ -83,7 +84,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
     return [...own, ...rest];
   }, [o]);
 
-  const toggle = (part: "batch" | "department" | "city") => onChange({ ...value, [part]: !value[part] });
+  const toggle = (part: "batch" | "department" | "city") => onChange({ ...value, [part]: !value[part], ...(part === "city" && cityTarget ? { cityPlaceId: cityTarget.placeId } : {}) });
 
   return (
     <section className="post-audience" aria-labelledby={`${baseId}-title`}>
@@ -108,7 +109,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
         <div id={`${baseId}-panel`} className="post-audience__panel">
           {options.isError ? (
             <p className="post-audience__note" role="status">
-              Couldn&apos;t load the audience choices. The post will go to everyone unless you try again later.
+              {everyone ? "Couldn't load the audience choices. The post will go to everyone unless you try again later." : "Couldn't load the audience choices. Your selected audience has not changed. Try again later to edit it."}
             </p>
           ) : null}
           <label className="post-audience__field">
@@ -129,7 +130,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
           </label>
 
           <fieldset className="post-audience__checks" disabled={disabled || !o}>
-            <legend>Only people who share your</legend>
+            <legend>{cityTarget ? "Limit to" : "Only people who share your"}</legend>
             {(["batch", "department", "city"] as const).map((part) => {
               const detail = o?.[part];
               const available = Boolean(detail?.available);
@@ -155,7 +156,7 @@ export function PostAudienceField({ value, onChange, onStateChange, disabled }: 
             })}
           </fieldset>
           <p className="post-audience__note">
-            People must match everything you pick. Batch, department and city match across all institutes unless you
+            People must match everything you pick. {cityTarget ? "City means the city you are posting in. " : ""}Batch, department and city match across all institutes unless you
             also pick an institute. Members who haven&apos;t added that detail to their profile won&apos;t see the post.
           </p>
           <button type="button" className="btn btn--secondary post-audience__done" onClick={() => setOpen(false)}>

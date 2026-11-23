@@ -212,6 +212,38 @@ describe("composer integration", () => {
     expect(postMock.mock.calls.some((c) => c[0] === "/v1/intentcasts")).toBe(false);
   });
 
+  it("city-page composition defaults to the page city, sends its ID and resets elsewhere", async () => {
+    const ref = mountComposer();
+    act(() => ref.current?.open({ category: "relocation", placeId: "pune-id", placeName: "Pune", headline: "Housing in Pune" }));
+    expect(await screen.findByRole("button", { name: /Pune/ })).toBeTruthy();
+    expect(screen.getByText("15 / 120")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "A flat in Pune" } });
+    expect(screen.getByText("14 / 120")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Details/), { target: { value: "Looking for one room in a shared flat." } });
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/intentcasts/audience-preview", { audience: { city: true, cityPlaceId: "pune-id" } }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/intentcasts", expect.objectContaining({ placeId: "pune-id", audience: { city: true, cityPlaceId: "pune-id" } })));
+    act(() => ref.current?.open());
+    expect(screen.getByText("Everyone on Alma Mater")).toBeTruthy();
+  });
+
+  it("shows photo advice only for the housing shortcut, never as post content", () => {
+    const ref = mountComposer();
+    expect(screen.queryByText("Have photos to share?")).toBeNull();
+    act(() => ref.current?.open({ category: "relocation", housingPhotoTip: true }));
+    expect(screen.getByText("Have photos to share?")).toBeTruthy();
+    expect((screen.getByLabelText(/Details/) as HTMLTextAreaElement).value).toBe("");
+    act(() => ref.current?.close());
+    act(() => ref.current?.open({ category: "relocation" }));
+    expect(screen.queryByText("Have photos to share?")).toBeNull();
+  });
+
+  it("does not send an old city target when the city restriction is removed", () => {
+    expect(toApiAudience({ ...EVERYONE_CHOICE, cityPlaceId: "pune-id" })).toBeNull();
+    expect(toApiAudience({ ...EVERYONE_CHOICE, batch: true, cityPlaceId: "pune-id" })).toEqual({ batch: true });
+  });
+
   it("reopening the composer starts from Everyone again", async () => {
     const ref = mountComposer();
     fireEvent.click(screen.getByRole("button", { name: /Everyone on Alma Mater/ }));

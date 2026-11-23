@@ -21,6 +21,8 @@ export interface AudienceInput {
   batch?: boolean;
   department?: boolean;
   city?: boolean;
+  /** Approved canonical city selected from a city page; checked by the service. */
+  cityPlaceId?: string;
 }
 
 export interface InstitutionOption {

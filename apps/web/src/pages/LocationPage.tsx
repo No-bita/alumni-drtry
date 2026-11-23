@@ -71,12 +71,13 @@ export function LocationPage() {
 
   const displayName = auth.myProfile?.fullName?.trim() || undefined;
   const profileId = auth.myProfile?.id ?? null;
-  const openWall = (options: { headline?: string; body?: string; placeId?: string | null }) =>
+  const openWall = (options: { headline?: string; body?: string; placeId?: string | null; placeName?: string; housingPhotoTip?: boolean }) =>
     flowRef.current?.open({
       category: "relocation",
       headline: options.headline,
       body: options.body,
-      ...(options.placeId ? { placeId: options.placeId } : {}),
+      housingPhotoTip: options.housingPhotoTip,
+      ...(options.placeId ? { placeId: options.placeId, placeName: options.placeName } : {}),
     });
 
   const data = city.data;
@@ -161,7 +162,7 @@ export function LocationPage() {
         profileId={profileId}
         onChanged={refresh}
         onOptIn={() => setOptIn({ placeId: data.place.placeId, cityName: data.place.city })}
-        onAsk={(starter) => openWall({ ...starter, placeId: data.place.placeId })}
+        onAsk={(starter) => openWall({ ...starter, placeId: data.place.placeId, placeName: data.place.city })}
         onNotice={setNotice}
         onChangeCity={() => setSwitcherOpen(true)}
         switcherOpen={switcherOpen}
