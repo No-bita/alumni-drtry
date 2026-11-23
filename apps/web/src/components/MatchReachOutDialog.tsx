@@ -47,8 +47,8 @@ type MatchReachOutDialogProps = {
   advice?: { topic?: AdviceTopic | null; question?: string | null };
   /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
   rank?: number | null;
-  /** Where the asker came from: the app's search, the WhatsApp bot's "Send a note" link, or Careers. */
-  source?: "match" | "whatsapp" | "careers";
+  /** Where the asker came from: the app's search, the WhatsApp bot's "Send a note" link, Careers, or a profile. */
+  source?: "match" | "whatsapp" | "careers" | "profile";
   /** After sending: a second way out, e.g. back to Careers. */
   backTo?: { to: string; label: string };
   onClose: () => void;

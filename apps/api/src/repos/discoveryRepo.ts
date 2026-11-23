@@ -4,6 +4,7 @@ import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPre
 import type { PoolExecutor } from "../db/types.js";
 import type { ProfileLinkView } from "./linkRepo.js";
 import type { OccupationView } from "./occupationRepo.js";
+import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 
 export interface SearchProfilesInput {
   batch?: number;
@@ -120,6 +121,8 @@ interface PublicProfileBaseRow {
   profile_completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  /** Domain of the institutional email (never the address), for the institute name. */
+  email_domain?: string | null;
 }
 
 export interface PublicProfileBaseView {
@@ -146,6 +149,8 @@ export interface PublicProfileBaseView {
   profileCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  /** The member's institute, from their email domain (e.g. "IIT Bombay"); null for an unknown domain. */
+  institutionName: string | null;
 }
 
 export interface PublicProfileBundleView {
@@ -208,8 +213,13 @@ function mapPublicRow(row: PublicProfileBaseRow): PublicProfileBaseView {
     openToPreferences: parseOpenToPreferences(row.open_to_preferences),
     profileCompletedAt: row.profile_completed_at,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    institutionName: institutionForDomain(row.email_domain)
   };
+}
+
+function institutionForDomain(domain: string | null | undefined): string | null {
+  return domain ? (DOMAIN_DIRECTORY[domain]?.institution ?? null) : null;
 }
 
 function toDate(value: unknown): Date {
@@ -658,6 +668,7 @@ export class DiscoveryRepo {
         p.profile_completed_at,
         p.created_at,
         p.updated_at,
+        split_part(lower(p.institutional_email), '@', 2) AS email_domain,
         COALESCE(
           (
             SELECT json_agg(occ_row.occ ORDER BY

@@ -275,11 +275,6 @@ export class MatchRepo {
           (
             CASE WHEN head.role_title IS NOT NULL AND btrim(head.role_title) <> '' THEN 250 ELSE 0 END
             + CASE WHEN head.org_name IS NOT NULL AND btrim(head.org_name) <> '' THEN 150 ELSE 0 END
-            + CASE
-                WHEN length(btrim(COALESCE(p.bio, ''))) > 80 THEN 200
-                WHEN length(btrim(COALESCE(p.bio, ''))) > 0 THEN 100
-                ELSE 0
-              END
             + CASE WHEN EXISTS (SELECT 1 FROM profile_links pl WHERE pl.person_id = p.id) THEN 50 ELSE 0 END
           )::integer AS completeness_score,
           ${OCCUPATION_SIGNALS.map((a) => `${a}.role_title AS ${a}_role, ${a}.org_name AS ${a}_org, ${a}.is_current AS ${a}_current`).join(",\n          ")},
@@ -298,8 +293,8 @@ export class MatchRepo {
           LIMIT 1
         ) head ON TRUE
         LEFT JOIN LATERAL (
+          -- The bio is no longer shown on profiles, so Ask neither searches nor scores it.
           SELECT concat_ws(' ',
-            p.bio,
             (SELECT string_agg(concat_ws(' ', o.role_title, o.description, org.name::text), ' ')
              FROM occupations o
              LEFT JOIN organizations org ON org.id = o.organization_id

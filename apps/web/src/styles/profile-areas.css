@@ -1,9 +1,16 @@
-/* Areas of experience editor (profile edit mode). Shell and header reuse .profile-page__engage-card. */
-.profile-page__engage-stack {
+/* Areas of experience editor (inside the Areas sheet). */
+.profile-areas {
   display: grid;
-  gap: var(--space-md-lg);
-  align-content: start;
+  gap: 12px;
   min-width: 0;
+}
+
+.profile-areas__hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-muted);
 }
 
 .profile-areas__chips {
@@ -127,14 +134,8 @@
 }
 
 .profile-areas__message {
-  color: var(--ink);
-}
-
-/* "Add your areas" nudge in the Open to editor. */
-.profile-page__areas-prompt {
   margin: 0;
   font-family: var(--font-body);
   font-size: 13px;
-  line-height: 1.4;
   color: var(--ink);
 }

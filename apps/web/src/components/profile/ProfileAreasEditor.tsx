@@ -29,24 +29,16 @@ function useDebounced(value: string, ms: number): string {
   return debounced;
 }
 
-function IconAreas({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9L12 3z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 type Props = {
   draftAreas: string[];
   onDraftAreasChange: (next: string[]) => void;
 };
 
 /**
- * Edit areas of experience: up to 8 short labels. Typing suggests areas other members already use, so
+ * Edit areas of experience (inside the Areas sheet): up to 8 short labels. Typing suggests areas other members already use, so
  * spellings converge ("Product management" rather than three variants). Enter or comma adds what's typed.
  */
-export function ProfileAreasCard({ draftAreas, onDraftAreasChange }: Props) {
+export function ProfileAreasEditor({ draftAreas, onDraftAreasChange }: Props) {
   const [text, setText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -114,20 +106,10 @@ export function ProfileAreasCard({ draftAreas, onDraftAreasChange }: Props) {
   };
 
   return (
-    <article className="profile-page__engage-card profile-areas" aria-labelledby={`${hintId}-title`}>
-      <header className="profile-page__engage-card-head">
-        <span className="profile-page__engage-card-icon-wrap profile-page__engage-card-icon-wrap--header">
-          <IconAreas className="profile-page__engage-card-icon" />
-        </span>
-        <div className="profile-page__engage-card-head-copy">
-          <h2 id={`${hintId}-title`} className="profile-page__engage-card-title">
-            Areas of experience
-          </h2>
-          <p id={hintId} className="profile-page__engage-card-hint">
-            What people can ask you about. Ask uses these to find you. ({draftAreas.length}/{PERSON_AREAS_MAX})
-          </p>
-        </div>
-      </header>
+    <div className="profile-areas">
+      <p id={hintId} className="profile-areas__hint">
+        What people can ask you about. Ask uses these to find you. ({draftAreas.length}/{PERSON_AREAS_MAX})
+      </p>
 
       {draftAreas.length > 0 ? (
         <ul className="profile-areas__chips" aria-label="Your areas">
@@ -207,10 +189,10 @@ export function ProfileAreasCard({ draftAreas, onDraftAreasChange }: Props) {
         </ul>
       </div>
       {message ? (
-        <p className="profile-page__engage-card-hint profile-areas__message" role="status">
+        <p className="profile-areas__message" role="status">
           {message}
         </p>
       ) : null}
-    </article>
+    </div>
   );
 }

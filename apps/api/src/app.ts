@@ -147,6 +147,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const locationCleanupService = new LocationCleanupService(pool, adminPlacesService);
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
+  discoveryService.setReachOut(contactRequestService);
   const matchService = new MatchService(pool, null, contactRequestService);
   const whatsappEnabled = options.whatsapp?.enabled ?? env.WHATSAPP_ENABLED;
   const whatsappSender: WhatsAppSender =

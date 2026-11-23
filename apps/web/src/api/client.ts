@@ -498,6 +498,8 @@ export type PublicProfileView = {
   residenceCountry: string | null;
   residenceCity: string | null;
   openToPreferences?: OpenToPreferences | null;
+  /** The member's institute from their email domain, e.g. "IIT Bombay" (absent from older API versions). */
+  institutionName?: string | null;
 };
 
 export type { OpenToPreferences };
@@ -530,6 +532,8 @@ export type ProfileResponse = {
   links: ProfileLinkView[];
   /** Areas of experience, in the member's order (absent from older API versions). */
   areas?: string[];
+  /** The viewer's latest reachout to this member; null on your own profile or when there's none. */
+  yourNote?: "pending" | "accepted" | "declined" | null;
 };
 
 /** PUT /v1/me/areas returns the list as stored. */

@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { PersonProfileView } from '../src/components/profile/PersonProfileView';
-import { ProfileHero } from '../src/components/profile/ProfileHero';
+import { ProfilePageView } from '../src/components/profile/ProfilePageView';
 import { profileDepartmentDisplay } from '../src/lib/profileDisplay';
 import type { PublicProfileView } from '../src/api/client';
 
@@ -12,33 +11,34 @@ const publicApproved: PublicProfileView = {
   id: 'p1', fullName: 'Sample Alum', degreeName: 'BTech', batchYear: 2020,
   parsedJoiningYear: 2016, bio: null, residenceCountry: null, residenceCity: null,
   departmentCode: null, departmentName: null, departmentOtherText: 'Applied Mechanics',
-  departmentOtherStatus: null,
+  departmentOtherStatus: null, institutionName: 'IIT (BHU) Varanasi',
 };
 const ownerProfile = (status: PublicProfileView['departmentOtherStatus']): PublicProfileView => ({
   ...publicApproved, departmentCode: 'other', departmentOtherStatus: status,
 });
 function mount(profile: PublicProfileView, own = false) {
-  return render(<MemoryRouter><PersonProfileView profile={profile} occupations={[]} links={[]}
-    isOwnProfile={own} onboardingIncomplete={false} openTo={null} onEdit={vi.fn()} onSignOut={vi.fn()} /></MemoryRouter>);
+  return render(<MemoryRouter><ProfilePageView profile={profile} occupations={[]} links={[]} areas={[]} openTo={null} yourNote={null}
+    isOwnProfile={own} onboardingIncomplete={false} onEdit={vi.fn()} onReachOut={vi.fn()} onSignOut={vi.fn()} /></MemoryRouter>);
 }
+const education = () => within(screen.getByRole('region', { name: 'Education' }));
 afterEach(cleanup);
 describe('API-shaped Other department profile display', () => {
-  it('shows approved text in the active public profile when public code/name are redacted', () => {
+  it('shows approved text in Education when public code/name are redacted', () => {
     mount(publicApproved);
-    expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
+    expect(education().getByText('BTech, Applied Mechanics')).toBeTruthy();
     expect(screen.queryByText(/OTHER/)).toBeNull();
   });
   it.each(['pending', 'rejected'] as const)('keeps %s text visible to the owner', status => {
     mount(ownerProfile(status), true);
-    expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
+    expect(education().getByText('BTech, Applied Mechanics')).toBeTruthy();
   });
   it('retains approved text for the owner', () => {
     mount(ownerProfile('approved'), true);
-    expect(screen.getByText('BTech · Applied Mechanics')).toBeTruthy();
+    expect(education().getByText('BTech, Applied Mechanics')).toBeTruthy();
   });
   it('does not invent or expose text absent from the public pending/rejected API response', () => {
     mount({ ...publicApproved, departmentOtherText: null });
-    expect(screen.getByText('BTech')).toBeTruthy();
+    expect(education().getByText('BTech')).toBeTruthy();
     expect(screen.queryByText(/Applied Mechanics|Other/i)).toBeNull();
   });
   it('defensively hides explicitly unapproved text from a non-owner', () => {
@@ -49,20 +49,6 @@ describe('API-shaped Other department profile display', () => {
     const known = { ...publicApproved, departmentCode: 'cse', departmentName: 'Computer Science' };
     expect(profileDepartmentDisplay(known)).toBe('Computer Science');
     mount(known);
-    expect(screen.getByText('BTech · Computer Science')).toBeTruthy();
-  });
-  it('renders the same API-shaped public approved text in ProfileHero', () => {
-    render(<MemoryRouter><ProfileHero profile={publicApproved} loading={false} occupations={[]} links={[]}
-      profileDisplayName="Sample Alum" isOwnProfile={false} /></MemoryRouter>);
-    expect(screen.getByText(/BTech, Applied Mechanics/)).toBeTruthy();
-  });
-  it('lets Hero owners see pending text but not non-owners', () => {
-    const profile = ownerProfile('pending');
-    const { rerender } = render(<MemoryRouter><ProfileHero profile={profile} loading={false} occupations={[]} links={[]}
-      profileDisplayName="Sample Alum" isOwnProfile={true} /></MemoryRouter>);
-    expect(screen.getByText(/Applied Mechanics/)).toBeTruthy();
-    rerender(<MemoryRouter><ProfileHero profile={profile} loading={false} occupations={[]} links={[]}
-      profileDisplayName="Sample Alum" isOwnProfile={false} /></MemoryRouter>);
-    expect(screen.queryByText(/Applied Mechanics/)).toBeNull();
+    expect(education().getByText('BTech, Computer Science')).toBeTruthy();
   });
 });
