@@ -2,6 +2,7 @@ import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
+import { ReferralDiscoveryDialog } from "../components/ReferralDiscoveryDialog";
 import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
@@ -23,7 +24,7 @@ import {
   careersKeys,
   fetchReferralCompanies,
 } from "../lib/careers";
-import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
+import { buildMatchSearch, MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
 import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
 
@@ -44,6 +45,7 @@ export function CareerPage() {
   const queryClient = useQueryClient();
   const searchId = useId();
   const hiringFlowRef = useRef<PostRoleHiringFlowHandle>(null);
+  const [referralOpen, setReferralOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [showAllRoles, setShowAllRoles] = useState(false);
   const [companiesOpen, setCompaniesOpen] = useState(false);
@@ -88,6 +90,17 @@ export function CareerPage() {
 
   return (
     <div className="intent-page-shell career-page-shell">
+      {referralOpen ? <ReferralDiscoveryDialog
+        companies={companyList}
+        companiesLoading={companies.isPending}
+        companiesError={companies.isError}
+        onRetry={() => { void companies.refetch(); }}
+        onClose={() => setReferralOpen(false)}
+        onFind={(role, company) => {
+          setReferralOpen(false);
+          navigate(`/match${buildMatchSearch({ question: `Referral for ${role} at ${company}`, overrides: { category: "referral", company, role } })}`);
+        }}
+      /> : null}
       <Nav variant="home" avatarName={displayName} />
       <main className="careers careers--hub">
         {notice ? (
@@ -132,10 +145,13 @@ export function CareerPage() {
 
         <nav className="careers-hub__topics" aria-label="What do you need help with?">
           {CAREER_HELP_TOPICS.map((t) => (
-            <Link key={t.label} to={t.to} className="careers-hub__topic">
-              <span className="careers-hub__topic-icon" aria-hidden>
-                <Icon name={t.icon} />
-              </span>
+            t.icon === "referral" ? (
+              <button key={t.label} type="button" className="careers-hub__topic" onClick={() => setReferralOpen(true)}>
+                <span className="careers-hub__topic-icon" aria-hidden><Icon name={t.icon} /></span>
+                {t.label}
+              </button>
+            ) : <Link key={t.label} to={t.to} className="careers-hub__topic">
+              <span className="careers-hub__topic-icon" aria-hidden><Icon name={t.icon} /></span>
               {t.label}
             </Link>
           ))}
