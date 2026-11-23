@@ -6,8 +6,10 @@ import type { AnalyticsReport } from "../src/lib/adminAnalytics";
 import { compact, duration, pct } from "../src/lib/adminAnalytics";
 
 const apiGet = vi.hoisted(() => vi.fn());
+const apiPost = vi.hoisted(() => vi.fn());
 const authState = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
+vi.mock("../src/api/client", () => ({ api: { post: apiPost } }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 
@@ -92,7 +94,11 @@ function mount() {
 
 beforeEach(() => {
   apiGet.mockReset();
-  apiGet.mockImplementation(async (path: string) => ({ report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) }));
+  apiGet.mockImplementation(async (path: string) => {
+    if (path.startsWith("/v1/admin/allowed-admin-emails")) return { emails: [] };
+    return { report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) };
+  });
+  apiPost.mockReset();
   authState.value = { status: "authenticated", person: { personId: "a1", role: "admin" }, myProfile: { fullName: "Admin" } };
 });
 afterEach(cleanup);
@@ -145,6 +151,30 @@ describe("Admin analytics screen", () => {
     withCount(1);
     mount();
     expect(await screen.findByText("1 company name is waiting for approval.")).toBeTruthy();
+  });
+
+  it("has the relocated admin tools: Department review link and the admin email allowlist", async () => {
+    apiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith("/v1/admin/allowed-admin-emails")) {
+        return {
+          emails: [
+            { id: "e1", email: "one@itbhu.ac.in", status: "active", notes: null, addedByPersonId: null, createdAt: "2026-10-27T10:00:00.000Z", updatedAt: "2026-10-27T10:00:00.000Z" },
+            { id: "e2", email: "two@itbhu.ac.in", status: "revoked", notes: null, addedByPersonId: null, createdAt: "2026-10-27T10:00:00.000Z", updatedAt: "2026-10-27T10:00:00.000Z" },
+          ],
+        };
+      }
+      return { report: report(Number(new URLSearchParams(path.split("?")[1]).get("days"))) };
+    });
+    apiPost.mockResolvedValue({ data: { ok: true }, error: null });
+    mount();
+    expect((await screen.findByRole("link", { name: "Department review" })).getAttribute("href")).toBe("/admin/department-other");
+    const card = (await screen.findByRole("heading", { level: 2, name: "Admin emails" })).closest("section") as HTMLElement;
+    expect(within(card).getByText("one@itbhu.ac.in")).toBeTruthy();
+    expect(within(card).getByText(/two@itbhu\.ac\.in \(revoked\)/)).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Revoke" })).toBeTruthy();
+    fireEvent.change(within(card).getByLabelText("Institutional email"), { target: { value: "three@itbhu.ac.in" } });
+    fireEvent.click(within(card).getByRole("button", { name: "Add admin email" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/admin/allowed-admin-emails", { institutionalEmail: "three@itbhu.ac.in" }));
   });
 
   it("switches the window and can skip the cache", async () => {
