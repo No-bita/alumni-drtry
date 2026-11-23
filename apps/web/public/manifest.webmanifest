@@ -1,0 +1,16 @@
+{
+  "name": "Alma Mater",
+  "short_name": "Alma Mater",
+  "description": "Find the alum who can help. A private community for IIT and IIM alumni.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8f2e7",
+  "theme_color": "#3a2a1e",
+  "icons": [
+    { "src": "/app/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
