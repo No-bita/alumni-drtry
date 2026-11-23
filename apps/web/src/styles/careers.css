@@ -880,3 +880,9 @@
     display: none;
   }
 }
+
+.careers-hub__activity-error { margin-bottom: 16px; }
+.careers-hub__activity-error .careers__note { margin: 0; }
+
+.careers-hub__activity-retry { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.careers-hub__activity-retry:disabled { cursor: wait; opacity: .6; }

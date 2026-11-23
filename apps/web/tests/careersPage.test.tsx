@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { IntentcastFeedItem } from "../src/api/client";
@@ -224,4 +224,38 @@ describe("Careers page", () => {
     fireEvent.click(within(links).getByRole("button", { name: "Post a role" }));
     expect(flows.hiring).toHaveBeenCalledTimes(2);
   });
+  it.each(["/v1/contact-requests/sent", "/v1/contact-requests/inbox", "/v1/careers/my-company-demand"])("activity failure at %s shows one honest error above jobs and Retry recovers", async (failedPath) => {
+    world({ openTo: ["referrals"], inbox: 2 });
+    const normal = apiGet.getMockImplementation()!;
+    let failing = true;
+    apiGet.mockImplementation((path: string) => {
+      if (path === failedPath && failing) return Promise.reject(new Error("offline"));
+      return normal(path);
+    });
+    mount();
+    const error = await screen.findByRole("status", { name: "Activity unavailable" });
+    expect(screen.getAllByText(/Couldn't load your activity/)).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "Reachouts waiting for you" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "0 waiting for your reply" })).toBeNull();
+    const jobs = screen.getByRole("heading", { name: "Opportunities for you" });
+    expect(error.compareDocumentPosition(jobs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    failing = false;
+    fireEvent.click(within(error).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Activity unavailable" })).toBeNull());
+    expect(await screen.findByRole("link", { name: "2 waiting for your reply" })).toBeTruthy();
+  });
+
+  it("multiple failed activity queries still show only one error and retry all failures", async () => {
+    world();
+    const normal = apiGet.getMockImplementation()!;
+    let failing = true;
+    apiGet.mockImplementation((path: string) => failing && (path.includes("contact-requests") || path.includes("my-company-demand")) ? Promise.reject(new Error("offline")) : normal(path));
+    mount();
+    const error = await screen.findByRole("status", { name: "Activity unavailable" });
+    expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(1);
+    failing = false;
+    fireEvent.click(within(error).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Activity unavailable" })).toBeNull());
+  });
+
 });
