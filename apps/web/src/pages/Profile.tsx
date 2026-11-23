@@ -20,7 +20,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
-import { parseOpenToPreferences } from "../lib/openToPreferences";
+import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences";
 import { browsingLimitFromError } from "../lib/browsingLimits";
 import { headlineInstituteLine, headlineRole, instituteEducation, type ProfileSection } from "../lib/profilePage";
 
@@ -42,6 +42,8 @@ export function Profile() {
   const [fromCities, setFromCities] = useState(false);
   /** Cities sent the member here at the 5-tag cap to make room for city help. */
   const [openToNotice, setOpenToNotice] = useState<string | null>(null);
+  /** Unsaved "Open to" ticks kept while the member detours to add areas; set means "return to Open to". */
+  const [pendingOpenTo, setPendingOpenTo] = useState<OpenToPreferences | null>(null);
 
   const isOwnProfile = auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
 
@@ -80,6 +82,7 @@ export function Profile() {
     setSection(null);
     setOpenToNotice(null);
     setFromCities(false);
+    setPendingOpenTo(null);
   }, []);
 
   const savedAndClose = useCallback(async () => {
@@ -238,13 +241,27 @@ export function Profile() {
           }}
         />
       ) : null}
-      {isOwnProfile && section === "areas" ? <AreasSheet saved={areas} onClose={closeSheet} onSaved={() => void savedAndClose()} /> : null}
+      {isOwnProfile && section === "areas" ? (
+        <AreasSheet
+          saved={areas}
+          // From the "Add areas" detour: go back to Open to, ticks intact, whether saved or cancelled.
+          onClose={pendingOpenTo ? () => setSection("openTo") : closeSheet}
+          onSaved={() => {
+            if (pendingOpenTo) void refresh().then(() => setSection("openTo"));
+            else void savedAndClose();
+          }}
+        />
+      ) : null}
       {isOwnProfile && section === "openTo" ? (
         <OpenToSheet
           saved={openTo}
+          initialDraft={pendingOpenTo}
           notice={openToNotice}
           hasAreas={areas.length > 0}
-          onAddAreas={() => setSection("areas")}
+          onAddAreas={(draft) => {
+            setPendingOpenTo(draft);
+            setSection("areas");
+          }}
           onClose={closeSheet}
           onSaved={() => {
             void auth.refetch();
@@ -285,6 +302,10 @@ export function Profile() {
           onSaved={() => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
             void savedAndClose();
+          }}
+          onPartialSave={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
+            void refresh();
           }}
         />
       ) : null}

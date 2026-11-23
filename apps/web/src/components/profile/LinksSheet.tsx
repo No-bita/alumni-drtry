@@ -20,10 +20,15 @@ type Props = {
   links: ProfileLinkView[];
   onClose: () => void;
   onSaved: () => void;
+  /** A save failed part-way: reload what's stored without closing, so the member can retry. */
+  onPartialSave: () => void;
 };
 
-/** LinkedIn, GitHub and X, plus removing any other link saved earlier. */
-export function LinksSheet({ links, onClose, onSaved }: Props) {
+/**
+ * LinkedIn, GitHub and X, plus removing any other link saved earlier. If a save fails, the sheet
+ * stays open with the error and everything the member typed; retrying compares against what's stored.
+ */
+export function LinksSheet({ links, onClose, onSaved, onPartialSave }: Props) {
   const [draft, setDraft] = useState<Record<SocialPlatformKey, string>>(() => socialLinksDraftFromProfile(links));
   const [others, setOthers] = useState<ProfileLinkView[]>(() => otherProfileLinks(links));
   const [saving, setSaving] = useState(false);
@@ -63,8 +68,8 @@ export function LinksSheet({ links, onClose, onSaved }: Props) {
       for (const link of removedOthers) await must(api.delete(`/v1/me/links/${link.id}`));
     } catch (err) {
       setSaving(false);
-      setError(err instanceof Error ? err.message : "Couldn't save your links. Try again.");
-      onSaved(); // some links may have saved: refresh what's shown
+      setError(err instanceof Error ? `Couldn't save your links. ${err.message}` : "Couldn't save your links. Try again.");
+      onPartialSave(); // some links may have saved before the failure
       return;
     }
     setSaving(false);

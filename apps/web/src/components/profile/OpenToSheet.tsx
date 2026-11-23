@@ -24,20 +24,23 @@ const COFFEE_LIMIT_SEEN_FLAG = "coffeeLimitSheetSeen";
 
 type Props = {
   saved: OpenToPreferences | null;
+  /** Unsaved ticks to start from, e.g. after the "Add areas" detour. */
+  initialDraft?: OpenToPreferences | null;
   /** One line above the list, e.g. why Cities sent the member here. */
   notice?: string | null;
   /** The member has no areas yet: turning on referrals, mentorship or advising suggests adding some. */
   hasAreas: boolean;
-  onAddAreas: () => void;
+  /** Detour to the Areas sheet; gets the current ticks so they can be restored on the way back. */
+  onAddAreas: (draft: OpenToPreferences) => void;
   onClose: () => void;
   onSaved: () => void;
 };
 
 /** Choose up to five ways you're open to helping. Coffee asks for a weekly limit. */
-export function OpenToSheet({ saved, notice = null, hasAreas, onAddAreas, onClose, onSaved }: Props) {
+export function OpenToSheet({ saved, initialDraft = null, notice = null, hasAreas, onAddAreas, onClose, onSaved }: Props) {
   const auth = useAuth();
   const personId = auth.status === "authenticated" ? auth.person.personId : null;
-  const [draft, setDraft] = useState<OpenToPreferences>(() => openToPreferencesForEdit(saved));
+  const [draft, setDraft] = useState<OpenToPreferences>(() => initialDraft ?? openToPreferencesForEdit(saved));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gate = useCoffeeLimitGate(draft, setDraft);
@@ -87,7 +90,7 @@ export function OpenToSheet({ saved, notice = null, hasAreas, onAddAreas, onClos
       {showAreasPrompt ? (
         <p className="pp-sheet__notice">
           Add your areas of experience so the right people find you.{" "}
-          <button type="button" className="pp-inline-link" onClick={onAddAreas}>
+          <button type="button" className="pp-inline-link" onClick={() => onAddAreas(draft)}>
             Add areas
           </button>
         </p>

@@ -466,6 +466,61 @@ describe("editing one section at a time", () => {
     await waitFor(() => expect(h.del).toHaveBeenCalledWith("/v1/me/links/l2"));
   });
 
+  it("links: a failed save keeps the sheet open with the error and what was typed", async () => {
+    h.post.mockResolvedValueOnce({ error: { code: "INTERNAL_SERVER_ERROR", message: "Something went wrong." } });
+    mountPage("/profiles/me-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit links" }));
+    const dialog = await screen.findByRole("dialog", { name: "Links" });
+    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "linkedin.com/in/me" } });
+    const profileLoads = h.get.mock.calls.filter((c) => String(c[0]).startsWith("/v1/profiles/")).length;
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("Couldn't save your links. Something went wrong.");
+    expect(screen.getByRole("dialog", { name: "Links" })).toBe(dialog);
+    expect((within(dialog).getByLabelText("LinkedIn") as HTMLInputElement).value).toBe("linkedin.com/in/me");
+    // What did save is reloaded behind the sheet.
+    await waitFor(() => expect(h.get.mock.calls.filter((c) => String(c[0]).startsWith("/v1/profiles/")).length).toBeGreaterThan(profileLoads));
+    // Retrying works and then closes.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it.each(["Save", "Cancel"])("open to: ticks survive the 'Add areas' detour (areas %s)", async (how) => {
+    h.state.areas = [];
+    h.state.profile = { ...baseProfile, openToPreferences: null };
+    mountPage("/profiles/me-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit open to" }));
+    let dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
+    fireEvent.click(within(dialog).getByLabelText("Referrals"));
+    fireEvent.click(within(dialog).getByLabelText("Mentorship"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add areas" }));
+    const areasDialog = await screen.findByRole("dialog", { name: "Areas of experience" });
+    if (how === "Save") {
+      h.state.areas = ["Pricing"];
+      const input = within(areasDialog).getByRole("combobox", { name: "Add an area of experience" });
+      fireEvent.change(input, { target: { value: "Pricing" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+    }
+    fireEvent.click(within(areasDialog).getByRole("button", { name: how }));
+    dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
+    expect((within(dialog).getByLabelText("Referrals") as HTMLInputElement).checked).toBe(true);
+    expect((within(dialog).getByLabelText("Mentorship") as HTMLInputElement).checked).toBe(true);
+    if (how === "Save") {
+      expect(h.put).toHaveBeenCalledWith("/v1/me/areas", { areas: ["Pricing"] });
+      await waitFor(() => expect(within(dialog).queryByRole("button", { name: "Add areas" })).toBeNull());
+    }
+    expect(h.patch).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(h.patch).toHaveBeenCalledWith("/v1/me/profile", { openToPreferences: { selected: ["referrals", "mentorship"] } }));
+  });
+
+  it("opening Areas directly still just closes when done", async () => {
+    mountPage("/profiles/me-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit areas of experience" }));
+    const dialog = await screen.findByRole("dialog", { name: "Areas of experience" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("Escape closes the sheet without saving", async () => {
     mountPage("/profiles/me-1");
     fireEvent.click(await screen.findByRole("button", { name: "Edit where you live" }));
