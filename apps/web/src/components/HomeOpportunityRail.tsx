@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import type { IntentcastFeedItem, ReceivedBulletinRepliesFeedResponse, ReceivedBulletinReplyFeedItem } from "../api/client";
@@ -22,8 +22,6 @@ import "../styles/hub-cards.css";
 
 /** How long the rings around "Post to The Wall" play once the empty-Wall card settles. */
 const POST_RIPPLE_MS = 1300;
-/** Fewer posts than this (but at least one) adds the "Post to the Wall" invite under the feed. */
-const FEW_POSTS = 3;
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
 import type { HomeOpportunityCategoryLegacy } from "../lib/homeOpportunityCategory";
@@ -135,17 +133,13 @@ export function HomeOpportunityRail({
   onPost,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
-  // Temporary shared content is intentional. Personal matching remains parked.
-  const [feedTab, setFeedTab] = useState<"all" | "for-you">("all");
-  const feedTabsId = useId();
   // Opened from a shared post link (#wall-<id>): find it, scroll to it, mark it "Shared with you".
-  const showAllPosts = useCallback(() => setFeedTab("all"), []);
+  const showAllPosts = useCallback(() => {}, []);
   const share = useWallShareTarget({
     intentcasts,
     feedLoading: opportunitiesFeedLoading,
     ensureVisible: showAllPosts,
   });
-  const feedTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const showingReplies = activeCategory === "replies";
   const filteredIntentcasts = (
     showingReplies ? [] : activeCategory === "all" ? intentcasts : intentcasts.filter((ic) => intentcastHomeLane(ic) === activeCategory)
@@ -243,54 +237,18 @@ export function HomeOpportunityRail({
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
             The Wall
           </h2>
-          <p className="home-ideal__opportunities-sub">Ask for help, or share an opportunity, with every alum here.</p>
+          <p className="home-ideal__opportunities-sub">Curated opportunities for you</p>
         </div>
         {onPost ? (
           <button
             type="button"
-            className={`btn btn--secondary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
+            className={`btn btn--primary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
             onClick={onPost}
           >
             Post to the Wall
           </button>
         ) : null}
       </header>
-      <div className="home-wall-toolbar">
-        <div className="home-wall-feed-tabs" role="tablist" aria-label="Wall feeds">
-          {([{ id: "all", label: "All posts" }, { id: "for-you", label: "For you" }] as const).map((tab, index) => (
-            <button
-              key={tab.id}
-              ref={(element) => { feedTabRefs.current[index] = element; }}
-              type="button"
-              role="tab"
-              id={`${feedTabsId}-${tab.id}`}
-              aria-selected={feedTab === tab.id}
-              aria-controls={`${feedTabsId}-panel`}
-              tabIndex={feedTab === tab.id ? 0 : -1}
-              onClick={() => setFeedTab(tab.id)}
-              onKeyDown={(event) => {
-                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-                event.preventDefault();
-                const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
-                setFeedTab(next === 0 ? "all" : "for-you");
-                feedTabRefs.current[next]?.focus();
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {/* PARKED 2026-11-18: topic chips cut for now; tabs stay the only filter. Restore with the import above.
-        {chipCategories.length > 0 ? (
-          <HomeWallTopicsFilter
-            topics={chipCategories}
-            counts={categoryCounts}
-            activeCategory={activeCategory}
-            onCategoryChange={onCategoryChange}
-          />
-        ) : null}
-        */}
-      </div>
       {pinError ? <p role="alert" className="home-ideal__opportunity-rail-error">{pinError}</p> : null}
       {share.notice ? (
         <p role="status" className="home-ideal__opportunity-rail-error wall-share-notice">
@@ -305,7 +263,7 @@ export function HomeOpportunityRail({
           {railDeleteError}
         </p>
       ) : null}
-      <div role="tabpanel" id={`${feedTabsId}-panel`} aria-labelledby={`${feedTabsId}-${feedTab}`}>
+      <div>
       {showingReplies ? (
         bulletinRepliesLoading ? (
           <div className="home-ideal__empty" role="status" aria-live="polite">
@@ -357,15 +315,7 @@ export function HomeOpportunityRail({
             deleteSubmittingId={deleteSubmittingId}
             onRequestDelete={setDeleteConfirmId}
           />
-          {/* Only 1–2 posts: a short invite under them (the fully empty Wall has its own prompt). */}
-          {onPost && feedTab === "all" && activityRows.length < FEW_POSTS ? (
-            <div className="home-wall-invite">
-              <p className="home-wall-invite__text">Ask for help or share an opportunity. Every alum here can see it.</p>
-              <button type="button" className="btn btn--secondary home-wall-invite__post" onClick={onPost}>
-                Post to the Wall
-              </button>
-            </div>
-          ) : null}
+
         </div>
       )}
       </div>

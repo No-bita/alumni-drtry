@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { IntentcastFeedItem } from "../src/api/client";
@@ -11,8 +11,8 @@ vi.mock("../src/components/CareerIntentFeedRows", () => ({
 
 afterEach(cleanup);
 
-describe("Wall feed scope tabs", () => {
-  it("keeps the same feed in both tabs and supports keyboard selection", () => {
+describe("Wall feed without tabs", () => {
+  it("shows the existing all-posts feed without any tab controls", () => {
     const onCategoryChange = vi.fn();
     render(
       <MemoryRouter><QueryClientProvider client={new QueryClient()}>
@@ -25,6 +25,7 @@ describe("Wall feed scope tabs", () => {
             createdAt: "2026-11-01T00:00:00Z", editableUntil: "2026-11-02T00:00:00Z",
             responseCount: 0, viewerHasResponded: false,
           } satisfies IntentcastFeedItem]}
+          onPost={() => {}}
           activeCategory="all"
           onCategoryChange={onCategoryChange}
           categoryCounts={{ careers: 1, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 }}
@@ -44,25 +45,13 @@ describe("Wall feed scope tabs", () => {
     // expect(topics.getAttribute("aria-expanded")).toBe("false");
     // expect(document.activeElement).toBe(topics);
     expect(screen.queryByRole("button", { name: /Topics/ })).toBeNull();
-    const all = screen.getByRole("tab", { name: "All posts" });
-    const personal = screen.getByRole("tab", { name: "For you" });
-    const originalPanel = screen.getByRole("tabpanel");
-    expect(all.getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("tabpanel")).toBeNull();
+    expect(screen.queryByText("For you")).toBeNull();
     expect(screen.getByText("Test project")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Replies/ })).toBeNull();
-    const initialContent = originalPanel.innerHTML;
-    fireEvent.click(personal);
-    expect(personal.getAttribute("aria-selected")).toBe("true");
-    expect(all.getAttribute("tabindex")).toBe("-1");
-    expect(screen.getByRole("tabpanel").innerHTML).toBe(initialContent);
-    expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(personal.id);
-    fireEvent.keyDown(personal, { key: "Home" });
-    expect(all.getAttribute("aria-selected")).toBe("true");
-    expect(document.activeElement).toBe(all);
-    fireEvent.keyDown(all, { key: "ArrowRight" });
-    expect(personal.getAttribute("aria-selected")).toBe("true");
-    expect(document.activeElement).toBe(personal);
-    expect(screen.getByRole("tabpanel").innerHTML).toBe(initialContent);
+    expect(onCategoryChange).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: "Post to the Wall" })).toHaveLength(1);
   });
   // PARKED 2026-11-18: topic chips are parked (see HomeOpportunityRail), so this
   // interaction test is parked with them. Restore together.
@@ -88,7 +77,8 @@ describe("Wall feed scope tabs", () => {
         categoryCounts={{ careers: 0, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 }} />
     </MemoryRouter></QueryClientProvider>);
     expect(screen.queryByText("Topics")).toBeNull();
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
 });

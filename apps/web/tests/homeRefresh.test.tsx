@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -118,18 +118,15 @@ describe("The Wall on Home", () => {
   it("has an icon header and a sentence-case 'Post to the Wall' button", () => {
     const { container } = rail(3);
     expect(screen.getByRole("heading", { name: "The Wall" })).toBeTruthy();
+    expect(screen.getByText("Curated opportunities for you")).toBeTruthy();
     expect(container.querySelector(".home-ideal__opportunities-header .hub-card__icon svg")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Post to the Wall" })).toHaveLength(1);
   });
 
-  it("with only 1–2 posts, invites people to post under the feed", () => {
-    const onPost = vi.fn();
-    rail(2, onPost);
-    expect(screen.getByText("Ask for help or share an opportunity. Every alum here can see it.")).toBeTruthy();
-    const buttons = screen.getAllByRole("button", { name: "Post to the Wall" });
-    expect(buttons).toHaveLength(2);
-    fireEvent.click(buttons[1]!);
-    expect(onPost).toHaveBeenCalledOnce();
+  it("keeps only the header post button with 1-2 posts", () => {
+    rail(2);
+    expect(screen.queryByText(/Every alum here can see it/)).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Post to the Wall" })).toHaveLength(1);
   });
 
   it("no invite with 3 or more posts, or on an empty Wall (it has its own prompt)", () => {
