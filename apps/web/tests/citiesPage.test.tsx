@@ -186,7 +186,7 @@ describe("Cities page: city home (local)", () => {
     mount();
     fireEvent.click(await screen.findByRole("button", { name: /Housing & flatmates/ }));
     expect(wallOpen).toHaveBeenCalledWith(
-      expect.objectContaining({ placeId: "blr", category: "relocation", headline: "Housing or flatmates in Bengaluru" }),
+      expect.objectContaining({ placeId: "blr", placeName: "Bengaluru", category: "relocation", headline: "Housing or flatmates in Bengaluru", housingPhotoTip: true }),
     );
   });
 

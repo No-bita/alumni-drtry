@@ -22,7 +22,7 @@ import { IconMapPin, IconUsers } from "../LocationPageIcons";
 import { CitySheet } from "./CitySheet";
 import { NewcomerOffersSection } from "./NewcomerOffersSection";
 
-export type CityAskStarter = { headline?: string; body?: string };
+export type CityAskStarter = { headline?: string; body?: string; housingPhotoTip?: boolean };
 
 /** File: `apps/web/public/media/city-hero-placeholder.jpg`, served under the app base (`/app/media/...`). */
 const CITY_HERO_PLACEHOLDER = publicAsset("media/city-hero-placeholder.jpg");
@@ -262,7 +262,7 @@ export function CityHome({
         </h2>
         <div className="careers-hub__topics">
           {SHORTCUTS.map((s) => (
-            <button key={s.id} type="button" className="careers-hub__topic" onClick={() => onAsk({ headline: s.starter(city) })}>
+            <button key={s.id} type="button" className="careers-hub__topic" onClick={() => onAsk({ headline: s.starter(city), ...(s.id === "housing" ? { housingPhotoTip: true } : {}) })}>
               <span className="careers-hub__topic-icon" aria-hidden>
                 <ShortcutIcon icon={s.icon} />
               </span>

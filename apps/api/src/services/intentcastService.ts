@@ -520,6 +520,19 @@ export class IntentcastService {
     }
     const facts = await this.intentcastRepo.loadAuthorAudienceFacts(authorPersonId);
     if (!facts) throw new AppError(404, "PERSON_NOT_FOUND", "Member not found.");
+    if (input.cityPlaceId) {
+      // Resolve an explicit city independently of residence. Never trust a client-supplied label.
+      const target = await this.pool.query<{ id: string; city_label: string }>(
+        `SELECT cp.id, cp.city_label FROM canonical_places requested
+         JOIN canonical_places cp ON cp.id = COALESCE(requested.combined_into_place_id, requested.id)
+         WHERE requested.id = $1::uuid AND cp.status = 'approved'`, [input.cityPlaceId]
+      );
+      const city = target.rows[0];
+      if (!city) throw new AppError(400, "AUDIENCE_BAD_REQUEST", "Unknown city.");
+      facts.placeId = city.id;
+      facts.placeName = city.city_label;
+      facts.placeUnavailable = null;
+    }
     const built = buildAudienceSnapshot(input, facts, listInstitutions());
     if (!built.ok) {
       if (built.reason === "unknown_institution") {

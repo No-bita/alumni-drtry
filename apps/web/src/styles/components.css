@@ -21638,3 +21638,17 @@ p.global-messaging-widget__active-meta.dept-batch-meta {
 .wall-post-body-links a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .wall-post-body-links a:hover { color: var(--brick); }
 .wall-post-body-links a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* Housing shortcut guidance, outside the member's post content. */
+.career-hiring-flow__photo-tip {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+  margin: 8px 0 0;
+}
+.career-hiring-flow__photo-tip strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 3px;
+}

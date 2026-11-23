@@ -12,6 +12,8 @@ export type AudienceChoice = {
   batch: boolean;
   department: boolean;
   city: boolean;
+  /** Explicit approved city from the page, otherwise city means the profile city. */
+  cityPlaceId?: string;
 };
 
 export const EVERYONE_CHOICE: AudienceChoice = Object.freeze({
@@ -58,7 +60,7 @@ export function toApiAudience(c: AudienceChoice): Partial<AudienceChoice> | null
     ...(c.institution ? { institution: c.institution } : {}),
     ...(c.batch ? { batch: true } : {}),
     ...(c.department ? { department: true } : {}),
-    ...(c.city ? { city: true } : {}),
+    ...(c.city ? { city: true, ...(c.cityPlaceId ? { cityPlaceId: c.cityPlaceId } : {}) } : {}),
   };
 }
 

@@ -196,6 +196,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [placeId, setPlaceId] = useState<string | null>(null);
     const [referralResumeLink, setReferralResumeLink] = useState("");
     /** Who can see the post: Everyone each time the composer opens; fixed once posted. */
+    const [housingPhotoTip, setHousingPhotoTip] = useState(false);
+    const [cityTarget, setCityTarget] = useState<{ placeId: string; name: string } | undefined>();
     const [audience, setAudience] = useState<AudienceChoice>(freshAudienceChoice);
     const [audienceState, setAudienceState] = useState<{ label: string | null; blocked: boolean }>({ label: null, blocked: false });
 
@@ -358,6 +360,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setError(null);
       setCareersPreset(null);
       setPlaceId(null);
+      setHousingPhotoTip(false);
+      setCityTarget(undefined);
       setAudience(freshAudienceChoice());
     }, []);
 
@@ -385,7 +389,9 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralResumeLink("");
       setPlaceId(options?.placeId ?? null);
       setKind(options?.kind ?? "");
-      setAudience(freshAudienceChoice());
+      setHousingPhotoTip(options?.housingPhotoTip === true);
+      setCityTarget(options?.placeId ? { placeId: options.placeId, name: options.placeName ?? "This city" } : undefined);
+      setAudience(options?.placeId ? { ...freshAudienceChoice(), city: true, cityPlaceId: options.placeId } : freshAudienceChoice());
       setError(null);
       setOpen(true);
     }, []);
@@ -672,17 +678,24 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     label={careersPreset === "referralSeeking" ? "Role" : "Headline"}
                     required
                     error={errorField === "headline" ? error : undefined}
+                    controlId="post-bulletin-headline"
                     className="career-hiring-flow__field--wide"
                   >
-                    <input
-                      ref={composeHeadlineRef}
-                      className="input"
-                      value={headline}
-                      onChange={(e) => setHeadline(e.target.value)}
-                      placeholder={headlinePlaceholder}
-                      maxLength={BULLETIN_TITLE_MAX_CHARS}
-                      autoComplete="off"
-                    />
+                    <div className="career-hiring-flow__textarea-wrap">
+                      <input
+                        id="post-bulletin-headline"
+                        ref={composeHeadlineRef}
+                        className="input"
+                        value={headline}
+                        onChange={(e) => setHeadline(e.target.value)}
+                        placeholder={headlinePlaceholder}
+                        maxLength={BULLETIN_TITLE_MAX_CHARS}
+                        autoComplete="off"
+                      />
+                      <p className="career-hiring-flow__counter career-hiring-flow__counter--inside" aria-live="polite">
+                        {headline.length} / {BULLETIN_TITLE_MAX_CHARS}
+                      </p>
+                    </div>
                   </FormField>
                   {careersPreset === "referralSeeking" ? (
                     <FormField
@@ -753,7 +766,13 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     </FormField>
                   ) : null}
                 </div>
-                <PostAudienceField value={audience} onChange={setAudience} onStateChange={setAudienceState} />
+                {housingPhotoTip && !careersHubFlow ? (
+                  <p className="career-hiring-flow__photo-tip">
+                    <strong>Have photos to share?</strong>
+                    Upload photos to a Google Drive folder. Set &quot;Anyone with the link&quot; to Viewer and paste the link in Details. Anyone with that link can view the photos.
+                  </p>
+                ) : null}
+                <PostAudienceField cityTarget={cityTarget} value={audience} onChange={setAudience} onStateChange={setAudienceState} />
                 {careersHubFlow ? (
                   <FormActions primary={{ label: "Preview", onClick: goToPreview }} />
                 ) : (
