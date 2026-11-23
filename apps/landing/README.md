@@ -6,7 +6,7 @@ Built in phases, one pull request per phase.
 
 ## Where things live
 
-- `content/` — all page copy (`copy.ts`, `heroPairs.ts`, `taskWall.ts`). Edit copy here, not in components.
+- `content/` — all page copy (`copy.ts`). Edit copy here, not in components.
 - `components/` — page sections and base components.
 - `app/layout.tsx` — fonts and page metadata (title, description, Open Graph, Twitter).
 - `app/icon.svg` — favicon. `app/opengraph-image.png` (+ `.alt.txt`) — share image. Both are Next.js file conventions.

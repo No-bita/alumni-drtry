@@ -63,8 +63,3 @@ export function personIsDiscoverableForViewerSql(tableAlias: string, viewerIsDem
   }
   return personIsDiscoverableAlumniSql(tableAlias);
 }
-
-/** @deprecated Use {@link personIsDiscoverableAlumniSql}. */
-export function personIsPublicProfileViewableSql(tableAlias: string): string {
-  return personIsDiscoverableAlumniSql(tableAlias);
-}

@@ -52,11 +52,6 @@ export interface MatchLexicon {
 }
 
 export const EMPTY_MATCH_LEXICON: MatchLexicon = { organizations: [], places: [] };
-
-export function isMatchCategory(value: unknown): value is MatchCategory {
-  return typeof value === "string" && (MATCH_CATEGORIES as readonly string[]).includes(value);
-}
-
 /* ------------------------------------------------------------------ */
 /* Vocabulary                                                          */
 /* ------------------------------------------------------------------ */

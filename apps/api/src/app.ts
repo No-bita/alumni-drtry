@@ -33,7 +33,7 @@ import { orgRoutes } from "./routes/orgRoutes.js";
 import { AuthService } from "./services/authService.js";
 import { ConnectionThreadService } from "./services/connectionThreadService.js";
 import { ContactRequestService } from "./services/contactRequestService.js";
-import { DiscoveryService, clearResidenceCitiesCache } from "./services/discoveryService.js";
+import { DiscoveryService } from "./services/discoveryService.js";
 import { MatchService } from "./services/matchService.js";
 import { ConsoleEmailSender, ResendEmailSender, testEmailCapture, type EmailSender } from "./services/emailSender.js";
 import { IntentcastService } from "./services/intentcastService.js";
@@ -143,7 +143,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const personAreaService = new PersonAreaService(pool);
   const organizationService = new OrganizationService(pool);
   const discoveryService = new DiscoveryService(pool);
-  const adminPlacesService = new AdminPlacesService(pool, clearResidenceCitiesCache);
+  const adminPlacesService = new AdminPlacesService(pool);
   const locationCleanupService = new LocationCleanupService(pool, adminPlacesService);
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);

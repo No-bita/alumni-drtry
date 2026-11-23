@@ -1,4 +1,3 @@
-import type { IntentcastFeedItem } from "../api/client";
 import {
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_TITLE_MAX_CHARS,
@@ -123,30 +122,4 @@ export function validateGeneralBulletinHeadlineDetails(content: string): string 
     return `Details (lines after the headline) must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
   }
   return null;
-}
-
-export function intentcastCategoryToTone(cat: IntentcastFeedItem["category"]): BulletinCardTone {
-  switch (cat) {
-    case "guidance":
-      return "referrals";
-    case "mentorship":
-      return "referrals";
-    case "collaboration":
-      return "moving_cities";
-    case "hiring":
-      return "hiring";
-  }
-}
-
-export function intentcastCategoryBadgeLabel(cat: IntentcastFeedItem["category"]): string {
-  switch (cat) {
-    case "guidance":
-      return "Guidance";
-    case "mentorship":
-      return "Mentorship";
-    case "collaboration":
-      return "Collaboration";
-    case "hiring":
-      return "Hiring";
-  }
 }

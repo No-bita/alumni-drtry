@@ -6,11 +6,5 @@ export const BULLETIN_TITLE_MAX_CHARS = 120;
 
 /** Body-after-headline cap (general intentcasts only — must match apps/api). */
 export const BULLETIN_DESCRIPTION_MAX_CHARS = 500;
-
-export const BULLETIN_REPLY_MAX_LENGTH = 2000;
-
 /** Must match `BULLETIN_AUTHOR_DELETE_UNDO_MINUTES` in apps/api. */
 export const BULLETIN_AUTHOR_DELETE_UNDO_MINUTES = 5;
-
-/** Default `INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS` in apps/api (copy only; card dates are server truth). */
-export const BULLETIN_AUTHOR_DELETE_RETENTION_DAYS = 7;

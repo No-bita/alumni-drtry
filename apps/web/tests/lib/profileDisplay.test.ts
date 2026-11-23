@@ -1,18 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  currentOccupation,
   formatOccupationCompanyTypeLine,
   formatOccupationDatesDurationLine,
   formatOccupationDuration,
   formatOccupationEmploymentLabel,
-  formatOccupationMetaLine,
   formatOccupationPeriod,
-  occupationWorkLocationLine,
-  profileEducationHeadlineLine,
   residenceLine,
-  roleOrgLineFromOccupation,
-  roleOrgLineFromSearchProfile,
-  roleOrgPartsFromOccupation,
   sortOccupationsForDisplay,
 } from "../../src/lib/profileDisplay";
 
@@ -28,60 +21,7 @@ const occ = (o: Record<string, unknown> = {}) =>
     ...o,
   }) as never;
 
-describe("occupation role lines", () => {
-  it("prefers the current occupation, else the first", () => {
-    const a = occ({ roleTitle: "A" });
-    const b = occ({ roleTitle: "B", isCurrent: true });
-    expect(currentOccupation([a, b])).toBe(b);
-    expect(currentOccupation([a])).toBe(a);
-    expect(currentOccupation([])).toBeNull();
-  });
-  it("builds role and org parts", () => {
-    expect(roleOrgPartsFromOccupation(null)).toBeNull();
-    expect(roleOrgPartsFromOccupation(occ({ roleTitle: "  " }))).toBeNull();
-    expect(roleOrgPartsFromOccupation(occ({ organizationName: " " }))).toEqual({ role: "Engineer", org: null });
-    expect(roleOrgLineFromOccupation(occ())).toBe("Engineer @ Acme");
-    expect(roleOrgLineFromOccupation(occ({ organizationName: null }))).toBe("Engineer");
-    expect(roleOrgLineFromOccupation(null)).toBeNull();
-  });
-  it("builds a headline from search profiles", () => {
-    expect(roleOrgLineFromSearchProfile({ headlineRoleTitle: "PM", headlineOrganizationName: "Zed" } as never)).toBe("PM @ Zed");
-    expect(roleOrgLineFromSearchProfile({ headlineRoleTitle: "PM", headlineOrganizationName: null } as never)).toBe("PM");
-    expect(roleOrgLineFromSearchProfile({ headlineRoleTitle: null, headlineOrganizationName: "Zed" } as never)).toBeNull();
-  });
-});
-
-describe("education and residence", () => {
-  it("joins degree, department and batch", () => {
-    expect(
-      profileEducationHeadlineLine({ degreeCode: "btech", degreeName: "BTech", departmentCode: "civ", departmentName: "Civil Engineering", batchYear: 2022 } as never),
-    ).toBe("BTech, Civil Engineering · Class of '22");
-  });
-  it("shows the member's typed specification for an Other department", () => {
-    expect(
-      profileEducationHeadlineLine({ degreeCode: "btech", degreeName: "BTech", departmentCode: "other", departmentName: "Other", departmentOtherText: "Applied Mechanics", batchYear: 2022 } as never),
-    ).toBe("BTech, Applied Mechanics · Class of '22");
-  });
-  it("never renders Other or its code when no approved specification exists", () => {
-    expect(
-      profileEducationHeadlineLine({ degreeCode: null, degreeName: null, departmentCode: "other", departmentName: "Other", departmentOtherText: null, batchYear: null } as never),
-    ).toBeNull();
-    expect(
-      profileEducationHeadlineLine({ degreeCode: null, degreeName: "BTech", departmentCode: "other", departmentName: "Other", departmentOtherText: null, batchYear: null } as never),
-    ).toBe("BTech");
-  });
-  it("never shows stored specification text for a non-Other department", () => {
-    expect(
-      profileEducationHeadlineLine({ degreeCode: null, degreeName: null, departmentCode: "cse", departmentName: "Computer Science", departmentOtherText: "stale text", batchYear: null } as never),
-    ).toBe("Computer Science");
-  });
-  it("degrades gracefully", () => {
-    expect(profileEducationHeadlineLine(null)).toBeNull();
-    expect(profileEducationHeadlineLine({ degreeName: null, degreeCode: null, departmentName: null, departmentCode: null, batchYear: 2019 } as never)).toBe("Class of '19");
-    expect(profileEducationHeadlineLine({ degreeName: "BTech", degreeCode: null, departmentName: null, departmentCode: null, batchYear: null } as never)).toBe("BTech");
-    expect(profileEducationHeadlineLine({ degreeName: null, degreeCode: null, departmentName: null, departmentCode: "cse", batchYear: null } as never)).toBe("CSE");
-    expect(profileEducationHeadlineLine({ degreeName: null, degreeCode: null, departmentName: null, departmentCode: null, batchYear: null } as never, "me")).toBe("ME");
-  });
+describe("residence", () => {
   it("formats residence", () => {
     expect(residenceLine("Pune", "India")).toBe("Pune, India");
     expect(residenceLine("Pune", null)).toBe("Pune");
@@ -124,12 +64,5 @@ describe("occupation dates", () => {
     expect(formatOccupationCompanyTypeLine(occ({ organizationName: null }))).toBe("Full-time");
     expect(formatOccupationDatesDurationLine(occ())).toBeNull();
     expect(formatOccupationDatesDurationLine(occ({ startDate: "2019-02-10", endDate: "2021-03-10" }))).toBe("Feb 2019 – Mar 2021 · 2 yrs");
-    expect(formatOccupationMetaLine(occ({ startDate: "2019-02-10" }), " Pune ")).toBe("Feb 2019 · Pune");
-    expect(formatOccupationMetaLine(occ({ startDate: "2019-02-10" }))).toBe("Feb 2019");
-  });
-  it("uses residence only for current roles", () => {
-    expect(occupationWorkLocationLine(occ({ isCurrent: true }), { city: "Pune", country: "India" })).toBe("Pune, India");
-    expect(occupationWorkLocationLine(occ({ isCurrent: false }), { city: "Pune" })).toBeNull();
-    expect(occupationWorkLocationLine(occ({ isCurrent: true }), null)).toBeNull();
   });
 });

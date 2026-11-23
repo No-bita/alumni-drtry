@@ -54,8 +54,6 @@ The browser treats `/v1/me` plus `/v1/me/profile` as the session snapshot.
 - **Browsing limits (anti-scraping).** Directory search, profile reads, residence cities, Ask results, Careers company people, Cities pages and alumni lists, and the Wall feed are "discovery reads", counted per member in the database: `DISCOVERY_READ_MAX_PER_USER_WINDOW` per UTC minute (default 60) → `429 DISCOVERY_RATE_LIMITED`, and `DISCOVERY_READ_MAX_PER_USER_DAY` per day, midnight Asia/Kolkata (default 500) → `429 DISCOVERY_DAILY_LIMIT` ("You've looked at a lot of profiles today. Try again tomorrow."). Both send `Retry-After`. Admins aren't counted. A per-IP layer (`DISCOVERY_READ_MAX_PER_IP_WINDOW`, default 300/min) sits in front.
 - `GET /v1/admin/metrics/discovery-limits` (admins): `{ limits: { cap, nearLimit, atLimit, day } }`: how many members are at 80%+ of today's cap and at it. Counts only.
 - `GET /v1/profiles/:id`: returns public profile detail.
-- `GET /v1/directory/residence-cities`: returns residence city suggestions.
-- `POST /v1/discovery/analytics/profile-click`: records a profile click from a search session.
 
 Search responses exclude the current viewer and include stable `matchReasons` keys that the web maps to display labels.
 
@@ -73,9 +71,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 - `PATCH /v1/intentcasts/:id`: edits an open post during the edit window.
 - `PATCH /v1/intentcasts/:id/close`: closes a post (author only, open posts only). Optional body `{ outcome }`: `got_help_here`, `sorted_elsewhere` or `no_longer_needed` closes it as resolved (`closed_reason = 'resolved'`, migration 068). No body, or `{}`, is the plain close. Any other key or value gets 400 `INTENTCAST_BAD_REQUEST`. See [business-page.md](./business-page.md).
 - `DELETE /v1/intentcasts/:id`: author-removes a post.
-- `POST /v1/intentcasts/:id/restore`: restores an author-removed post within the retention window.
 - `POST /v1/intentcasts/:id/respond`: creates a private response to the author.
-- `GET /v1/intentcasts/:id/responses`: returns `{ responses }` for the post author.
 
 ### Post audience (who can see a post)
 
@@ -110,7 +106,7 @@ See [post-audience.md](./post-audience.md).
 
 Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migration 055.
 
-- `GET /v1/cities`, `GET /v1/cities/search?q=`, `GET /v1/cities/:placeId`, `GET /v1/cities/:placeId/alumni?filter=&cursor=`.
+- `GET /v1/cities`, `GET /v1/cities/:placeId`, `GET /v1/cities/:placeId/alumni?filter=&cursor=`.
 - `POST /v1/cities/arrivals`, `POST /v1/cities/arrivals/end`, `POST /v1/cities/arrivals/:arrivalId/offers`, `DELETE /v1/cities/offers/:offerId`, `POST /v1/cities/offers/seen`.
 - `PATCH /v1/me/profile` returns `arrivalPrompt` and resolves the typed city to a canonical place; `openToPreferences.limits.coffee` (1/2/3/5) is required to turn coffee on.
 - `POST /v1/contact-requests` accepts `source: "cities"` with `coffee`, `relocation`, `visiting`, `newcomer` (+ `cityHelpOfferId`). `POST /v1/intentcasts` accepts `placeId`.

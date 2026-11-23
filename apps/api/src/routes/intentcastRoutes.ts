@@ -293,22 +293,6 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
   );
 
   app.post(
-    "/v1/intentcasts/:id/restore",
-    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
-    async (request, reply) => {
-      const params = intentcastParamsSchema.safeParse(request.params);
-      if (!params.success) {
-        throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid intentcast id.");
-      }
-      const intentcast = await app.intentcastService.undoDeleteIntentcast(
-        request.actor.personId,
-        params.data.id
-      );
-      return reply.code(200).send({ intentcast });
-    }
-  );
-
-  app.post(
     "/v1/intentcasts/:id/respond",
     { preHandler: [app.authenticate, app.requireNonDemoMutation] },
     async (request, reply) => {
@@ -334,19 +318,6 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
           request.log.warn({ err: error }, "Failed to log beta usage event.");
         });
       return reply.code(201).send({ response });
-    }
-  );
-
-  app.get(
-    "/v1/intentcasts/:id/responses",
-    { preHandler: app.authenticate },
-    async (request, reply) => {
-      const params = intentcastParamsSchema.safeParse(request.params);
-      if (!params.success) {
-        throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Invalid intentcast id.");
-      }
-      const responses = await app.intentcastService.listResponses(params.data.id, request.actor.personId);
-      return reply.code(200).send({ responses });
     }
   );
 };

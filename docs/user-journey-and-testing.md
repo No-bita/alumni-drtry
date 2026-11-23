@@ -115,7 +115,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 
 ### 4.2 Root (`/`)
 
-- Everyone, signed in or not → `/login` (`Landing.tsx` exists but is not routed). Signed-in users are routed after login or verify per the post-auth table.
+- Everyone, signed in or not → `/login`. Signed-in users are routed after login or verify per the post-auth table.
 
 ### 4.3 Profile gate
 

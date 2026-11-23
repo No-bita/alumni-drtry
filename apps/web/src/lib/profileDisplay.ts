@@ -1,37 +1,4 @@
-import type { OccupationView, PublicProfileView, SearchProfileView } from "../api/client";
-import { formatBatchYearShort } from "./bulletinPostCardUtils";
-
-/** First current occupation, else first in list. */
-export function currentOccupation(occupations: OccupationView[]): OccupationView | null {
-  if (occupations.length === 0) return null;
-  return occupations.find((o) => o.isCurrent) ?? occupations[0] ?? null;
-}
-
-export function roleOrgPartsFromOccupation(
-  occ: OccupationView | null,
-): { role: string; org: string | null } | null {
-  if (!occ) return null;
-  const role = occ.roleTitle?.trim();
-  if (!role) return null;
-  const org = occ.organizationName?.trim() || null;
-  return { role, org };
-}
-
-export function roleOrgLineFromOccupation(occ: OccupationView | null): string | null {
-  const parts = roleOrgPartsFromOccupation(occ);
-  if (!parts) return null;
-  if (parts.org) return `${parts.role} @ ${parts.org}`;
-  return parts.role;
-}
-
-export function roleOrgLineFromSearchProfile(profile: SearchProfileView): string | null {
-  if (profile.headlineRoleTitle && profile.headlineOrganizationName) {
-    return `${profile.headlineRoleTitle} @ ${profile.headlineOrganizationName}`;
-  }
-  if (profile.headlineRoleTitle) return profile.headlineRoleTitle;
-  return null;
-}
-
+import type { OccupationView, PublicProfileView } from "../api/client";
 type DepartmentDisplayProfile = Pick<PublicProfileView,
   "departmentCode" | "departmentName" | "departmentOtherText" | "departmentOtherStatus">;
 
@@ -51,33 +18,6 @@ export function profileDepartmentDisplay(
     return profile.departmentOtherText?.trim() || (code === "other" ? null : departmentCodeFallback?.trim().toUpperCase()) || null;
   }
   return name || departmentCodeFallback?.trim().toUpperCase() || code?.toUpperCase() || null;
-}
-
-/** Hero education line, e.g. "BTech, Civil Engineering · Class of '22". */
-export function profileEducationHeadlineLine(
-  profile: Pick<
-    PublicProfileView,
-    "degreeCode" | "degreeName" | "departmentCode" | "departmentName" | "departmentOtherText" | "departmentOtherStatus" | "batchYear"
-  > | null | undefined,
-  departmentCodeFallback?: string | null,
-  isOwnProfile = false,
-): string | null {
-  if (!profile) return null;
-
-  const degree = profile.degreeName?.trim() || profile.degreeCode?.trim() || null;
-  const department = profileDepartmentDisplay(profile, isOwnProfile, departmentCodeFallback);
-
-  const studyParts: string[] = [];
-  if (degree && department) studyParts.push(`${degree}, ${department}`);
-  else if (degree) studyParts.push(degree);
-  else if (department) studyParts.push(department);
-
-  const hasBatch = typeof profile.batchYear === "number" && Number.isFinite(profile.batchYear);
-  const batchPart = hasBatch ? `Class of ${formatBatchYearShort(profile.batchYear as number)}` : null;
-
-  if (studyParts.length > 0 && batchPart) return `${studyParts[0]} · ${batchPart}`;
-  if (studyParts.length > 0) return studyParts[0];
-  return batchPart;
 }
 
 export function residenceLine(
@@ -197,20 +137,4 @@ export function formatOccupationDatesDurationLine(occ: OccupationView): string |
   const duration = formatOccupationDuration(occ);
   if (duration) return `${period} · ${duration}`;
   return period;
-}
-
-/** Work location for current role when no per-occupation location exists (uses profile residence). */
-export function occupationWorkLocationLine(
-  occ: OccupationView,
-  residence: { city?: string | null; country?: string | null } | null | undefined,
-): string | null {
-  if (!occ.isCurrent || !residence) return null;
-  return residenceLine(residence.city, residence.country);
-}
-
-/** Date range with optional location segment (e.g. "Jun 2023 – Present · Bengaluru, India"). */
-export function formatOccupationMetaLine(occ: OccupationView, location?: string | null): string {
-  const period = formatOccupationPeriod(occ);
-  const loc = location?.trim();
-  return loc ? `${period} · ${loc}` : period;
 }

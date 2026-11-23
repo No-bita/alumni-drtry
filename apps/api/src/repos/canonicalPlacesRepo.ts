@@ -67,51 +67,6 @@ export class CanonicalPlacesRepo {
     );
   }
 
-  /**
-   * Ranked suggestions for autocomplete; `q` should be trimmed (may be empty → returns recent-ish alphabetically capped).
-   */
-  async suggestPlaces(qRaw: string, countryFilterRaw: string | undefined, limit: number): Promise<PlaceSuggestionRow[]> {
-    const q = normalizePlaceAlias(qRaw);
-    const countryFilter = countryFilterRaw?.trim() ? normalizePlaceAlias(countryFilterRaw) : "";
-    const lim = Math.min(Math.max(limit, 1), 40);
-
-    if (!q) {
-      const result = await this.pool.query<PlaceSuggestionRow>(
-        `
-        SELECT id, country, city_label
-        FROM canonical_places cp
-        WHERE ($1::text = '' OR strpos(lower(trim(cp.country)), $1) > 0)
-        ORDER BY lower(trim(cp.country)), lower(trim(cp.city_label))
-        LIMIT $2::int
-        `,
-        [countryFilter, lim]
-      );
-      return result.rows;
-    }
-
-    const result = await this.pool.query<PlaceSuggestionRow>(
-      `
-      SELECT DISTINCT cp.id, cp.country, cp.city_label
-      FROM canonical_places cp
-      LEFT JOIN place_aliases pa ON pa.canonical_place_id = cp.id
-      WHERE ($2::text = '' OR strpos(lower(trim(cp.country)), $2) > 0)
-        AND (
-          strpos(lower(trim(cp.city_label)), $1) > 0
-          OR strpos(COALESCE(pa.alias_normalized, ''), $1) > 0
-          OR similarity(lower(trim(cp.city_label)), $1) > 0.22
-          OR similarity(COALESCE(pa.alias_normalized, ''), $1) > 0.22
-        )
-      ORDER BY
-        CASE WHEN lower(trim(cp.city_label)) = $1 THEN 0 ELSE 1 END,
-        lower(trim(cp.country)),
-        lower(trim(cp.city_label))
-      LIMIT $3::int
-      `,
-      [q, countryFilter, lim]
-    );
-    return result.rows;
-  }
-
   /** Approved cities only (pending, rejected and combined ones are handled in City review). */
   async listPlaces(search: string | undefined, limit: number): Promise<CanonicalPlaceRow[]> {
     const lim = Math.min(Math.max(limit, 1), 200);

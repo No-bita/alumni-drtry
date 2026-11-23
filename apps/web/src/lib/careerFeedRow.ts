@@ -78,16 +78,6 @@ export function laneBadgeLabel(tone: CareerFeedVisualTone): string {
   }
 }
 
-/** Description line for card bodies: the summary unless it duplicates the title or company line. */
-export function careerFeedRowDescription(row: CareerFeedRowModel): string | null {
-  const collapseWs = (s: string) => s.trim().replace(/\s+/g, " ");
-  const summaryCollapsed = row.summary ? collapseWs(row.summary) : "";
-  if (summaryCollapsed.length === 0) return null;
-  if (summaryCollapsed === collapseWs(row.roleHeader)) return null;
-  if (row.companySubtitle && summaryCollapsed === collapseWs(row.companySubtitle)) return null;
-  return row.summary;
-}
-
 export function mapIntentcastToRow(
   item: IntentcastFeedItem,
   options?: MapIntentcastToRowOptions

@@ -39,5 +39,3 @@ export function EventsPage() {
     </div>
   );
 }
-
-// Full Events UI is archived in `./Events.legacy.tsx` (`EventsPageLegacy`) until launch.

@@ -144,11 +144,3 @@ export function tryAtPrefixedCityHubPick(
   if (!segment.length) return null;
   return pickForExplicitAtCityNavigate(inner, options);
 }
-
-/** Narrow helper for callers that resolve a naked city slug (alias of catalog fragment match). */
-export function matchToolbarInputToCityPick(
-  raw: string,
-  options?: { apiRows?: ResidenceCityAggregate[] },
-): TopCityPick | null {
-  return matchCityPickFromIntentFragment(normalizeQ(raw), options);
-}

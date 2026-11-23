@@ -37,7 +37,6 @@ These tests ship with the feature PRs because the code only exists on those bran
 | Personal footprint strip | homeFootprint.test.ts, homeFootprintStrip.test.tsx |
 | Onboarding checklist | onboardingChecklist.test.tsx, plus edge cases in the stacked tests PR |
 | Messaging refetch, no polling | threadRefresh.test.ts |
-| Profile save preflight | profileSavePreflight.test.ts, plus ordering tests in the stacked tests PR |
 | Empty feed defense | emptyFeedDefense.test.ts |
 | Placeholder routes | devHubPages.test.ts |
 | Campus updates | campusUpdatesPanel.test.tsx |

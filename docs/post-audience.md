@@ -10,7 +10,7 @@ When creating a post, the author can narrow who sees it. The default is Everyone
   - Department is the approved department code. "Other" can't be picked.
   - City is the linked, approved city, resolved through city merges.
 - Choices combine with AND. Batch, department and city match across all institutes unless an institute is also picked.
-- Every composer has the picker: the Wall dialog (`PostBulletinFlow`), Hiring (`PostRoleHiringFlow`) and the inline composer in `BulletinPanel`.
+- Every composer has the picker: the Wall dialog (`PostBulletinFlow`) and Hiring (`PostRoleHiringFlow`).
 
 ## Rules
 

@@ -6,7 +6,7 @@ import { test } from "node:test";
 test("deployment credential stripping stays nonterminal alongside reviewed CSP configuration", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   const { routes, ...unchanged } = config;
-  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "044ee2b4a73b23485740b9c2ec46f68a406671f5fb8154c150ee125699c9ab16");
+  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "1bc39143f61856183bcbdbdf9933d830014cbd2296251e3076d5a5b7352aea51");
   assert.deepEqual(routes, [{src: "/(.*)", continue: true, transforms: ["request.headers", "response.headers"].flatMap(type => ["x-vercel-trusted-oidc-idp-token", "x-vercel-oidc-token"].map(key => ({ type, op: "delete", target: { key } })))}]);
   assert.equal(Object.hasOwn(routes[0], "dest"), false);
 });
@@ -22,90 +22,38 @@ test("SDK dependency is pinned and lockfile agrees; browser components do not im
   assert.doesNotMatch(proxy, /console\.|process\.env\.VERCEL_OIDC_TOKEN/);
 });
 
-test("only the map document allows same-origin framing, with no overlapping frame policy", () => {
+test("every page refuses framing, from one rule", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   const frameRules = config.headers.filter((rule: { headers: { key: string }[] }) =>
     rule.headers.some(header => header.key.toLowerCase() === "x-frame-options"),
   );
-  assert.deepEqual(frameRules, [
-    { source: "/((?!app/media/World_Map_Vns\\.html$).*)", headers: [{ key: "X-Frame-Options", value: "DENY" }] },
-    { source: "/app/media/World_Map_Vns.html", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
-  ]);
-  const mapPath = "/app/media/World_Map_Vns.html";
-  const denyPattern = new RegExp(`^${frameRules[0].source}$`);
-  for (const pathname of ["/", "/app", "/app/login", "/v1/healthz", "/app/media/other.html", `${mapPath}/extra`, "/app/media/World_Map_VnsXhtml", "/app/media/world_map_vns.html"]) {
-    assert.equal(denyPattern.test(pathname), true, pathname);
-    assert.notEqual(pathname, frameRules[1].source);
-  }
-  assert.equal(denyPattern.test(mapPath), false);
-  assert.equal(frameRules[1].source, mapPath);
-  const sharedHeaders = config.headers.find((rule: { source: string }) => rule.source === "/(.*)").headers;
-  assert.equal(sharedHeaders.some((header: { key: string }) => header.key.toLowerCase() === "x-frame-options"), false);
-  assert.equal(sharedHeaders.some((header: { key: string }) => header.key === "Content-Security-Policy-Report-Only"), false);
+  assert.equal(frameRules.length, 1);
+  assert.equal(frameRules[0].source, "/(.*)");
+  assert.equal(frameRules[0].headers.find((header: { key: string }) => header.key === "X-Frame-Options").value, "DENY");
 });
 
-test("the release map framing exception preserves the production API target", () => {
+test("the production API target is unchanged", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   assert.equal(config.rewrites.find((rule: { source: string }) => rule.source === "/v1/(.*)").destination, "https://alma-mater-api.onrender.com/v1/$1");
 });
 
-test("map CSP is isolated, hash-bound and permits only the existing map dependencies", () => {
+test("each path gets exactly one CSP, which never allows being framed", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   const policies = config.headers.filter((rule: { headers: { key: string }[] }) =>
     rule.headers.some(header => header.key === "Content-Security-Policy-Report-Only"),
   );
-  const policyFor = (path: string) => policies.filter((rule: { source: string }) =>
-    rule.source === "/app/media/World_Map_Vns.html" ? path === rule.source : new RegExp(`^${rule.source}$`).test(path),
-  ).map((rule: { headers: { key: string; value: string }[] }) =>
-    rule.headers.find(header => header.key === "Content-Security-Policy-Report-Only")!.value,
+  const policyFor = (path: string) => policies.filter((rule: { source: string }) => new RegExp(`^${rule.source}$`).test(path)).map(
+    (rule: { headers: { key: string; value: string }[] }) => rule.headers.find(header => header.key === "Content-Security-Policy-Report-Only")!.value,
   );
-  const mapPath = "/app/media/World_Map_Vns.html";
-  for (const path of ["/", "/app", "/app/", "/app/login", "/app/login/", "/app/profile", mapPath, "/app/assets/main.js", "/v1/me", `${mapPath}/extra`, "/application", "/app/media/World_Map_VnsXhtml"]) {
+  for (const path of ["/", "/app", "/app/", "/app/login", "/app/login/", "/app/profile", "/app/assets/main.js", "/v1/me", "/application", "/app/media/other.html"]) {
     assert.equal(policyFor(path).length, 1, `${path}: one nonoverlapping policy`);
+    assert.ok(policyFor(path)[0].includes("frame-ancestors 'none';"), path);
   }
   for (const path of ["/app", "/app/", "/app/login", "/app/profile"]) {
     assert.ok(policyFor(path)[0].includes("frame-src 'self';"));
-    assert.ok(policyFor(path)[0].includes("frame-ancestors 'none';"));
   }
   for (const path of ["/", "/v1/me", "/application", "/app/media/other.html"]) {
     assert.ok(policyFor(path)[0].includes("frame-src 'none';"));
-    assert.ok(policyFor(path)[0].includes("frame-ancestors 'none';"));
   }
-  const mapPolicy = policyFor(mapPath)[0];
-  assert.ok(mapPolicy.includes("frame-ancestors 'self';"));
-  assert.ok(mapPolicy.includes("frame-src 'none';"));
-  const scriptRule = mapPolicy.split(";").find((part: string) => part.trim().startsWith("script-src "))!;
-  assert.doesNotMatch(scriptRule, /unsafe-inline|unsafe-eval|\*/);
-  const map = readFileSync("../web/public/media/World_Map_Vns.html", "utf8");
-  const scripts = [...map.matchAll(/<script>([\s\S]*?)<\/script>/g)];
-  assert.equal(scripts.length, 2);
-  for (const [, script] of scripts) {
-    assert.ok(scriptRule.includes(`'sha256-${createHash("sha256").update(script).digest("base64")}'`));
-  }
-  for (const url of ["https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js", "https://cdn.jsdelivr.net/npm/topojson-client@3/+esm", "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"]) {
-    assert.ok(map.includes(url));
-    assert.ok(mapPolicy.includes(url));
-  }
-  assert.doesNotMatch(mapPolicy, /https?:\/\/\*|script-src[^;]*unsafe-inline/);
   assert.equal(config.headers.some((rule: { headers: { key: string }[] }) => rule.headers.some(header => header.key === "Content-Security-Policy")), false, "remains report-only, not silently enforced");
-});
-
-test("static map stays ready and redraws when testimonial layout resets the canvas", () => {
-  const map = readFileSync("../web/public/media/World_Map_Vns.html", "utf8");
-  const staticBranch = map.match(/if \(STATIC\) \{([\s\S]*?)\n  \}/)![1];
-  const relayout = map.match(/window\.__landingMapRelayout = \(\) => \{([\s\S]*?)\n  \};/)![1];
-  const state = { __landingMapReadySent: false };
-  let pixels = 0;
-  let layouts = 0;
-  const drawCompletedState = () => { pixels = 1; };
-  const relayoutCanvas = () => { pixels = 0; };
-  const broadcastPinLayout = () => { layouts += 1; };
-  const project = () => undefined;
-  new Function("window", "drawCompletedState", "notifyMapReady", staticBranch)(state, drawCompletedState, () => undefined);
-  assert.equal(state.__landingMapReadySent, true);
-  assert.equal(pixels, 1);
-  const update = new Function("window", "relayoutCanvas", "drawCompletedState", "broadcastPinLayout", "project", relayout);
-  for (let i = 0; i < 3; i++) update(state, relayoutCanvas, drawCompletedState, broadcastPinLayout, project);
-  assert.equal(pixels, 1, "map restored after each canvas reset");
-  assert.equal(layouts, 3, "testimonial pins relaid out after each redraw");
 });

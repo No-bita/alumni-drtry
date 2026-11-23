@@ -124,13 +124,7 @@ export type CityPostsPage = { posts: CityPost[]; nextCursor: string | null };
 
 /* Limits (mirrors the API; the server re-checks every one). */
 export const COFFEE_REASON_MIN = 40;
-export const COFFEE_REASON_MAX = 500;
-export const OFFER_LINE_MAX = 160;
 export const CITY_ASK_PENDING_MAX = 3;
-/** "New in [city]" and the arriver list show this many before "See all". */
-export const ARRIVALS_PREVIEW = 2;
-export const ALUMNI_PREVIEW = 4;
-
 /* Query keys */
 export const CITIES_KEY = ["cities"] as const;
 export const citiesKeys = {
@@ -149,17 +143,6 @@ export function fetchCity(placeId: string, signal: AbortSignal): Promise<CityPay
   return assertApiGet<CityPayload>(`/v1/cities/${encodeURIComponent(placeId)}`, signal);
 }
 
-export function fetchCityAlumni(
-  placeId: string,
-  filter: AlumniFilter,
-  cursor: string | null,
-  signal: AbortSignal,
-): Promise<AlumniPage> {
-  const params = new URLSearchParams({ filter });
-  if (cursor) params.set("cursor", cursor);
-  return assertApiGet<AlumniPage>(`/v1/cities/${encodeURIComponent(placeId)}/alumni?${params.toString()}`, signal);
-}
-
 export function fetchCityPosts(placeId: string, cursor: string | null, signal: AbortSignal): Promise<CityPostsPage> {
   const params = new URLSearchParams();
   if (cursor) params.set("cursor", cursor);
@@ -174,15 +157,6 @@ const done = <T,>(r: { data?: T; error?: ApiError }): Result<T> => ({ data: r.da
 export const optInArrival = async (placeId: string) =>
   done(await api.post<{ arrival: { id: string; visibleUntil: string } }>("/v1/cities/arrivals", { placeId }));
 export const endArrival = async () => done(await api.post("/v1/cities/arrivals/end"));
-export const sendOffer = async (arrivalId: string, kinds: HelpKind[], line: string) =>
-  done(
-    await api.post<{ offer: { id: string } }>(`/v1/cities/arrivals/${encodeURIComponent(arrivalId)}/offers`, {
-      kinds,
-      ...(line.trim() ? { line: line.trim() } : {}),
-    }),
-  );
-export const withdrawOffer = async (offerId: string) =>
-  done(await api.delete(`/v1/cities/offers/${encodeURIComponent(offerId)}`));
 export const markOffersSeen = async () => done(await api.post("/v1/cities/offers/seen"));
 
 export type CityNoteCategory = "coffee" | "relocation" | "visiting" | "newcomer";
@@ -218,12 +192,6 @@ export function firstName(fullName: string | null | undefined): string {
   return fullName?.trim().split(/\s+/)[0] || "them";
 }
 
-export function initials(fullName: string | null | undefined): string {
-  const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase();
-}
-
 export const yy = (y: number | null | undefined) => (y ? `’${String(y).slice(-2)}` : "");
 
 /** "’22 · Computer Science" */
@@ -239,15 +207,6 @@ export function roleLine(p: CityPerson): string {
   return role || org || "";
 }
 
-/** "Arrived 6 days ago" / "Arrived today" / "Arrived 2 weeks ago". */
-export function arrivedLabel(days: number): string {
-  if (days <= 0) return "Arrived today";
-  if (days === 1) return "Arrived yesterday";
-  if (days < 14) return `Arrived ${days} days ago`;
-  const weeks = Math.floor(days / 7);
-  return `Arrived ${weeks} weeks ago`;
-}
-
 export function joinKinds(kinds: readonly HelpKind[]): string {
   const labels = kinds.map((k) => HELP_KIND_LABELS[k].toLowerCase());
   if (labels.length <= 1) return labels[0] ?? "";
@@ -256,85 +215,17 @@ export function joinKinds(kinds: readonly HelpKind[]): string {
 
 /** What a row in "Alumni in [city]" offers the viewer. Never a message button unless they're open to coffee. */
 export type CoffeeButton = "ask" | "full" | "sent" | "view";
-export function coffeeButton(c: CoffeeState): CoffeeButton {
-  if (!c.open) return "view";
-  if (c.askedByMe) return "sent";
-  if ((c.spotsLeft ?? 0) <= 0) return "full";
-  return "ask";
-}
-
-export function spotsLeftLabel(n: number): string {
-  return `${n} ${n === 1 ? "spot" : "spots"} left this week`;
-}
-
-/** Tag line under a row: shared thing, then coffee capacity when it applies. */
-export function alumTagLine(a: CityAlum): string {
-  const parts = [a.sharedTag ?? ""];
-  const b = coffeeButton(a.coffee);
-  if (b === "ask") parts.push(`Coffee: ${spotsLeftLabel(a.coffee.spotsLeft ?? 0)}`);
-  else if (a.coffee.open) parts.push("Open to coffee");
-  return parts.filter(Boolean).join(" · ");
-}
-
 export const WHEN_SUITS = ["Weekday evening", "Weekend", "A call is fine"] as const;
 export type WhenSuits = (typeof WHEN_SUITS)[number];
-
-/** The coffee ask as sent: the reason, then the optional "When suits me" line. */
-export function coffeeAskMessage(reason: string, when: WhenSuits | null): string {
-  const r = reason.trim();
-  return when ? `${r}\n\nWhen suits me: ${when}` : r;
-}
-
 export const CITY_NEEDS = ["Areas to live", "Commute", "Flatmates", "Schools", "Other"] as const;
 export type CityNeed = (typeof CITY_NEEDS)[number];
 export type CityAskMode = "moving" | "visiting";
-
-/** Arriver note: when + one specific need, filled in for the sender to edit. */
-export function cityAskStarter(input: {
-  mode: CityAskMode;
-  city: string;
-  when: string;
-  need: CityNeed;
-  otherNeed: string;
-}): string {
-  const need = input.need === "Other" ? input.otherNeed.trim() : input.need.toLowerCase();
-  const head =
-    input.mode === "moving"
-      ? `I’m moving to ${input.city}${input.when ? ` in ${input.when}` : ""}.`
-      : `I’m visiting ${input.city}${input.when ? ` ${input.when}` : ""}.`;
-  return `${head} Could you help with ${need || "one thing"}? `;
-}
-
-export function cityAskMessage(input: {
-  mode: CityAskMode;
-  when: string;
-  need: CityNeed;
-  otherNeed: string;
-  note: string;
-}): string {
-  const need = input.need === "Other" ? `Other: ${input.otherNeed.trim()}` : input.need;
-  const lines = [input.note.trim(), "", `${input.mode === "moving" ? "Moving" : "Visiting"}: ${input.when}`, `Need: ${need}`];
-  return lines.join("\n");
-}
 
 /** Newcomer → local who offered. */
 export function newcomerNotePrefill(kinds: readonly HelpKind[], previousCity: string | null): string {
   const from = previousCity?.trim() ? ` from ${previousCity.trim()}` : "";
   return `Thanks for offering to help with ${joinKinds(kinds)}. I’ve just moved${from} for `;
 }
-
-/** Month options for "When are you moving?": this month and the next five. */
-export function nextMonths(now = new Date(), count = 6): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    out.push(d.toLocaleDateString("en-GB", { month: "long", year: "numeric" }));
-  }
-  return out;
-}
-
-/** Profile edit, open-to editor, with a line explaining the 5-tag cap (Profile reads `limit=city_help`). */
-export const openToCapPath = (profileId: string) => `/profiles/${profileId}?edit=open-to&limit=city_help`;
 
 export function cityPath(city: Pick<CityRef, "slug" | "city">): string {
   return `/intent/location/${city.slug || normalizeCityIntentSlug(city.city)}`;

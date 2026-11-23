@@ -82,7 +82,3 @@ export async function closeSentry(): Promise<void> {
     await Sentry.close(2000);
   }
 }
-
-export function isSentryEnabled(): boolean {
-  return initialized;
-}

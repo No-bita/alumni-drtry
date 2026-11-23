@@ -1,6 +1,5 @@
 import { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
-// import { DeferredVercelAnalytics } from "./components/DeferredVercelAnalytics";
 // Messaging paused (product decision): the entire messaging feature is commented out app-wide for now.
 // Restore this import together with the <GlobalMessagingWidget /> mount at the bottom.
 // import { GlobalMessagingWidget } from "./components/GlobalMessagingWidget";
@@ -442,7 +441,6 @@ export default function App() {
   return (
     <BrowserRouter basename={APP_BASE_PATH || undefined}>
       <StagingMarker />
-      {/* <DeferredVercelAnalytics /> */}
       <AuthProvider>
         <AuthSessionExpiredRegistrar />
         <AppRoutes />

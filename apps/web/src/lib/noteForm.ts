@@ -2,7 +2,6 @@
  * Note form (approved): a note is a referral ask or an advice ask, with required fields.
  * Same rules as the API (apps/api/src/lib/noteDetails.ts); the API checks them again.
  */
-import type { MatchCategory } from "./matchApi";
 import { isWebUrl as isWebLink } from "./webUrl";
 
 export type NotePurpose = "referral" | "advice";
@@ -42,12 +41,6 @@ export type AdviceFields = { topic: AdviceTopic | null; question: string };
 export type NoteDetails =
   | { purpose: "referral"; jobUrl: string; role: string; company: string; fit: string; resumeUrl: string | null }
   | { purpose: "advice"; topic: AdviceTopic; question: string };
-
-/** The topic an Ask category points to ("referral" and unknown have none). */
-export function topicForCategory(category: MatchCategory | null | undefined): AdviceTopic | null {
-  if (!category || category === "referral") return null;
-  return (ADVICE_TOPICS as readonly string[]).includes(category) ? (category as AdviceTopic) : null;
-}
 
 export function isWebUrl(value: string): boolean {
   return isWebLink(value, NOTE_URL_MAX);
@@ -98,9 +91,4 @@ export function noteLabel(d: NoteDetails): string {
 /** Counter under a long field: "42 / 80 characters minimum", then "120 / 500". */
 export function lengthCounter(length: number, min: number, max: number): string {
   return length < min ? `${length} / ${min} characters minimum` : `${length} / ${max}`;
-}
-
-/** Short "Batch '24" (empty without a year). */
-export function batchLabel(year: number | null | undefined): string {
-  return year ? `Batch '${String(year).slice(-2)}` : "";
 }

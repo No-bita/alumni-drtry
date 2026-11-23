@@ -40,10 +40,6 @@ export function occupationToDraft(occ: OccupationView): OccupationDraft {
   };
 }
 
-export function occupationsToDrafts(occupations: OccupationView[]): OccupationDraft[] {
-  return occupations.map(occupationToDraft);
-}
-
 export function createEmptyOccupationDraft(): OccupationDraft {
   return {
     id: `new-${crypto.randomUUID()}`,
@@ -55,19 +51,6 @@ export function createEmptyOccupationDraft(): OccupationDraft {
     endMonth: "",
     isCurrent: false,
   };
-}
-
-export function sortOccupationDrafts(drafts: OccupationDraft[]): OccupationDraft[] {
-  const sortKey = (d: OccupationDraft): number => {
-    const raw = d.isCurrent ? d.startMonth : d.endMonth || d.startMonth;
-    if (!raw) return 0;
-    const t = Date.parse(`${raw}-01`);
-    return Number.isFinite(t) ? t : 0;
-  };
-  return [...drafts].sort((a, b) => {
-    if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
-    return sortKey(b) - sortKey(a);
-  });
 }
 
 export function isoDateToMonthInput(iso: string | null | undefined): string {
@@ -87,14 +70,6 @@ export function monthInputToIsoDate(month: string): string | null {
   if (!trimmed) return null;
   if (/^\d{4}-\d{2}$/.test(trimmed)) return `${trimmed}-01`;
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  return null;
-}
-
-export function validateOccupationDraft(draft: OccupationDraft): string | null {
-  if (!draft.roleTitle.trim()) return "Role title is required for each experience entry.";
-  if (!draft.isCurrent && draft.endMonth && draft.startMonth && draft.endMonth < draft.startMonth) {
-    return "End date must be after start date.";
-  }
   return null;
 }
 
@@ -138,8 +113,4 @@ export async function resolveOrganizationId(organizationName: string): Promise<s
   }
   organizationIdCache.set(key, id);
   return id;
-}
-
-export function clearOrganizationIdCache(): void {
-  organizationIdCache.clear();
 }

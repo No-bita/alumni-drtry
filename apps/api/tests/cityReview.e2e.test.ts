@@ -127,10 +127,6 @@ describe("city review (integration, local test database only)", () => {
     const list = (await req("GET", "/v1/cities", who.sub!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
     expect(list.viewerCity).toMatchObject({ placeId: link.place_id, status: "approved" });
     expect(list.cities.some((c) => c.placeId === link.place_id)).toBe(true);
-    const search = (await req("GET", `/v1/cities/search?q=leedsy${R}`, who.sub!)).json() as { places: unknown[] };
-    expect(search.places).toHaveLength(1);
-    const agg = (await req("GET", "/v1/directory/residence-cities?limit=120", who.sub!)).json() as { cities: Array<{ city: string }> };
-    expect(agg.cities.some((c) => c.city.toLowerCase() === `leedsy${R}`.toLowerCase())).toBe(true);
   });
 
   it("pending page: linked members and admins only; profiles show the typed text", async () => {
@@ -224,10 +220,6 @@ describe("city review (integration, local test database only)", () => {
     const list = (await req("GET", "/v1/cities", who.junker!)).json() as { viewerCity: any; cities: Array<{ placeId: string }> };
     expect(list.viewerCity).toMatchObject({ placeId, status: "rejected" });
     expect(list.cities.some((c) => c.placeId === placeId)).toBe(false);
-    const search = (await req("GET", `/v1/cities/search?q=junk${R}`, who.junker!)).json() as { places: unknown[] };
-    expect(search.places).toHaveLength(0);
-    const agg = (await req("GET", `/v1/directory/residence-cities?limit=120`, who.junker!)).json() as { cities: Array<{ city: string }> };
-    expect(agg.cities.some((c) => c.city.toLowerCase() === `junk${R}`.toLowerCase())).toBe(false);
 
     // The member sees the reason on the city page; outsiders get 404.
     const mine = await req("GET", `/v1/cities/${placeId}`, who.junker!);

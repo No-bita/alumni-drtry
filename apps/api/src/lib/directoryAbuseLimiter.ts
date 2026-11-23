@@ -100,10 +100,6 @@ export class DiscoveryReadLimiter {
     this.limits = { ...discoveryLimitsFromEnv(), ...limits };
   }
 
-  get dailyCap(): number {
-    return this.limits.perDay;
-  }
-
   async assert(actor: Actor, clientIp: string | null | undefined): Promise<void> {
     if (actor.role === "admin" || actor.role === "super_admin") return;
 

@@ -112,10 +112,7 @@ function toHistoryView(h: HistoryRow): HistoryView {
 export class PlaceReviewService {
   private readonly reader: PlaceReviewRepo;
 
-  constructor(
-    private readonly pool: Pool,
-    private readonly invalidateCaches: () => void = () => undefined
-  ) {
+  constructor(private readonly pool: Pool) {
     this.reader = new PlaceReviewRepo(pool);
   }
 
@@ -283,7 +280,6 @@ export class PlaceReviewService {
         });
         return { next, linkedMembers };
       });
-      this.invalidateCaches();
       return { id: out.next.id, city: out.next.city, country: out.next.country, status: out.next.status, linkedMembers: out.linkedMembers };
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -310,7 +306,6 @@ export class PlaceReviewService {
       await repo.setStatus(placeId, { status: "rejected", reviewerId: actorId, reason });
       await repo.insertHistory({ placeId, action: "rejected", actorPersonId: actorId, reason, detail: { previousStatus: place.status } });
     });
-    this.invalidateCaches();
   }
 
   async reopen(actorId: string, placeId: string) {
@@ -322,7 +317,6 @@ export class PlaceReviewService {
       await repo.setStatus(placeId, { status: "pending", reviewerId: actorId });
       await repo.insertHistory({ placeId, action: "reopened", actorPersonId: actorId, detail: { previousReason: place.rejection_reason } });
     });
-    this.invalidateCaches();
   }
 
   /** "Same city as…" from the queue: a pending or rejected city becomes a redirect to an approved one. */
@@ -395,7 +389,6 @@ export class PlaceReviewService {
       }
       return { keep: { id: keep.id, city: keep.city }, combined: { id: other.id, city: other.city }, moved, linkedMembers };
     });
-    this.invalidateCaches();
     return out;
   }
 
@@ -442,7 +435,6 @@ export class PlaceReviewService {
     extraSpellings: string[] = []
   ): Promise<{ place: ReviewPlaceRow; linkedMembers: number }> {
     const out = await this.tx((repo) => this.createApprovedIn(repo, actorId, countryRaw, cityRaw, extraSpellings));
-    this.invalidateCaches();
     return out;
   }
 
@@ -474,7 +466,6 @@ export class PlaceReviewService {
       }
       return { place, linked: linkedMembers + extra };
     });
-    this.invalidateCaches();
     return out;
   }
 
@@ -494,7 +485,6 @@ export class PlaceReviewService {
       });
       return { place, linked };
     });
-    this.invalidateCaches();
     return out;
   }
 
@@ -520,7 +510,6 @@ export class PlaceReviewService {
         }
         return { ...place, city: label, linkedMembers };
       });
-      this.invalidateCaches();
       return out;
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -542,7 +531,6 @@ export class PlaceReviewService {
       await repo.insertHistory({ placeId, action: "alias_added", actorPersonId: actorId, detail: { aliases: [alias], linkedMembers } });
       return { added: true, linkedMembers };
     });
-    if (out.added) this.invalidateCaches();
     return out;
   }
 

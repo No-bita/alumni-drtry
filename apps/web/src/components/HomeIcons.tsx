@@ -32,16 +32,6 @@ export function IconBriefcase(props: IconProps) {
   );
 }
 
-export function IconHelp(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9a2.5 2.5 0 115 0c0 2-2.5 2-2.5 4" />
-      <circle cx="12" cy="17.4" r="0.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function IconUsers(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
@@ -89,16 +79,6 @@ export function IconFile(props: IconProps) {
   );
 }
 
-export function IconRefer(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
-      <path d="M8.5 13.5l-2.3 2.3a2.8 2.8 0 103.9 3.9l2.7-2.7M15.5 10.5l2.3-2.3a2.8 2.8 0 10-3.9-3.9L11.2 7" />
-      <path d="M8 12h8" />
-      <path d="M9.8 8.2L14.2 15.8" />
-    </svg>
-  );
-}
-
 export function IconHome(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
@@ -111,39 +91,6 @@ export function IconHammer(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden {...props}>
       <path d="M14.5 4.5l5 5-4 4M10 11l-8 8 3 3 8-8M15 8l2 2" />
-    </svg>
-  );
-}
-
-/** Graduation cap — paired with cohort year (class of) across the product. */
-export function IconGradCap(props: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M12 15l-8-4 8-4 8 4-8 4z" />
-      <path d="M4 11v4c0 1.2 2.9 3 8 3s8-1.8 8-3v-4" />
-      <path d="M19 15v4s-2.2 2-7 2-7-2-7-2v-4" />
-    </svg>
-  );
-}
-
-/** Chat bubble — careers activity Message CTA */
-export function IconChatBubble(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden {...props}>
-      <path
-        d="M19 4H5a2 2 0 00-2 2v9a2 2 0 002 2h3v3l3.8-3H19a2 2 0 002-2V6a2 2 0 00-2-2z"
-        strokeLinejoin="round"
-      />
-      <path d="M8 10h8M8 13.5h5" strokeLinecap="round" />
     </svg>
   );
 }

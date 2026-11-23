@@ -46,10 +46,6 @@ function manualChunks(id: string): string | undefined {
     return undefined;
   }
 
-  if (id.includes("node_modules/@vercel/analytics")) {
-    return "vendor-analytics";
-  }
-
   // Any other transitive dependency
   return "vendor-misc";
 }
