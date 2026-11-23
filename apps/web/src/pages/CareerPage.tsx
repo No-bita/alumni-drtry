@@ -1,13 +1,13 @@
 import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
 import { ReferralDiscoveryDialog } from "../components/ReferralDiscoveryDialog";
 import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
 import { PostRoleHiringFlow, type PostRoleHiringFlowHandle } from "../components/PostRoleHiringFlow";
-import type { IntentcastFeedResponse } from "../api/client";
+import type { ContactRequestsInboxResponse, IntentcastFeedResponse } from "../api/client";
 import { HubSideCard } from "../components/HubSideCard";
 import { LineIcon as Icon } from "../components/LineIcon";
 import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
@@ -23,8 +23,10 @@ import {
   careersCompanyPath,
   careersKeys,
   fetchReferralCompanies,
+  fetchMyCompanyDemand,
 } from "../lib/careers";
 import { buildMatchSearch, MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
+import { SENT_NOTES_QUERY_KEY, fetchSentNotes } from "../lib/sentNotes";
 import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
 
@@ -64,6 +66,16 @@ export function CareerPage() {
       assertApiGet<IntentcastFeedResponse>("/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true&category=hiring", signal),
     enabled: signedIn,
   });
+
+  // Observe the same cached queries as the activity cards, without extra requests.
+  const activity = useQueries({ queries: [
+    { queryKey: SENT_NOTES_QUERY_KEY, queryFn: ({ signal }: { signal: AbortSignal }) => fetchSentNotes(signal), enabled: signedIn },
+    { queryKey: ["contact-requests", "inbox"], queryFn: ({ signal }: { signal: AbortSignal }) => assertApiGet<ContactRequestsInboxResponse>("/v1/contact-requests/inbox", signal), enabled: signedIn },
+    { queryKey: careersKeys.myCompanyDemand(), queryFn: ({ signal }: { signal: AbortSignal }) => fetchMyCompanyDemand(signal), enabled: signedIn },
+  ] });
+  const activityFailed = activity.some((q) => q.isError);
+  const activityRetrying = activity.some((q) => q.isError && q.isFetching);
+  const retryActivity = () => { activity.filter((q) => q.isError).forEach((q) => { void q.refetch(); }); };
 
   const roles = useMemo(
     () =>
@@ -157,6 +169,12 @@ export function CareerPage() {
           ))}
         </nav>
 
+        {activityFailed ? (
+          <section className="hub-card careers-hub__activity-error" aria-label="Activity unavailable" role="status">
+            <p className="careers__note">Couldn't load your activity. <button type="button" className="careers-hub__activity-retry" disabled={activityRetrying} onClick={retryActivity}>{activityRetrying ? "Retrying…" : "Retry"}</button></p>
+          </section>
+        ) : null}
+
         <div className="careers-hub__grid">
           <section className="hub-card careers-hub__opps" aria-labelledby="careers-opps-title">
             <div className="hub-card__head">
@@ -235,9 +253,10 @@ export function CareerPage() {
           </section>
 
           <aside className="careers-hub__side" aria-label="Your activity and quick links">
-            <YourReachoutsCard />
-
-            <ReachoutsWaitingCard />
+            {!activityFailed ? <>
+              <YourReachoutsCard />
+              <ReachoutsWaitingCard />
+            </> : null}
 
             <HubSideCard id="careers-links-title" title="Quick links" icon="links">
               <ul className="hub-card__list">
