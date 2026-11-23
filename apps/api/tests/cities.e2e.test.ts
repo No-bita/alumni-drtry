@@ -110,7 +110,6 @@ describe("Cities v1 API (integration, local test database only)", () => {
     const list = (await req("GET", "/v1/cities", who.local!)).json() as { viewerCity: { placeId: string; slug: string }; cities: Array<{ placeId: string; count: number }> };
     expect(list.viewerCity).toMatchObject({ placeId: blr, slug: "bengaluru" });
     expect(list.cities.find((c) => c.placeId === blr)!.count).toBeGreaterThanOrEqual(8);
-    expect((await req("GET", "/v1/cities/search?q=banga", who.local!)).json().places[0].placeId).toBe(blr);
   });
 
   it("moving Pune → Bengaluru offers the opt-in; nobody appears as new without opting in (checks 3, 7)", async () => {

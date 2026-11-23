@@ -1,7 +1,3 @@
-import {
-  BULLETIN_AUTHOR_DELETE_UNDO_MINUTES,
-  BULLETIN_INTENTCAST_OPEN_DAYS
-} from "../constants/bulletin.js";
 import type { DbExecutor } from "../db/types.js";
 import { personIsDemoSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
@@ -723,38 +719,6 @@ export class IntentcastRepo {
       RETURNING *
       `,
       [intentcastId, authorPersonId, purgeAt]
-    );
-    return result.rows[0] ?? null;
-  }
-
-  /**
-   * Clears author soft-delete within `BULLETIN_AUTHOR_DELETE_UNDO_MINUTES` of removal.
-   * Restores `expires_at` to the normal open-post horizon (`created_at` + open days), or soon after now if that horizon has passed.
-   */
-  async restoreAuthorSoftDeletedIntentcast(
-    intentcastId: string,
-    authorPersonId: string
-  ): Promise<IntentcastRow | null> {
-    const undoMins = BULLETIN_AUTHOR_DELETE_UNDO_MINUTES;
-    const openDays = BULLETIN_INTENTCAST_OPEN_DAYS;
-    const result = await this.db.query<IntentcastRow>(
-      `
-      UPDATE intentcasts
-      SET
-        author_soft_deleted_at = NULL,
-        author_delete_purge_at = NULL,
-        expires_at = GREATEST(
-          created_at + make_interval(days => $3),
-          now() + interval '1 second'
-        ),
-        updated_at = now()
-      WHERE id = $1
-        AND author_person_id = $2
-        AND author_soft_deleted_at IS NOT NULL
-        AND author_soft_deleted_at > now() - make_interval(mins => $4)
-      RETURNING *
-      `,
-      [intentcastId, authorPersonId, openDays, undoMins]
     );
     return result.rows[0] ?? null;
   }

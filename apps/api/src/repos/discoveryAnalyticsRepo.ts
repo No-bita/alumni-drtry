@@ -36,33 +36,4 @@ export class DiscoveryAnalyticsRepo {
     if (!id) throw new Error("discovery_search_sessions insert failed");
     return id;
   }
-
-  async insertProfileClick(input: {
-    searchSessionId: string;
-    viewerPersonId: string;
-    profileId: string;
-    resultPosition: number;
-  }): Promise<void> {
-    const owner = await this.db.query<{ viewer_person_id: string }>(
-      `SELECT viewer_person_id FROM discovery_search_sessions WHERE id = $1`,
-      [input.searchSessionId]
-    );
-    const row = owner.rows[0];
-    if (!row || row.viewer_person_id !== input.viewerPersonId) {
-      return;
-    }
-
-    await this.db.query(
-      `
-      INSERT INTO discovery_profile_click_events (
-        search_session_id,
-        viewer_person_id,
-        profile_id,
-        result_position
-      )
-      VALUES ($1, $2, $3, $4)
-      `,
-      [input.searchSessionId, input.viewerPersonId, input.profileId, input.resultPosition]
-    );
-  }
 }

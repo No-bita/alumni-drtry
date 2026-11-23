@@ -86,9 +86,6 @@ Only canonical places with at least one listed alum (plus the viewer's own city)
 `/intent/location/:citySlug` resolves the slug against this list; `/intent/location` opens the viewer's city
 (or the no-city screen when `viewerCity` is null).
 
-### `GET /v1/cities/search?q=beng`
-Canonical places for the "Where do you live?" input (city label or a known spelling). `{ places: CityRef[] }`, max 8.
-
 ### `GET /v1/cities/:placeId`
 Everything for one city. 404 `CITY_NOT_FOUND`.
 ```ts

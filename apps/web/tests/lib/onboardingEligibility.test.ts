@@ -3,7 +3,6 @@ import {
   canAccessOnboardingFlow,
   shouldUseOnboardingFlow,
 } from "../../src/lib/onboardingEligibility";
-import { cohortLabelFromProfile, firstNameForGreeting } from "../../src/lib/onboardingDisplay";
 
 const prof = (o: Record<string, unknown>) => ({ onboardingCompletedAt: null, appLoginCount: 1, role: "alumni", ...o }) as never;
 
@@ -43,16 +42,3 @@ describe("canAccessOnboardingFlow", () => {
   });
 });
 
-describe("onboarding display", () => {
-  it("builds cohort labels with department and batch", () => {
-    expect(cohortLabelFromProfile({ departmentCode: "bme", batchYear: 2019 } as never)).toBe("Biomedical Engineering 2019");
-    expect(cohortLabelFromProfile({ departmentCode: null, batchYear: 2019 } as never)).toBe("2019");
-    expect(cohortLabelFromProfile({ departmentCode: "BME", batchYear: null } as never)).toBe("Biomedical Engineering");
-    expect(cohortLabelFromProfile({ departmentCode: "zzz", batchYear: null } as never)).toBe("your batch");
-  });
-  it("greets by first name, falling back to the email", () => {
-    expect(firstNameForGreeting("asha RAO", "x@y.in")).toBe("Asha");
-    expect(firstNameForGreeting("", "meera.k@y.in")).toBe("Meera");
-    expect(firstNameForGreeting(null, "")).toBe("There");
-  });
-});

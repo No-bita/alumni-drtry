@@ -308,12 +308,6 @@ export function normalizeCountry(raw: string | null | undefined): string {
   return BY_KEY.get(key(tidy)) ?? tidy;
 }
 
-/** True when the country is one of COUNTRY_NAMES (after normalising). */
-export function isKnownCountry(raw: string | null | undefined): boolean {
-  const name = normalizeCountry(raw);
-  return Boolean(name) && COUNTRY_NAMES.includes(name);
-}
-
 /**
  * Every lowercase spelling that means the same country as `raw`, for matching stored rows
  * (older rows may say "USA" where new ones say "United States").

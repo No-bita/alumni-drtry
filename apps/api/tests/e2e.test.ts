@@ -146,39 +146,6 @@ describe("e2e: full flow", () => {
     expect(typeof searchBody.pageInfo?.hasMore).toBe("boolean");
   });
 
-  it("authenticated: GET /v1/directory/residence-cities returns cities array", async () => {
-    const email = `e2e-res-cities-${Date.now()}@iitbhu.ac.in`;
-    const startRes = await app.inject({
-      method: "POST",
-      url: "/v1/auth/start",
-      payload: { institutionalEmail: email },
-    });
-    expect(startRes.statusCode, startRes.body).toBe(200);
-    const { challengeId, magicLinkToken } = parseMagicLinkQuery(testEmailCapture.authEmails.at(-1)!.magicLinkUrl);
-    const verifyRes = await app.inject({
-      method: "GET",
-      url: `/v1/auth/verify?challengeId=${encodeURIComponent(challengeId)}&magicLinkToken=${encodeURIComponent(magicLinkToken)}`,
-    });
-    expect(verifyRes.statusCode, verifyRes.body).toBe(200);
-    const cookie = getSessionCookieFromResponse(verifyRes, cookieName);
-    const headers = { cookie: `${cookieName}=${cookie}` };
-
-    const res = await app.inject({
-      method: "GET",
-      url: "/v1/directory/residence-cities?limit=20",
-      headers,
-    });
-    expect(res.statusCode).toBe(200);
-    const body = res.json() as { cities?: { city?: string; country?: string; count?: number }[] };
-    expect(Array.isArray(body.cities)).toBe(true);
-    for (const row of body.cities ?? []) {
-      expect(typeof row.city).toBe("string");
-      expect(typeof row.country).toBe("string");
-      expect(typeof row.count).toBe("number");
-      expect(row.count).toBeGreaterThan(0);
-    }
-  });
-
   it("authenticated: GET /v1/profiles/:id (own profile, after profile update makes searchable)", async () => {
     const email = `e2e-profile-id-${Date.now()}@iitbhu.ac.in`;
     const startRes = await app.inject({

@@ -507,10 +507,6 @@ export class ContactRequestRepo {
     ]);
   }
 
-  async deleteById(contactRequestId: string): Promise<void> {
-    await this.db.query(`DELETE FROM contact_requests WHERE id = $1`, [contactRequestId]);
-  }
-
   async findByIdWithPeople(contactRequestId: string): Promise<ContactRequestWithPeopleView | null> {
     const result = await this.db.query<ContactRequestWithPeopleRow>(
       `

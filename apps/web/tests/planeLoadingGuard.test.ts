@@ -10,9 +10,8 @@ import path from "node:path";
  *
  * Deliberately out of scope (not full-screen screens):
  * - Search results spinner (inline, page chrome stays visible)
- * - BulletinPanel archived-replies inline status text
  * - AdminPlaceDetail admin-only inline title state
- * - Landing.tsx / ConnectionThread.tsx (unrouted: no route mounts them)
+ * - ConnectionThread.tsx (unrouted: no route mounts it)
  */
 
 function sourceWithoutComments(rel: string): string {

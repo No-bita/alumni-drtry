@@ -29,7 +29,6 @@ function main() {
 
   const requiredPrefixes = [
     "Home-",
-    "BulletinPanel-",
     "vendor-react-",
     "vendor-router-",
     "vendor-tanstack-",

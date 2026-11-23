@@ -25,10 +25,6 @@ const postsQuery = z.object({
     .optional()
 });
 
-const searchQuery = z.object({
-  q: z.string().transform(stripControl).pipe(z.string().trim().min(1).max(80))
-});
-
 const optInBody = z.object({ placeId: z.string().uuid() });
 
 const offerBody = z.object({
@@ -47,13 +43,6 @@ export const citiesRoutes: FastifyPluginAsync = async (app) => {
   /** City switcher and the viewer's own city. */
   app.get("/v1/cities", { preHandler: app.authenticate }, async (request, reply) => {
     return reply.code(200).send(await app.citiesService.listCities(viewerOf(request)));
-  });
-
-  /** "Where do you live?": canonical places by name or a known spelling. */
-  app.get("/v1/cities/search", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = searchQuery.safeParse(request.query);
-    if (!parsed.success) return reply.code(200).send({ places: [] });
-    return reply.code(200).send(await app.citiesService.searchPlaces(parsed.data.q));
   });
 
   /** Everything for one city page, shaped by who is looking (local, newcomer, arriver, no city). */

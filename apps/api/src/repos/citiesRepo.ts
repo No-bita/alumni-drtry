@@ -1,8 +1,6 @@
 import type { DbExecutor } from "../db/types.js";
-import { personIsDiscoverableAlumniSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
+import { personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { audienceVisibleSql } from "../lib/postAudience.js";
-import { normalizePlaceAlias } from "../lib/canonicalPlacesNormalize.js";
-import { countryMatchKeys } from "../lib/countries.js";
 
 /** Monday 00:00 Asia/Kolkata of the current week, as a timestamptz. */
 export const COFFEE_WEEK_START_SQL = `(date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')`;
@@ -159,32 +157,6 @@ export class CitiesRepo {
     return r.rows[0] ?? null;
   }
 
-  /**
-   * An approved city by its label or a known spelling, inside one country (any of the country's
-   * spellings). Used for the default Cities v1 city (Bengaluru, India).
-   */
-  async findPlaceByName(city: string, country: string): Promise<PlaceRow | null> {
-    const norm = normalizePlaceAlias(city);
-    const keys = countryMatchKeys(country);
-    if (!norm || keys.length === 0) return null;
-    const r = await this.db.query<PlaceRow>(
-      `
-      SELECT cp.id, cp.city_label AS city, cp.country
-      FROM canonical_places cp
-      WHERE cp.status = 'approved'
-        AND lower(btrim(cp.country)) = ANY($2::text[])
-        AND (
-          lower(regexp_replace(btrim(cp.city_label), '\\s+', ' ', 'g')) = $1
-          OR EXISTS (SELECT 1 FROM place_aliases pa WHERE pa.canonical_place_id = cp.id AND pa.alias_normalized = $1)
-        )
-      ORDER BY (lower(regexp_replace(btrim(cp.city_label), '\\s+', ' ', 'g')) = $1) DESC, cp.created_at ASC
-      LIMIT 1
-      `,
-      [norm, keys]
-    );
-    return r.rows[0] ?? null;
-  }
-
   /** Spelling names for a place: its label plus aliases, lowercased. */
   async placeNames(placeId: string): Promise<string[]> {
     const r = await this.db.query<{ n: string }>(
@@ -209,26 +181,6 @@ export class CitiesRepo {
       LIMIT $1
       `,
       [limit, includePlaceId]
-    );
-    return r.rows;
-  }
-
-  async searchPlaces(q: string, limit: number): Promise<PlaceRow[]> {
-    const norm = normalizePlaceAlias(q);
-    if (!norm) return [];
-    const r = await this.db.query<PlaceRow>(
-      `
-      SELECT cp.id, cp.city_label AS city, cp.country
-      FROM canonical_places cp
-      WHERE cp.status = 'approved'
-        AND (strpos(lower(cp.city_label), $1) = 1
-         OR EXISTS (SELECT 1 FROM place_aliases pa WHERE pa.canonical_place_id = cp.id AND strpos(pa.alias_normalized, $1) = 1))
-      ORDER BY (lower(cp.city_label) = $1) DESC,
-               (SELECT COUNT(*) FROM people p WHERE p.residence_canonical_place_id = cp.id AND p.deleted_at IS NULL) DESC,
-               cp.city_label ASC
-      LIMIT $2
-      `,
-      [norm, limit]
     );
     return r.rows;
   }
@@ -317,14 +269,6 @@ export class CitiesRepo {
       companyMainId: row?.org_main_id ?? null,
       companyName: row?.org_name ?? null
     };
-  }
-
-  async personCard(personId: string): Promise<PersonCardRow | null> {
-    const r = await this.db.query<PersonCardRow>(
-      `SELECT ${personCardColumnsSql("p")} FROM people p ${personCardJoinsSql("p")} WHERE p.id = $1`,
-      [personId]
-    );
-    return r.rows[0] ?? null;
   }
 
   async openToPreferences(personIds: readonly string[]): Promise<Map<string, unknown>> {
@@ -441,26 +385,6 @@ export class CitiesRepo {
       )
     ]);
     return { total: total.rows[0]?.c ?? 0, rows: rows.rows };
-  }
-
-  /** Active arrivals in a place since a moment (nudge email). */
-  async arrivalsSince(placeId: string, since: Date | null, limit: number): Promise<Array<PersonCardRow & { previous_city: string | null }>> {
-    const r = await this.db.query<PersonCardRow & { previous_city: string | null }>(
-      `
-      SELECT ${personCardColumnsSql("p")}, prev.city_label AS previous_city
-      FROM city_arrivals a
-      JOIN people p ON p.id = a.person_id
-      ${personCardJoinsSql("p")}
-      LEFT JOIN canonical_places prev ON prev.id = a.previous_place_id
-      WHERE a.place_id = $1::uuid AND a.ended_at IS NULL AND now() < a.visible_until
-        AND ($2::timestamptz IS NULL OR a.opted_in_at > $2)
-        AND ${listablePersonSql("p", false)}
-      ORDER BY a.opted_in_at DESC
-      LIMIT $3
-      `,
-      [placeId, since, limit]
-    );
-    return r.rows;
   }
 
   /* ------------------------------------------------------------------ */

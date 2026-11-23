@@ -1,5 +1,5 @@
 import { env } from "../config/env.js";
-import { personIsDiscoverableAlumniSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
+import { personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 import type { PoolExecutor } from "../db/types.js";
 import type { ProfileLinkView } from "./linkRepo.js";
@@ -93,13 +93,6 @@ export interface SearchProfilesResult {
   rows: SearchProfileRow[];
   hasMore: boolean;
   lastCursor: SearchRankCursor | null;
-}
-
-/** One row per distinct (city, country) pair (trimmed, case-insensitive keys) in the directory. */
-export interface ResidenceCityAggregateRow {
-  city: string;
-  country: string;
-  count: number;
 }
 
 interface PublicProfileBaseRow {
@@ -273,67 +266,6 @@ function mapLinksJson(value: unknown): ProfileLinkView[] {
 
 export class DiscoveryRepo {
   constructor(private readonly db: PoolExecutor) {}
-
-  /**
-   * (City, country) pairs from profiles, same visibility as directory search
-   * (not deleted/suspended, has display name, onboarding-complete profile). Requires non-empty city and country.
-   * Ordered by alumni count descending.
-   */
-  async listResidenceCityAggregates(limit: number): Promise<ResidenceCityAggregateRow[]> {
-    const lim = Math.min(Math.max(limit, 1), 120);
-    const result = await this.db.query<{ city: string; country: string; count: string | number }>(
-      `
-      SELECT city, country, cnt AS count FROM (
-        SELECT
-          cp.city_label AS city,
-          cp.country AS country,
-          count(*)::int AS cnt
-        FROM people p
-        INNER JOIN canonical_places cp ON cp.id = p.residence_canonical_place_id AND cp.status = 'approved'
-        WHERE p.deleted_at IS NULL
-          AND p.suspended_at IS NULL
-          AND p.full_name IS NOT NULL
-          AND p.profile_completed_at IS NOT NULL
-          AND ${personIsDiscoverableAlumniSql("p")}
-        GROUP BY cp.id
-
-        UNION ALL
-
-        SELECT
-          min(btrim(p.residence_city)) AS city,
-          min(btrim(p.residence_country)) AS country,
-          count(*)::int AS cnt
-        FROM people p
-        WHERE p.deleted_at IS NULL
-          AND p.suspended_at IS NULL
-          AND p.full_name IS NOT NULL
-          AND p.profile_completed_at IS NOT NULL
-          AND ${personIsDiscoverableAlumniSql("p")}
-          AND p.residence_canonical_place_id IS NULL
-          AND p.residence_city IS NOT NULL
-          AND btrim(p.residence_city) <> ''
-          AND p.residence_country IS NOT NULL
-          AND btrim(p.residence_country) <> ''
-          -- City review: typed text that is a pending or rejected city stays out of browse.
-          AND NOT EXISTS (
-            SELECT 1 FROM canonical_places nr
-            WHERE nr.status IN ('pending', 'rejected')
-              AND lower(btrim(nr.city_label)) = lower(btrim(p.residence_city))
-              AND lower(btrim(nr.country)) = lower(btrim(p.residence_country))
-          )
-        GROUP BY lower(btrim(p.residence_city)), lower(btrim(p.residence_country))
-      ) combined
-      ORDER BY cnt DESC, city ASC, country ASC
-      LIMIT $1
-      `,
-      [lim]
-    );
-    return result.rows.map((r) => ({
-      city: r.city,
-      country: r.country,
-      count: typeof r.count === "number" ? r.count : parseInt(String(r.count), 10)
-    }));
-  }
 
   async searchProfiles(input: SearchProfilesInput): Promise<SearchProfilesResult> {
     const params: unknown[] = [];

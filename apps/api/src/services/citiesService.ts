@@ -19,7 +19,6 @@ import { MatchRepo } from "../repos/matchRepo.js";
 import { buildCandidateQuery, MATCH_CANDIDATE_LIMIT } from "./matchService.js";
 import type { ReplyStatsView } from "./contactRequestService.js";
 import type { ArrivalPrompt, ResidenceSync } from "./profileService.js";
-import { clearResidenceCitiesCache } from "./discoveryService.js";
 import { PlaceReviewService } from "./placeReviewService.js";
 
 /* ---------------------------------------------------------------------- */
@@ -181,7 +180,7 @@ export class CitiesService implements ResidenceSync {
   ) {
     this.repo = new CitiesRepo(pool);
     this.matchRepo = new MatchRepo(pool);
-    this.placeReview = new PlaceReviewService(pool, clearResidenceCitiesCache);
+    this.placeReview = new PlaceReviewService(pool);
     this.chapterLinks = parseChapterLinks(env.CITY_CHAPTER_LINKS);
   }
 
@@ -216,7 +215,6 @@ export class CitiesService implements ResidenceSync {
       // Any change away from the city ends being "new in town" there.
       await this.repo.endArrival(personId, "moved");
     }
-    clearResidenceCitiesCache();
     if (moved && next && (await this.isV1(next.id))) {
       return { placeId: next.id, cityName: next.city };
     }
@@ -243,10 +241,6 @@ export class CitiesService implements ResidenceSync {
       viewerResidence: typedCity || typedCountry ? { city: typedCity, country: typedCountry } : null,
       cities: rows.map((r) => ({ ...cityRef(r), count: r.count }))
     };
-  }
-
-  async searchPlaces(q: string) {
-    return { places: (await this.repo.searchPlaces(q, 8)).map(cityRef) };
   }
 
   /**

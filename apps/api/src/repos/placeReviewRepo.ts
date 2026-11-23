@@ -118,20 +118,6 @@ export class PlaceReviewRepo {
     return current && current.status !== "combined" ? current : null;
   }
 
-  /** New pending city. Two people submitting at once: the unique index lets one in; null means it already exists. */
-  async insertPending(city: string, country: string, personId: string): Promise<ReviewPlaceRow | null> {
-    const r = await this.db.query<ReviewPlaceRow>(
-      `
-      INSERT INTO canonical_places AS cp (country, city_label, status, submitted_by_person_id, submitted_at)
-      VALUES ($1, $2, 'pending', $3::uuid, now())
-      ON CONFLICT ((lower(trim(country))), (lower(trim(city_label)))) DO NOTHING
-      RETURNING ${PLACE_COLUMNS}
-      `,
-      [country, city, personId]
-    );
-    return r.rows[0] ?? null;
-  }
-
   /** New approved city created by an admin. */
   async insertApproved(city: string, country: string, actorPersonId: string | null): Promise<ReviewPlaceRow | null> {
     const r = await this.db.query<ReviewPlaceRow>(
@@ -293,20 +279,6 @@ export class PlaceReviewRepo {
       [placeId, cityNames, countryKeys]
     );
     return r.rowCount ?? 0;
-  }
-
-  /** What `linkMatching` would link, without changing anything (counts only). */
-  async countMatching(names: string[], countryKeys: string[]): Promise<number> {
-    const cityNames = [...new Set(names.map((n) => normalizePlaceAlias(n)).filter(Boolean))];
-    if (cityNames.length === 0 || countryKeys.length === 0) return 0;
-    const r = await this.db.query<{ c: number }>(
-      `SELECT COUNT(*)::int AS c FROM people p
-       WHERE p.residence_canonical_place_id IS NULL AND p.deleted_at IS NULL
-         AND ${LABEL_NORM_SQL("COALESCE(p.residence_city, '')")} = ANY($1::text[])
-         AND ${LABEL_NORM_SQL("COALESCE(p.residence_country, '')")} = ANY($2::text[])`,
-      [cityNames, countryKeys]
-    );
-    return r.rows[0]?.c ?? 0;
   }
 
   async linkedMembers(placeId: string): Promise<number> {

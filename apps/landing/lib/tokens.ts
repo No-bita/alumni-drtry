@@ -13,8 +13,6 @@ export type ColorToken = keyof typeof colors;
 
 /** Ruled paper: one line every 36px. */
 export const RULE_SPACING_PX = 36;
-export const RULE_COLOR = "rgba(31, 63, 168, 0.09)";
-
 /** Caveat is handwriting only, never below this size. */
 export const HAND_MIN_PX = 24;
 

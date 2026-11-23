@@ -11,12 +11,9 @@ export class AdminPlacesService {
   private readonly repo: CanonicalPlacesRepo;
   readonly review: PlaceReviewService;
 
-  constructor(
-    pool: Pool,
-    private readonly invalidateResidenceCaches: () => void
-  ) {
+  constructor(pool: Pool) {
     this.repo = new CanonicalPlacesRepo(pool);
-    this.review = new PlaceReviewService(pool, invalidateResidenceCaches);
+    this.review = new PlaceReviewService(pool);
   }
 
   /** Create an approved city (plus optional spellings); members who typed it are linked in the same step. */
@@ -61,7 +58,6 @@ export class AdminPlacesService {
     }
     // (Argument order fixed: this used to move people from `to` into `from`.)
     const updated = await this.repo.remapPeopleResidenceCanonical(fromCanonicalId, toCanonicalId);
-    this.invalidateResidenceCaches();
     return { updated };
   }
 

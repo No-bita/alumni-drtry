@@ -26,16 +26,6 @@ const profileParamsSchema = z.object({
   id: z.string().uuid()
 });
 
-const residenceCitiesQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(120).default(72)
-});
-
-const profileClickBodySchema = z.object({
-  searchSessionId: z.string().uuid(),
-  profileId: z.string().uuid(),
-  resultPosition: z.coerce.number().int().min(0).max(10_000)
-});
-
 export const discoveryRoutes: FastifyPluginAsync = async (app) => {
   app.get("/v1/search", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = searchQuerySchema.safeParse(request.query);
@@ -62,45 +52,6 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
         request.log.warn({ err: error }, "Failed to log beta usage event.");
       });
     return reply.code(200).send(result);
-  });
-
-  app.post("/v1/discovery/analytics/profile-click", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = profileClickBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new AppError(400, "DISCOVERY_ANALYTICS_BAD_REQUEST", "Invalid analytics payload.");
-    }
-    await app.discoveryService.recordDirectoryProfileClick({
-      viewerPersonId: request.actor.personId,
-      searchSessionId: parsed.data.searchSessionId,
-      profileId: parsed.data.profileId,
-      resultPosition: parsed.data.resultPosition
-    });
-    void app.adminMetricsService
-      .logBetaUsageEvent({
-        eventType: "profile_clicked",
-        personId: request.actor.personId,
-        route: request.routeOptions.url ?? request.url,
-        metadata: { profileId: parsed.data.profileId, resultPosition: parsed.data.resultPosition }
-      })
-      .catch((error) => {
-        request.log.warn({ err: error }, "Failed to log beta usage event.");
-      });
-    return reply.code(204).send();
-  });
-
-  app.get("/v1/directory/residence-cities", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = residenceCitiesQuerySchema.safeParse(request.query);
-    if (!parsed.success) {
-      throw new AppError(400, "RESIDENCE_CITIES_BAD_REQUEST", "Invalid query parameters.");
-    }
-
-    await app.discoveryLimiter.assert(request.actor, request.ip);
-
-    const cities = await app.discoveryService.listResidenceCityAggregates(parsed.data.limit);
-    return reply
-      .header("Cache-Control", "private, max-age=86400, stale-while-revalidate=43200")
-      .code(200)
-      .send({ cities });
   });
 
   app.get("/v1/profiles/:id", { preHandler: app.authenticate }, async (request, reply) => {

@@ -7,7 +7,6 @@ import {
   DiscoveryRepo,
   mapSearchRow,
   type PublicProfileBaseView,
-  type ResidenceCityAggregateRow,
   type SearchProfileView,
   type SearchProfilesResult,
   type SearchRankCursor,
@@ -55,7 +54,6 @@ export interface SearchOutput {
   normalization?: SearchNormalizationMeta | null;
 }
 
-export type ResidenceCityAggregate = ResidenceCityAggregateRow;
 
 export interface PublicProfileOutput {
   profile: PublicProfileBaseView;
@@ -73,18 +71,6 @@ export interface ProfileReachOutLookup {
 
 const CURSOR_V2 = 2;
 const CURSOR_V3 = 3;
-
-/** Server-side cap when filling the residence-cities aggregate cache. */
-const RESIDENCE_CITIES_FETCH_CAP = 120;
-/** Cache aggregated rows to avoid heavy GROUP BY on every request (prod/staging). */
-const RESIDENCE_CITIES_CACHE_MS = 24 * 60 * 60 * 1000;
-
-let residenceCitiesCache: { expiresAt: number; rows: ResidenceCityAggregate[] } | null = null;
-
-/** Invalidate cached residence-city aggregates (e.g. after admin canonical-place edits). */
-export function clearResidenceCitiesCache(): void {
-  residenceCitiesCache = null;
-}
 
 const uuidLikePattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -166,7 +152,7 @@ export class DiscoveryService {
     this.reachOut = lookup;
   }
 
-  constructor(private readonly pool: Pool) {
+  constructor(pool: Pool) {
     this.discoveryRepo = new DiscoveryRepo(pool);
     this.discoveryAnalyticsRepo = new DiscoveryAnalyticsRepo(pool);
   }
@@ -324,34 +310,6 @@ export class DiscoveryService {
       searchSessionId,
       normalization: normMeta
     };
-  }
-
-  async recordDirectoryProfileClick(input: {
-    viewerPersonId: string;
-    searchSessionId: string;
-    profileId: string;
-    resultPosition: number;
-  }): Promise<void> {
-    void input;
-    // Discovery profile-click analytics disabled — re-enable when needed:
-    // if (!env.DISCOVERY_ANALYTICS_ENABLED) return;
-    // await this.discoveryAnalyticsRepo.insertProfileClick({
-    //   searchSessionId: input.searchSessionId,
-    //   viewerPersonId: input.viewerPersonId,
-    //   profileId: input.profileId,
-    //   resultPosition: input.resultPosition
-    // });
-  }
-
-  async listResidenceCityAggregates(limit: number): Promise<ResidenceCityAggregate[]> {
-    const lim = Math.min(Math.max(limit, 1), 120);
-    const ttlMs = env.NODE_ENV === "test" ? 0 : RESIDENCE_CITIES_CACHE_MS;
-    const now = Date.now();
-    if (!residenceCitiesCache || now >= residenceCitiesCache.expiresAt) {
-      const rows = await this.discoveryRepo.listResidenceCityAggregates(RESIDENCE_CITIES_FETCH_CAP);
-      residenceCitiesCache = { expiresAt: now + ttlMs, rows };
-    }
-    return residenceCitiesCache.rows.slice(0, lim);
   }
 
   async getPublicProfile(

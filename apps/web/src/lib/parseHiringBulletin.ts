@@ -142,17 +142,6 @@ export function extractCareerAttributeHints(text: string): {
   };
 }
 
-/** "Priya Mehta" → "Priya M." */
-export function postedByShortLabel(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "Alum";
-  if (parts.length === 1) return parts[0]!;
-  const first = parts[0]!;
-  const last = parts[parts.length - 1]!;
-  const initial = last[0]?.toUpperCase() ?? "";
-  return initial ? `${first} ${initial}.` : first;
-}
-
 /** First `https?://…` in the details tail (for JD link). */
 const DETAIL_URL_RE = /https?:\/\/[^\s<>"')]+/i;
 

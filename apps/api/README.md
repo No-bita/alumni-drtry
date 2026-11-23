@@ -42,14 +42,12 @@ This service now covers Phase 1, Phase 2, and core Phase 3 features of the alumn
 - `PATCH /v1/me/links/:id`
 - `DELETE /v1/me/links/:id`
 - `GET /v1/search`
-- `POST /v1/discovery/analytics/profile-click`
 - `GET /v1/profiles/:id`
 - `POST /v1/intentcasts`
 - `GET /v1/intentcasts`
 - `GET /v1/intentcasts/:id` (single card when visible to viewer)
 - `PATCH /v1/intentcasts/:id/close`
 - `POST /v1/intentcasts/:id/respond`
-- `GET /v1/intentcasts/:id/responses`
 - `GET /v1/notifications/summary`
 - `GET /v1/notifications`
 - `POST /v1/contact-requests`
@@ -73,7 +71,7 @@ This service now covers Phase 1, Phase 2, and core Phase 3 features of the alumn
 - Session cookie is HTTP-only and same-site (`Lax`).
 - Start-auth requests are rate-limited by email and IP.
 - `POST /v1/contact-requests` is capped per sender over a rolling DB window (`CONTACT_REQUEST_*` env).
-- Directory reads (`GET /v1/search`, `GET /v1/profiles/:id`, `GET /v1/directory/residence-cities`) share an in-memory per-user (and optional per-IP) cap (`DISCOVERY_READ_*` env); use Redis or similar if you run many API replicas.
+- Directory reads (`GET /v1/search`, `GET /v1/profiles/:id`) share an in-memory per-user (and optional per-IP) cap (`DISCOVERY_READ_*` env); use Redis or similar if you run many API replicas.
 - If email delivery fails, the auth challenge is deleted and `503 AUTH_DELIVERY_FAILED` is returned.
 
 ## Profile Update (Phase 2)
@@ -112,9 +110,7 @@ See **`docs/directory-search.md`**.
 **Env (optional):**
 
 - `DISCOVERY_NORMALIZE_QUERY` — parse `q` for year / dept / known org aliases (default `false`).
-- `DISCOVERY_ANALYTICS_ENABLED` — write search sessions + accept profile-click events (default `true`; requires migration **`015_discovery_analytics.sql`**).
-
-**`POST /v1/discovery/analytics/profile-click`** — JSON body includes `searchSessionId`, `profileId`, `position` (and optional fields); ties clicks to the viewer’s session row.
+- `DISCOVERY_ANALYTICS_ENABLED` — write search sessions (default `true`; requires migration **`015_discovery_analytics.sql`**).
 
 **Behavior notes (today):**
 
@@ -136,7 +132,6 @@ See **`docs/directory-search.md`**.
 - Single bulletin card (deep link / notifications): `GET /v1/intentcasts/:id` — author always sees own post; others use the same visibility rules as the feed.
 - Intentcast responses are private to intentcast author:
   - create: `POST /v1/intentcasts/:id/respond`
-  - view (author only): `GET /v1/intentcasts/:id/responses`
 
 Contact requests:
 

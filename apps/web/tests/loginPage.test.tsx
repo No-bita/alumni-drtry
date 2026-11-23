@@ -9,7 +9,6 @@ const authRefetch = vi.hoisted(() => vi.fn());
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost, get: apiGet } }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ refetch: authRefetch }) }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/LankaGate", () => ({ LankaGate: () => <div /> }));
 
 beforeEach(() => {
   authRefetch.mockResolvedValue(null);

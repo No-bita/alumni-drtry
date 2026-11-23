@@ -17,7 +17,6 @@ vi.mock("../src/contexts/AuthContext", () => ({
 
 import { PostAudienceField, PostAudienceLabel } from "../src/components/PostAudienceField";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../src/components/PostBulletinFlow";
-import { BulletinPostCard } from "../src/components/BulletinPostCard";
 import {
   EVERYONE_CHOICE,
   audienceSizeLine,
@@ -257,22 +256,6 @@ describe("composer integration", () => {
 });
 
 describe("labels", () => {
-  it("cards show who can see a limited post, and nothing for Everyone", () => {
-    const base = {
-      variant: "stack" as const,
-      personProfileHref: "/profiles/a",
-      authorFullName: "Sample Alum",
-      departmentCode: null,
-      tone: "neutral" as never,
-      categoryBadgeLabel: "Careers",
-      title: "Looking for a flatmate",
-      summary: null,
-    };
-    const { rerender } = render(<MemoryRouter><BulletinPostCard {...base} audienceLabel="IIT (BHU) Varanasi · Bengaluru" /></MemoryRouter>);
-    expect(screen.getByText("Visible to: IIT (BHU) Varanasi · Bengaluru")).toBeTruthy();
-    rerender(<MemoryRouter><BulletinPostCard {...base} audienceLabel={null} /></MemoryRouter>);
-    expect(screen.queryByText(/Visible to/)).toBeNull();
-  });
   it("the label component renders nothing without a label", () => {
     const { container } = render(<PostAudienceLabel label={null} />);
     expect(container.textContent).toBe("");

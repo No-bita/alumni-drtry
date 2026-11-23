@@ -1,6 +1,5 @@
 import type { Pool } from "pg";
 import {
-  BULLETIN_AUTHOR_DELETE_UNDO_MINUTES,
   BULLETIN_CONTENT_MAX_LENGTH,
   BULLETIN_DESCRIPTION_MAX_CHARS,
   BULLETIN_INTENTCAST_OPEN_DAYS,
@@ -403,46 +402,6 @@ export class IntentcastService {
     return view;
   }
 
-  async undoDeleteIntentcast(authorPersonId: string, intentcastId: string): Promise<IntentcastFeedView> {
-    await this.intentcastRepo.expireOpenIntentcasts();
-    await this.intentcastRepo.purgeAuthorSoftDeletedIntentcasts(500);
-    const existing = await this.intentcastRepo.findById(intentcastId);
-    if (!existing) {
-      throw new AppError(404, "INTENTCAST_NOT_FOUND", "Intentcast not found.");
-    }
-    if (existing.author_person_id !== authorPersonId) {
-      throw new AppError(403, "INTENTCAST_FORBIDDEN", "You can only restore your own intentcast.");
-    }
-    if (!existing.author_soft_deleted_at) {
-      throw new AppError(409, "INTENTCAST_NOT_REMOVED", "This post is not removed from the bulletin.");
-    }
-    const undoDeadline =
-      existing.author_soft_deleted_at.getTime() + BULLETIN_AUTHOR_DELETE_UNDO_MINUTES * 60 * 1000;
-    if (Date.now() > undoDeadline) {
-      throw new AppError(
-        409,
-        "INTENTCAST_UNDO_WINDOW_EXPIRED",
-        "The time window to undo removal has passed."
-      );
-    }
-    const updated = await this.intentcastRepo.restoreAuthorSoftDeletedIntentcast(
-      intentcastId,
-      authorPersonId
-    );
-    if (!updated) {
-      throw new AppError(
-        409,
-        "INTENTCAST_UNDO_WINDOW_EXPIRED",
-        "The time window to undo removal has passed."
-      );
-    }
-    const view = await this.intentcastRepo.findFeedItemById(intentcastId, authorPersonId);
-    if (!view) {
-      throw new AppError(500, "INTENTCAST_RESTORE_FAILED", "Failed to load intentcast after restore.");
-    }
-    return view;
-  }
-
   /** Close your own open post. With an outcome it closes as resolved (Business progress steps). */
   async closeIntentcast(authorPersonId: string, intentcastId: string, outcome?: IntentcastResolvedOutcome): Promise<void> {
     await this.intentcastRepo.expireOpenIntentcasts();
@@ -622,17 +581,6 @@ export class IntentcastService {
     }
     await this.sendResponseEmail(intentcast.author_person_id, created, intentcast.content);
     return created;
-  }
-
-  async listResponses(intentcastId: string, actorPersonId: string): Promise<IntentcastResponseView[]> {
-    const intentcast = await this.intentcastRepo.findById(intentcastId);
-    if (!intentcast) {
-      throw new AppError(404, "INTENTCAST_NOT_FOUND", "Intentcast not found.");
-    }
-    if (intentcast.author_person_id !== actorPersonId) {
-      throw new AppError(403, "INTENTCAST_FORBIDDEN", "Only the intentcast author can view responses.");
-    }
-    return this.intentcastRepo.listResponsesForIntentcast(intentcastId);
   }
 
   async listReceivedResponsesFeed(

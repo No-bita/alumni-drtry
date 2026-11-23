@@ -150,10 +150,6 @@ export class AuthChallengeRepo {
     );
   }
 
-  async deleteById(challengeId: string): Promise<void> {
-    await this.db.query(`DELETE FROM auth_challenges WHERE id = $1`, [challengeId]);
-  }
-
   async countRecentByEmail(institutionalEmail: string, windowMinutes: number): Promise<number> {
     const result = await this.db.query<{ count: string }>(
       `
