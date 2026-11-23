@@ -1016,3 +1016,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Keep profile sheet actions aligned with the shared form action row. */
+.pp-sheet__foot > .form-actions {
+  width: 100%;
+  margin-top: 0;
+}
+
+.pp-entries__form .input { min-height:44px; }

@@ -76,3 +76,10 @@
   flex-wrap: wrap;
   gap: 10px;
 }
+
+/* Official unchanged WhatsApp glyph from Meta Brand Resource Center, Nov 2026. */
+.wa-fab { position:fixed; right:max(16px, env(safe-area-inset-right)); z-index:80; width:56px; height:56px; border-radius:50%; background:#25d366; display:grid; place-items:center; box-shadow:0 4px 14px #0003; }
+.wa-fab[hidden] { display:none; }
+.wa-fab img { display:block; width:30px; height:30px; }
+.wa-fab:focus-visible { outline:3px solid var(--ink); outline-offset:4px; }
+body:has(.wa-fab) main::after { content:""; display:block; height:80px; grid-column:1 / -1; }

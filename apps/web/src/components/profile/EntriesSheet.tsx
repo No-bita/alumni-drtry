@@ -12,7 +12,7 @@ import {
 import { EDUCATION_OCCUPATION_TYPES, isEducationEntry } from "../../lib/profilePage";
 import { formatOccupationDatesDurationLine, sortOccupationsForDisplay } from "../../lib/profileDisplay";
 import { Button } from "../Button";
-import { FormField } from "../forms";
+import { FormActions, FormField, SectionCardList, SectionCardRow, SectionEntryCard } from "../forms";
 import { ProfileSheet } from "./ProfileSheet";
 
 type Kind = "career" | "education";
@@ -130,7 +130,7 @@ export function EntriesSheet({ kind, occupations, institute, onClose, onChanged 
   };
 
   return (
-    <ProfileSheet title={copy.title} onClose={onClose} error={error}>
+    <ProfileSheet title={copy.title} onClose={() => { if (!busy && (!editing || window.confirm("Discard your unsaved changes?"))) onClose(); }} saving={busy} hideFooter={!!editing} error={error}>
       {kind === "education" && institute ? (
         <div className="pp-entries__institute">
           {institute.line ? <p className="pp-entries__locked">{institute.line}</p> : null}
@@ -182,52 +182,33 @@ export function EntriesSheet({ kind, occupations, institute, onClose, onChanged 
             <input type="checkbox" checked={editing.isCurrent} onChange={(e) => patch({ isCurrent: e.target.checked })} />
             {copy.current}
           </label>
-          <div className="pp-entries__form-actions">
-            <Button type="button" variant="secondary" onClick={() => setEditing(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button type="button" variant="primary" onClick={() => void saveEntry()} disabled={busy}>
-              {busy ? "Saving…" : editing.isNew ? "Add" : "Save"}
-            </Button>
-          </div>
+          <FormActions
+            secondary={{ label: "Cancel", onClick: () => setEditing(null), disabled: busy }}
+            primary={{ label: editing.isNew ? "Add" : "Save", onClick: () => void saveEntry(), busy }}
+          />
         </div>
       ) : (
         <>
           {entries.length === 0 ? <p className="pp-entries__empty">{copy.empty}</p> : null}
-          <ul className="pp-entries__list">
+          <SectionCardList>
             {entries.map((o) => (
-              <li key={o.id} className="pp-entries__item">
-                <div className="pp-entries__item-copy">
-                  <strong>{o.roleTitle}</strong>
-                  {o.organizationName ? <span>{o.organizationName}</span> : null}
-                  {formatOccupationDatesDurationLine(o) ? <small>{formatOccupationDatesDurationLine(o)}</small> : null}
-                </div>
+              <SectionEntryCard key={o.id} title={o.roleTitle} description={o.organizationName} detail={formatOccupationDatesDurationLine(o)}>
                 {removing === o.id ? (
-                  <div className="pp-entries__confirm" role="group" aria-label={copy.removeAsk}>
+                  <div role="group" aria-label={copy.removeAsk}>
                     <span>{copy.removeAsk}</span>
-                    <button type="button" className="pp-inline-link pp-inline-link--danger" disabled={busy} onClick={() => void remove(o.id)}>
-                      Remove
-                    </button>
-                    <button type="button" className="pp-inline-link" disabled={busy} onClick={() => setRemoving(null)}>
-                      Keep
-                    </button>
+                    <Button variant="danger" disabled={busy} onClick={() => void remove(o.id)}>Remove</Button>
+                    <Button variant="secondary" disabled={busy} onClick={() => setRemoving(null)}>Keep</Button>
                   </div>
                 ) : (
-                  <div className="pp-entries__item-actions">
-                    <button type="button" className="pp-inline-link" onClick={() => setEditing(occupationToDraft(o))} aria-label={`Edit ${o.roleTitle}`}>
-                      Edit
-                    </button>
-                    <button type="button" className="pp-inline-link" onClick={() => setRemoving(o.id)} aria-label={`Remove ${o.roleTitle}`}>
-                      Remove
-                    </button>
-                  </div>
+                  <>
+                    <Button variant="secondary" disabled={busy} onClick={() => setEditing(occupationToDraft(o))} aria-label={`Edit ${o.roleTitle}`}>Edit</Button>
+                    <Button variant="danger" disabled={busy} onClick={() => setRemoving(o.id)} aria-label={`Remove ${o.roleTitle}`}>Remove</Button>
+                  </>
                 )}
-              </li>
+              </SectionEntryCard>
             ))}
-          </ul>
-          <button type="button" className="pp-add" onClick={startAdd}>
-            + {copy.add}
-          </button>
+            <SectionCardRow title={copy.add} description={kind === "career" ? "Add another role to your career history" : "Add education after your institute"} onClick={startAdd} />
+          </SectionCardList>
         </>
       )}
     </ProfileSheet>

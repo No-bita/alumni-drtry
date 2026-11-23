@@ -308,3 +308,11 @@
     gap: var(--space-xs, 6px);
   }
 }
+
+.section-entry-card { padding: 18px; border: 1px solid var(--border, #e7ddd1); border-radius: 14px; background: var(--surface, #fffaf3); display: grid; gap: 14px; min-width: 0; }
+.section-entry-card__actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.section-entry-card__actions [role="group"] { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.section-entry-card__actions [role="group"] > span { flex-basis:100%; }
+.btn--danger { color: #9b2c1a; background: transparent; border: 1px solid #9b2c1a; }
+
+.section-entry-card .section-card-row__title, .section-entry-card .section-card-row__description { overflow-wrap:anywhere; }

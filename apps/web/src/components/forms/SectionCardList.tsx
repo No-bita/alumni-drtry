@@ -49,3 +49,8 @@ export function SectionCardRow({ title, description, icon, status, onClick, clas
     </button>
   );
 }
+
+/** Read-only saved entry with separate, non-nested action controls. */
+export function SectionEntryCard({ title, description, detail, children }: { title: string; description?: string | null; detail?: string | null; children?: ReactNode }) {
+  return <section className="section-entry-card"><div className="section-card-row__text"><strong className="section-card-row__title">{title}</strong>{description ? <span className="section-card-row__description">{description}</span> : null}{detail ? <small className="section-card-row__description">{detail}</small> : null}</div>{children ? <div className="section-entry-card__actions">{children}</div> : null}</section>;
+}

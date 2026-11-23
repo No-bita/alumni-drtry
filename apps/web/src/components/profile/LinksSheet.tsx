@@ -1,16 +1,6 @@
 import { useState } from "react";
 import { api, type ProfileLinkView } from "../../api/client";
-import { preflightProfileEdits } from "../../lib/profileSavePreflight";
-import {
-  SOCIAL_LINK_PLACEHOLDERS,
-  SOCIAL_PLATFORM_ORDER,
-  linkToSocialPlatformKey,
-  normalizeSocialUrl,
-  otherProfileLinks,
-  socialLinksDraftFromProfile,
-  socialPlatformLabel,
-  type SocialPlatformKey,
-} from "../../lib/socialLinks";
+import { PROFILE_LINK_FIELDS, PROFILE_LINK_LABELS, PROFILE_LINK_HINTS, editableLinkKind, profileLinkDraft, uneditedProfileLinks, validateProfileLink, type ProfileLinkField, type LinkDraft } from "../../lib/profileLinkRules";
 import { displayLinkText } from "../../lib/profilePage";
 import { FormField } from "../forms";
 import { ProfileSheet } from "./ProfileSheet";
@@ -25,34 +15,37 @@ type Props = {
 };
 
 /**
- * LinkedIn, GitHub and X, plus removing any other link saved earlier. If a save fails, the sheet
+ * LinkedIn, GitHub and a portfolio website, with earlier links kept separately. If a save fails, the sheet
  * stays open with the error and everything the member typed; retrying compares against what's stored.
  */
 export function LinksSheet({ links, onClose, onSaved, onPartialSave }: Props) {
-  const [draft, setDraft] = useState<Record<SocialPlatformKey, string>>(() => socialLinksDraftFromProfile(links));
-  const [others, setOthers] = useState<ProfileLinkView[]>(() => otherProfileLinks(links));
+  const [draft, setDraft] = useState<LinkDraft>(() => profileLinkDraft(links));
+  const [others, setOthers] = useState<ProfileLinkView[]>(() => uneditedProfileLinks(links));
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileLinkField, string>>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
-    const problem = preflightProfileEdits([], draft);
-    if (problem) {
-      setError(problem);
-      return;
+    const nextErrors: Partial<Record<ProfileLinkField, string>> = {};
+    for (const key of PROFILE_LINK_FIELDS) {
+      const problem = validateProfileLink(key, draft[key]).error;
+      if (problem) nextErrors[key] = problem;
     }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     setSaving(true);
     setError(null);
-    const existing = new Map<SocialPlatformKey, ProfileLinkView>();
+    const existing = new Map<ProfileLinkField, ProfileLinkView>();
     for (const link of links) {
-      const key = linkToSocialPlatformKey(link);
+      const key = editableLinkKind(link);
       if (key && !existing.has(key)) existing.set(key, link);
     }
-    const removedOthers = otherProfileLinks(links).filter((l) => !others.some((o) => o.id === l.id));
+    const removedOthers = uneditedProfileLinks(links).filter((l) => !others.some((o) => o.id === l.id));
     try {
-      for (const key of SOCIAL_PLATFORM_ORDER) {
-        const normalized = normalizeSocialUrl(draft[key]);
+      for (const key of PROFILE_LINK_FIELDS) {
+        const normalized = validateProfileLink(key, draft[key]).url;
         const current = existing.get(key);
-        const platform = socialPlatformLabel(key);
+        const platform = PROFILE_LINK_LABELS[key];
         if (!normalized) {
           if (current) await must(api.delete(`/v1/me/links/${current.id}`));
           continue;
@@ -78,17 +71,18 @@ export function LinksSheet({ links, onClose, onSaved, onPartialSave }: Props) {
 
   return (
     <ProfileSheet title="Links" onClose={onClose} onSave={save} saving={saving} error={error}>
-      {SOCIAL_PLATFORM_ORDER.map((key) => (
-        <FormField key={key} label={key === "twitter" ? "X (Twitter)" : socialPlatformLabel(key)}>
+      {PROFILE_LINK_FIELDS.map((key) => (
+        <FormField key={key} label={PROFILE_LINK_LABELS[key]} error={fieldErrors[key]}>
           <input
             className="input"
             inputMode="url"
             autoComplete="url"
-            placeholder={SOCIAL_LINK_PLACEHOLDERS[key]}
+            placeholder={PROFILE_LINK_HINTS[key]}
             value={draft[key]}
             onChange={(e) => {
               setDraft((prev) => ({ ...prev, [key]: e.target.value }));
               setError(null);
+              setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
             }}
           />
         </FormField>

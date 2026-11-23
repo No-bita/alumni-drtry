@@ -13,7 +13,6 @@ import { EntriesSheet } from "../components/profile/EntriesSheet";
 import { LinksSheet } from "../components/profile/LinksSheet";
 import { ContactSheet } from "../components/profile/ContactSheet";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
-import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
 import { PageStateBlock } from "../components/PageStateBlock";
 import type { MeLinksResponse, ProfileResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
@@ -213,7 +212,7 @@ export function Profile() {
           onboardingIncomplete={onboardingIncomplete}
           privateContact={isOwnProfile ? (me ?? undefined) : undefined}
           ownerNotice={ownerNotice}
-          ownerExtras={isOwnProfile ? <WhatsAppNotesSettings /> : null}
+          ownerExtras={null}
           onEdit={setSection}
           onReachOut={() => setReachingOut(true)}
           onSignOut={() => {

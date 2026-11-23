@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Nav } from "../src/components/Nav";
 
 const authState = vi.hoisted(() => ({ value: null as unknown }));
+vi.mock("../src/components/WhatsAppFloatingButton", () => ({ WhatsAppFloatingButton: () => null }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/lib/notificationsQueries", () => ({
   useNotificationsList: () => ({ data: { items: [] } }),

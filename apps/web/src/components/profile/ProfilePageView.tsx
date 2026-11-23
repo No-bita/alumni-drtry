@@ -15,6 +15,7 @@ import {
   type ProfileSection,
 } from "../../lib/profilePage";
 import { formatOccupationCompanyTypeLine, formatOccupationDatesDurationLine, residenceLine } from "../../lib/profileDisplay";
+import { isXProfileLink } from "../../lib/profileLinkRules";
 import { linkToSocialPlatformKey } from "../../lib/socialLinks";
 import { safeWebHref } from "../../lib/webUrl";
 import { OpenToIcon } from "./OpenToIcon";
@@ -110,7 +111,7 @@ export function ProfilePageView(props: Props) {
   const city = residenceLine(profile.residenceCity, profile.residenceCountry);
   const { career, education } = splitCareerAndEducation(occupations);
   const institute = instituteEducation(profile, owner);
-  const visibleLinks = links.filter((l) => safeWebHref(l.url));
+  const visibleLinks = links.filter((l) => !isXProfileLink(l) && safeWebHref(l.url));
   const openItems = openTo?.selected ?? [];
   const steps = owner ? setupSteps({ occupations, areas, openTo }) : [];
   const showSetup = owner && steps.some((s) => !s.done);
@@ -179,7 +180,7 @@ export function ProfilePageView(props: Props) {
           <ul className="pp-links">
             {visibleLinks.map((l) => {
               const key = linkToSocialPlatformKey(l);
-              const icon: IconName = key === "github" ? "github" : key === "linkedin" ? "linkedin" : key === "twitter" ? "x" : "globe";
+              const icon: IconName = key === "github" ? "github" : key === "linkedin" ? "linkedin" : "globe";
               return (
                 <li key={l.id}>
                   <a href={safeWebHref(l.url)!} target="_blank" rel="noopener noreferrer" className="pp-link">
@@ -193,7 +194,7 @@ export function ProfilePageView(props: Props) {
             })}
           </ul>
         ) : (
-          <p className="pp-empty">Add LinkedIn, GitHub or X.</p>
+          <p className="pp-empty">Add LinkedIn, GitHub or your portfolio website.</p>
         )}
       </section>
     ) : null;
