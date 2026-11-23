@@ -67,7 +67,6 @@ const baseProfile: PublicProfileView = {
   degreeName: "BTech",
   batchYear: 2019,
   parsedJoiningYear: 2015,
-  bio: "An old bio nobody can edit.",
   residenceCity: "Bengaluru",
   residenceCountry: "India",
   openToPreferences: { selected: ["referrals", "coffee"], limits: { coffee: 2 } },
@@ -164,13 +163,12 @@ describe("section helpers", () => {
 });
 
 describe("what a visitor sees", () => {
-  it("header: name, institute and class, role at company, city — and no bio", async () => {
+  it("header: name, institute and class, role at company, city", async () => {
     mountPage("/profiles/p2");
     expect(await screen.findByRole("heading", { level: 1, name: "Riya Sharma" })).toBeTruthy();
     expect(screen.getByText("IIT Bombay · Class of 2019")).toBeTruthy();
     expect(screen.getByText("Senior Business Associate at Meesho")).toBeTruthy();
     expect(screen.getByText("Bengaluru, India")).toBeTruthy();
-    expect(screen.queryByText(/old bio/)).toBeNull();
   });
 
   it("sections in order of what helps someone decide, with nothing to edit", async () => {

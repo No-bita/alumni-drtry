@@ -173,7 +173,7 @@ describe("migration 070", () => {
 });
 
 describe("Ask candidate text", () => {
-  it("includes the member's areas next to their bio and jobs", async () => {
+  it("includes the member's areas next to their jobs", async () => {
     const calls: Call[] = [];
     const query = vi.fn(async (text: string, params: unknown[] = []) => {
       calls.push({ text, params });

@@ -24,7 +24,6 @@ const baseRow = {
   joining_year: 2024,
   batch_year: null,
   personal_email: null,
-  bio: null,
   mobile_phone: null,
   residence_country: "",
   residence_city: "",
@@ -86,7 +85,6 @@ describe("PersonRepo parsed-identity visibility", () => {
       degreeId: null,
       batchYear: null,
       personalEmail: null,
-      bio: null,
       mobilePhone: null,
       residenceCountry: "",
       residenceCity: "",
@@ -130,7 +128,6 @@ describe("PersonRepo department Other specification", () => {
       degreeId: null,
       batchYear: null,
       personalEmail: null,
-      bio: null,
       mobilePhone: null,
       residenceCountry: "",
       residenceCity: "",
@@ -138,12 +135,13 @@ describe("PersonRepo department Other specification", () => {
       profileCompletedAt: null,
       onboardingCompletedAt: null
     });
-    expect(capturedParams[13]).toBe("Ceramic Engineering"); // $14
-    expect(capturedParams[14]).toBe(false); // $15: no resubmit flag passed
+    expect(capturedParams).toHaveLength(14);
+    expect(capturedParams[12]).toBe("Ceramic Engineering"); // $13
+    expect(capturedParams[13]).toBe(false); // $14: no resubmit flag passed
     expect(profile?.departmentOtherText).toBe("Ceramic Engineering");
   });
 
-  it("marks a resubmission with the review-reset flag as $15", async () => {
+  it("marks a resubmission with the review-reset flag as $14", async () => {
     let capturedParams: unknown[] = [];
     const db = {
       query: async (_sql: string, params: unknown[]) => {
@@ -162,7 +160,6 @@ describe("PersonRepo department Other specification", () => {
       degreeId: null,
       batchYear: null,
       personalEmail: null,
-      bio: null,
       mobilePhone: null,
       residenceCountry: "",
       residenceCity: "",
@@ -171,6 +168,6 @@ describe("PersonRepo department Other specification", () => {
       onboardingCompletedAt: null,
       departmentOtherResubmitted: true
     });
-    expect(capturedParams[14]).toBe(true);
+    expect(capturedParams[13]).toBe(true);
   });
 });

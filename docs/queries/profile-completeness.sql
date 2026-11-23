@@ -9,7 +9,6 @@ SELECT
   COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM occupations o WHERE o.person_id = p.id AND NOT o.is_current))  AS with_past_role,
   COUNT(*) FILTER (WHERE jsonb_typeof(p.open_to_preferences -> 'selected') = 'array'
                      AND jsonb_array_length(p.open_to_preferences -> 'selected') > 0)                          AS with_open_to,
-  COUNT(*) FILTER (WHERE length(btrim(COALESCE(p.bio, ''))) > 0)                                               AS with_bio,
   COUNT(*) FILTER (WHERE length(btrim(COALESCE(p.residence_city, ''))) > 0)                                    AS with_city
 FROM people p
 WHERE p.deleted_at IS NULL

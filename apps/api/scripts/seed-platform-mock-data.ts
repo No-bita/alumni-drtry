@@ -29,7 +29,6 @@ type MockProfile = {
   organizationName: string;
   city: string;
   country: string;
-  bio: string;
   skills: string;
   linkedin: string;
   github?: string;
@@ -45,7 +44,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Razorpay",
     city: "Bangalore",
     country: "India",
-    bio: "[DEMO] Building backend systems for payments infra.",
     skills: "Go, Distributed Systems, PostgreSQL",
     linkedin: "https://www.linkedin.com/in/demo-rahul-sharma/",
     github: "https://github.com/demo-rahul",
@@ -59,7 +57,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Razorpay",
     city: "Bangalore",
     country: "India",
-    bio: "[DEMO] Working on scalable backend APIs and platform reliability.",
     skills: "Java, APIs, Kubernetes",
     linkedin: "https://www.linkedin.com/in/demo-sneha-gupta/",
     github: "https://github.com/demo-sneha",
@@ -73,7 +70,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Razorpay",
     city: "Bangalore",
     country: "India",
-    bio: "[DEMO] Focused on services, observability, and platform tooling.",
     skills: "Node.js, TypeScript, Redis",
     linkedin: "https://www.linkedin.com/in/demo-arjun-singh/",
   },
@@ -86,7 +82,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Razorpay",
     city: "Bangalore",
     country: "India",
-    bio: "[DEMO] Shipping API and reliability improvements across services.",
     skills: "Python, APIs, Scalability",
     linkedin: "https://www.linkedin.com/in/demo-vivek-tiwari/",
   },
@@ -99,7 +94,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Google",
     city: "Hyderabad",
     country: "India",
-    bio: "[DEMO] Building internal tooling and user-facing workflow products.",
     skills: "React, Product Thinking, SQL",
     linkedin: "https://www.linkedin.com/in/demo-ananya-das/",
     github: "https://github.com/demo-ananya",
@@ -113,7 +107,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Swiggy",
     city: "Bangalore",
     country: "India",
-    bio: "[DEMO] Managing backend platform teams and architecture decisions.",
     skills: "Leadership, Backend Systems, Hiring",
     linkedin: "https://www.linkedin.com/in/demo-karthik-menon/",
   },
@@ -126,7 +119,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Microsoft",
     city: "Pune",
     country: "India",
-    bio: "[DEMO] Building data pipelines and analytics systems.",
     skills: "Data Pipelines, Spark, SQL",
     linkedin: "https://www.linkedin.com/in/demo-riya-nair/",
     github: "https://github.com/demo-riya",
@@ -140,7 +132,6 @@ const MOCK_PROFILES: MockProfile[] = [
     organizationName: "Atlassian",
     city: "Remote",
     country: "India",
-    bio: "[DEMO] Designing resilient platform primitives for internal teams.",
     skills: "System Design, Mentoring, Reliability",
     linkedin: "https://www.linkedin.com/in/demo-devika-rao/",
   },
@@ -242,7 +233,6 @@ async function main() {
           department_id,
           degree_id,
           batch_year,
-          bio,
           skills_text,
           residence_city,
           residence_country,
@@ -253,7 +243,7 @@ async function main() {
           updated_at
         )
         VALUES (
-          $1::uuid, $2, 'alumni', $3, $4::uuid, $5::uuid, $6, $7, $8, $9, $10, $11,
+          $1::uuid, $2, 'alumni', $3, $4::uuid, $5::uuid, $6, $7, $8, $9, $10,
           TRUE, now(), now(), now()
         )
         `,
@@ -264,7 +254,6 @@ async function main() {
           deptId,
           degreeId,
           profile.batchYear,
-          profile.bio,
           profile.skills,
           profile.city,
           profile.country,

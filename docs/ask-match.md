@@ -52,6 +52,6 @@ Messaging is paused. **Reach out** sends one note through the existing contact-r
 
 ## Known limits (V1)
 
-- Match quality depends on how complete profiles are: job history, open-to tags and bio.
+- Match quality depends on how complete profiles are: job history, open-to tags and areas of experience.
 - Supplier, first-customer and investor questions are not covered yet: profiles don't record what a company makes or buys.
 - The role vocabulary is a fixed list (`ROLE_DEFINITIONS`). A role typed into a chip that isn't in the list is matched as literal text in job titles.

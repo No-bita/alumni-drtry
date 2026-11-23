@@ -501,7 +501,6 @@ export function Onboarding() {
           setDepartmentOtherText(p.departmentOtherText);
         }
       }
-      // if (p.bio) setBio(p.bio);
       if (p.degreeCode) setDegreeCode(p.degreeCode);
       setResidenceCountry(p.residenceCountry?.trim() ?? "");
       setResidenceCity(p.residenceCity?.trim() ?? "");
@@ -652,7 +651,6 @@ export function Onboarding() {
 
 
   const NULLABLE_PATCH_KEYS = new Set([
-    "bio",
     "degreeCode",
   ]);
 
@@ -662,7 +660,6 @@ export function Onboarding() {
     departmentCode?: string;
     departmentOtherText?: string;
     degreeCode?: string | null;
-    bio?: string | null;
     mobilePhone?: string | null;
     residenceCountry?: string | null;
     residenceCity?: string | null;

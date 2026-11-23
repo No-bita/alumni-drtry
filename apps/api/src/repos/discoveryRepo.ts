@@ -53,7 +53,6 @@ export interface SearchProfileRow {
   parsed_joining_year: number | null;
   degree_code: string | null;
   degree_name: string | null;
-  bio: string | null;
   headline_role_title: string | null;
   headline_organization_name: string | null;
   residence_country: string | null;
@@ -64,6 +63,8 @@ export interface SearchProfileRow {
   profile_completed_at: Date | null;
   soft_company_match: number;
   soft_occ_match: number;
+  /** Domain of the institutional email (never the address), for the institute name. */
+  email_domain?: string | null;
 }
 
 export interface SearchProfileView {
@@ -77,11 +78,12 @@ export interface SearchProfileView {
   parsedJoiningYear: number | null;
   degreeCode: string | null;
   degreeName: string | null;
-  bio: string | null;
   headlineRoleTitle: string | null;
   headlineOrganizationName: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  /** The member's institute from their email domain, e.g. "IIT Bombay"; null for an unknown domain. */
+  institutionName: string | null;
   /** Machine keys; UI maps to labels. */
   matchReasons: string[];
 }
@@ -114,7 +116,6 @@ interface PublicProfileBaseRow {
   parsed_joining_year: number | null;
   degree_code: string | null;
   degree_name: string | null;
-  bio: string | null;
   residence_country: string | null;
   residence_city: string | null;
   open_to_preferences: unknown;
@@ -142,7 +143,6 @@ export interface PublicProfileBaseView {
   parsedJoiningYear: number | null;
   degreeCode: string | null;
   degreeName: string | null;
-  bio: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
   openToPreferences: OpenToPreferences | null;
@@ -183,11 +183,11 @@ export function mapSearchRow(row: SearchProfileRow): SearchProfileView {
     parsedJoiningYear: row.parsed_joining_year,
     degreeCode: row.degree_code,
     degreeName: row.degree_name,
-    bio: row.bio,
     headlineRoleTitle: row.headline_role_title,
     headlineOrganizationName: row.headline_organization_name,
     residenceCountry: row.residence_country,
     residenceCity: row.residence_city,
+    institutionName: institutionForDomain(row.email_domain),
     matchReasons: []
   };
 }
@@ -207,7 +207,6 @@ function mapPublicRow(row: PublicProfileBaseRow): PublicProfileBaseView {
     parsedJoiningYear: row.parsed_joining_year,
     degreeCode: row.degree_code,
     degreeName: row.degree_name,
-    bio: row.bio,
     residenceCountry: row.residence_country,
     residenceCity: row.residence_city,
     openToPreferences: parseOpenToPreferences(row.open_to_preferences),
@@ -435,7 +434,7 @@ export class DiscoveryRepo {
       qPh = bind(input.q);
       whereInner.push(
         `(
-          to_tsvector('simple'::regconfig, COALESCE(p.full_name, '') || ' ' || COALESCE(p.bio, '') || ' ' || COALESCE(p.residence_country, '') || ' ' || COALESCE(p.residence_city, '')) @@ plainto_tsquery('simple', ${qPh})
+          to_tsvector('simple'::regconfig, COALESCE(p.full_name, '') || ' ' || COALESCE(p.residence_country, '') || ' ' || COALESCE(p.residence_city, '')) @@ plainto_tsquery('simple', ${qPh})
           OR EXISTS (
             SELECT 1
             FROM occupations so
@@ -496,11 +495,6 @@ export class DiscoveryRepo {
           THEN 250
         ELSE 0
       END
-      + CASE
-          WHEN length(btrim(COALESCE(p.bio, ''))) > 80 THEN 200
-          WHEN length(btrim(COALESCE(p.bio, ''))) > 0 THEN 100
-          ELSE 0
-        END
       + CASE WHEN p.personal_email IS NOT NULL THEN 25 ELSE 0 END
       + CASE WHEN EXISTS (SELECT 1 FROM profile_links pl WHERE pl.person_id = p.id) THEN 50 ELSE 0 END
       + ${occBoostSql}
@@ -548,7 +542,6 @@ export class DiscoveryRepo {
         ranked.parsed_joining_year,
         ranked.degree_code,
         ranked.degree_name,
-        ranked.bio,
         ranked.headline_role_title,
         ranked.headline_organization_name,
         ranked.residence_country,
@@ -558,10 +551,12 @@ export class DiscoveryRepo {
         ranked.completeness_score,
         ranked.profile_completed_at,
         ranked.soft_company_match,
-        ranked.soft_occ_match
+        ranked.soft_occ_match,
+        ranked.email_domain
       FROM (
         SELECT
           p.id,
+          split_part(lower(p.institutional_email), '@', 2) AS email_domain,
           p.full_name,
           -- "Other" is never a public department label; the typed text is profile-only and review-gated.
           CASE WHEN d.code = 'other' THEN NULL ELSE d.code END AS department_code,
@@ -572,7 +567,6 @@ export class DiscoveryRepo {
           p.joining_year AS parsed_joining_year,
           g.code AS degree_code,
           g.name AS degree_name,
-          p.bio,
           occ.role_title AS headline_role_title,
           occ.organization_name AS headline_organization_name,
           -- Linked to an approved city: its name; otherwise what the member typed (pending/rejected too).
@@ -661,7 +655,6 @@ export class DiscoveryRepo {
         p.joining_year AS parsed_joining_year,
         g.code AS degree_code,
         g.name AS degree_name,
-        p.bio,
         COALESCE((SELECT cpd.country FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_country) AS residence_country,
         COALESCE((SELECT cpd.city_label FROM canonical_places cpd WHERE cpd.id = p.residence_canonical_place_id AND cpd.status = 'approved'), p.residence_city) AS residence_city,
         p.open_to_preferences,

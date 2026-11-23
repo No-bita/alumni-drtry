@@ -1,187 +1,121 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Avatar } from "./Avatar";
-import { type SearchProfileView } from "../api/client";
+import { api, type SearchProfileView } from "../api/client";
 import { matchReasonLabel } from "../lib/matchReasonLabels";
-import { residenceLine, roleOrgLineFromSearchProfile } from "../lib/profileDisplay";
+import { Avatar } from "./Avatar";
 import { DeptBatchMeta } from "./DeptBatchMeta";
-// Messaging paused: unused while the directory Message CTA is commented out.
-// import { MessageIcon } from "./MessageIcon";
-import { IconMapPin } from "./LocationPageIcons";
+
+/** Where the viewer's reachout to this member stands, once looked up or sent (null: not known or none open). */
+export type SearchCardNote = "pending" | "accepted" | null;
 
 type SearchResultRowProps = {
   profile: SearchProfileView;
+  /** Kept by the page, so it survives the card scrolling out of the virtual list. */
+  note: SearchCardNote;
+  /** The lookup found an open or accepted reachout. */
+  onNote: (personId: string, note: Exclude<SearchCardNote, null>) => void;
+  /** No open reachout: the page opens the note form. */
+  onReachOut: (profile: SearchProfileView) => void;
   style?: React.CSSProperties;
-  /** Zero-based position in the current merged result list (for analytics). */
+  /** Zero-based position in the current merged result list (kept for search analytics, not used yet). */
   resultIndex: number;
+  /** Kept for search analytics, not used yet. */
   searchSessionId?: string | null;
-  onRowClick?: () => void;
 };
 
-export function SearchResultRow({ profile, style, resultIndex, searchSessionId, onRowClick }: SearchResultRowProps) {
-  void resultIndex;
-  const roleOrg = roleOrgLineFromSearchProfile(profile);
-  const codeRaw = profile.departmentCode;
-  const deptCode = codeRaw?.trim() ? codeRaw : null;
-  const batchYr = profile.batchYear ?? null;
-  const hasDeptBatchMeta = Boolean(
-    deptCode || (typeof batchYr === "number" && Number.isFinite(batchYr)),
-  );
-  const loc = residenceLine(profile.residenceCity, profile.residenceCountry);
-  const showContextLine = Boolean(hasDeptBatchMeta || loc);
-  const rawFullName = (profile.fullName ?? "").trim();
-  const displayName = (profile.fullName ?? "").trim() || rawFullName;
-  const matchChipItems = [...new Set(profile.matchReasons ?? [])].slice(0, 6).map((reason) => ({
-    key: reason,
-    label: matchReasonLabel(reason),
-  }));
+/** At most this many "why this matched" pills. */
+const MATCH_PILLS_MAX = 3;
 
+/**
+ * Directory result card (layout A): name, institute and class, role at company, why they matched,
+ * then Reach out and View profile. Reach out checks where an earlier reachout stands only when tapped.
+ */
+export function SearchResultRow({ profile, note, onNote, onReachOut, style }: SearchResultRowProps) {
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const name = (profile.fullName ?? "").trim() || "Alum";
   const profileHref = `/profiles/${profile.id}`;
+  const deptCode = profile.departmentCode?.trim() ? profile.departmentCode : null;
+  const batch = typeof profile.batchYear === "number" && Number.isFinite(profile.batchYear) ? profile.batchYear : null;
+  const institute = profile.institutionName?.trim() || null;
+  const role = profile.headlineRoleTitle?.trim() || null;
+  const org = profile.headlineOrganizationName?.trim() || null;
+  const roleLine = role && org ? `${role} · ${org}` : role || org;
+  // Different keys can share a label ("exact_name" and "name_match" are both "Name match").
+  const reasons = [...new Set((profile.matchReasons ?? []).map(matchReasonLabel))].slice(0, MATCH_PILLS_MAX);
 
-  const viewProfileControl =
-    onRowClick != null ? (
-      <Link
-        className="search-result-row__cta-secondary"
-        to={profileHref}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        View profile
-      </Link>
-    ) : (
-      <span className="search-result-row__cta-secondary">
-        View profile
-      </span>
+  const reachOut = async () => {
+    if (checking) return;
+    setChecking(true);
+    setError(null);
+    const { data, error: err } = await api.get<{ yourNote: "pending" | "accepted" | "declined" | null }>(
+      `/v1/contact-requests/status?recipientPersonId=${encodeURIComponent(profile.id)}`,
     );
-
-  const handleClick = () => {
-    if (!searchSessionId) return;
-    // Directory profile-click analytics disabled — re-enable when needed:
-    // void api.post("/v1/discovery/analytics/profile-click", {
-    //   searchSessionId,
-    //   profileId: profile.id,
-    //   resultPosition: resultIndex
-    // });
+    setChecking(false);
+    if (err) {
+      setError("Couldn't check your reachouts. Try again.");
+      return;
+    }
+    if (data?.yourNote === "pending" || data?.yourNote === "accepted") {
+      onNote(profile.id, data.yourNote);
+      return;
+    }
+    onReachOut(profile);
   };
 
-  const avatar = onRowClick ? (
-    <Link
-      to={`/profiles/${profile.id}`}
-      onClick={(e) => e.stopPropagation()}
-      className="search-result-row__avatar-link"
-      aria-label={`View ${displayName}'s profile`}
-    >
-      <Avatar name={displayName} size="sm" tone="pastel" />
-    </Link>
-  ) : (
-    <Avatar name={displayName} size="sm" tone="pastel" />
-  );
-
-  const content = (
-    <>
-      {avatar}
-      <div className="search-result-row__text">
-        <div className="search-result-row__top">
-          <span className="search-result-row__name-row">
-            <span className="search-result-row__name">{displayName}</span>
-          </span>
-          {matchChipItems.length > 0 ? (
-            <span className="search-result-row__match-chips" aria-label="Why this profile matched">
-              {matchChipItems.map(({ key, label }) => (
-                <span key={key} className="search-result-row__chip">
-                  {label}
-                </span>
-              ))}
+  return (
+    <article className="search-card fade-up" style={style} aria-label={name}>
+      <div className="search-card__who">
+        <Avatar name={name} size="sm" tone="pastel" />
+        <div className="search-card__text">
+          <h3 className="search-card__name">
+            <Link to={profileHref}>{name}</Link>
+          </h3>
+          {institute || deptCode || batch ? (
+            <span className="search-card__context">
+              {institute ? <span>{institute}</span> : null}
+              {institute && (deptCode || batch) ? <span aria-hidden="true">·</span> : null}
+              {deptCode || batch ? <DeptBatchMeta className="dept-batch-meta" departmentCode={deptCode} batchYear={batch} /> : null}
             </span>
           ) : null}
+          {roleLine ? <p className="search-card__role">{roleLine}</p> : null}
         </div>
-        {roleOrg ? (
-          <span className="search-result-row__meta search-result-row__meta--role">{roleOrg}</span>
-        ) : null}
-        {showContextLine ? (
-          <span className="search-result-row__meta search-result-row__context-line">
-            {hasDeptBatchMeta ? (
-              <DeptBatchMeta className="dept-batch-meta" departmentCode={deptCode} batchYear={batchYr} />
-            ) : null}
-            {hasDeptBatchMeta && loc ? (
-              <span className="dept-batch-meta__sep" aria-hidden>
-                <span className="dept-batch-meta__sep-dot" />
-              </span>
-            ) : null}
-            {loc ? (
-              <span className="search-result-row__location">
-                <IconMapPin className="search-result-row__location-icon" aria-hidden />
-                <span className="visually-hidden">Location </span>
-                {loc}
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        {!roleOrg && !hasDeptBatchMeta && !loc ? (
-          <span className="search-result-row__meta">IIT BHU alum</span>
-        ) : null}
-        <span className="search-result-row__actions">
-          {/* Messaging paused: directory Message CTA commented out for now.
-          <button
-            type="button"
-            className="search-result-row__cta-primary"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              window.dispatchEvent(
-                new CustomEvent("messaging:open-draft", {
-                  detail: {
-                    recipientPersonId: profile.id,
-                    recipientName: displayName,
-                    initialMessage: "",
-                    kind: "general",
-                  },
-                })
-              );
-            }}
-          >
-            <MessageIcon className="search-result-row__cta-primary-icon" />
-            Message
+      </div>
+
+      {reasons.length > 0 ? (
+        <ul className="search-card__pills" aria-label="Why this profile matched">
+          {reasons.map((label) => (
+            <li key={label} className="search-card__pill">
+              {label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="search-card__actions">
+        {note === "pending" ? (
+          <p className="search-card__status" role="status">
+            Reachout sent · waiting for reply · <Link to="/notifications">See your reachouts</Link>
+          </p>
+        ) : note === "accepted" ? (
+          <p className="search-card__status" role="status">
+            Accepted your reachout · <Link to="/notifications">See their contact</Link>
+          </p>
+        ) : (
+          <button type="button" className="search-card__reach" disabled={checking} onClick={() => void reachOut()}>
+            {checking ? "Checking…" : "Reach out"}
           </button>
-          */}
-          {viewProfileControl}
-        </span>
+        )}
+        <Link to={profileHref} className="search-card__view" aria-label={`View ${name}'s profile`}>
+          View profile
+        </Link>
+        {error ? (
+          <p className="search-card__error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </>
-  );
-
-  if (onRowClick) {
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        className="search-result-row search-result-row--button"
-        style={style}
-        onClick={() => {
-          handleClick();
-          onRowClick();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleClick();
-            onRowClick();
-          }
-        }}
-      >
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <Link
-      to={profileHref}
-      className="search-result-row"
-      style={style}
-      onClick={handleClick}
-    >
-      {content}
-    </Link>
+    </article>
   );
 }

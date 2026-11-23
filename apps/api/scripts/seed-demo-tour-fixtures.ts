@@ -8,7 +8,7 @@
  *   - 5 open intentcasts ("[DEMO] ...") authored by synthetic alumni, for the Bengaluru city board
  *
  * Every row is identified by an explicit email list (demo.alumni.tour.NN@iitbhu.ac.in plus the
- * viewer email), is_test_user = TRUE, and has a "[DEMO]" bio. Cleanup deletes exactly that list.
+ * viewer email) and is_test_user = TRUE. Cleanup deletes exactly that list.
  * It never uses the broad delete-all-demo-alumni predicate, so other test users are untouched.
  *
  * Safety: refuses to overwrite or delete any existing row with one of these emails unless it is
@@ -167,9 +167,9 @@ export async function runDemoTourSeed({
 
     const insertPerson = `
       INSERT INTO people (
-        id, institutional_email, role, full_name, department_id, degree_id, batch_year, bio, skills_text,
+        id, institutional_email, role, full_name, department_id, degree_id, batch_year, skills_text,
         residence_city, residence_country, is_test_user, is_demo, profile_completed_at, onboarding_completed_at, updated_at
-      ) VALUES ($1::uuid, $2, 'alumni', $3, $4::uuid, $5::uuid, $6, $7, $8, $9, $10, TRUE, $11, now(), now(), now())`;
+      ) VALUES ($1::uuid, $2, 'alumni', $3, $4::uuid, $5::uuid, $6, $7, $8, $9, TRUE, $10, now(), now(), now())`;
 
     // Demo viewer: lands on /home with a complete profile. Role is always 'alumni'.
     // Inserted before organizations so organizations can reference VIEWER_ID as created_by_person_id.
@@ -178,7 +178,7 @@ export async function runDemoTourSeed({
     if (!cse || !btech) throw new Error("Missing department 'cse' or degree 'btech'.");
     await client.query(insertPerson, [
       VIEWER_ID, viewer, "Demo Guest", cse, btech, 2020,
-      "[DEMO] Shared guided-tour account. Read-only.", "Exploring the alumni network",
+      "Exploring the alumni network",
       "Bengaluru", "India", true,
     ]);
 
@@ -218,7 +218,6 @@ export async function runDemoTourSeed({
       if (!o) throw new Error(`Missing organization "${f.organization}".`);
       await client.query(insertPerson, [
         fixtureId(i), fixtureEmail(i), f.name, d, g, f.batchYear,
-        `[DEMO] Synthetic alumni profile for the guided tour. ${f.roleTitle} at ${f.organization}.`,
         f.skills, f.city, f.country, false,
       ]);
       await client.query(

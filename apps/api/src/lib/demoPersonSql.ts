@@ -15,6 +15,12 @@ export function personIsDemoSql(tableAlias: string): string {
 )`;
 }
 
+/** Seeded demo fixtures, recognised by their institutional email prefix (seed scripts and migration 026). */
+export function personIsSeededDemoSql(tableAlias: string): string {
+  const local = `split_part(lower(${tableAlias}.institutional_email::text), '@', 1)`;
+  return `(${local} LIKE 'batchdemo.%' OR ${local} LIKE 'platformdemo.%' OR ${local} LIKE 'demo.alumni.%')`;
+}
+
 /** Demo/test rows including legacy `demo.alumni.*` seeds (migration 026). */
 export function personIsDemoAlumniSql(tableAlias: string): string {
   const legacyDemoAlumni = `split_part(lower(${tableAlias}.institutional_email::text), '@', 1) LIKE 'demo.alumni.%'`;

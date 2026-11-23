@@ -59,13 +59,6 @@ const DEMO_SKILLS: string[] = [
   "Graduate coursework, research proposals, scientific writing",
 ];
 
-function demoBio(role: string, org: string): string {
-  return (
-    `[DEMO] ${role} focused profile anchored at ${org}. Seeded batch cohort demo for directory search — ` +
-    `materials-adjacent background, realistic headline org linkage, and residence fields for geographic filters.`
-  );
-}
-
 function parseArgs(): { dept: string; year: number; count: number } {
   const argv = process.argv.slice(2);
   let dept = "mst";
@@ -181,7 +174,6 @@ async function main() {
           department_id,
           degree_id,
           batch_year,
-          bio,
           skills_text,
           residence_city,
           residence_country,
@@ -190,7 +182,7 @@ async function main() {
           onboarding_completed_at,
           updated_at
         )
-        VALUES ($1, 'alumni', $2, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, TRUE, now(), now(), now())
+        VALUES ($1, 'alumni', $2, $3::uuid, $4::uuid, $5, $6, $7, $8, TRUE, now(), now(), now())
         RETURNING id
         `,
         [
@@ -199,7 +191,6 @@ async function main() {
           departmentId,
           degreeId,
           year,
-          demoBio(hl.role, hl.org),
           skills,
           loc.city,
           loc.country,

@@ -29,7 +29,6 @@ export interface AskMatchMetrics {
     withCurrentRole: number;
     withPastRole: number;
     withOpenTo: number;
-    withBio: number;
     withCity: number;
   };
 }
@@ -127,7 +126,6 @@ export class AskMatchMetricsRepo {
         COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM occupations o WHERE o.person_id = p.id AND NOT o.is_current))::text AS with_past_role,
         COUNT(*) FILTER (WHERE jsonb_typeof(p.open_to_preferences -> 'selected') = 'array'
                            AND jsonb_array_length(p.open_to_preferences -> 'selected') > 0)::text AS with_open_to,
-        COUNT(*) FILTER (WHERE length(btrim(COALESCE(p.bio, ''))) > 0)::text AS with_bio,
         COUNT(*) FILTER (WHERE length(btrim(COALESCE(p.residence_city, ''))) > 0)::text AS with_city
       FROM people p
       WHERE p.deleted_at IS NULL AND p.suspended_at IS NULL
@@ -166,7 +164,6 @@ export class AskMatchMetricsRepo {
         withCurrentRole: Number(p.with_current_role ?? 0),
         withPastRole: Number(p.with_past_role ?? 0),
         withOpenTo: Number(p.with_open_to ?? 0),
-        withBio: Number(p.with_bio ?? 0),
         withCity: Number(p.with_city ?? 0)
       }
     };

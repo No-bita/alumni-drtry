@@ -148,7 +148,6 @@ export type MyProfileView = {
   parsedJoiningYear: number | null;
   degreeCode?: string | null;
   degreeName?: string | null;
-  bio: string | null;
   personalEmail?: string | null;
   mobilePhone?: string | null;
   residenceCountry?: string | null;
@@ -191,11 +190,12 @@ export type SearchProfileView = {
   parsedJoiningYear: number | null;
   degreeCode: string | null;
   degreeName: string | null;
-  bio: string | null;
   headlineRoleTitle: string | null;
   headlineOrganizationName: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
+  /** The member's institute from their email domain, e.g. "IIT Bombay" (absent from older API versions). */
+  institutionName?: string | null;
   matchReasons: string[];
 };
 
@@ -494,7 +494,6 @@ export type PublicProfileView = {
   degreeName?: string | null;
   batchYear: number | null;
   parsedJoiningYear: number | null;
-  bio: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
   openToPreferences?: OpenToPreferences | null;

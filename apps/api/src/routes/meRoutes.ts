@@ -53,7 +53,7 @@ const patchProfileSchema = z
     instituteEmail: z.string().trim().optional(),
     institute_email: z.string().trim().optional(),
     personalEmail: z.string().trim().email().nullable().optional(),
-    bio: z.string().max(3000).nullable().optional(),
+    // The bio was removed (migration 075). Older app versions may still send it; zod drops unknown keys.
     mobilePhone: z.string().trim().max(40).nullable().optional(),
     residenceCountry: z.string().trim().max(120).nullable().optional(),
     residenceCity: z.string().trim().max(120).nullable().optional(),

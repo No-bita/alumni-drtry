@@ -49,9 +49,9 @@ describe("POST /v1/match (integration)", () => {
       opts: { openTo?: string[]; completed?: boolean; suspended?: boolean; city?: boolean } = {}
     ) => {
       const r = await db.query<{ id: string }>(
-        `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, bio, profile_completed_at, suspended_at,
+        `INSERT INTO people (institutional_email, full_name, batch_year, department_id, degree_id, profile_completed_at, suspended_at,
                              open_to_preferences, residence_city, residence_country, residence_canonical_place_id)
-         VALUES ($1, $2, 2018, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, 'Happy to help juniors.', $3, $4, $5::jsonb, $6, $7, $8) RETURNING id`,
+         VALUES ($1, $2, 2018, ${TEST_DEPARTMENT_ID_SQL}, ${TEST_DEGREE_ID_SQL}, $3, $4, $5::jsonb, $6, $7, $8) RETURNING id`,
         [
           `match-${key}-${run}@iitbhu.ac.in`,
           `Match ${key} ${run}`,
