@@ -16,6 +16,7 @@ import {
 import { DiscoveryAnalyticsRepo } from "../repos/discoveryAnalyticsRepo.js";
 import type { ProfileLinkView } from "../repos/linkRepo.js";
 import type { OccupationView } from "../repos/occupationRepo.js";
+import type { ContactRequestStatus } from "../repos/contactRequestRepo.js";
 
 export interface SearchInput {
   batch?: number;
@@ -61,6 +62,13 @@ export interface PublicProfileOutput {
   occupations: OccupationView[];
   links: ProfileLinkView[];
   areas: string[];
+  /** The viewer's latest reachout to this member (null on their own profile or when there's none). */
+  yourNote: ContactRequestStatus | null;
+}
+
+/** Looks up the viewer's latest reachout to a member (the contact-request service). */
+export interface ProfileReachOutLookup {
+  latestStatusFromSender(senderPersonId: string, recipientPersonIds: readonly string[]): Promise<Map<string, ContactRequestStatus>>;
 }
 
 const CURSOR_V2 = 2;
@@ -150,6 +158,13 @@ function toSearchViews(rows: SearchProfileRow[], ctx: MatchReasonContext): Searc
 export class DiscoveryService {
   private readonly discoveryRepo: DiscoveryRepo;
   private readonly discoveryAnalyticsRepo: DiscoveryAnalyticsRepo;
+
+  private reachOut: ProfileReachOutLookup | null = null;
+
+  /** Profiles show the viewer's reachout status ("Reachout sent · waiting for reply"). */
+  setReachOut(lookup: ProfileReachOutLookup | null): void {
+    this.reachOut = lookup;
+  }
 
   constructor(private readonly pool: Pool) {
     this.discoveryRepo = new DiscoveryRepo(pool);
@@ -354,6 +369,10 @@ export class DiscoveryService {
     }
 
     const { profile, occupations, links, areas } = bundle;
-    return { profile, occupations, links, areas };
+    const yourNote =
+      this.reachOut && profileId !== viewerPersonId
+        ? ((await this.reachOut.latestStatusFromSender(viewerPersonId, [profileId])).get(profileId) ?? null)
+        : null;
+    return { profile, occupations, links, areas, yourNote };
   }
 }

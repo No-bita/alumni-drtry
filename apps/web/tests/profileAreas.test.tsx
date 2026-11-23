@@ -1,56 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
-/** Areas of experience: list rules, the editor with suggestions, the profile view, and saving. */
+/** Areas of experience: list rules and the editor with suggestions (the profile page itself: profilePage.test.tsx). */
 
-const patch = vi.hoisted(() => vi.fn<(path: string, body?: unknown) => Promise<object>>(async () => ({})));
-const put = vi.hoisted(() => vi.fn<(path: string, body?: unknown) => Promise<object>>(async () => ({ data: { areas: [] } })));
 const state = vi.hoisted(() => ({
-  areas: [] as string[] | undefined,
-  openTo: null as unknown,
   suggestions: [] as Array<{ label: string; memberCount: number }>,
   suggestCalls: [] as string[],
 }));
 
-vi.mock("../src/api/client", async (orig) => {
-  const actual = await orig<typeof import("../src/api/client")>();
-  return { ...actual, api: { ...actual.api, patch, put, post: vi.fn(async () => ({})), delete: vi.fn(async () => ({})) } };
-});
-vi.mock("../src/contexts/AuthContext", () => ({
-  useAuth: () => ({
-    status: "authenticated",
-    person: { role: "alumni", institutionalEmail: "sample@itbhu.ac.in" },
-    myProfile: { id: "p1", personalEmail: null, mobilePhone: null, onboardingCompletedAt: "2026-01-01" },
-    refetch: vi.fn(),
-    logout: vi.fn(),
-  }),
-}));
-vi.mock("../src/components/Nav", () => ({ Nav: () => null }));
 vi.mock("../src/lib/assertApiGet", () => ({
   assertApiGet: vi.fn((path: string) => {
-    if (path.startsWith("/v1/profiles/")) {
-      return Promise.resolve({
-        profile: { id: "p1", fullName: "Sample Alum", departmentCode: "cse", batchYear: 2020, residenceCity: "Pune", residenceCountry: "India", openToPreferences: state.openTo },
-        occupations: [],
-        links: [],
-        ...(state.areas ? { areas: state.areas } : {}),
-      });
-    }
-    if (path.startsWith("/v1/areas/suggestions")) {
-      state.suggestCalls.push(path);
-      return Promise.resolve({ suggestions: state.suggestions });
-    }
-    return Promise.resolve({ links: [], occupations: [] });
+    state.suggestCalls.push(path);
+    return Promise.resolve({ suggestions: state.suggestions });
   }),
 }));
 
-import { Profile } from "../src/pages/Profile";
-import { ProfileAreasCard } from "../src/components/profile/ProfileAreasCard";
-import { PersonProfileView } from "../src/components/profile/PersonProfileView";
-import type { PublicProfileView } from "../src/api/client";
+import { ProfileAreasEditor } from "../src/components/profile/ProfileAreasEditor";
 import { addArea, areasChanged, normalizeAreasForSave, removeArea } from "../src/lib/personAreas";
 
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -59,7 +26,7 @@ function Harness({ start = [] as string[], onValue }: { start?: string[]; onValu
   const [areas, setAreas] = useState(start);
   return (
     <QueryClientProvider client={client()}>
-      <ProfileAreasCard
+      <ProfileAreasEditor
         draftAreas={areas}
         onDraftAreasChange={(next) => {
           setAreas(next);
@@ -74,12 +41,8 @@ const input = () => screen.getByRole("combobox", { name: "Add an area of experie
 const chips = () => within(screen.getByRole("list", { name: "Your areas" })).getAllByRole("listitem").map((li) => li.firstChild?.textContent);
 
 beforeEach(() => {
-  state.areas = [];
-  state.openTo = null;
   state.suggestions = [];
   state.suggestCalls = [];
-  patch.mockClear();
-  put.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -180,106 +143,5 @@ describe("areas editor", () => {
       await new Promise((r) => setTimeout(r, 260));
     });
     expect(state.suggestCalls).toEqual([]);
-  });
-});
-
-describe("areas on the profile", () => {
-  const profile: PublicProfileView = { id: "p2", fullName: "Other Alum", departmentCode: "cse", departmentName: "Computer Science", departmentOtherText: null, departmentOtherStatus: null, batchYear: 2018, parsedJoiningYear: 2014, bio: null, residenceCountry: "India", residenceCity: "Bengaluru" };
-  const view = (own: boolean, areas?: string[]) =>
-    render(
-      <MemoryRouter>
-        <PersonProfileView profile={profile} occupations={[]} links={[]} isOwnProfile={own} onboardingIncomplete={false} openTo={null} areas={areas} onEdit={vi.fn()} onSignOut={vi.fn()} />
-      </MemoryRouter>,
-    );
-
-  it("shows a member's areas, in their order, to other alumni", () => {
-    const { container } = view(false, ["Pricing", "D2C growth"]);
-    expect(screen.getByRole("heading", { name: "Areas of experience" })).toBeTruthy();
-    expect(Array.from(container.querySelectorAll(".person-profile__areas li")).map((li) => li.textContent)).toEqual(["Pricing", "D2C growth"]);
-    expect(screen.queryByRole("button", { name: "Edit areas of experience" })).toBeNull();
-  });
-
-  it("hides the section from others when empty, and invites the owner to add some", () => {
-    view(false, []);
-    expect(screen.queryByRole("heading", { name: "Areas of experience" })).toBeNull();
-    cleanup();
-    view(true);
-    expect(screen.getByText("No areas added. Ask uses them to find you.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Edit areas of experience" })).toBeTruthy();
-  });
-});
-
-describe("editing and saving areas on the profile page", () => {
-  const mount = () =>
-    render(
-      <QueryClientProvider client={client()}>
-        <MemoryRouter initialEntries={["/profiles/p1?edit=contact"]}>
-          <Routes>
-            <Route path="/profiles/:id" element={<Profile />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-
-  it("saves the new list in one call after the profile", async () => {
-    state.areas = ["Pricing"];
-    mount();
-    await screen.findByRole("combobox", { name: "Add an area of experience" });
-    expect(chips()).toEqual(["Pricing"]);
-    fireEvent.change(input(), { target: { value: "Supply  chain" } });
-    fireEvent.keyDown(input(), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(put).toHaveBeenCalledWith("/v1/me/areas", { areas: ["Pricing", "Supply chain"] }));
-    const profileCall = patch.mock.invocationCallOrder[patch.mock.calls.findIndex((c) => c[0] === "/v1/me/profile")]!;
-    expect(profileCall).toBeLessThan(put.mock.invocationCallOrder[0]!);
-  });
-
-  it("doesn't call the areas API when nothing changed, or on an older API without areas", async () => {
-    state.areas = ["Pricing"];
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
-    await waitFor(() => expect(patch).toHaveBeenCalledWith("/v1/me/profile", expect.anything()));
-    expect(put).not.toHaveBeenCalled();
-    cleanup();
-    state.areas = undefined;
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
-    await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
-    expect(put).not.toHaveBeenCalled();
-  });
-
-  it("shows the save error and stays in editing when the areas save fails", async () => {
-    put.mockResolvedValueOnce({ error: { code: "AREAS_TOO_MANY", message: "Add up to 8 areas." } });
-    mount();
-    await screen.findByRole("combobox", { name: "Add an area of experience" });
-    fireEvent.change(input(), { target: { value: "Pricing" } });
-    fireEvent.keyDown(input(), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText("Add up to 8 areas.")).toBeTruthy();
-    expect(input()).toBeTruthy();
-  });
-
-  it("suggests adding areas when referrals, mentorship or advising is on and none are added", async () => {
-    state.openTo = { selected: ["referrals"] };
-    mount();
-    const add = await screen.findByRole("button", { name: "Add areas" });
-    fireEvent.click(add);
-    expect(document.activeElement).toBe(input());
-    fireEvent.change(input(), { target: { value: "Pricing" } });
-    fireEvent.keyDown(input(), { key: "Enter" });
-    expect(screen.queryByRole("button", { name: "Add areas" })).toBeNull();
-    cleanup();
-    state.openTo = { selected: ["coffee"], limits: { coffee: 2 } };
-    mount();
-    await screen.findByRole("combobox", { name: "Add an area of experience" });
-    expect(screen.queryByRole("button", { name: "Add areas" })).toBeNull();
-  });
-
-  it("the Open to editor has no per-tag text box any more", async () => {
-    state.openTo = { selected: ["referrals", "intros"] };
-    mount();
-    await screen.findByRole("combobox", { name: "Add an area of experience" });
-    expect(screen.queryByRole("textbox", { name: /subheading/ })).toBeNull();
-    expect(document.querySelector(".profile-page__open-to-edit-desc")).toBeNull();
   });
 });

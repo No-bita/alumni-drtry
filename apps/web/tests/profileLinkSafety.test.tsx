@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { PersonProfileView } from "../src/components/profile/PersonProfileView";
+import { ProfilePageView } from "../src/components/profile/ProfilePageView";
 import type { PublicProfileView } from "../src/api/client";
 import { isWebUrl, safeWebHref } from "../src/lib/webUrl";
 import { isWebUrl as isNoteWebUrl } from "../src/lib/noteForm";
@@ -30,7 +30,7 @@ describe("profile links", () => {
   it("never renders a non-web link as a link", () => {
     render(
       <MemoryRouter>
-        <PersonProfileView
+        <ProfilePageView
           profile={profile}
           occupations={[]}
           links={[
@@ -41,12 +41,15 @@ describe("profile links", () => {
           isOwnProfile={false}
           onboardingIncomplete={false}
           openTo={null}
+          areas={[]}
+          yourNote={null}
           onEdit={vi.fn()}
+          onReachOut={vi.fn()}
           onSignOut={vi.fn()}
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "My site" }).getAttribute("href")).toBe("https://example.com");
+    expect(screen.getByRole("link", { name: /example\.com/ }).getAttribute("href")).toBe("https://example.com");
     expect(screen.queryByText("Click me")).toBeNull();
     expect(screen.queryByText("Data link")).toBeNull();
     expect(document.querySelectorAll('a[href^="javascript"], a[href^="data"]').length).toBe(0);

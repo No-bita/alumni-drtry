@@ -1,60 +1,31 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import type { ArrivalPrompt, ProfilePatchResponse } from "../lib/cities";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ArrivalPrompt } from "../lib/cities";
 import { Nav } from "../components/Nav";
-import { PersonProfileView } from "../components/profile/PersonProfileView";
-import { ProfileHero } from "../components/profile/ProfileHero";
-import { ProfileAbout } from "../components/profile/ProfileAbout";
-import { ProfileDepartmentEdit } from "../components/profile/ProfileDepartmentEdit";
-import { ProfileExperience } from "../components/profile/ProfileExperience";
-import { ProfileEngagementCards } from "../components/profile/ProfileEngagementCards";
-import { PROFILE_AREAS_INPUT_ID, ProfileAreasCard } from "../components/profile/ProfileAreasCard";
+import { ProfilePageView } from "../components/profile/ProfilePageView";
+import { HeaderSheet } from "../components/profile/HeaderSheet";
+import { AreasSheet } from "../components/profile/AreasSheet";
+import { OpenToSheet } from "../components/profile/OpenToSheet";
+import { EntriesSheet } from "../components/profile/EntriesSheet";
+import { LinksSheet } from "../components/profile/LinksSheet";
+import { ContactSheet } from "../components/profile/ContactSheet";
+import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
 import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
-import { ProfileIitBhu } from "../components/profile/ProfileIitBhu";
 import { PageStateBlock } from "../components/PageStateBlock";
-import {
-  api,
-  type MeAreasResponse,
-  type MeLinksResponse,
-  type ProfileLinkView,
-  type ProfileResponse,
-} from "../api/client";
+import type { MeLinksResponse, ProfileResponse } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
-import { preflightProfileEdits } from "../lib/profileSavePreflight";
-import {
-  emptySocialLinkDraft,
-  linkToSocialPlatformKey,
-  otherProfileLinks,
-  socialLinksDraftFromProfile,
-  socialPlatformLabel,
-  SOCIAL_PLATFORM_ORDER,
-  type SocialPlatformKey,
-  normalizeSocialUrl,
-} from "../lib/socialLinks";
-import {
-  buildOccupationCreatePayload,
-  buildOccupationPatchPayload,
-  clearOrganizationIdCache,
-  occupationsToDrafts,
-  resolveOrganizationId,
-  validateOccupationDraft,
-  type OccupationDraft,
-} from "../lib/occupationProfileEdit";
-import {
-  normalizeOpenToPreferences,
-  openToPreferencesForEdit,
-  parseOpenToPreferences,
-  type OpenToPreferences,
-} from "../lib/openToPreferences";
+import { parseOpenToPreferences } from "../lib/openToPreferences";
 import { browsingLimitFromError } from "../lib/browsingLimits";
-import { safeWebHref } from "../lib/webUrl";
-import { AREAS_PROMPT_OPEN_TO, areasChanged, normalizeAreasForSave } from "../lib/personAreas";
+import { headlineInstituteLine, headlineRole, instituteEducation, type ProfileSection } from "../lib/profilePage";
+
+/** Deep links from other pages: ?edit=contact | open-to | city opens that section's sheet. */
+const EDIT_PARAM_SECTIONS: Record<string, ProfileSection> = { contact: "contact", "open-to": "openTo", city: "header" };
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -62,48 +33,27 @@ export function Profile() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const navigate = useNavigate();
-  const [previewProfile, setPreviewProfile] = useState(false);
-  const refetchAuth = auth.refetch;
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [section, setSection] = useState<ProfileSection | null>(null);
+  const [reachingOut, setReachingOut] = useState(false);
   /** Cities: after a city change into a v1 city, offer "New in [city]?" (screen 5). */
   const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null);
-  /** Cities' "Moved away? Update your city" opened this edit (for the city-update count). */
-  const cityEditFromCitiesRef = useRef(false);
+  /** Cities' "Moved away? Update your city" opened the sheet (for the city-update count). */
+  const [fromCities, setFromCities] = useState(false);
   /** Cities sent the member here at the 5-tag cap to make room for city help. */
   const [openToNotice, setOpenToNotice] = useState<string | null>(null);
-  const [draftPersonalEmail, setDraftPersonalEmail] = useState("");
-  const [draftMobilePhone, setDraftMobilePhone] = useState("");
-  const [draftResidenceCountry, setDraftResidenceCountry] = useState("");
-  const [draftResidenceCity, setDraftResidenceCity] = useState("");
-  const [draftDepartmentOtherText, setDraftDepartmentOtherText] = useState("");
-  const [draftOpenTo, setDraftOpenTo] = useState<OpenToPreferences>(() =>
-    openToPreferencesForEdit(null),
-  );
-  const [draftAreas, setDraftAreas] = useState<string[]>([]);
-  const [draftOccupations, setDraftOccupations] = useState<OccupationDraft[]>([]);
-  const [editLinks, setEditLinks] = useState<ProfileLinkView[]>([]);
-  const [draftSocialLinks, setDraftSocialLinks] = useState(emptySocialLinkDraft);
-  const [saving, setSaving] = useState(false);
-  const [linksSaving, setLinksSaving] = useState(false);
-  const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [linksError, setLinksError] = useState<string | null>(null);
-  const editLinksHydratedRef = useRef(false);
-  const [openSocialPlatform, setOpenSocialPlatform] = useState<SocialPlatformKey | null>(null);
 
-  const isOwnProfile =
-    auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
+  const isOwnProfile = auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
 
   const profileQuery = useQuery({
     queryKey: queryKeys.profiles.detail(id ?? ""),
     queryFn: ({ signal }) => assertApiGet<ProfileResponse>(`/v1/profiles/${id}`, signal),
     enabled: Boolean(id),
   });
-
   const data = profileQuery.data ?? null;
   const loading = profileQuery.isPending;
 
+  // The owner's own links include any the public profile hides; the Links sheet edits these.
   const linksQuery = useQuery({
     queryKey: queryKeys.me.links(),
     queryFn: ({ signal }) => assertApiGet<MeLinksResponse>("/v1/me/links", signal),
@@ -118,366 +68,52 @@ export function Profile() {
         "/v1/me/rejected-organizations",
         signal,
       ),
-    enabled: Boolean(isOwnProfile && !previewProfile),
+    enabled: Boolean(isOwnProfile),
   });
   const rejectedOrgs = rejectedOrgsQuery.data?.organizations ?? [];
 
-
-  useEffect(() => {
-    if (!isEditing) {
-      editLinksHydratedRef.current = false;
-      return;
-    }
-    if (!linksQuery.data?.links || editLinksHydratedRef.current) return;
-    editLinksHydratedRef.current = true;
-    queueMicrotask(() => {
-      const nextLinks = linksQuery.data!.links;
-      setEditLinks(nextLinks);
-      setDraftSocialLinks(socialLinksDraftFromProfile(nextLinks));
-    });
-  }, [isEditing, linksQuery.data]);
-
-  const navAvatarName =
-    auth.status === "authenticated"
-      ? displayFirstNameFromEmail(auth.person.institutionalEmail)
-      : undefined;
-
-  const beginEdit = useCallback(() => {
-    const p = profileQuery.data?.profile;
-    if (!p) return;
-    setPreviewProfile(false);
-    setEditError(null);
-    editLinksHydratedRef.current = false;
-    const me = auth.status === "authenticated" ? auth.myProfile : null;
-    if (p) {
-      setDraftPersonalEmail(me?.personalEmail ?? "");
-      setDraftMobilePhone(me?.mobilePhone ?? "");
-      setDraftResidenceCountry(p.residenceCountry ?? "");
-      setDraftResidenceCity(p.residenceCity ?? "");
-      setDraftDepartmentOtherText(p.departmentOtherText ?? "");
-      setDraftOpenTo(openToPreferencesForEdit(parseOpenToPreferences(p.openToPreferences) ?? null));
-    }
-    setDraftAreas(profileQuery.data?.areas ?? []);
-    setDraftOccupations(occupationsToDrafts(profileQuery.data?.occupations ?? []));
-    clearOrganizationIdCache();
-    setDraftSocialLinks(socialLinksDraftFromProfile(profileQuery.data?.links ?? []));
-    setIsEditing(true);
-  }, [profileQuery.data, auth]);
-
-  useEffect(() => {
-    const editMode = searchParams.get("edit");
-    // ?edit=contact opens editing; ?edit=open-to (from Careers' "Offer help") also scrolls to Open to.
-    // ?edit=city (Cities' "Moved away? Update your city") opens editing with the city field focused.
-    if (!isOwnProfile || isEditing || (editMode !== "contact" && editMode !== "open-to" && editMode !== "city") || !profileQuery.data?.profile) return;
-    const capReason = searchParams.get("limit") === "city_help";
-    const t = window.setTimeout(() => {
-      beginEdit();
-      if (editMode === "open-to") {
-        setOpenToNotice(
-          capReason ? "You can be open to 5 things at once. Turn one off to make room for city help, then save." : null,
-        );
-        window.setTimeout(() => document.getElementById("profile-open-to")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
-      }
-      if (editMode === "city") {
-        cityEditFromCitiesRef.current = true;
-        window.setTimeout(() => {
-          const el = document.getElementById("profile-residence-city");
-          el?.scrollIntoView({ block: "center", behavior: "smooth" });
-          (el as HTMLInputElement | null)?.focus();
-        }, 50);
-      }
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("edit");
-        next.delete("limit");
-        return next;
-      }, { replace: true });
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [searchParams, isOwnProfile, isEditing, beginEdit, setSearchParams, profileQuery.data]);
-
-  const cancelEdit = useCallback(() => {
-    setOpenSocialPlatform(null);
-    setIsEditing(false);
-    setEditError(null);
-    if (id) void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
+  const refresh = useCallback(async () => {
+    if (id) await queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
   }, [id, queryClient]);
 
-  const updateDraftOccupation = useCallback((occId: string, patch: Partial<OccupationDraft>) => {
-    setDraftOccupations((prev) => {
-      let next = prev.map((d) => (d.id === occId ? { ...d, ...patch } : d));
-      if (patch.isCurrent === true) {
-        next = next.map((d) => (d.id === occId ? d : { ...d, isCurrent: false }));
-      }
-      return next;
-    });
-    setEditError(null);
-  }, []);
-
-  const commitExperienceDraft = useCallback((draft: OccupationDraft) => {
-    setDraftOccupations((prev) => {
-      const exists = prev.some((d) => d.id === draft.id);
-      let next = exists
-        ? prev.map((d) => (d.id === draft.id ? draft : d))
-        : [...prev, draft];
-      if (draft.isCurrent) {
-        next = next.map((d) => (d.id === draft.id ? d : { ...d, isCurrent: false }));
-      }
-      return next;
-    });
-    setEditError(null);
-  }, []);
-
-  const removeDraftExperience = useCallback((occId: string) => {
-    setDraftOccupations((prev) => prev.filter((d) => d.id !== occId || !d.isNew));
-    setEditError(null);
-  }, []);
-
-  const persistSocialLinks = useCallback(async (): Promise<string | null> => {
-    const sourceLinks = isEditing ? editLinks : (data?.links ?? []);
-    const existingByKey = new Map<SocialPlatformKey, ProfileLinkView>();
-    for (const link of sourceLinks) {
-      const key = linkToSocialPlatformKey(link);
-      if (key && !existingByKey.has(key)) existingByKey.set(key, link);
-    }
-
-    for (const key of SOCIAL_PLATFORM_ORDER) {
-      const raw = draftSocialLinks[key];
-      const normalized = normalizeSocialUrl(raw);
-      const platform = socialPlatformLabel(key);
-      const existing = existingByKey.get(key);
-
-      if (!normalized) {
-        if (raw.trim()) {
-          return `Enter a valid ${platform} URL.`;
-        }
-        if (existing) {
-          const { error } = await api.delete(`/v1/me/links/${existing.id}`);
-          if (error) {
-            return error.message ?? error.code;
-          }
-          existingByKey.delete(key);
-        }
-        continue;
-      }
-
-      if (existing) {
-        if (existing.url === normalized) continue;
-        const { data: updated, error } = await api.patch<{ link: ProfileLinkView }>(
-          `/v1/me/links/${existing.id}`,
-          { platform, url: normalized, label: null },
-        );
-        if (error) {
-          return error.message ?? error.code;
-        }
-        if (updated?.link) existingByKey.set(key, updated.link);
-      } else {
-        const { data: created, error } = await api.post<{ link: ProfileLinkView }>("/v1/me/links", {
-          platform,
-          url: normalized,
-          label: null,
-        });
-        if (error) {
-          return error.message ?? error.code;
-        }
-        if (created?.link) existingByKey.set(key, created.link);
-      }
-    }
-
-    return null;
-  }, [data?.links, draftSocialLinks, editLinks, isEditing]);
-
-  const saveProfileEdits = useCallback(async () => {
-    if (!data) return;
-    setSaving(true);
-    setEditError(null);
-    clearOrganizationIdCache();
-
-    // Check everything BEFORE the first write, so a typo can't leave a half-saved profile.
-    if (data.profile.departmentCode === "other" && !draftDepartmentOtherText.trim()) {
-      setSaving(false);
-      setEditError("Please specify your department.");
-      return;
-    }
-    const preflightError = preflightProfileEdits(draftOccupations, draftSocialLinks, draftPersonalEmail);
-    if (preflightError) {
-      setSaving(false);
-      setEditError(preflightError);
-      return;
-    }
-
-    const { data: patched, error: profileError } = await api.patch<ProfilePatchResponse>("/v1/me/profile", {
-      personalEmail: draftPersonalEmail.trim() || null,
-      departmentOtherText: data.profile.departmentCode === "other" ? draftDepartmentOtherText.trim() : undefined,
-      mobilePhone: draftMobilePhone.trim() || null,
-      residenceCountry: draftResidenceCountry.trim() || null,
-      residenceCity: draftResidenceCity.trim() || null,
-      // No tags selected = clear them (the API rejects an empty selection object).
-      openToPreferences: draftOpenTo.selected.length > 0 ? normalizeOpenToPreferences(draftOpenTo) : null,
-    });
-    if (profileError) {
-      setSaving(false);
-      setEditError(profileError.message ?? profileError.code);
-      return;
-    }
-    if (areasChanged(data.areas ?? [], draftAreas)) {
-      const { error: areasError } = await api.put<MeAreasResponse>("/v1/me/areas", {
-        areas: normalizeAreasForSave(draftAreas),
-      });
-      if (areasError) {
-        setSaving(false);
-        setEditError(areasError.message ?? areasError.code);
-        return;
-      }
-    }
-    if (cityEditFromCitiesRef.current && (draftResidenceCity.trim() || null) !== (data.profile.residenceCity ?? null)) {
-      trackBetaUsageEvent("cities_city_updated");
-    }
-    cityEditFromCitiesRef.current = false;
-
-    for (const draft of draftOccupations) {
-      const validation = validateOccupationDraft(draft);
-      if (validation) {
-        setSaving(false);
-        setEditError(validation);
-        return;
-      }
-      try {
-        const organizationId = await resolveOrganizationId(draft.organizationName);
-        if (draft.isNew) {
-          const { error: occError } = await api.post(
-            "/v1/me/occupations",
-            buildOccupationCreatePayload(draft, organizationId),
-          );
-          if (occError) {
-            setSaving(false);
-            setEditError(occError.message ?? occError.code);
-            return;
-          }
-        } else {
-          const { error: occError } = await api.patch(
-            `/v1/me/occupations/${draft.id}`,
-            buildOccupationPatchPayload(draft, organizationId),
-          );
-          if (occError) {
-            setSaving(false);
-            setEditError(occError.message ?? occError.code);
-            return;
-          }
-        }
-      } catch (err) {
-        setSaving(false);
-        setEditError(err instanceof Error ? err.message : "Could not save experience.");
-        return;
-      }
-    }
-
-    const linkErr = await persistSocialLinks();
-    if (linkErr) {
-      setSaving(false);
-      setEditError(linkErr);
-      return;
-    }
-
-    setSaving(false);
-    await refetchAuth();
-    if (id) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
-    }
-    const refetched = await linksQuery.refetch();
-    if (refetched.data?.links) {
-      setEditLinks(refetched.data.links);
-      setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
-    }
-    setOpenSocialPlatform(null);
+  const closeSheet = useCallback(() => {
+    setSection(null);
     setOpenToNotice(null);
-    setIsEditing(false);
-    if (patched?.arrivalPrompt) setArrivalPrompt(patched.arrivalPrompt);
-  }, [
-    data,
-    draftDepartmentOtherText,
-    draftPersonalEmail,
-    draftMobilePhone,
-    draftResidenceCountry,
-    draftResidenceCity,
-    draftOpenTo,
-    draftAreas,
-    draftOccupations,
-    draftSocialLinks,
-    persistSocialLinks,
-    refetchAuth,
-    id,
-    queryClient,
-    linksQuery,
-  ]);
-
-  const handleSaveSocialLinks = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const setLinkError = isEditing ? setEditError : setLinksError;
-    setLinkError(null);
-    if (!isEditing) setEditError(null);
-
-    setLinksSaving(true);
-    const linkErr = await persistSocialLinks();
-    setLinksSaving(false);
-    if (linkErr) {
-      setLinkError(linkErr);
-      return;
-    }
-
-    await refetchAuth();
-    if (id) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
-    }
-    if (isEditing) {
-      const refetched = await linksQuery.refetch();
-      if (refetched.data?.links) {
-        setEditLinks(refetched.data.links);
-        setDraftSocialLinks(socialLinksDraftFromProfile(refetched.data.links));
-      }
-    }
-    setOpenSocialPlatform(null);
-  };
-
-  const updateSocialDraft = (key: SocialPlatformKey, value: string) => {
-    setDraftSocialLinks((prev) => ({ ...prev, [key]: value }));
-    if (isEditing) setEditError(null);
-    else setLinksError(null);
-  };
-
-  const openSocialEditor = useCallback(
-    (key: SocialPlatformKey) => {
-      setLinksError(null);
-      setEditError(null);
-      const sourceLinks = isEditing ? editLinks : (linksQuery.data?.links ?? data?.links ?? []);
-      setDraftSocialLinks(socialLinksDraftFromProfile(sourceLinks));
-      setOpenSocialPlatform(key);
-    },
-    [isEditing, editLinks, linksQuery.data, data?.links],
-  );
-
-  const closeSocialEditor = useCallback(() => {
-    setOpenSocialPlatform(null);
+    setFromCities(false);
   }, []);
 
-  const handleDeleteLink = async (linkId: string) => {
-    setEditError(null);
-    setLinkBusyId(linkId);
-    const { error } = await api.delete(`/v1/me/links/${linkId}`);
-    setLinkBusyId(null);
-    if (error) {
-      setEditError(error.message ?? error.code);
-      return;
-    }
-    setEditLinks((prev) => prev.filter((l) => l.id !== linkId));
-    await refetchAuth();
-    if (id) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
-    }
-  };
+  const savedAndClose = useCallback(async () => {
+    await refresh();
+    closeSheet();
+  }, [refresh, closeSheet]);
+
+  // ?edit=… from Careers ("Offer help"), Cities ("Moved away?", the 5-tag cap) and others.
+  useEffect(() => {
+    const editMode = searchParams.get("edit");
+    const target = editMode ? EDIT_PARAM_SECTIONS[editMode] : undefined;
+    if (!isOwnProfile || !target || !data) return;
+    const capReason = searchParams.get("limit") === "city_help";
+    const t = window.setTimeout(() => {
+      if (target === "openTo" && capReason) {
+        setOpenToNotice("You can be open to 5 things at once. Turn one off to make room for city help, then save.");
+      }
+      if (target === "header") setFromCities(true);
+      setSection(target);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("edit");
+          next.delete("limit");
+          return next;
+        },
+        { replace: true },
+      );
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [searchParams, isOwnProfile, data, setSearchParams]);
+
+  const navAvatarName =
+    auth.status === "authenticated" ? displayFirstNameFromEmail(auth.person.institutionalEmail) : undefined;
 
   const profileLimit = browsingLimitFromError(profileQuery.error);
   if (profileLimit) {
@@ -514,213 +150,168 @@ export function Profile() {
     );
   }
 
-  const profile = data?.profile;
-  const occupations = data?.occupations ?? [];
-  const links = data?.links ?? [];
-  const profileDisplayName =
-    (profile?.fullName ?? "").trim() || "Profile";
-  const onboardingIncomplete =
-    isOwnProfile && auth.status === "authenticated" && !auth.myProfile?.onboardingCompletedAt;
-  const sidebarOtherLinks =
-    !loading && isOwnProfile && isEditing ? otherProfileLinks(editLinks) : [];
-  const showProfileSidebar = sidebarOtherLinks.length > 0;
+  if (loading || !data) {
+    return (
+      <>
+        <Nav variant="home" avatarName={navAvatarName} />
+        <div className="home-dashboard profile-page">
+          <div className="pp pp--loading" aria-busy="true" aria-label="Loading profile">
+            <div className="pp-skel pp-skel--head" />
+            <div className="pp-skel-row">
+              <div className="pp-skel" />
+              <div className="pp-skel" />
+              <div className="pp-skel" />
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
-  const orgFlag =
-    isOwnProfile && !previewProfile && rejectedOrgs.length > 0 ? (
-      <div className="profile-page__org-flag" role="status">
-        <h3 className="profile-page__org-flag-title">Company needs updating</h3>
+  const profile = data.profile;
+  const occupations = data.occupations ?? [];
+  const areas = data.areas ?? [];
+  const openTo = parseOpenToPreferences(profile.openToPreferences) ?? null;
+  const me = auth.status === "authenticated" ? auth.myProfile : null;
+  const onboardingIncomplete = isOwnProfile && !me?.onboardingCompletedAt;
+  const current = headlineRole(occupations);
+
+  const ownerNotice =
+    isOwnProfile && rejectedOrgs.length > 0 ? (
+      <div className="pp-notice" role="status">
+        <h3 className="pp-notice__title">Company needs updating</h3>
         {rejectedOrgs.map((org) => (
-          <p key={org.id} className="profile-page__org-flag-text">
+          <p key={org.id} className="pp-notice__text">
             &lsquo;{org.name}&rsquo; wasn&rsquo;t accepted as a company.
             {org.rejectionReason ? ` Reason: ${org.rejectionReason.replace(/[.\s]+$/, "")}.` : ""} Please update the company on your profile.
           </p>
         ))}
-        {!isEditing ? (
-          <button type="button" className="nav__profile-edit" onClick={beginEdit}>
-            Update company
-          </button>
-        ) : null}
+        <button type="button" className="pp-inline-link" onClick={() => setSection("career")}>
+          Update company
+        </button>
       </div>
     ) : null;
+
+  const institute = instituteEducation(profile, true);
+  const instituteLockedLine = [institute?.institution, institute?.program, institute?.years].filter(Boolean).join(" · ") || headlineInstituteLine(profile);
 
   return (
     <>
       <Nav variant="home" avatarName={navAvatarName} />
-      <div className="home-dashboard profile-page">
-        {/* Messaging paused: Message button on other people's profiles hidden while messaging is commented out.
-            The removed ProfileHero prop was:
-          onSendMessage={
-            !isOwnProfile && profile
-              ? () => {
-                  window.dispatchEvent(
-                    new CustomEvent("messaging:open-draft", {
-                      detail: {
-                        recipientPersonId: profile.id,
-                        recipientName: profileDisplayName,
-                        initialMessage: "",
-                        kind: "general",
-                        recipientDepartmentCode: profile.departmentCode,
-                        recipientBatchYear: profile.batchYear,
-                      },
-                    }),
-                  );
+      <div className="home-dashboard profile-page profile-page--one">
+        <ProfilePageView
+          profile={profile}
+          occupations={occupations}
+          links={data.links ?? []}
+          areas={areas}
+          openTo={openTo}
+          yourNote={data.yourNote ?? null}
+          isOwnProfile={isOwnProfile}
+          onboardingIncomplete={onboardingIncomplete}
+          privateContact={isOwnProfile ? (me ?? undefined) : undefined}
+          ownerNotice={ownerNotice}
+          ownerExtras={isOwnProfile ? <WhatsAppNotesSettings /> : null}
+          onEdit={setSection}
+          onReachOut={() => setReachingOut(true)}
+          onSignOut={() => {
+            void auth.logout().then(() => navigate("/signed-out", { replace: true }));
+          }}
+          onSignOutEverywhere={
+            auth.status === "authenticated" && !auth.person.isDemo
+              ? () => auth.logoutAll().then(() => navigate("/signed-out", { replace: true, state: { plain: true } }))
+              : undefined
+          }
+        />
+      </div>
+
+      {isOwnProfile && section === "header" ? (
+        <HeaderSheet
+          city={profile.residenceCity}
+          country={profile.residenceCountry}
+          focusCity={fromCities}
+          onClose={closeSheet}
+          onSaved={({ arrivalPrompt: prompt, changedCity }) => {
+            if (fromCities && changedCity) trackBetaUsageEvent("cities_city_updated");
+            void auth.refetch();
+            void savedAndClose();
+            if (prompt) setArrivalPrompt(prompt);
+          }}
+        />
+      ) : null}
+      {isOwnProfile && section === "areas" ? <AreasSheet saved={areas} onClose={closeSheet} onSaved={() => void savedAndClose()} /> : null}
+      {isOwnProfile && section === "openTo" ? (
+        <OpenToSheet
+          saved={openTo}
+          notice={openToNotice}
+          hasAreas={areas.length > 0}
+          onAddAreas={() => setSection("areas")}
+          onClose={closeSheet}
+          onSaved={() => {
+            void auth.refetch();
+            void savedAndClose();
+          }}
+        />
+      ) : null}
+      {isOwnProfile && (section === "career" || section === "education") ? (
+        <EntriesSheet
+          kind={section}
+          occupations={occupations}
+          institute={
+            section === "education"
+              ? {
+                  line: instituteLockedLine,
+                  departmentOther:
+                    profile.departmentCode === "other"
+                      ? {
+                          value: profile.departmentOtherText ?? "",
+                          status: profile.departmentOtherStatus,
+                          rejectionReason: profile.departmentOtherRejectionReason ?? null,
+                        }
+                      : null,
                 }
               : undefined
           }
-        */}
-        {!loading && profile && !isEditing ? orgFlag : null}
-        {!loading && profile && !isEditing ? (
-          <PersonProfileView profile={profile} occupations={occupations} links={links}
-            isOwnProfile={isOwnProfile} onboardingIncomplete={onboardingIncomplete} onPreviewChange={setPreviewProfile}
-            privateContact={isOwnProfile && auth.status === "authenticated" ? auth.myProfile ?? undefined : undefined}
-            openTo={parseOpenToPreferences(profile.openToPreferences) ?? null}
-            areas={data?.areas ?? []}
-            onEdit={() => void beginEdit()}
-            onSignOut={() => { void auth.logout().then(() => navigate("/signed-out", { replace: true })); }}
-            onSignOutEverywhere={auth.status === "authenticated" && !auth.person.isDemo ? () => auth.logoutAll().then(() => navigate("/signed-out", { replace: true, state: { plain: true } })) : undefined} />
-        ) : null}
-        {loading || isEditing ? <>
-        <ProfileHero
-          loading={loading}
-          profile={profile}
-          occupations={occupations}
-          links={isEditing ? editLinks : links}
-          profileDisplayName={profileDisplayName}
-          isOwnProfile={isOwnProfile}
-          isEditing={isEditing}
-          onEdit={isOwnProfile && !isEditing ? () => void beginEdit() : undefined}
-          onCancelEdit={isOwnProfile && isEditing ? () => void cancelEdit() : undefined}
-          onSaveEdit={isOwnProfile && isEditing ? () => void saveProfileEdits() : undefined}
-          saving={saving}
-          openSocialPlatform={isOwnProfile ? openSocialPlatform : null}
-          onOpenSocialPlatform={isOwnProfile ? openSocialEditor : undefined}
-          onCloseSocialPlatform={isOwnProfile ? closeSocialEditor : undefined}
-          socialDraft={isOwnProfile ? draftSocialLinks : undefined}
-          onSocialDraftChange={isOwnProfile ? updateSocialDraft : undefined}
-          onSaveSocialLinks={isOwnProfile ? () => void handleSaveSocialLinks() : undefined}
-          socialLinksBusy={linksSaving}
-          socialLinksError={isEditing ? editError : linksError}
+          onClose={closeSheet}
+          onChanged={() => {
+            void refresh();
+            void queryClient.invalidateQueries({ queryKey: ["me", "rejected-organizations"] });
+          }}
         />
+      ) : null}
+      {isOwnProfile && section === "links" ? (
+        <LinksSheet
+          links={linksQuery.data?.links ?? data.links ?? []}
+          onClose={closeSheet}
+          onSaved={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.me.links() });
+            void savedAndClose();
+          }}
+        />
+      ) : null}
+      {isOwnProfile && section === "contact" ? (
+        <ContactSheet
+          personalEmail={me?.personalEmail ?? null}
+          mobilePhone={me?.mobilePhone ?? null}
+          onClose={closeSheet}
+          onSaved={() => {
+            void auth.refetch();
+            closeSheet();
+          }}
+        />
+      ) : null}
 
-        <div className="profile-page__engage-wrap">
-          <section id="profile-open-to" className="profile-page__engage-row" aria-label="Profile highlights">
-            <div className="profile-page__engage-stack">
-              <ProfileEngagementCards
-                loading={loading}
-                openToPreferences={parseOpenToPreferences(profile?.openToPreferences) ?? null}
-                isEditing={isOwnProfile && isEditing}
-                draftOpenTo={isEditing ? draftOpenTo : undefined}
-                onDraftOpenToChange={isEditing ? setDraftOpenTo : undefined}
-                editNotice={openToNotice}
-                showAreasPrompt={
-                  isEditing &&
-                  draftAreas.length === 0 &&
-                  draftOpenTo.selected.some((tag) => (AREAS_PROMPT_OPEN_TO as readonly string[]).includes(tag))
-                }
-                onAddAreas={() => {
-                  const el = document.getElementById(PROFILE_AREAS_INPUT_ID) as HTMLInputElement | null;
-                  el?.focus({ preventScroll: true });
-                  el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-                }}
-              />
-              {isOwnProfile && isEditing ? (
-                <ProfileAreasCard draftAreas={draftAreas} onDraftAreasChange={setDraftAreas} />
-              ) : null}
-            </div>
-            {orgFlag}
-            <ProfileExperience
-              loading={loading}
-              occupations={occupations}
-              profile={profile}
-              isOwnProfile={isOwnProfile}
-              onboardingIncomplete={onboardingIncomplete}
-              isEditing={isOwnProfile && isEditing}
-              draftOccupations={isEditing ? draftOccupations : undefined}
-              onDraftOccupationChange={isEditing ? updateDraftOccupation : undefined}
-              onCommitExperience={isEditing ? commitExperienceDraft : undefined}
-              onRemoveExperience={isEditing ? removeDraftExperience : undefined}
-            />
-          </section>
-          {isOwnProfile && !previewProfile ? <WhatsAppNotesSettings /> : null}
-        </div>
+      {reachingOut && !isOwnProfile ? (
+        <MatchReachOutDialog
+          recipient={{ id: profile.id, fullName: profile.fullName }}
+          referral={{ company: current?.organizationName ?? null }}
+          source="profile"
+          onClose={() => {
+            setReachingOut(false);
+            void refresh();
+          }}
+        />
+      ) : null}
 
-        </> : null}
-        {loading || isEditing ? <div
-          className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
-        >
-          <div className="home-dashboard__col home-dashboard__col--wide profile-page__sections">
-            {isOwnProfile && isEditing && editError ? (
-              <p className="body-text profile-page__error-text">
-                {editError}
-              </p>
-            ) : null}
-
-            {loading || isEditing ? <>
-            <ProfileIitBhu
-              loading={loading}
-              profile={profile}
-              isOwnProfile={isOwnProfile}
-              onboardingIncomplete={onboardingIncomplete}
-            />
-
-            <ProfileAbout
-              loading={loading}
-              profile={profile}
-              isOwnProfile={isOwnProfile}
-              isEditing={isEditing}
-              draftPersonalEmail={draftPersonalEmail}
-              draftMobilePhone={draftMobilePhone}
-              draftResidenceCountry={draftResidenceCountry}
-              draftResidenceCity={draftResidenceCity}
-              onDraftPersonalEmail={setDraftPersonalEmail}
-              onDraftMobilePhone={setDraftMobilePhone}
-              onDraftResidenceCountry={setDraftResidenceCountry}
-              onDraftResidenceCity={setDraftResidenceCity}
-            />
-
-            {isEditing ? (
-              <ProfileDepartmentEdit
-                profile={profile}
-                draftDepartmentOtherText={draftDepartmentOtherText}
-                onDraftDepartmentOtherText={setDraftDepartmentOtherText}
-              />
-            ) : null}
-
-            </> : null}
-
-
-          </div>
-
-          {showProfileSidebar ? (
-            <aside className="home-dashboard__col home-dashboard__col--side">
-              <article className="home-dashboard__card">
-                <h2 className="profile-page__section-title">Other links</h2>
-                <ul className="profile-page__links-editor profile-page__links-editor--other">
-                  {sidebarOtherLinks.map((link) => (
-                    <li key={link.id}>
-                      {safeWebHref(link.url) ? (
-                        <a href={safeWebHref(link.url)!} target="_blank" rel="noopener noreferrer">
-                          {link.platform}
-                        </a>
-                      ) : (
-                        <span>{link.platform}</span>
-                      )}
-                      <button
-                        type="button"
-                        className="profile-page__link-remove"
-                        disabled={linkBusyId === link.id}
-                        onClick={() => void handleDeleteLink(link.id)}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </aside>
-          ) : null}
-        </div> : null}
-      </div>
       {arrivalPrompt ? (
         <ArrivalOptInSheet
           placeId={arrivalPrompt.placeId}
@@ -731,4 +322,4 @@ export function Profile() {
       ) : null}
     </>
   );
-    }
+}

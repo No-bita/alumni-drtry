@@ -42,7 +42,7 @@ export interface MatchCandidateSignals {
   studyTypeMatch: OccupationSignal | null;
   /** Founded-a-venture occupation or a founder title. */
   founderMatch: OccupationSignal | null;
-  /** Keywords from the question found in role, description, bio or org name. */
+  /** Keywords from the question found in role, description, org name or areas of experience. */
   keywordHits: string[];
   openTo: OpenToOptionId[];
   completenessScore: number;
