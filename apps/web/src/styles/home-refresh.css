@@ -93,8 +93,7 @@
 
 /* ---------- Buttons on Home: sentence case pills (the app-wide .btn stays uppercase) ---------- */
 .home-dashboard--ideal .btn,
-.home-dashboard--ideal .home-ideal__panel-actions .btn,
-.home-dashboard--ideal .bb-post-card__actions .btn {
+.home-dashboard--ideal .home-ideal__panel-actions .btn {
   text-transform: none;
   letter-spacing: 0;
   font-size: 14px;
