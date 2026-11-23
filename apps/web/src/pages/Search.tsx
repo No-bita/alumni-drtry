@@ -4,7 +4,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
-import { SearchResultRow } from "../components/SearchResultRow";
+import { SearchResultRow, type SearchCardNote } from "../components/SearchResultRow";
+import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
 import { CareerStyleSearchToolbar } from "../components/CareerStyleSearchToolbar";
 import { DirectoryFilterChipStrip } from "../components/DirectoryFilterChipStrip";
 import { DirectoryFilterDrawer } from "../components/DirectoryFilterDrawer";
@@ -31,15 +32,16 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { browsingLimitFromError } from "../lib/browsingLimits";
 
 /**
- * Directory grid: 1 col (viewport under 680px) → 2 col (tablet) → 3 col (desktop).
- * Phone shell/dock uses CSS 639px; column count is independent (1-col below 680).
+ * Directory grid columns come from the width the results actually get (the page minus the side nav),
+ * so every card is at least ~300px wide: 1 column, then 2 from 622px, then 3 from 944px
+ * (cards plus the 22px gaps).
  */
-const SEARCH_RESULTS_TWO_COL_MIN_PX = 680;
-const SEARCH_RESULTS_THREE_COL_MIN_PX = 1080;
+const SEARCH_RESULTS_TWO_COL_MIN_PX = 622;
+const SEARCH_RESULTS_THREE_COL_MIN_PX = 944;
 
-function directoryResultsColumnCount(viewportWidth: number): 1 | 2 | 3 {
-  if (viewportWidth >= SEARCH_RESULTS_THREE_COL_MIN_PX) return 3;
-  if (viewportWidth >= SEARCH_RESULTS_TWO_COL_MIN_PX) return 2;
+function directoryResultsColumnCount(resultsWidth: number): 1 | 2 | 3 {
+  if (resultsWidth >= SEARCH_RESULTS_THREE_COL_MIN_PX) return 3;
+  if (resultsWidth >= SEARCH_RESULTS_TWO_COL_MIN_PX) return 2;
   return 1;
 }
 
@@ -50,15 +52,13 @@ export function Search() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const lastZeroResultKeyRef = useRef<string | null>(null);
 
-  const [resultsColumnCount, setResultsColumnCount] = useState<1 | 2 | 3>(() =>
-    typeof window !== "undefined" ? directoryResultsColumnCount(window.innerWidth) : 1
-  );
-
-  useEffect(() => {
-    const sync = () => setResultsColumnCount(directoryResultsColumnCount(window.innerWidth));
-    sync();
-    window.addEventListener("resize", sync);
-    return () => window.removeEventListener("resize", sync);
+  const [resultsColumnCount, setResultsColumnCount] = useState<1 | 2 | 3>(1);
+  /** Reach out from a card: the note form is drawn here, outside the virtual list (its rows are transformed and recycled). */
+  const [reachingOut, setReachingOut] = useState<SearchProfileView | null>(null);
+  /** Reachout states learnt on this page (looked up on tap, or just sent), by member id. */
+  const [cardNotes, setCardNotes] = useState<Record<string, Exclude<SearchCardNote, null>>>({});
+  const setCardNote = useCallback((personId: string, note: Exclude<SearchCardNote, null>) => {
+    setCardNotes((prev) => (prev[personId] === note ? prev : { ...prev, [personId]: note }));
   }, []);
 
   useEffect(() => {
@@ -224,6 +224,18 @@ export function Search() {
     [results.length, resultsColumnCount]
   );
 
+  const hasResults = results.length > 0;
+  // Measure the results strip before paint, and again whenever its width changes.
+  useLayoutEffect(() => {
+    const el = resultsListAnchorRef.current;
+    if (!el) return;
+    const sync = () => setResultsColumnCount(directoryResultsColumnCount(el.getBoundingClientRect().width));
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasResults, errorMessage]);
+
   const listLayoutKey =
     `${wideningSummary ?? ""}|${normalization?.applied ?? false}|${searchPending}|${showMainSpinner}|${errorMessage ?? ""}|${results.length}|${resultsColumnCount}`;
 
@@ -248,7 +260,7 @@ export function Search() {
 
   const virtualizer = useWindowVirtualizer({
     count: resultsRowCount,
-    /** Approx row height (directory cards + grid gap); tune with `.search-page__virtual-row` / `.search-result-row`. */
+    /** Approx row height (directory cards + grid gap); rows are measured once drawn (`.search-page__virtual-row`, `.search-card`). */
     estimateSize: () =>
       resultsColumnCount === 3 ? 300 : resultsColumnCount === 2 ? 275 : 255,
     overscan: 8,
@@ -440,6 +452,9 @@ export function Search() {
                         <div key={profile.id} className="search-page__result-cell">
                           <SearchResultRow
                             profile={profile}
+                            note={cardNotes[profile.id] ?? null}
+                            onNote={setCardNote}
+                            onReachOut={setReachingOut}
                             resultIndex={profileIndex}
                             searchSessionId={searchSessionId}
                             style={{ animationDelay: `${Math.min(profileIndex, 12) * 24}ms` }}
@@ -492,6 +507,15 @@ export function Search() {
           ) : null}
         </main>
       </div>
+      {reachingOut ? (
+        <MatchReachOutDialog
+          recipient={{ id: reachingOut.id, fullName: reachingOut.fullName?.trim() || "Alum" }}
+          referral={{ company: reachingOut.headlineOrganizationName?.trim() || null }}
+          source="search"
+          onSent={() => setCardNote(reachingOut.id, "pending")}
+          onClose={() => setReachingOut(null)}
+        />
+      ) : null}
     </>
   );
 }

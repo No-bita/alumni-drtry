@@ -26,7 +26,7 @@ describe("safeWebHref", () => {
 });
 
 describe("profile links", () => {
-  const profile: PublicProfileView = { id: "p2", fullName: "Other Alum", departmentCode: "cse", departmentName: "CSE", departmentOtherText: null, departmentOtherStatus: null, batchYear: 2018, parsedJoiningYear: 2014, bio: null, residenceCountry: null, residenceCity: null };
+  const profile: PublicProfileView = { id: "p2", fullName: "Other Alum", departmentCode: "cse", departmentName: "CSE", departmentOtherText: null, departmentOtherStatus: null, batchYear: 2018, parsedJoiningYear: 2014, residenceCountry: null, residenceCity: null };
   it("never renders a non-web link as a link", () => {
     render(
       <MemoryRouter>

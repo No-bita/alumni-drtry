@@ -38,7 +38,7 @@ Product target (rule rank, intent, diversity, richer analytics, etc.):
 | **Diversity** | Light caps so the top of the list is not all one company/batch. |
 | **Transparency** | Optional per-result **`matchReasons`** (e.g. “Same batch”, “Matches: product manager”). |
 | **Analytics** | Log query, positions, clicks for future tuning (in addition to coarse `search_log`). |
-| **Skills** | Not collected or indexed; keyword search uses name, bio, residence, occupations, and org names only. |
+| **Skills** | Not collected or indexed; keyword search uses name, residence, occupations, and org names only (the bio was removed in migration 075). |
 | **Browse tie-break** | `profile_completed_at` where applicable. |
 
 ---

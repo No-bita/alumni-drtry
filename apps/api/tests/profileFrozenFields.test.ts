@@ -24,7 +24,6 @@ describe("ProfileService - frozen identity fields guard", () => {
     degreeCode: "btech",
     degreeName: "Bachelor of Technology",
     personalEmail: "aaryan.personal@example.com",
-    bio: "Software Engineer",
     mobilePhone: "+919876543210",
     residenceCountry: "India",
     residenceCity: "Varanasi",
@@ -180,7 +179,7 @@ describe("ProfileService - frozen identity fields guard", () => {
       vi.spyOn(personRepo, "updateProfile").mockResolvedValue(null);
 
       await expect(
-        profileService.updateMyProfile("person-123", { bio: "New Bio" })
+        profileService.updateMyProfile("person-123", { residenceCity: "Pune" })
       ).rejects.toThrow(
         expect.objectContaining({
           statusCode: 409,
@@ -198,13 +197,13 @@ describe("ProfileService - frozen identity fields guard", () => {
         degreeCode: "btech",
         batchYear: 2020,
         institutionalEmail: "aaryan@iitbhu.ac.in",
-        bio: "Updated Bio",
+        residenceCity: "Pune",
       };
 
       const result = await profileService.updateMyProfile("person-123", unchangedPayload);
 
       expect(updateProfileSpy).toHaveBeenCalledTimes(1);
-      expect(result.bio).toBe("Updated Bio");
+      expect(result.residenceCity).toBe("Pune");
     });
 
     it("keeps personalEmail editable", async () => {
@@ -287,7 +286,6 @@ describe("ProfileService - frozen identity fields guard", () => {
         batch_year: 2020,
         personal_email: null,
         mobile_phone: null,
-        bio: null,
         skills_text: null,
         residence_country: null,
         residence_city: null,
@@ -316,7 +314,6 @@ describe("ProfileService - frozen identity fields guard", () => {
           batch_year: 2020,
           personal_email: null,
           mobile_phone: null,
-          bio: null,
           skills_text: null,
           residence_country: null,
           residence_city: null,

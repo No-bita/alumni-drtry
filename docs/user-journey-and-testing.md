@@ -60,7 +60,7 @@ This document describes how people move through the **IIT BHU Alumni** web app a
 1. Routed to `**/onboarding`** (step query `?step=0…5`).
 2. **Gate on load:** `GET /v1/me/profile` + occupations; if no profile, completed profile, or **not** eligible for onboarding flow → `**Navigate` to `/home`**. Fetch failure → redirect home (`.catch`).
 3. **Step 0:** Welcome screen (first-time design); **Let’s begin** → step 1+.
-4. Later steps: confirm details, name, occupation, links/bio, done — persisting via `**PATCH /v1/me/profile`**, `**POST /v1/me/occupations`**, etc. (as implemented in `Onboarding.tsx`).
+4. Later steps: confirm details, name, occupation, links, done — persisting via `**PATCH /v1/me/profile`**, `**POST /v1/me/occupations`**, etc. (as implemented in `Onboarding.tsx`).
 5. Completion step → user can go to `**/home**`.
 
 **Intent:** Only **onboarding-eligible** incomplete accounts (first two successful logins) use the dedicated funnel; **returning** incomplete users are **not** kept on `/onboarding` if they deep-link there.

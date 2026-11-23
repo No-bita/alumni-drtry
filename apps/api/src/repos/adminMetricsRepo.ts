@@ -1,6 +1,7 @@
 import type { DbExecutor } from "../db/types.js";
 import type { BetaUsageEventType } from "../lib/betaUsageEventTypes.js";
 import { betaPersonPredicate } from "../lib/analyticsBetaPersonSql.js";
+import { personIsDemoAlumniSql, personIsSeededDemoSql } from "../lib/demoPersonSql.js";
 
 export interface AdminMetrics {
   totalPeople: number;
@@ -96,12 +97,11 @@ export class AdminMetricsRepo {
           count(*) FILTER (WHERE role IN ('admin', 'super_admin'))::text AS admin_profiles,
           count(*) FILTER (
             WHERE role = 'alumni'
-              AND bio ILIKE '%[DEMO]%'
+              AND ${personIsSeededDemoSql("people")}
           )::text AS demo_profiles,
           count(*) FILTER (
             WHERE role = 'alumni'
-              AND COALESCE(is_test_user, FALSE) = FALSE
-              AND (bio IS NULL OR bio NOT ILIKE '%[DEMO]%')
+              AND NOT ${personIsDemoAlumniSql("people")}
           )::text AS beta_profiles,
           count(*) FILTER (
             WHERE role = 'alumni'
@@ -109,14 +109,12 @@ export class AdminMetricsRepo {
           )::text AS test_profiles,
           count(*) FILTER (
             WHERE role = 'alumni'
-              AND COALESCE(is_test_user, FALSE) = FALSE
-              AND (bio IS NULL OR bio NOT ILIKE '%[DEMO]%')
+              AND NOT ${personIsDemoAlumniSql("people")}
               AND profile_completed_at IS NOT NULL
           )::text AS beta_completed,
           count(*) FILTER (
             WHERE role = 'alumni'
-              AND COALESCE(is_test_user, FALSE) = FALSE
-              AND (bio IS NULL OR bio NOT ILIKE '%[DEMO]%')
+              AND NOT ${personIsDemoAlumniSql("people")}
               AND suspended_at IS NULL
           )::text AS beta_searchable
         FROM people

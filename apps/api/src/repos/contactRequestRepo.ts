@@ -58,7 +58,7 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities" | "profile";
+export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities" | "profile" | "search";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;

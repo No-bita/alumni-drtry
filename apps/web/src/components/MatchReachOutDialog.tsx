@@ -47,10 +47,12 @@ type MatchReachOutDialogProps = {
   advice?: { topic?: AdviceTopic | null; question?: string | null };
   /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
   rank?: number | null;
-  /** Where the asker came from: the app's search, the WhatsApp bot's "Send a note" link, Careers, or a profile. */
-  source?: "match" | "whatsapp" | "careers" | "profile";
+  /** Where the asker came from: Ask, the WhatsApp bot's "Send a note" link, Careers, a profile, or directory search. */
+  source?: "match" | "whatsapp" | "careers" | "profile" | "search";
   /** After sending: a second way out, e.g. back to Careers. */
   backTo?: { to: string; label: string };
+  /** Called once the note is sent (the dialog stays open on its "sent" step until closed). */
+  onSent?: () => void;
   onClose: () => void;
 };
 
@@ -100,6 +102,7 @@ export function MatchReachOutDialog({
   rank = null,
   source = "match",
   backTo,
+  onSent,
   onClose,
 }: MatchReachOutDialogProps) {
   const auth = useAuth();
@@ -152,6 +155,7 @@ export function MatchReachOutDialog({
       return;
     }
     setStep("sent");
+    onSent?.();
     // Cards show "Note sent", and Notifications lists it.
     void queryClient.invalidateQueries({ queryKey: queryKeys.match.all });
     void queryClient.invalidateQueries({ queryKey: SENT_NOTES_QUERY_KEY });

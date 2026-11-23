@@ -20,7 +20,6 @@ export interface PersonRow {
   batch_year: number | null;
   personal_email: string | null;
   mobile_phone: string | null;
-  bio: string | null;
   skills_text: string | null;
   residence_country: string | null;
   residence_city: string | null;
@@ -68,7 +67,6 @@ export interface PersonProfileView {
   degreeCode: string | null;
   degreeName: string | null;
   personalEmail: string | null;
-  bio: string | null;
   mobilePhone: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
@@ -93,7 +91,6 @@ interface PersonProfileRow {
   joining_year: number | null;
   batch_year: number | null;
   personal_email: string | null;
-  bio: string | null;
   mobile_phone: string | null;
   residence_country: string | null;
   residence_city: string | null;
@@ -117,7 +114,6 @@ export interface UpdateProfileInput {
   degreeId: string | null;
   batchYear: number | null;
   personalEmail: string | null;
-  bio: string | null;
   mobilePhone: string | null;
   residenceCountry: string | null;
   residenceCity: string | null;
@@ -269,7 +265,6 @@ export class PersonRepo {
         p.joining_year,
         p.batch_year,
         p.personal_email,
-        p.bio,
         p.mobile_phone,
         p.residence_country,
         p.residence_city,
@@ -315,7 +310,6 @@ export class PersonRepo {
       degreeCode: row.degree_vocab_code,
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,
-      bio: row.bio,
       mobilePhone: row.mobile_phone,
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,
@@ -467,21 +461,20 @@ export class PersonRepo {
         SET
           full_name = $2,
           department_id = $3,
-          department_other_text = $14,
-          department_other_status = CASE WHEN $15 THEN 'pending' ELSE department_other_status END,
-          department_other_reviewed_by = CASE WHEN $15 THEN NULL ELSE department_other_reviewed_by END,
-          department_other_reviewed_at = CASE WHEN $15 THEN NULL ELSE department_other_reviewed_at END,
-          department_other_rejection_reason = CASE WHEN $15 THEN NULL ELSE department_other_rejection_reason END,
+          department_other_text = $13,
+          department_other_status = CASE WHEN $14 THEN 'pending' ELSE department_other_status END,
+          department_other_reviewed_by = CASE WHEN $14 THEN NULL ELSE department_other_reviewed_by END,
+          department_other_reviewed_at = CASE WHEN $14 THEN NULL ELSE department_other_reviewed_at END,
+          department_other_rejection_reason = CASE WHEN $14 THEN NULL ELSE department_other_rejection_reason END,
           degree_id = $4,
           batch_year = $5,
           personal_email = $6,
-          bio = $7,
-          mobile_phone = $8,
-          profile_completed_at = $9,
-          onboarding_completed_at = $10,
-          residence_country = $11,
-          residence_city = $12,
-          open_to_preferences = $13
+          mobile_phone = $7,
+          profile_completed_at = $8,
+          onboarding_completed_at = $9,
+          residence_country = $10,
+          residence_city = $11,
+          open_to_preferences = $12
         WHERE id = $1
           ${onboardingClause}
         RETURNING
@@ -497,7 +490,6 @@ export class PersonRepo {
           joining_year,
           batch_year,
           personal_email,
-          bio,
           mobile_phone,
           residence_country,
           residence_city,
@@ -522,7 +514,7 @@ export class PersonRepo {
       ),
       history AS (
         INSERT INTO department_other_history (person_id, action, submitted_text)
-        SELECT $1, 'submitted', $14 WHERE $15::boolean AND EXISTS (SELECT 1 FROM updated)
+        SELECT $1, 'submitted', $13 WHERE $14::boolean AND EXISTS (SELECT 1 FROM updated)
         RETURNING id
       )
       SELECT * FROM updated
@@ -534,7 +526,6 @@ export class PersonRepo {
         input.degreeId,
         input.batchYear,
         input.personalEmail,
-        input.bio,
         input.mobilePhone,
         input.profileCompletedAt,
         input.onboardingCompletedAt,
@@ -569,7 +560,6 @@ export class PersonRepo {
       degreeCode: row.degree_vocab_code,
       degreeName: row.degree_vocab_name,
       personalEmail: row.personal_email,
-      bio: row.bio,
       mobilePhone: row.mobile_phone,
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,

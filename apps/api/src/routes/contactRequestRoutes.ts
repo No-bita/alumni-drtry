@@ -12,8 +12,8 @@ const createContactRequestSchema = z
     note: noteInputSchema.optional().nullable(),
     /** Cities v1 notes stay free-text; other surfaces send the note form instead. */
     message: z.string().max(3000).optional(),
-    /** Where the note was sent from (Ask, WhatsApp, Careers, a profile, or Cities v1). Outside Cities the category comes from the note. */
-    source: z.enum(["match", "whatsapp", "careers", "cities", "profile"]).optional(),
+    /** Where the note was sent from (Ask, WhatsApp, Careers, a profile, directory search, or Cities v1). Outside Cities the category comes from the note. */
+    source: z.enum(["match", "whatsapp", "careers", "cities", "profile", "search"]).optional(),
     sourceCategory: z.enum([...MATCH_CATEGORIES, ...CITIES_NOTE_CATEGORIES]).nullable().optional(),
     /** Position (1 = top) of the person in the match results, for ranking quality. */
     sourceRank: z.number().int().min(1).max(20).nullable().optional(),
@@ -44,7 +44,29 @@ const respondContactRequestSchema = z.object({
   action: z.enum(["accept", "decline"])
 });
 
+const statusQuerySchema = z.object({
+  recipientPersonId: z.string().uuid()
+});
+
 export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
+  /**
+   * Where the viewer's latest reachout to one member stands ("pending", "accepted", "declined" or
+   * null). Checked when Reach out is tapped on a search card, so it never counts as browsing a profile.
+   */
+  app.get("/v1/contact-requests/status", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = statusQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw new AppError(400, "CONTACT_REQUEST_BAD_REQUEST", "Invalid reachout status request.");
+    }
+    const viewer = request.actor.personId;
+    const recipient = parsed.data.recipientPersonId;
+    const yourNote =
+      recipient === viewer
+        ? null
+        : ((await app.contactRequestService.latestStatusFromSender(viewer, [recipient])).get(recipient) ?? null);
+    return reply.code(200).send({ yourNote });
+  });
+
   /** Notes the viewer sent, newest first (max 100). Contact is included only once accepted. */
   app.get("/v1/contact-requests/sent", { preHandler: app.authenticate }, async (request, reply) => {
     const sent = await app.contactRequestService.listSentForSender(request.actor.personId);

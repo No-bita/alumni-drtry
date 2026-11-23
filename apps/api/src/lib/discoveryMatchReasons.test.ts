@@ -28,7 +28,6 @@ describe("buildMatchReasonKeys", () => {
     parsed_joining_year: null,
     degree_code: null,
     degree_name: null,
-    bio: null,
     headline_role_title: null,
     headline_organization_name: null,
     residence_country: null,

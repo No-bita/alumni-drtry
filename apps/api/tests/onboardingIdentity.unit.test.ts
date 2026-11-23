@@ -24,7 +24,6 @@ const blank: PersonProfileView = {
   degreeCode: null,
   degreeName: null,
   personalEmail: null,
-  bio: null,
   mobilePhone: null,
   residenceCountry: null,
   residenceCity: null,

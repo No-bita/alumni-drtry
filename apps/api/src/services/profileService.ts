@@ -20,7 +20,6 @@ export interface UpdateMyProfileInput {
   instituteEmail?: string;
   institute_email?: string;
   personalEmail?: string | null;
-  bio?: string | null;
   mobilePhone?: string | null;
   residenceCountry?: string | null;
   residenceCity?: string | null;
@@ -214,7 +213,6 @@ export class ProfileService {
     let nextDegreeId: string | null = null;
     let nextBatchYear = current.batchYear;
     let nextPersonalEmail = current.personalEmail;
-    let nextBio = current.bio;
     let nextMobilePhone = current.mobilePhone;
     let nextResidenceCountry = current.residenceCountry;
     let nextResidenceCity = current.residenceCity;
@@ -287,9 +285,6 @@ export class ProfileService {
       nextPersonalEmail = input.personalEmail === null ? null : normalizeEmail(input.personalEmail);
     }
 
-    if (input.bio !== undefined) {
-      nextBio = input.bio === null ? null : input.bio.trim();
-    }
 
     if (input.mobilePhone !== undefined) {
       nextMobilePhone =
@@ -383,7 +378,6 @@ export class ProfileService {
         degreeId: nextDegreeId,
         batchYear: nextBatchYear,
         personalEmail: nextPersonalEmail,
-        bio: nextBio,
         mobilePhone: nextMobilePhone,
         residenceCountry: nextResidenceCountry,
         residenceCity: nextResidenceCity,

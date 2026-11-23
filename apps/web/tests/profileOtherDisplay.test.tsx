@@ -9,7 +9,7 @@ import type { PublicProfileView } from '../src/api/client';
 // approved Other rows have NO code, name, or review status, only approved text.
 const publicApproved: PublicProfileView = {
   id: 'p1', fullName: 'Sample Alum', degreeName: 'BTech', batchYear: 2020,
-  parsedJoiningYear: 2016, bio: null, residenceCountry: null, residenceCity: null,
+  parsedJoiningYear: 2016, residenceCountry: null, residenceCity: null,
   departmentCode: null, departmentName: null, departmentOtherText: 'Applied Mechanics',
   departmentOtherStatus: null, institutionName: 'IIT (BHU) Varanasi',
 };

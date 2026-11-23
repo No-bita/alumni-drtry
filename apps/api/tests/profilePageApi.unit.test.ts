@@ -23,7 +23,6 @@ function bundleRow(over: Record<string, unknown> = {}) {
     parsed_joining_year: 2015,
     degree_code: "btech",
     degree_name: "BTech",
-    bio: null,
     residence_country: "India",
     residence_city: "Bengaluru",
     open_to_preferences: null,

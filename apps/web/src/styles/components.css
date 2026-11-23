@@ -1398,17 +1398,6 @@ textarea {
   opacity: 1;
 }
 
-.card-search__bio {
-  margin: 0;
-  padding-top: var(--space-sm);
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 /* Shared alumni search bar (home + /search) */
 .directory-search-bar {
@@ -13351,11 +13340,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   gap: var(--space-md-lg);
 }
 
-.profile-page__about-bio {
-  margin: 0 0 var(--space-md);
-  line-height: 1.55;
-  color: var(--ink);
-}
 
 .profile-page__about-card .profile-page__contact-summary {
   margin-top: 0;
@@ -13788,17 +13772,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   opacity: 0.55;
 }
 
-.profile-page__hero-bio {
-  margin: 0;
-  max-width: 40rem;
-  font-size: 14px;
-  line-height: 1.55;
-  color: #6f655c;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 @media (max-width: 860px) {
   .profile-page__hero-card {
@@ -13865,17 +13838,6 @@ a.career-opportunity-card__poster-text-link:focus-visible {
   min-width: 0;
 }
 
-.profile-page__hero-bio {
-  margin: var(--space-md) 0 0;
-  max-width: 42rem;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--home-hero-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 .profile-page__hero-context .dept-batch-meta__cap-icon {
   width: 16px;

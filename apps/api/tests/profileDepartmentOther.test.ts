@@ -29,7 +29,6 @@ describe("ProfileService - department Other specification", () => {
     degreeCode: "btech",
     degreeName: "Bachelor of Technology",
     personalEmail: null,
-    bio: null,
     mobilePhone: null,
     residenceCountry: null,
     residenceCity: null,
@@ -88,7 +87,7 @@ describe("ProfileService - department Other specification", () => {
     const { updateProfileSpy } = setupProfileMocks(mockOtherProfile);
 
     await expect(
-      profileService.updateMyProfile("person-123", { bio: "hello" })
+      profileService.updateMyProfile("person-123", { residenceCity: "Pune" })
     ).rejects.toThrow(
       expect.objectContaining({ statusCode: 400, code: "PROFILE_INVALID_DEPARTMENT_OTHER_TEXT" })
     );
@@ -183,7 +182,7 @@ describe("ProfileService - department Other specification", () => {
       departmentName: "Computer Science and Engineering",
     };
     const { updateProfileSpy: cseSpy } = setupProfileMocks(cseProfile);
-    await profileService.updateMyProfile("person-123", { bio: "hello" });
+    await profileService.updateMyProfile("person-123", { residenceCity: "Pune" });
     expect(cseSpy).toHaveBeenCalledWith(expect.objectContaining({ departmentOtherResubmitted: false }));
   });
 
