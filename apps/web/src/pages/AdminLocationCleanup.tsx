@@ -213,7 +213,7 @@ function TypedCityCard({
             onChange={(e) => onOpen({ ...mine, name: e.target.value })}
           />
           <label htmlFor={spellId} className="cr-panel__label">
-            Other spellings <span className="lc-muted">(optional, separated by commas)</span>
+            Other spellings <span className="lc-muted">(separated by commas)</span>
           </label>
           <input
             id={spellId}
@@ -301,7 +301,7 @@ function AddCityForm({ busy, onAdd }: { busy: boolean; onAdd: (country: string, 
         </div>
       </div>
       <label htmlFor={spellId} className="cr-panel__label">
-        Other spellings <span className="lc-muted">(optional, separated by commas)</span>
+        Other spellings <span className="lc-muted">(separated by commas)</span>
       </label>
       <input id={spellId} className="cr-search" value={spellings} autoComplete="off" placeholder="e.g. Bangalore, BLR" onChange={(e) => setSpellings(e.target.value)} />
       <p className="cr-panel__note">Members who already typed the name or a spelling in that country are linked straight away.</p>

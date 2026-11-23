@@ -202,7 +202,7 @@ describe("AdminAnnouncementsPage", () => {
     mountPage();
     fillMessage();
     fireEvent.click(screen.getByLabelText("In-app"));
-    fireEvent.change(screen.getByLabelText("Link (optional)"), { target: { value: "/intent/career" } });
+    fireEvent.change(screen.getByLabelText("Link"), { target: { value: "/intent/career" } });
     fireEvent.click(screen.getByRole("button", { name: "Send test to me" }));
     await waitFor(() =>
       expect(fns.sendTestAnnouncement).toHaveBeenCalledWith({
