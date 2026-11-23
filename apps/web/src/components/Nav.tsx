@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WhatsAppFloatingButton } from "./WhatsAppFloatingButton";
 import { useNotificationsList } from "../lib/notificationsQueries";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
@@ -573,6 +574,7 @@ export function Nav({
             </li>
           </ul>
         </nav>
+        <WhatsAppFloatingButton />
         {feedbackOpen ? <FeedbackDialog onClose={() => setFeedbackOpen(false)} /> : null}
       </>
     );

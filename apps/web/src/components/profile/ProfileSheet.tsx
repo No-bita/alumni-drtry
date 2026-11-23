@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, type FormEvent, type ReactNode }
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import { useDialogFocusManager } from "../../hooks/useDialogFocusManager";
 import { Button } from "../Button";
+import { FormActions } from "../forms";
 import "../../styles/profile-page.css";
 
 type Props = {
@@ -15,13 +16,14 @@ type Props = {
   saving?: boolean;
   error?: string | null;
   saveLabel?: string;
+  hideFooter?: boolean;
 };
 
 /**
  * Edits one profile section: a panel from the right on desktop, from the bottom on phones.
  * Escape, the close button and the backdrop all cancel; nothing is saved until Save.
  */
-export function ProfileSheet({ title, description, children, onClose, onSave, saving = false, error = null, saveLabel = "Save" }: Props) {
+export function ProfileSheet({ title, description, children, onClose, onSave, saving = false, error = null, saveLabel = "Save", hideFooter = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const closeRef = useRef<(() => void) | null>(null);
@@ -70,22 +72,18 @@ export function ProfileSheet({ title, description, children, onClose, onSave, sa
               {error}
             </p>
           ) : null}
-          <footer className="pp-sheet__foot">
+          {!hideFooter ? <footer className="pp-sheet__foot">
             {onSave ? (
-              <>
-                <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button type="submit" variant="primary" disabled={saving}>
-                  {saving ? "Saving…" : saveLabel}
-                </Button>
-              </>
+              <FormActions
+                secondary={{ label: "Cancel", onClick: onClose, disabled: saving }}
+                primary={{ label: saveLabel, onClick: () => { if (!saving) void onSave(); }, busy: saving }}
+              />
             ) : (
               <Button type="button" variant="primary" onClick={onClose}>
                 Done
               </Button>
             )}
-          </footer>
+          </footer> : null}
         </form>
       </div>
     </div>

@@ -257,7 +257,7 @@ describe("what the owner sees", () => {
     expect(within(region("Contact")).getByText("me@example.com")).toBeTruthy();
     expect(within(region("Contact")).getByText(/Only you can see this/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reach out" })).toBeNull();
-    expect(screen.getByRole("region", { name: "WhatsApp" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "WhatsApp" })).toBeNull();
   });
 
   it("empty sections invite the owner, and the setup list goes once everything is done", async () => {
@@ -400,7 +400,7 @@ describe("editing one section at a time", () => {
     expect(within(dialog).queryByText("MS, Data Science")).toBeNull();
     expect(within(dialog).queryByRole("option", { name: /Master's/ })).toBeNull();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "+ Add a role" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add a role/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
     expect(within(dialog).getByText("Add the role.")).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText(/^Role/), { target: { value: "Product Manager" } });
@@ -425,7 +425,7 @@ describe("editing one section at a time", () => {
     expect(within(dialog).getByText(/IIT Bombay · BTech, Computer Science · 2015 – 2019/)).toBeTruthy();
     expect(within(dialog).getByText(/can't be changed here/)).toBeTruthy();
     expect(within(dialog).queryByLabelText("Your department")).toBeNull();
-    fireEvent.click(within(dialog).getByRole("button", { name: "+ Add an MS, MBA or PhD" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add an MS, MBA or PhD/ }));
     fireEvent.change(within(dialog).getByLabelText(/^Program/), { target: { value: "MBA" } });
     fireEvent.change(within(dialog).getByLabelText("Degree"), { target: { value: "higher_education_non_research" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
@@ -448,20 +448,53 @@ describe("editing one section at a time", () => {
     await waitFor(() => expect(h.patch).toHaveBeenCalledWith("/v1/me/profile", { departmentOtherText: "Ceramic Engineering" }));
   });
 
-  it("links: adds, changes and removes in one save, and checks a bad link first", async () => {
-    h.state.links = [link({}), link({ id: "l2", platform: "Portfolio", url: "https://portfolio.example.com" })];
+  it("career: editing hides Done and close asks before discarding", async () => {
+    mountPage("/profiles/me-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit career history" }));
+    const dialog = await screen.findByRole("dialog", { name: "Career history" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add a role/ }));
+    expect(within(dialog).queryByRole("button", { name: "Done" })).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText("Role"), { target: { value: "Unsaved role" } });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(confirm).toHaveBeenCalled();
+    expect(within(dialog).getByLabelText("Role")).toHaveProperty("value", "Unsaved role");
+    confirm.mockReturnValue(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    confirm.mockRestore();
+  });
+
+  it("links: X is absent from display and editor and unrelated saves never delete it", async () => {
+    h.state.links = [link({ id: "old-x", platform: "Twitter", url: "https://x.com/me" })];
     mountPage("/profiles/me-1");
     fireEvent.click(await screen.findByRole("button", { name: "Edit links" }));
     const dialog = await screen.findByRole("dialog", { name: "Links" });
-    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "linkedin" } });
+    expect(within(dialog).queryByLabelText(/Twitter/)).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /Remove Twitter/ })).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText("GitHub"), { target: { value: "@sample" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(within(dialog).getByRole("alert").textContent).toMatch(/LinkedIn link does not look like a link/);
     expect(h.post).not.toHaveBeenCalled();
-    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "linkedin.com/in/me" } });
-    fireEvent.change(within(dialog).getByLabelText("GitHub"), { target: { value: "" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Remove Portfolio" }));
+    fireEvent.change(within(dialog).getByLabelText("GitHub"), { target: { value: "https://github.com/sample" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(h.post).toHaveBeenCalledWith("/v1/me/links", { platform: "LinkedIn", url: "https://linkedin.com/in/me", label: null }));
+    await waitFor(() => expect(h.post).toHaveBeenCalled());
+    expect(h.del).not.toHaveBeenCalled();
+  });
+
+  it("links: adds, changes and removes in one save, and checks a bad link first", async () => {
+    h.state.links = [link({}), link({ id: "l2", platform: "Blog", url: "https://portfolio.example.com" })];
+    mountPage("/profiles/me-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit links" }));
+    const dialog = await screen.findByRole("dialog", { name: "Links" });
+    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "linkedin.com/company/example" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(within(dialog).getByRole("alert").textContent).toMatch(/LinkedIn profile/);
+    expect(h.post).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "https://linkedin.com/in/me" } });
+    fireEvent.change(within(dialog).getByLabelText("GitHub"), { target: { value: "" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove Blog" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(h.post).toHaveBeenCalledWith("/v1/me/links", { platform: "LinkedIn", url: "https://www.linkedin.com/in/me", label: null }));
     await waitFor(() => expect(h.del).toHaveBeenCalledWith("/v1/me/links/l1"));
     await waitFor(() => expect(h.del).toHaveBeenCalledWith("/v1/me/links/l2"));
   });
@@ -471,12 +504,12 @@ describe("editing one section at a time", () => {
     mountPage("/profiles/me-1");
     fireEvent.click(await screen.findByRole("button", { name: "Edit links" }));
     const dialog = await screen.findByRole("dialog", { name: "Links" });
-    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "linkedin.com/in/me" } });
+    fireEvent.change(within(dialog).getByLabelText("LinkedIn"), { target: { value: "https://linkedin.com/in/me" } });
     const profileLoads = h.get.mock.calls.filter((c) => String(c[0]).startsWith("/v1/profiles/")).length;
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     expect((await within(dialog).findByRole("alert")).textContent).toBe("Couldn't save your links. Something went wrong.");
     expect(screen.getByRole("dialog", { name: "Links" })).toBe(dialog);
-    expect((within(dialog).getByLabelText("LinkedIn") as HTMLInputElement).value).toBe("linkedin.com/in/me");
+    expect((within(dialog).getByLabelText("LinkedIn") as HTMLInputElement).value).toBe("https://linkedin.com/in/me");
     // What did save is reloaded behind the sheet.
     await waitFor(() => expect(h.get.mock.calls.filter((c) => String(c[0]).startsWith("/v1/profiles/")).length).toBeGreaterThan(profileLoads));
     // Retrying works and then closes.
