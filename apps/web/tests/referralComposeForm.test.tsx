@@ -59,7 +59,7 @@ describe("approved referral compose form", () => {
       expect(control).toBeTruthy();
       expect(control.getAttribute("aria-required")).toBe("true");
     }
-    expect(screen.getByLabelText(/Resume link \(optional\)/)).toBeTruthy();
+    expect(screen.getByLabelText(/Resume link/)).toBeTruthy();
     expect(screen.queryByLabelText(/About You/)).toBeNull();
   });
 

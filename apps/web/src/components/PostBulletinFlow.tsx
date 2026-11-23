@@ -749,7 +749,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                   </FormField>
                   {careersPreset === "referralSeeking" ? (
                     <FormField
-                      label="Resume link (optional)"
+                      label="Resume link"
                       error={errorField === "resume" ? error : undefined}
                       className="career-hiring-flow__field--wide"
                     >

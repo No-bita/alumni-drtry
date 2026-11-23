@@ -298,7 +298,7 @@ export function MatchReachOutDialog({
                   {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
                 </p>
                 <FormField
-                  label="Résumé link (optional)"
+                  label="Résumé link"
                   error={badResume ? "The résumé link must start with https:// (or leave it empty)." : undefined}
                 >
                   <input

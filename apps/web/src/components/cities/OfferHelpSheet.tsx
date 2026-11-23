@@ -73,7 +73,7 @@ export function OfferHelpSheet({
       onClose={onClose}
     >
       <div className="cities-sheet__body">
-        <FormField label="One line about you (optional)" help={`Shown with your offer. ${OFFER_LINE_MAX} characters.`}>
+        <FormField label="One line about you" help={`Shown with your offer. ${OFFER_LINE_MAX} characters.`}>
           <textarea
             id={lineId}
             className="cities__textarea"

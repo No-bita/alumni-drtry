@@ -384,7 +384,7 @@ export function AdminAnnouncementsPage() {
               </div>
               <div className="an-field">
                 <label htmlFor={ids.link} className="cr-panel__label">
-                  Link (optional)
+                  Link
                 </label>
                 <input
                   id={ids.link}
