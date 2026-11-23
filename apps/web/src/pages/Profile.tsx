@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import type { ArrivalPrompt, ProfilePatchResponse } from "../lib/cities";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Nav } from "../components/Nav";
 import { PersonProfileView } from "../components/profile/PersonProfileView";
@@ -14,11 +14,8 @@ import { ProfileEngagementCards } from "../components/profile/ProfileEngagementC
 import { PROFILE_AREAS_INPUT_ID, ProfileAreasCard } from "../components/profile/ProfileAreasCard";
 import { WhatsAppNotesSettings } from "../components/WhatsAppNotesSettings";
 import { ProfileIitBhu } from "../components/profile/ProfileIitBhu";
-import { Button } from "../components/Button";
-import { Input } from "../components/Input";
 import { PageStateBlock } from "../components/PageStateBlock";
 import {
-  type AdminAllowedEmailsResponse,
   api,
   type MeAreasResponse,
   type MeLinksResponse,
@@ -27,7 +24,6 @@ import {
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { assertApiGet } from "../lib/assertApiGet";
-import { PENDING_COMPANIES_KEY, PENDING_LIMIT, fetchPendingCompanies } from "../lib/adminCompanies";
 import { displayFirstNameFromEmail } from "../lib/emailDisplayName";
 import { queryKeys } from "../lib/queryKeys";
 import { preflightProfileEdits } from "../lib/profileSavePreflight";
@@ -93,15 +89,11 @@ export function Profile() {
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [linksError, setLinksError] = useState<string | null>(null);
-  const [adminEmailDraft, setAdminEmailDraft] = useState("");
-  const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
-  const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
   const editLinksHydratedRef = useRef(false);
   const [openSocialPlatform, setOpenSocialPlatform] = useState<SocialPlatformKey | null>(null);
 
   const isOwnProfile =
     auth.status === "authenticated" && auth.myProfile?.id != null && auth.myProfile.id === id;
-  const isAdminViewer = auth.status === "authenticated" && auth.person.role !== "alumni";
 
   const profileQuery = useQuery({
     queryKey: queryKeys.profiles.detail(id ?? ""),
@@ -130,26 +122,6 @@ export function Profile() {
   });
   const rejectedOrgs = rejectedOrgsQuery.data?.organizations ?? [];
 
-
-  // Admin tools: how many company names wait for review (shares the Company review page's cache).
-  const pendingCompaniesQuery = useQuery({
-    queryKey: PENDING_COMPANIES_KEY,
-    queryFn: ({ signal }) => fetchPendingCompanies(signal),
-    enabled: Boolean(isOwnProfile && isAdminViewer),
-  });
-
-  const adminAllowedEmailsQuery = useQuery({
-    queryKey: ["admin-allowed-emails", "profile-dashboard"],
-    queryFn: async () => {
-      const { data, error } = await api.get<AdminAllowedEmailsResponse>("/v1/admin/allowed-admin-emails");
-      if (error || !data) {
-        throw new Error(error?.message ?? error?.code ?? "Could not load admin allowed emails.");
-      }
-      return data.emails;
-    },
-    enabled: Boolean(isOwnProfile && isAdminViewer),
-    staleTime: 60_000,
-  });
 
   useEffect(() => {
     if (!isEditing) {
@@ -490,45 +462,6 @@ export function Profile() {
     setOpenSocialPlatform(null);
   }, []);
 
-  const adminAllowedEmails = useMemo(
-    () =>
-      [...(adminAllowedEmailsQuery.data ?? [])].sort((a, b) =>
-        a.email.localeCompare(b.email, undefined, { sensitivity: "base" }),
-      ),
-    [adminAllowedEmailsQuery.data],
-  );
-
-  const addAdminAllowedEmail = useCallback(async () => {
-    const institutionalEmail = adminEmailDraft.trim();
-    if (!institutionalEmail) return;
-    setAdminAllowlistBusy(true);
-    setAdminAllowlistError(null);
-    const { error } = await api.post("/v1/admin/allowed-admin-emails", {
-      institutionalEmail,
-    });
-    setAdminAllowlistBusy(false);
-    if (error) {
-      setAdminAllowlistError(error.message ?? error.code);
-      return;
-    }
-    setAdminEmailDraft("");
-    await adminAllowedEmailsQuery.refetch();
-  }, [adminAllowedEmailsQuery, adminEmailDraft]);
-
-  const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
-    setAdminAllowlistBusy(true);
-    setAdminAllowlistError(null);
-    const { error } = await api.post("/v1/admin/allowed-admin-emails/revoke", {
-      institutionalEmail,
-    });
-    setAdminAllowlistBusy(false);
-    if (error) {
-      setAdminAllowlistError(error.message ?? error.code);
-      return;
-    }
-    await adminAllowedEmailsQuery.refetch();
-  }, [adminAllowedEmailsQuery]);
-
   const handleDeleteLink = async (linkId: string) => {
     setEditError(null);
     setLinkBusyId(linkId);
@@ -712,7 +645,7 @@ export function Profile() {
         </div>
 
         </> : null}
-        {loading || isEditing || (isOwnProfile && isAdminViewer && !previewProfile) ? <div
+        {loading || isEditing ? <div
           className={`home-dashboard__main${showProfileSidebar ? "" : " profile-page__main--no-sidebar"}`}
         >
           <div className="home-dashboard__col home-dashboard__col--wide profile-page__sections">
@@ -754,96 +687,6 @@ export function Profile() {
             ) : null}
 
             </> : null}
-            {isOwnProfile && isAdminViewer && !previewProfile ? (
-              <article id="admin-tools" className="home-dashboard__card profile-page__analytics-card">
-                <div className="profile-page__analytics-header">
-                  <h2 className="profile-page__section-title">Admin tools</h2>
-                  <div className="profile-page__admin-links">
-                    <Link to="/admin/analytics" className="nav__profile-edit nav__profile-edit--ghost">
-                      Open analytics
-                    </Link>
-                    <Link to="/admin/companies" className="nav__profile-edit nav__profile-edit--ghost">
-                      Company review
-                      {pendingCompaniesQuery.data
-                        ? ` · ${pendingCompaniesQuery.data.length >= PENDING_LIMIT ? `${PENDING_LIMIT}+` : pendingCompaniesQuery.data.length} waiting`
-                        : ""}
-                    </Link>
-                    <Link to="/admin/cities" className="nav__profile-edit nav__profile-edit--ghost">
-                      City review
-                    </Link>
-                    <Link to="/admin/department-other" className="nav__profile-edit nav__profile-edit--ghost">
-                      Department review
-                    </Link>
-                    <Link to="/admin/locations" className="nav__profile-edit nav__profile-edit--ghost">
-                      Location cleanup
-                    </Link>
-                    <Link to="/admin/announcements" className="nav__profile-edit nav__profile-edit--ghost">
-                      Announcements
-                    </Link>
-                  </div>
-                </div>
-                  <div className="profile-page__analytics-grid">
-                    <section className="profile-page__analytics-section">
-                      <h3 className="profile-page__analytics-title">Admin email allowlist</h3>
-                      <form
-                        className="profile-page__admin-allowlist-form"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void addAdminAllowedEmail();
-                        }}
-                      >
-                        <Input
-                          label="Institutional email"
-                          type="email"
-                          value={adminEmailDraft}
-                          onChange={(event) => setAdminEmailDraft(event.target.value)}
-                          placeholder="name@itbhu.ac.in"
-                        />
-                        <Button type="submit" variant="secondary" disabled={adminAllowlistBusy || !adminEmailDraft.trim()}>
-                          {adminAllowlistBusy ? "Saving…" : "Add admin email"}
-                        </Button>
-                      </form>
-
-                      {adminAllowlistError ? (
-                        <p className="body-text profile-page__error-text">{adminAllowlistError}</p>
-                      ) : null}
-
-                      {adminAllowedEmailsQuery.isPending ? (
-                        <p className="body-text profile-page__muted-text">Loading admin emails…</p>
-                      ) : adminAllowedEmailsQuery.isError ? (
-                        <p className="body-text profile-page__error-text">Could not load admin email allowlist.</p>
-                      ) : adminAllowedEmails.length === 0 ? (
-                        <p className="body-text profile-page__muted-text">No admin emails added yet.</p>
-                      ) : (
-                        <ul className="profile-page__analytics-list profile-page__admin-allowlist-list">
-                          {adminAllowedEmails.map((entry) => (
-                            <li key={entry.id}>
-                              <span>
-                                {entry.email}
-                                {entry.status === "revoked" ? " (revoked)" : ""}
-                              </span>
-                              {entry.status === "active" ? (
-                                <button
-                                  type="button"
-                                  className="profile-page__link-remove"
-                                  disabled={adminAllowlistBusy}
-                                  onClick={() => void revokeAdminAllowedEmail(entry.email)}
-                                >
-                                  Revoke
-                                </button>
-                              ) : (
-                                <span className="profile-page__muted-label">Inactive</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </section>
-
-                    {/* Beta user allowlist UI removed while invite login skips DB allowlist (see authService.loginWithInviteCode). */}
-                  </div>
-              </article>
-            ) : null}
 
 
           </div>

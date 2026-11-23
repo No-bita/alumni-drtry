@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
@@ -26,6 +26,10 @@ import {
   type CitiesMetrics,
 } from "../lib/adminAnalytics";
 import { MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
+import { api, type AdminAllowedEmailsResponse } from "../api/client";
+import { assertApiGet } from "../lib/assertApiGet";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
 import { adminFeedbackQueryKey, fetchAdminFeedback } from "../lib/feedbackApi";
 import "../styles/admin-analytics.css";
 
@@ -627,6 +631,53 @@ export function AdminAnalyticsPage() {
     staleTime: 60_000,
   });
 
+  // Admin email allowlist (moved from the profile page's admin tools card).
+  const [adminEmailDraft, setAdminEmailDraft] = useState("");
+  const [adminAllowlistBusy, setAdminAllowlistBusy] = useState(false);
+  const [adminAllowlistError, setAdminAllowlistError] = useState<string | null>(null);
+  const adminAllowedEmailsQuery = useQuery({
+    queryKey: ["admin-allowed-emails", "analytics"],
+    queryFn: ({ signal }) => assertApiGet<AdminAllowedEmailsResponse>("/v1/admin/allowed-admin-emails", signal),
+    enabled: isAdmin,
+    staleTime: 60_000,
+  });
+  const adminAllowedEmails = useMemo(
+    () =>
+      [...(adminAllowedEmailsQuery.data?.emails ?? [])].sort((a, b) =>
+        a.email.localeCompare(b.email, undefined, { sensitivity: "base" }),
+      ),
+    [adminAllowedEmailsQuery.data],
+  );
+  const addAdminAllowedEmail = useCallback(async () => {
+    const institutionalEmail = adminEmailDraft.trim();
+    if (!institutionalEmail) return;
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails", {
+      institutionalEmail,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    setAdminEmailDraft("");
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery, adminEmailDraft]);
+  const revokeAdminAllowedEmail = useCallback(async (institutionalEmail: string) => {
+    setAdminAllowlistBusy(true);
+    setAdminAllowlistError(null);
+    const { error } = await api.post("/v1/admin/allowed-admin-emails/revoke", {
+      institutionalEmail,
+    });
+    setAdminAllowlistBusy(false);
+    if (error) {
+      setAdminAllowlistError(error.message ?? error.code);
+      return;
+    }
+    await adminAllowedEmailsQuery.refetch();
+  }, [adminAllowedEmailsQuery]);
+
   const refresh = async () => {
     setRefreshing(true);
     void cities.refetch();
@@ -681,6 +732,9 @@ export function AdminAnalyticsPage() {
                   <Link to="/admin/cities" className="aa-link">
                     City review
                   </Link>
+                  <Link to="/admin/department-other" className="aa-link">
+                    Department review
+                  </Link>
                   <Link to="/admin/locations" className="aa-link">
                     Location cleanup
                   </Link>
@@ -690,6 +744,63 @@ export function AdminAnalyticsPage() {
                 </div>
               </section>
             ) : null}
+            <section className="aa-review aa-admin-emails" aria-labelledby="aa-admin-emails-title">
+              <div className="aa-review__text">
+                <h2 id="aa-admin-emails-title" className="aa-review__title">
+                  Admin emails
+                </h2>
+                <p className="aa-review__count">These addresses can sign in as admins.</p>
+              </div>
+              <form
+                className="aa-admin-emails__form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void addAdminAllowedEmail();
+                }}
+              >
+                <Input
+                  label="Institutional email"
+                  type="email"
+                  value={adminEmailDraft}
+                  onChange={(event) => setAdminEmailDraft(event.target.value)}
+                  placeholder="name@itbhu.ac.in"
+                />
+                <Button type="submit" variant="secondary" disabled={adminAllowlistBusy || !adminEmailDraft.trim()}>
+                  {adminAllowlistBusy ? "Saving…" : "Add admin email"}
+                </Button>
+              </form>
+              {adminAllowlistError ? <p className="aa-admin-emails__error">{adminAllowlistError}</p> : null}
+              {adminAllowedEmailsQuery.isPending ? (
+                <p className="aa-admin-emails__muted">Loading admin emails…</p>
+              ) : adminAllowedEmailsQuery.isError ? (
+                <p className="aa-admin-emails__error">Could not load admin email allowlist.</p>
+              ) : adminAllowedEmails.length === 0 ? (
+                <p className="aa-admin-emails__muted">No admin emails added yet.</p>
+              ) : (
+                <ul className="aa-admin-emails__list">
+                  {adminAllowedEmails.map((entry) => (
+                    <li key={entry.id}>
+                      <span>
+                        {entry.email}
+                        {entry.status === "revoked" ? " (revoked)" : ""}
+                      </span>
+                      {entry.status === "active" ? (
+                        <button
+                          type="button"
+                          className="aa-admin-emails__revoke"
+                          disabled={adminAllowlistBusy}
+                          onClick={() => void revokeAdminAllowedEmail(entry.email)}
+                        >
+                          Revoke
+                        </button>
+                      ) : (
+                        <span className="aa-admin-emails__muted">Inactive</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
             <AdminBrowsingLimits />
             <div className="aa-controls">
               <div className="aa-range" role="group" aria-label="Time range">
