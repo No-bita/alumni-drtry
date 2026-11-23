@@ -109,12 +109,49 @@ describe("Careers page", () => {
     world();
     mount();
     const nav = screen.getByRole("navigation", { name: "What do you need help with?" });
-    expect(within(nav).getByRole("link", { name: "Get a referral" }).getAttribute("href")).toBe("/match?cat=referral");
+    expect(within(nav).getByRole("button", { name: "Get a referral" })).toBeTruthy();
     expect(within(nav).getByRole("link", { name: "Prepare for interviews" }).getAttribute("href")).toBe("/match?cat=interview_prep");
     expect(within(nav).getByRole("link", { name: "Explore a switch" }).getAttribute("href")).toBe("/match?cat=career_switch");
     expect(within(nav).getByRole("link", { name: "Higher studies" }).getAttribute("href")).toBe("/match?cat=higher_studies");
     expect(within(nav).getByRole("link", { name: "Get career advice" }).getAttribute("href")).toBe("/match");
     expect(screen.queryByRole("link", { name: "Moving cities" })).toBeNull();
+  });
+
+  it("referral opens a blank modal and searches only on submit with structured overrides", async () => {
+    world({ companies: [{ company: "Razorpay", alumni: 2 }] }); mount();
+    fireEvent.click(screen.getByRole("button", { name: "Get a referral" }));
+    expect(screen.getByRole("dialog", { name: "Get a referral" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    expect(screen.getByText("Choose a role")).toBeTruthy();
+    expect(screen.getByText("Choose a company")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "  R&D 東京  " } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "  A & B  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
+    const where = await screen.findByTestId("where");
+    const url = new URL(where.textContent!, "https://example.test");
+    expect(url.pathname).toBe("/match");
+    expect(url.searchParams.get("q")).toBe("Referral for R&D 東京 at A & B");
+    expect(url.searchParams.get("cat")).toBe("referral");
+    expect(url.searchParams.get("company")).toBe("A & B");
+    expect(url.searchParams.get("role")).toBe("R&D 東京");
+  });
+
+  it("company keyboard selection does not submit; Escape dismisses list before modal", async () => {
+    world({ companies: [{ company: "Razorpay", alumni: 2 }] }); mount();
+    const chip = screen.getByRole("button", { name: "Get a referral" }); chip.focus(); fireEvent.click(chip);
+    const company = screen.getByRole("combobox");
+    fireEvent.focus(company);
+    await screen.findByRole("option", { name: "Razorpay" });
+    fireEvent.keyDown(company, { key: "ArrowDown" });
+    fireEvent.keyDown(company, { key: "Enter" });
+    expect((company as HTMLInputElement).value).toBe("Razorpay");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.focus(company);
+    fireEvent.keyDown(company, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(company, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(chip);
   });
 
   it("companies you can get referred to: a quick link that opens the list; five, then See all; each opens its company screen", async () => {
