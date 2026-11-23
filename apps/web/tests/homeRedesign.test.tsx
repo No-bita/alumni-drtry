@@ -97,7 +97,7 @@ describe("The Wall", () => {
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}} categoryCounts={zero} onPost={onPost} />,
     );
     expect(screen.getByRole("heading", { name: "The Wall" })).toBeTruthy();
-    expect(screen.getByText("Ask for help, or share an opportunity, with every alum here.")).toBeTruthy();
+    expect(screen.getByText("Curated opportunities for you")).toBeTruthy();
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Post to the Wall" }));
