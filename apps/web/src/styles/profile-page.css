@@ -682,7 +682,9 @@
 
 @media (max-width: 640px) {
   .pp-head {
-    flex-direction: column;
+    flex-direction: row;
+    /* The more-menu and its status text hang below the header; clipping them looked broken. */
+    overflow: visible;
     border-radius: 20px;
   }
 
@@ -699,7 +701,7 @@
   }
 
   .pp-head__actions {
-    width: 100%;
+    width: auto;
   }
 
   .pp-reach {
