@@ -106,6 +106,7 @@ export function CityHome({
   onChangeCity,
   switcherOpen = false,
   side,
+  sideAfterCommunity = false,
 }: {
   data: CityPayload;
   profileId: string | null;
@@ -118,6 +119,8 @@ export function CityHome({
   switcherOpen?: boolean;
   /** Extra cards at the top of the side column (the page passes the shared reachout cards). */
   side?: ReactNode;
+  /** Phone only: render the side cards below the community feed (used when there are no reachouts). */
+  sideAfterCommunity?: boolean;
 }) {
   const navigate = useNavigate();
   const searchId = useId();
@@ -273,9 +276,8 @@ export function CityHome({
         </div>
       </section>
 
-      <div className="cities-hub__grid">
+      <div className={`cities-hub__grid${sideAfterCommunity ? " cities-hub__grid--wall-first" : ""}`}>
         <aside className="cities-hub__side" aria-label="Your city">
-          {side}
           <HubSideCard id="cities-glance-title" title="At a glance" icon="people">
             <ul className="cities-hub__facts">
               <li>
@@ -401,6 +403,9 @@ export function CityHome({
             ) : null}
           </div>
         </section>
+
+        {/* The shared reachout cards: above the community feed on phone normally, below it when there are none. */}
+        {side ? <div className="cities-hub__reachouts">{side}</div> : null}
       </div>
 
       {openPost ? (

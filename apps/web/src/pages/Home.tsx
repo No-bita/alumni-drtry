@@ -19,6 +19,7 @@ import {
   type HomeOpportunityCategory,
   type HomeOpportunityItem,
 } from "../components/HomeOpportunityRail";
+import { useHasReachouts } from "../hooks/useHasReachouts";
 import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
@@ -661,6 +662,11 @@ export function Home() {
     enabled: authenticated,
   });
 
+  // Phone Home only: when there are no reachouts at all, the Wall leads and the reachout
+  // cards sit below it.
+  const reachouts = useHasReachouts(authenticated);
+  const wallFirstOnPhone = !railVisible && reachouts.settled && !reachouts.hasAny;
+
   const bulletinRepliesQuery = useQuery({
     queryKey: queryKeys.home.receivedBulletinReplies(),
     queryFn: ({ signal }) =>
@@ -803,7 +809,9 @@ export function Home() {
           <HomeIntentHero />
           <div className="home-ideal__main">
             {/* Below the rail width, the reachout cards sit between the search and the Wall. */}
-            {!railVisible ? <div className="home-reachouts">{reachoutCards}</div> : null}
+            {!railVisible ? (
+              <div className={wallFirstOnPhone ? "home-reachouts home-reachouts--after-wall" : "home-reachouts"}>{reachoutCards}</div>
+            ) : null}
             <div className="home-activity">
               {/* <HomeSentNotesLine /> replaced by YourReachoutsCard. */}
               {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented

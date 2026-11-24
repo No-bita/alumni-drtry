@@ -8,6 +8,14 @@
   min-width: 0;
 }
 
+/* Phone Home with no reachouts: the Wall leads, and the reachout cards follow below it.
+   Only applies below the rail width; desktop order never changes. */
+@media (max-width: 1023px) {
+  .home-reachouts--after-wall {
+    order: 3;
+  }
+}
+
 /* ---------- Search box: icon, placeholder and arrow inside one box ---------- */
 .home-dashboard--ideal .home-ask {
   min-width: 0;
