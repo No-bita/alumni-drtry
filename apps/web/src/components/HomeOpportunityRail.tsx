@@ -245,7 +245,7 @@ export function HomeOpportunityRail({
             className={`btn btn--primary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
             onClick={onPost}
           >
-            Post to the Wall
+            Post
           </button>
         ) : null}
       </header>
