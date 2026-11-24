@@ -5,6 +5,7 @@ import { Nav } from "../components/Nav";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  type ContactRequestsInboxResponse,
   type IntentcastFeedItem,
   type IntentcastFeedResponse,
   type MyProfileView,
@@ -19,6 +20,7 @@ import {
   type HomeOpportunityCategory,
   type HomeOpportunityItem,
 } from "../components/HomeOpportunityRail";
+import { SENT_NOTES_QUERY_KEY, fetchSentNotes } from "../lib/sentNotes";
 import { encodeBulletinContentWithUiCategory, type BulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import { normalizeOpportunityCard } from "../lib/intentcastOpportunityCard";
 import { normalizeHomeOpportunityCategory } from "../lib/homeOpportunityCategory";
@@ -661,6 +663,24 @@ export function Home() {
     enabled: authenticated,
   });
 
+  // Phone Home only: when there are no reachouts at all, the Wall leads and the reachout
+  // cards sit below it. Same query keys as the cards themselves, so these share the cache
+  // and add no extra requests.
+  const reachoutsInboxQuery = useQuery({
+    queryKey: ["contact-requests", "inbox"],
+    queryFn: ({ signal }) => assertApiGet<ContactRequestsInboxResponse>("/v1/contact-requests/inbox", signal),
+    enabled: authenticated,
+  });
+  const sentNotesQuery = useQuery({
+    queryKey: SENT_NOTES_QUERY_KEY,
+    queryFn: ({ signal }) => fetchSentNotes(signal),
+    enabled: authenticated,
+  });
+  const reachoutsSettled = reachoutsInboxQuery.isSuccess && sentNotesQuery.isSuccess;
+  const hasAnyReachouts =
+    (reachoutsInboxQuery.data?.requests.length ?? 0) > 0 || (sentNotesQuery.data?.requests.length ?? 0) > 0;
+  const wallFirstOnPhone = !railVisible && reachoutsSettled && !hasAnyReachouts;
+
   const bulletinRepliesQuery = useQuery({
     queryKey: queryKeys.home.receivedBulletinReplies(),
     queryFn: ({ signal }) =>
@@ -803,7 +823,9 @@ export function Home() {
           <HomeIntentHero />
           <div className="home-ideal__main">
             {/* Below the rail width, the reachout cards sit between the search and the Wall. */}
-            {!railVisible ? <div className="home-reachouts">{reachoutCards}</div> : null}
+            {!railVisible ? (
+              <div className={wallFirstOnPhone ? "home-reachouts home-reachouts--after-wall" : "home-reachouts"}>{reachoutCards}</div>
+            ) : null}
             <div className="home-activity">
               {/* <HomeSentNotesLine /> replaced by YourReachoutsCard. */}
               {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented
