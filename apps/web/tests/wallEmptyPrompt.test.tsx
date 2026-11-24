@@ -46,7 +46,7 @@ function renderRail(props: { intentcasts?: IntentcastFeedItem[]; counts?: typeof
 }
 
 const typed = () => screen.queryByTestId("wall-empty-typed")?.textContent ?? null;
-const postButton = () => screen.getByRole("button", { name: "Post to the Wall" });
+const postButton = () => screen.getByRole("button", { name: "Post", exact: true });
 const totalScriptMs = () => buildWallEmptyScript().reduce((sum, s) => sum + s.delay, 0) + 2000;
 
 function setReducedMotion(reduce: boolean) {
