@@ -83,7 +83,7 @@ describe("Browse row", () => {
     const nav = screen.getByRole("navigation", { name: "Browse" });
     expect(nav.textContent).toContain("Or browse:");
     expect(screen.getByRole("link", { name: "Careers" }).getAttribute("href")).toBe("/intent/career");
-    expect(screen.getByRole("link", { name: "Cities" }).getAttribute("href")).toBe("/intent/location");
+    // Cities page commented out: expect(screen.getByRole("link", { name: "Cities" }).getAttribute("href")).toBe("/intent/location");
     expect(screen.getByRole("link", { name: "All alumni" }).getAttribute("href")).toBe("/search");
     expect(screen.queryByText("Share with alumni")).toBeNull();
   });

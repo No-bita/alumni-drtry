@@ -13,12 +13,12 @@ export function isIntentSlug(value: string): value is IntentSlug {
 }
 
 /** Signed-in center nav order. `events` routes to `/events` (not `/intent/...`). */
-export const NAV_INTENT_SLUGS = ["career", "location", "business", "events"] as const;
+export const NAV_INTENT_SLUGS = ["career", /* "location" - Cities page commented out, */ "business", "events"] as const;
 export type NavIntentSlug = (typeof NAV_INTENT_SLUGS)[number];
 
 export const NAV_INTENT_LABELS: Record<NavIntentSlug, string> = {
   career: "Careers",
-  location: "Cities",
+  // location: "Cities", - Cities page commented out
   business: "Business",
   events: "Events",
 };

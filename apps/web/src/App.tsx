@@ -33,7 +33,8 @@ const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })
 //   import("./pages/ConnectionThread").then((m) => ({ default: m.ConnectionThread }))
 // );
 const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
-const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
+// Cities page commented out (restore by uncommenting).
+// const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
 const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
 const CareerCompanyPage = lazy(() => import("./pages/CareerCompanyPage").then((m) => ({ default: m.CareerCompanyPage })));
 const BusinessPage = lazy(() => import("./pages/BusinessPage").then((m) => ({ default: m.BusinessPage })));
@@ -268,7 +269,8 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
-        <Route
+        {/* Cities page commented out (restore by uncommenting). Deep links fall through to the catch-all -> /home. */}
+        {/* <Route
           path="/intent/location"
           element={
             <RequireAuth>
@@ -287,7 +289,7 @@ function AppRoutes() {
               </ProfileGate>
             </RequireAuth>
           }
-        />
+        /> */}
         <Route
           path="/intent/career"
           element={
