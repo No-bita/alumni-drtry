@@ -1224,12 +1224,35 @@
   }
 }
 
+/* Phone: the reachout cards lead the column; when there are no reachouts the
+   community feed leads and the cards follow it. */
+@media (max-width: 1023px) {
+  .cities-hub__reachouts {
+    order: -1;
+  }
+
+  .cities-hub__grid--wall-first .cities-hub__community {
+    order: -2;
+  }
+
+  .cities-hub__grid--wall-first .cities-hub__reachouts {
+    order: -1;
+  }
+}
+
 @media (min-width: 1024px) {
   .cities-hub__grid {
     grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-areas: "community side";
+    grid-template-areas:
+      "community reachouts"
+      "community side";
     align-items: start;
-    gap: 20px;
+    gap: 16px 20px;
+  }
+
+  /* No reachout cards rendered: keep the one-row rail so no empty gap opens. */
+  .cities-hub__grid:has(> .cities-hub__reachouts:empty) {
+    grid-template-areas: "community side";
   }
 
   .cities-hub__side {
@@ -1238,6 +1261,16 @@
 
   .cities-hub__community {
     grid-area: community;
+  }
+
+  .cities-hub__reachouts {
+    grid-area: reachouts;
+    display: grid;
+    gap: 16px;
+  }
+
+  .cities-hub__reachouts:empty {
+    display: none;
   }
 }
 
