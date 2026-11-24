@@ -165,6 +165,8 @@
 .home-dashboard--ideal .home-ideal__opportunities-post.btn {
   flex: 0 0 auto;
   min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--radius-button);
   border: 1px solid var(--brick);
   background: var(--brick);
   color: var(--cream);
@@ -186,7 +188,7 @@
   /* Compact phone CTA: inline width and tighter padding; the 44px min-height stays for an easy tap target. Desktop unchanged. */
   .home-dashboard--ideal .home-ideal__opportunities-post.btn {
     width: auto;
-    padding: 0 14px;
+    padding: 0 22px;
     font-size: 11px;
   }
 
@@ -519,5 +521,5 @@
 @media (max-width: 560px) {
   .home-dashboard--ideal .home-ideal__opportunities-header .home-wall__icon { width: 32px; height: 32px; }
   .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-title { font-size: 24px; }
-  .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-post.btn { padding: 0 10px; font-size: 11px; }
+  .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-post.btn { padding: 0 22px; font-size: 11px; }
 }
