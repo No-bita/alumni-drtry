@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { WALL_EMPTY_FINAL_TEXT, WALL_EMPTY_SESSION_KEY, buildWallEmptyScript, type WallEmptyStep } from "../lib/wallEmptyScript";
+import { WALL_EMPTY_EXAMPLES, WALL_EMPTY_FINAL_TEXT, WALL_EMPTY_SESSION_KEY, buildWallEmptyScript, type WallEmptyStep } from "../lib/wallEmptyScript";
 
 /**
  * Empty Wall: a blank post card that types three example asks, then settles on "Your post here".
@@ -18,17 +18,17 @@ function prefersReducedMotion(): boolean {
   }
 }
 
-function alreadyPlayed(): boolean {
+function alreadyPlayed(sessionKey: string): boolean {
   try {
-    return window.sessionStorage.getItem(WALL_EMPTY_SESSION_KEY) === "1";
+    return window.sessionStorage.getItem(sessionKey) === "1";
   } catch {
     return false;
   }
 }
 
-function markPlayed(): void {
+function markPlayed(sessionKey: string): void {
   try {
-    window.sessionStorage.setItem(WALL_EMPTY_SESSION_KEY, "1");
+    window.sessionStorage.setItem(sessionKey, "1");
   } catch {
     /* storage unavailable: it may play again next time, which is fine */
   }
@@ -37,13 +37,16 @@ function markPlayed(): void {
 type Props = {
   /** Opens the post flow (same as "Post to The Wall"). */
   onPost: () => void;
+  examples?: readonly string[];
+  sessionKey?: string;
+  accessibleLabel?: string;
   /** Called once when the typing finishes on "Your post here" (not with reduced motion or a repeat view). */
   onFinished?: () => void;
 };
 
-export function WallEmptyPrompt({ onPost, onFinished }: Props) {
+export function WallEmptyPrompt({ onPost, onFinished, examples = WALL_EMPTY_EXAMPLES, sessionKey = WALL_EMPTY_SESSION_KEY, accessibleLabel = "Write your first post on The Wall" }: Props) {
   // Reduced motion or already seen this session: start (and stay) on the final card.
-  const [skip] = useState(() => prefersReducedMotion() || alreadyPlayed());
+  const [skip] = useState(() => prefersReducedMotion() || alreadyPlayed(sessionKey));
   const [frame, setFrame] = useState<WallEmptyStep>(() => (skip ? { text: WALL_EMPTY_FINAL_TEXT, delay: 0, final: true } : { text: "", delay: 0 }));
   const cardRef = useRef<HTMLButtonElement>(null);
   const onFinishedRef = useRef(onFinished);
@@ -54,7 +57,7 @@ export function WallEmptyPrompt({ onPost, onFinished }: Props) {
 
   useEffect(() => {
     if (skip) return undefined;
-    const script = buildWallEmptyScript();
+    const script = buildWallEmptyScript(examples);
     let index = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let started = false;
@@ -85,7 +88,7 @@ export function WallEmptyPrompt({ onPost, onFinished }: Props) {
     const start = () => {
       if (started || disposed) return;
       started = true;
-      markPlayed();
+      markPlayed(sessionKey);
       scheduleNext();
     };
 
@@ -119,7 +122,7 @@ export function WallEmptyPrompt({ onPost, onFinished }: Props) {
       observer?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [skip]);
+  }, [skip, examples, sessionKey]);
 
   const isFinal = Boolean(frame.final);
 
@@ -129,7 +132,7 @@ export function WallEmptyPrompt({ onPost, onFinished }: Props) {
         ref={cardRef}
         type="button"
         className={`wall-empty-card${isFinal ? " is-final" : ""}`}
-        aria-label="Write your first post on The Wall"
+        aria-label={accessibleLabel}
         onClick={onPost}
       >
         {isFinal ? (
