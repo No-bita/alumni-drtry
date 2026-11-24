@@ -88,20 +88,6 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   }
 }
 
-function IconYou({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M5 19.5c1-3.3 3.8-5 7-5s6 1.7 7 5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function IconFeedback({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -354,18 +340,30 @@ export function Nav({
             ) : null}
           </button>
         )}
-        <NavUserMenu
-          name={resolvedAvatarName}
-          variant={navUserMenuVariant}
-          profileId={myProfileId}
-          onboardingCompleted={onboardingCompleted}
-          canResumeOnboarding={
-            auth.status === "authenticated" && auth.myProfile
-              ? canResumeOnboarding(auth.myProfile)
-              : false
-          }
-          onSignOut={handleSignOut}
-        />
+        {myProfileId ? (
+          <Link
+            to={`/profiles/${myProfileId}`}
+            className={`nav__you-direct${youActive ? " nav__you-direct--active" : ""}`.trim()}
+            aria-label="You: open your profile"
+            aria-current={youActive ? "page" : undefined}
+          >
+            <Avatar name={resolvedAvatarName} size="sm" tone={navUserMenuVariant === "home" ? "pastel" : "default"} />
+          </Link>
+        ) : null}
+        <span className={myProfileId ? "nav__you-menu-slot" : undefined}>
+          <NavUserMenu
+            name={resolvedAvatarName}
+            variant={navUserMenuVariant}
+            profileId={myProfileId}
+            onboardingCompleted={onboardingCompleted}
+            canResumeOnboarding={
+              auth.status === "authenticated" && auth.myProfile
+                ? canResumeOnboarding(auth.myProfile)
+                : false
+            }
+            onSignOut={handleSignOut}
+          />
+        </span>
         {extraRight}
       </>
     ) : null;
@@ -469,7 +467,11 @@ export function Nav({
         >
           {appToolbarLead ? (
             <div className="nav-app-toolbar__lead">{appToolbarLead}</div>
-          ) : null}
+          ) : (
+            <Link to="/home" className="nav-app-toolbar__brand">
+              Alma <span>Mater</span>
+            </Link>
+          )}
           {toolbarActionsAuthenticated ? (
             <div className="nav-app-toolbar__right">
               {appToolbarSearch !== null ? (
@@ -559,18 +561,6 @@ export function Nav({
                 <IconFeedback className="nav-bottom-dock__icon" />
                 <span className="nav-bottom-dock__label">Feedback</span>
               </button>
-            </li>
-            <li className="nav-bottom-dock__item">
-              {myProfileId ? (
-                <Link
-                  to={`/profiles/${myProfileId}`}
-                  className={`nav-bottom-dock__link${youActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
-                  aria-current={youActive ? "page" : undefined}
-                >
-                  <IconYou className="nav-bottom-dock__icon" />
-                  <span className="nav-bottom-dock__label">You</span>
-                </Link>
-              ) : null}
             </li>
           </ul>
         </nav>
