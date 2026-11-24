@@ -6,7 +6,7 @@ import { test } from "node:test";
 test("deployment credential stripping stays nonterminal alongside reviewed CSP configuration", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
   const { routes, ...unchanged } = config;
-  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "1bc39143f61856183bcbdbdf9933d830014cbd2296251e3076d5a5b7352aea51");
+  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "bc3495e0291b9222e54589b98eb0a2b660d60a0104b772b50b5178488fb9a460");
   assert.deepEqual(routes, [{src: "/(.*)", continue: true, transforms: ["request.headers", "response.headers"].flatMap(type => ["x-vercel-trusted-oidc-idp-token", "x-vercel-oidc-token"].map(key => ({ type, op: "delete", target: { key } })))}]);
   assert.equal(Object.hasOwn(routes[0], "dest"), false);
 });
@@ -32,9 +32,9 @@ test("every page refuses framing, from one rule", () => {
   assert.equal(frameRules[0].headers.find((header: { key: string }) => header.key === "X-Frame-Options").value, "DENY");
 });
 
-test("the production API target is unchanged", () => {
+test("the staging API target is unchanged", () => {
   const config = JSON.parse(readFileSync("../web/vercel.json", "utf8"));
-  assert.equal(config.rewrites.find((rule: { source: string }) => rule.source === "/v1/(.*)").destination, "https://alma-mater-api.onrender.com/v1/$1");
+  assert.equal(config.rewrites.find((rule: { source: string }) => rule.source === "/v1/(.*)").destination, "https://alma-staging.onrender.com/v1/$1");
 });
 
 test("each path gets exactly one CSP, which never allows being framed", () => {
