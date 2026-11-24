@@ -15,7 +15,7 @@ import { avatarLabelFromEmail } from "../lib/emailDisplayName";
 import {
   IconBell,
   IconBriefcase,
-  IconCity,
+  // IconCity, - Cities page commented out
   IconHammer,
   IconHome,
 } from "./HomeIcons";
@@ -39,8 +39,8 @@ function intentSidebarActive(slug: NavIntentSlug, pathname: string): boolean {
   switch (slug) {
     case "career":
       return pathname.startsWith("/intent/career");
-    case "location":
-      return pathname.startsWith("/intent/location");
+    // case "location": - Cities page commented out
+    //   return pathname.startsWith("/intent/location");
     case "business":
       return pathname.startsWith("/intent/business");
     case "events":
@@ -57,8 +57,8 @@ function BottomDockIntentIcon({ slug }: { slug: NavIntentSlug }) {
   switch (slug) {
     case "career":
       return <IconBriefcase className={cls} />;
-    case "location":
-      return <IconCity className={cls} />;
+    // case "location": - Cities page commented out
+    //   return <IconCity className={cls} />;
     case "business":
       return <IconHammer className={cls} />;
     case "events":
@@ -75,8 +75,8 @@ function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
   switch (slug) {
     case "career":
       return <IconBriefcase className={cls} />;
-    case "location":
-      return <IconCity className={cls} />;
+    // case "location": - Cities page commented out
+    //   return <IconCity className={cls} />;
     case "business":
       return <IconHammer className={cls} />;
     case "events":

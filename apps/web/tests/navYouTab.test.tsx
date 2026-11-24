@@ -47,7 +47,7 @@ describe("You in the top bar (phone), not the dock", () => {
     authState.value = authed();
     const { container } = renderNav();
     const labels = dockLinks(container).map((l) => l.label);
-    expect(labels).toEqual(expect.arrayContaining(["Home", "Careers", "Cities"]));
+    expect(labels).toEqual(expect.arrayContaining(["Home", "Careers"])); // "Cities" removed: Cities page commented out
     expect(labels).not.toContain("You");
   });
 

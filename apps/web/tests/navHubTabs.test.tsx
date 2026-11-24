@@ -54,6 +54,6 @@ describe("Nav hub tabs", () => {
     flags.hub = false;
     mount();
     expect(screen.getAllByText(NAV_INTENT_LABELS.career).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(NAV_INTENT_LABELS.location).length).toBeGreaterThan(0);
+    // Cities page commented out: expect(screen.getAllByText(NAV_INTENT_LABELS.location).length).toBeGreaterThan(0);
   });
 });
