@@ -9,28 +9,6 @@
   color: var(--ink);
 }
 
-.cities__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: -20px;
-}
-
-.cities__switcher {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  border: 1px solid var(--border-muted);
-  border-radius: 999px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-}
-
 .cities__notice {
   display: flex;
   align-items: center;
@@ -71,16 +49,6 @@
   color: var(--ink-muted);
 }
 
-.cities__city {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 40px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-}
-
 .cities__count {
   margin: 0;
   font-size: 15px;
@@ -106,12 +74,6 @@
 
 .cities__head {
   gap: 2px;
-}
-
-.cities__head--row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .cities__h2 {
@@ -789,10 +751,6 @@
   font-weight: 600;
 }
 
-.cities__emails {
-  gap: 10px;
-}
-
 /* Sheet */
 .cities-sheet__overlay {
   position: fixed;
@@ -874,18 +832,6 @@
     border-radius: 24px;
     max-height: calc(100dvh - 2 * var(--page-x));
   }
-}
-
-/* Profile open-to editor: "Coffee · 2 a week · Change" */
-.profile-page__inline-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  color: var(--brick);
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 /* The selected city is also the existing city-picker action in the toolbar. */
@@ -989,80 +935,6 @@
   border-color: #a12a12;
 }
 
-/* City home (needs-first landing) */
-.cities-home__hero {
-  gap: 8px;
-}
-
-.cities-home__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-}
-
-.cities-home__tiles {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  /* Equal-height rows: every tile in a row matches the tallest. */
-  grid-auto-rows: 1fr;
-  gap: 10px;
-  min-width: 0;
-}
-
-.cities-home__tiles > li {
-  display: flex;
-  min-width: 0;
-}
-
-.cities-home__tile {
-  width: 100%;
-  min-height: 44px;
-  /* Stretch to the equal grid row height set on .cities-home__tiles. */
-  flex: 1;
-  display: flex;
-  gap: 11px;
-  align-items: flex-start;
-  padding: 13px 14px;
-  border: 1px solid var(--border-muted);
-  border-radius: 14px;
-  background: var(--surface);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-.cities-home__tile-icon {
-  flex: none;
-  margin-top: 2px;
-  color: var(--brick);
-  display: inline-flex;
-}
-
-.cities-home__tile-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.cities-home__tile-label {
-  font-size: 14.5px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.cities-home__tile-example {
-  font-size: 12px;
-  color: var(--ink-muted);
-  line-height: 1.35;
-}
-
 .cities-home__request {
   width: 100%;
   min-height: 44px;
@@ -1140,94 +1012,6 @@
   font-weight: 600;
 }
 
-.cities-home__askcard {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 15px 16px;
-  border: 1px solid var(--border-muted);
-  border-radius: 14px;
-  background: var(--cream-dark);
-}
-
-.cities-home__ask-copy {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.cities-home__ask-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.cities-home__ask-note {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--ink-muted);
-  line-height: 1.4;
-}
-
-.cities-home__askbtn {
-  flex: none;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--brick);
-  color: var(--cream);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* Phone keeps a single column; desktop is the approved 2x2 tiles + requests-left / catch-all-right. */
-.cities-home__cols {
-  display: grid;
-  gap: 32px;
-  min-width: 0;
-}
-
-.cities-home__side {
-  display: grid;
-  gap: 32px;
-  min-width: 0;
-  align-content: start;
-}
-
-/* Phone: let "View all posts" wrap under the heading instead of colliding with it. */
-.cities-home__reqhead {
-  flex-wrap: wrap;
-  row-gap: 2px;
-  column-gap: 12px;
-}
-
-@media (min-width: 900px) {
-  .cities-home__tiles {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .cities-home__cols {
-    grid-template-columns: 7fr 5fr;
-    gap: 28px;
-    align-items: start;
-  }
-
-  /* Approved desktop ask card: copy full width, button on its own row. */
-  .cities-home__askcard {
-    flex-wrap: wrap;
-  }
-
-  .cities-home__askcard .cities-home__ask-copy {
-    flex: 1 1 100%;
-  }
-}
-
 /* City home photo hero: same approved placeholder photo on every city (decision 19:22). */
 .cities-home__photohero {
   position: relative;
@@ -1245,36 +1029,6 @@
   height: 100%;
   object-fit: cover;
   object-position: center 62%;
-}
-
-.cities-home__photohero-shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(30, 18, 10, 0.15) 0%, rgba(30, 18, 10, 0.68) 100%);
-}
-
-.cities-home__photohero-city {
-  position: absolute;
-  left: 16px;
-  bottom: 30px;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.cities-home__photohero-badge {
-  position: absolute;
-  right: 14px;
-  bottom: 32px;
-  background: rgba(30, 18, 10, 0.45);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 3px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .cities-home__photohero-credit {
@@ -1298,22 +1052,10 @@
     height: 110px;
     border-radius: 16px;
   }
-
-  .cities-home__photohero-city {
-    left: 22px;
-    bottom: 32px;
-    font-size: 31px;
-  }
 }
 
 /* Phone: keep the bottom card scrollable clear of the floating dock. The
    "Just moved?" link moved into the community section head, so the clearance
-   the old "More" section carried now lives on the side column (approved 19:33). */
-@media (max-width: 639px) {
-  .cities-home__side {
-    padding-bottom: 200px;
-  }
-}
 
 /* =====================================================================================================
    City page, hub layout (like Careers and Business). Header, search and shortcut pills reuse the Careers
