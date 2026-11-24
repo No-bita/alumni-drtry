@@ -22,7 +22,6 @@ const authed = (role = "alumni", profile: Record<string, unknown> | null = { id:
   logout: vi.fn(),
 });
 
-
 function renderNav(props: { hideNotificationsBell?: boolean } = {}, entry = "/intent/location/bengaluru") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
@@ -39,38 +38,53 @@ function dockLinks(container: HTMLElement) {
   }));
 }
 
-describe("bottom dock You tab", () => {
-  it("links straight to the member's own profile", () => {
+function youLink(container: HTMLElement) {
+  return container.querySelector("a.nav__you-direct");
+}
+
+describe("You in the top bar (phone), not the dock", () => {
+  it("the bottom dock has no You tab", () => {
     authState.value = authed();
     const { container } = renderNav();
-    const links = dockLinks(container);
-    expect(links.map((l) => l.label)).toEqual(expect.arrayContaining(["Home", "Careers", "Cities", "You"]));
-    expect(links.find((l) => l.label === "You")?.href).toBe("/profiles/me-1");
+    const labels = dockLinks(container).map((l) => l.label);
+    expect(labels).toEqual(expect.arrayContaining(["Home", "Careers", "Cities"]));
+    expect(labels).not.toContain("You");
   });
 
-  it("is hidden when the profile has not loaded (no dead link)", () => {
+  it("the avatar links straight to the member's own profile", () => {
+    authState.value = authed();
+    const { container } = renderNav();
+    const link = youLink(container) as HTMLElement;
+    expect(link).toBeTruthy();
+    expect(link.getAttribute("href")).toBe("/profiles/me-1");
+  });
+
+  it("falls back to the account menu when the profile has not loaded (no dead link, Sign out kept)", () => {
     authState.value = authed("alumni", null);
     const { container } = renderNav();
+    expect(youLink(container)).toBeNull();
     expect(dockLinks(container).some((l) => l.label === "You")).toBe(false);
+    const menu = container.querySelector(".nav__user-menu") as HTMLElement;
+    expect(menu).toBeTruthy();
+    expect(within(menu).getByText("Sign out")).toBeTruthy();
   });
 
-  it("keeps Analytics for admins alongside You", () => {
+  it("keeps Analytics for admins in the dock, avatar still opens the profile", () => {
     authState.value = authed("admin");
     const { container } = renderNav();
     const labels = dockLinks(container).map((l) => l.label);
     expect(labels).toContain("Analytics");
-    expect(labels).toContain("You");
+    expect(labels).not.toContain("You");
+    expect(youLink(container)?.getAttribute("href")).toBe("/profiles/me-1");
   });
 
-  it("only marks the avatar menu as replaced when a profile id exists (Sign out never lost)", () => {
+  it("keeps the desktop account menu with Sign out (hidden on phone by CSS only)", () => {
     authState.value = authed();
-    const withProfile = renderNav().container.querySelector(".nav__user-menu") as HTMLElement;
-    expect(withProfile.className).toContain("nav__user-menu--dock-replaced");
-    cleanup();
-    authState.value = authed("alumni", null);
-    const without = renderNav().container.querySelector(".nav__user-menu") as HTMLElement;
-    expect(without.className).not.toContain("nav__user-menu--dock-replaced");
-    expect(within(without).getByText("Sign out")).toBeTruthy();
+    const { container } = renderNav();
+    const menu = container.querySelector(".nav__user-menu") as HTMLElement;
+    expect(menu).toBeTruthy();
+    expect(within(menu).getByText("Sign out")).toBeTruthy();
+    expect(menu.closest(".nav__you-menu-slot")).toBeTruthy();
   });
 
   it("shows the notifications bell by default and hides it when the page opts out", () => {
@@ -83,27 +97,27 @@ describe("bottom dock You tab", () => {
     expect(hidden.querySelector(".nav__user-menu")).toBeTruthy();
   });
 
-  it("keeps the desktop account menu with Sign out", () => {
-    authState.value = authed();
-    const { container } = renderNav();
-    const menu = container.querySelector(".nav__user-menu") as HTMLElement;
-    expect(menu).toBeTruthy();
-    expect(within(menu).getByText("Sign out")).toBeTruthy();
-  });
-
-  it("marks You as the current page only when it is the selected tab, not on Analytics", () => {
+  it("marks the avatar as current page only on the member's own profile, not on Analytics", () => {
     authState.value = authed("admin");
     const own = renderNav({}, "/profiles/me-1");
-    const dock = (c: HTMLElement) => c.querySelector(".nav-bottom-dock__list") as HTMLElement;
-    const you = (c: HTMLElement) => within(dock(c)).getByText("You").closest("a") as HTMLElement;
-    expect(you(own.container).getAttribute("aria-current")).toBe("page");
-    expect(you(own.container).className).toContain("nav-bottom-dock__link--active");
+    const ownLink = youLink(own.container) as HTMLElement;
+    expect(ownLink.getAttribute("aria-current")).toBe("page");
+    expect(ownLink.className).toContain("nav__you-direct--active");
     cleanup();
     const analytics = renderNav({}, "/admin/analytics");
-    expect(you(analytics.container).getAttribute("aria-current")).toBeNull();
-    expect(you(analytics.container).className).not.toContain("nav-bottom-dock__link--active");
-    const analyticsLink = within(dock(analytics.container)).getByText("Analytics").closest("a") as HTMLElement;
-    expect(analyticsLink.className).toContain("nav-bottom-dock__link--active");
-    expect(analyticsLink.getAttribute("href")).toBe("/admin/analytics");
+    const analyticsLink = youLink(analytics.container) as HTMLElement;
+    expect(analyticsLink.getAttribute("aria-current")).toBeNull();
+    expect(analyticsLink.className).not.toContain("nav__you-direct--active");
+  });
+});
+
+describe("phone top bar wordmark", () => {
+  it("shows the Alma Mater wordmark linking home when the page has no toolbar lead", () => {
+    authState.value = authed();
+    const { container } = renderNav();
+    const brand = container.querySelector("a.nav-app-toolbar__brand") as HTMLElement;
+    expect(brand).toBeTruthy();
+    expect(brand.textContent?.replace(/\s+/g, " ").trim()).toBe("Alma Mater");
+    expect(brand.getAttribute("href")).toBe("/home");
   });
 });

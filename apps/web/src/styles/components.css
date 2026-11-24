@@ -854,6 +854,48 @@ input[type="reset"]:not(:disabled) {
   display: none;
 }
 
+/* "You" entry: avatar opens the profile directly on phone; the account menu stays on desktop. */
+.nav__you-direct {
+  display: none;
+}
+
+/* Phone top bar wordmark: desktop keeps the brand in the sidebar, so this shows only ≤639px. */
+.nav-app-toolbar__brand {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .nav-app-toolbar__brand {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    text-decoration: none;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 639px) {
+  .nav__you-direct {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 50%;
+  }
+
+  .nav__you-direct--active {
+    outline: 2px solid var(--palette-accent, #c25a2e);
+    outline-offset: 2px;
+  }
+
+  .nav__you-menu-slot {
+    display: none;
+  }
+}
+
 /* Phone (≤639px): bottom tab dock replaces left sidebar; toolbar spans full width. */
 @media (max-width: 639px) {
   html[data-app-shell="sidebar"] .nav-sidebar {
