@@ -6,6 +6,7 @@ import { isAppError } from "../lib/errors.js";
 import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
 import type { ContactRequestService, NoteDeliveryChannel } from "../services/contactRequestService.js";
 import type { MatchService } from "../services/matchService.js";
+import type { BrokerService } from "../services/brokerService.js";
 import { isDefiniteRejection, type OutboundMessage, type ReplyButton, type WhatsAppSender } from "./client.js";
 import { LINK_TTL_MS, signLinkToken, verifyLinkToken } from "./linkToken.js";
 import { WaRepo, type ClaimResult, type LinkStatus, type WaContactRow } from "./repo.js";
@@ -49,6 +50,8 @@ function newShortCode(): string {
 /** Template quick-reply payloads: "cr:<contactRequestId>:<action>". */
 export type NoteAction = "accept_wa" | "accept_email" | "decline";
 export const notePayload = (id: string, action: NoteAction) => `cr:${id}:${action}`;
+/** Brokered asks reuse the note template; their buttons carry the ask id instead of a reachout id. */
+export const brokerAskPayload = (askId: string, action: NoteAction) => `ba:${askId}:${action}`;
 
 type Inbound = {
   id: string;
@@ -109,6 +112,13 @@ export class WhatsAppService implements NoteDeliveryChannel {
   ) {
     this.repo = new WaRepo(pool);
     this.notes = new ContactRequestRepo(pool);
+  }
+
+  private broker: BrokerService | null = null;
+
+  /** Brokered asks answered from WhatsApp go back to the broker (wired after construction). */
+  setBrokerService(broker: BrokerService | null): void {
+    this.broker = broker;
   }
 
   /**
@@ -267,6 +277,10 @@ export class WhatsAppService implements NoteDeliveryChannel {
     const payload = msg.button?.payload ?? "";
     if (msg.type === "button" && payload.startsWith("cr:")) {
       await this.handleNoteAction(contact, payload);
+      return;
+    }
+    if (msg.type === "button" && payload.startsWith("ba:")) {
+      await this.handleBrokerAskAction(contact, payload);
       return;
     }
 
@@ -472,6 +486,62 @@ export class WhatsAppService implements NoteDeliveryChannel {
           ? `${alum} can't help with this one right now. Text hi to find someone else.`
           : `${alum} accepted your reachout. Contact: ${updated?.recipientContactShared ?? "see your reachouts on the website"}`
     });
+  }
+
+  /** A helper answering a brokered ask: first yes connects, later answers are told it's taken care of. */
+  private async handleBrokerAskAction(contact: WaContactRow, payload: string): Promise<void> {
+    const [, askId, action] = payload.split(":") as [string, string, NoteAction];
+    if (!this.broker || !contact.person_id || !askId || !["accept_wa", "accept_email", "decline"].includes(action)) return;
+    let result: Awaited<ReturnType<BrokerService["respond"]>>;
+    try {
+      result = await this.broker.respond(contact.person_id, askId, action === "decline" ? "decline" : "accept", {
+        ...(action === "accept_wa" ? { sharedContactOverride: `+${contact.wa_id}` } : {})
+      });
+    } catch (err) {
+      if (isAppError(err) && err.code.startsWith("BROKER_")) {
+        await this.reply(contact.wa_id, { kind: "text", body: err.message });
+        return;
+      }
+      throw err;
+    }
+    await this.reply(contact.wa_id, {
+      kind: "text",
+      body:
+        result.status === "declined"
+          ? "No problem. No one is told."
+          : `Done. ${result.askerName ?? "They"} now has your ${action === "accept_wa" ? "WhatsApp number" : "email"}. You can reach them at ${result.askerContact ?? "the address on Alma Mater"}.`
+    });
+  }
+
+  /** BrokerAskChannel: the same paid note template, only for alumni who opted in, under the monthly cap. */
+  async trySendBrokerAsk(input: {
+    askId: string;
+    helperPersonId: string;
+    askerName: string;
+    askerBatchYear: number | null;
+    message: string;
+  }): Promise<boolean> {
+    if (!this.enabled) return false;
+    const c = await this.repo.byPerson(input.helperPersonId);
+    if (!c || !c.notes_opted_in_at || c.notes_paused_at || c.stopped_at) return false;
+    if ((await this.repo.templatesThisMonth()) >= env.WA_MONTHLY_TEMPLATE_CAP) return false;
+    const who = `${input.askerName}${input.askerBatchYear ? ` (${yy(input.askerBatchYear)})` : ""}`;
+    return this.send(
+      c.wa_id,
+      {
+        kind: "template",
+        name: env.WA_TEMPLATE_NOTE,
+        language: env.WA_TEMPLATE_LANG,
+        bodyParams: [who, input.message.replace(/\s+/g, " ").slice(0, 700)],
+        buttonPayloads: [
+          brokerAskPayload(input.askId, "accept_wa"),
+          brokerAskPayload(input.askId, "accept_email"),
+          brokerAskPayload(input.askId, "decline")
+        ],
+        callbackData: `ba:${input.askId}`
+      },
+      null
+    );
   }
 
   /* ------------------------- notes to alumni (paid) ------------------------- */

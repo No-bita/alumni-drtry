@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { EXPERIENCE_BANDS, JOB_FUNCTIONS } from "../lib/jobFunctions.js";
 import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
 import { isAdminRole } from "../lib/postAudience.js";
@@ -31,7 +32,20 @@ const createIntentcastSchema = z.object({
   /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
   placeId: z.string().uuid().nullable().optional(),
   /** Missing or null = Everyone. Fixed once posted (PATCH never takes it). */
-  audience: audienceSchema.nullable().optional()
+  audience: audienceSchema.nullable().optional(),
+  /** Hiring posts from the Wall composer: the tapped answers (the card header is built from them). */
+  hiring: z
+    .object({
+      jobFunction: z.enum(JOB_FUNCTIONS),
+      roleTitle: z.string().max(200).nullable().optional(),
+      experience: z.enum(EXPERIENCE_BANDS),
+      location: z.string().max(200).nullable().optional(),
+      company: z.string().max(200).nullable().optional(),
+      respondVia: z.enum(["reachout", "link"]),
+      applyUrl: z.string().max(2000).nullable().optional()
+    })
+    .nullable()
+    .optional()
 });
 
 const audiencePreviewSchema = z.object({ audience: audienceSchema.nullable() });

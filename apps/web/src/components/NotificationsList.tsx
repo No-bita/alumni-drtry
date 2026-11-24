@@ -76,6 +76,12 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         // Only offered when the announcement has a link (a path inside the app).
         if (item.linkPath) navigate(item.linkPath);
         break;
+      case "broker_ask_received":
+        navigate("/notifications#requests-for-you");
+        break;
+      case "broker_request_expired":
+        navigate("/notifications#your-requests");
+        break;
       default: {
         const _exhaustive: never = item;
         return _exhaustive;
@@ -226,6 +232,31 @@ function NotificationListItem({
     case "contact_request_resolved": {
       const name = displayName(item.recipientFullName);
       const outcomeLabel = item.outcome === "accepted" ? "accepted" : "declined";
+      if (item.source === "referral_request" || item.source === "hiring_request") {
+        // A brokered connection: Alma Mater found this person for you.
+        const said = item.source === "referral_request" ? "said yes to your referral request" : "is interested in your role";
+        return (
+          <>
+            <button
+              type="button"
+              className="notifications-page__item-activate"
+              onClick={onActivate}
+              aria-label={inSheet ? `Open inbox: ${name} ${said}` : `Open profile of ${name}`}
+            />
+            <ClickableNotificationBody
+              title={
+                <>
+                  <ProfileName personId={item.recipientPersonId} name={name} inSheet={inSheet} /> {said}
+                </>
+              }
+              preview="You're connected. Their contact is under Your requests."
+            />
+            <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+              {timeLabel}
+            </time>
+          </>
+        );
+      }
       return (
         <>
           <button
@@ -337,6 +368,49 @@ function NotificationListItem({
         </>
       );
     }
+    case "broker_ask_received": {
+      const name = shortName(displayName(item.askerFullName));
+      const what =
+        item.requestKind === "referral"
+          ? `is looking for a referral at ${item.company}`
+          : `is hiring${item.roleTitle ? `: ${item.roleTitle}` : ""}. Interested?`;
+      return (
+        <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={`Answer: ${name} ${what}`}
+          />
+          <ClickableNotificationBody
+            title={
+              <>
+                <ProfileName personId={item.askerPersonId} name={name} inSheet={inSheet} /> {what}
+              </>
+            }
+            preview="Alma Mater asked you on their behalf. Answer under Requests for you."
+          />
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
+    case "broker_request_expired": {
+      const what = item.requestKind === "referral" ? `your referral request at ${item.company}` : "your hiring request";
+      return (
+        <>
+          <button type="button" className="notifications-page__item-activate" onClick={onActivate} aria-label={`Open your requests: ${what} closed`} />
+          <ClickableNotificationBody
+            title={<>No one was available for {what}</>}
+            preview={`We asked ${item.askedCount === 1 ? "1 alum" : `${item.askedCount} alumni`} over 2 days. People are busy; it says nothing about you.`}
+          />
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
     default: {
       const _exhaustive: never = item;
       return _exhaustive;
@@ -372,6 +446,15 @@ function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
+          </svg>
+        </span>
+      );
+    case "broker_ask_received":
+    case "broker_request_expired":
+      return (
+        <span className="notifications-page__kind-tile notifications-page__kind-tile--request" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4l-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" />
           </svg>
         </span>
       );

@@ -1,3 +1,4 @@
+import { JOB_FUNCTIONS, JOB_FUNCTION_LABELS, type JobFunction } from "../lib/jobFunctions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -81,6 +82,7 @@ type Step2Question =
   | { id: "residenceCity"; label: string }
   // PHONE_QUESTION_PARKED(2026-11-05): question id kept out of the flow.
   // | { id: "mobilePhone"; label: string }
+  | { id: "jobFunction"; label: string }
   | { id: "answerKey"; label: string }
   | { id: "pastRoles"; label: string };
 
@@ -327,6 +329,9 @@ export function Onboarding() {
   /** Answer key (Open-to tags). Saved only when it differs from what the member had saved before. */
   const [savedAnswerKey, setSavedAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
   const [answerKey, setAnswerKey] = useState<OpenToPreferences>(() => openToPreferencesForEdit(null));
+  /** One tap: the member's function (hiring requests reach members by function and experience). */
+  const savedJobFunction = auth.status === "authenticated" ? (auth.myProfile?.jobFunction ?? null) : null;
+  const [jobFunction, setJobFunction] = useState<JobFunction | null>(savedJobFunction);
   const [pastRoles, setPastRoles] = useState<PastRoleDraft[]>(() => emptyPastRoles());
   /** Past roles already created in this session (retry after an error must not duplicate them). */
   const createdPastRoleKeysRef = useRef<Set<string>>(new Set());
@@ -380,6 +385,7 @@ export function Onboarding() {
         }
       }
     }
+    questions.push({ id: "jobFunction", label: "Which function fits you best?" });
     questions.push(
       { id: "residence", label: "Where do you live?" }
       // PHONE_QUESTION_PARKED(2026-11-05): { id: "mobilePhone", label: "Mobile number" },
@@ -779,6 +785,9 @@ export function Onboarding() {
       }
       return null;
     }
+    if (question.id === "jobFunction") {
+      return jobFunction ? null : "Pick the function that fits you best.";
+    }
     if (question.id === "residence") {
       if (!residenceCountry.trim()) return "Please enter your current country of residence.";
       return residenceCity.trim() ? null : "Please enter your current city of residence.";
@@ -801,6 +810,13 @@ export function Onboarding() {
 
   const handleStep2Next = async (options?: { skipPastRoles?: boolean }) => {
     const pastRoleRows = options?.skipPastRoles ? [] : pastRoles;
+    if (jobFunction && jobFunction !== savedJobFunction) {
+      const { error: fnErr } = await api.put("/v1/me/job-function", { jobFunction });
+      if (fnErr) {
+        setSaveError(fnErr.message ?? "Couldn't save your function. Try again.");
+        return;
+      }
+    }
     const nextResidenceCountry = residenceCountry.trim();
     const nextResidenceCity = residenceCity.trim();
     // PHONE_QUESTION_PARKED(2026-11-05): phone reads for the parked question.
@@ -1237,6 +1253,7 @@ export function Onboarding() {
                     {step2CurrentQuestion?.id === "occupation" ? "What best describes your current role?" : null}
                     {step2CurrentQuestion?.id === "followup" ? `${step2CurrentQuestion.label} *` : null}
                     {step2CurrentQuestion?.id === "followupCombo" ? `${step2CurrentQuestion.label} *` : null}
+                    {step2CurrentQuestion?.id === "jobFunction" ? "Which function fits you best? *" : null}
                     {step2CurrentQuestion?.id === "residence" ? "Where do you live? *" : null}
                     {step2CurrentQuestion?.id === "residenceCountry" ? "What is your current country of residence?" : null}
                     {step2CurrentQuestion?.id === "residenceCity" ? "What is your current city of residence?" : null}
@@ -1262,6 +1279,18 @@ export function Onboarding() {
                         </div>
                       ))}
                     </div>
+                  ) : null}
+                  {step2CurrentQuestion?.id === "jobFunction" ? (
+                    <>
+                      <p className="body-text" style={{ color: "rgba(252,248,240,0.72)" }}>When an alum is hiring for your function, Alma Mater asks you privately.</p>
+                      <div className="onboarding-welcome__inline-options" role="group" aria-label="Function">
+                        {JOB_FUNCTIONS.map((f) => (
+                          <Chip key={f} active={jobFunction === f} onClick={() => setJobFunction(f)}>
+                            {JOB_FUNCTION_LABELS[f]}
+                          </Chip>
+                        ))}
+                      </div>
+                    </>
                   ) : null}
                   {step2CurrentQuestion?.id === "residence" ? (
                     <div className="onboarding-welcome__fieldrow onboarding-welcome__fieldrow--pair">

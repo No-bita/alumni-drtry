@@ -1,3 +1,4 @@
+import type { BrokerService } from "../services/brokerService.js";
 import "fastify";
 import type { AdminMetricsService } from "../services/adminMetricsService.js";
 import type { AdminPeopleService } from "../services/adminPeopleService.js";
@@ -51,6 +52,7 @@ declare module "fastify" {
     discoveryLimiter: DiscoveryReadLimiter;
     intentcastService: IntentcastService;
     contactRequestService: ContactRequestService;
+    brokerService: BrokerService;
     connectionThreadService: ConnectionThreadService;
     notificationService: NotificationService;
     campusMonthlyService: CampusMonthlyService;

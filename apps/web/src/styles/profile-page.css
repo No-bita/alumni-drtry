@@ -990,3 +990,6 @@
 }
 
 .pp-entries__form .input { min-height:44px; }
+
+/* Owner-only: the member's job function (used to reach them for hiring requests). */
+.pp-function { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 12px; font-size: 13px; color: var(--pp-muted, var(--ink-muted)); }

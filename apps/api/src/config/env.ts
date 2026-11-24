@@ -75,6 +75,11 @@ const envSchema = z.object({
   MATCH_ANALYTICS_ENABLED: environmentBoolean.default(true),
   /** WhatsApp pilot (Meta Cloud API). Off unless explicitly enabled and configured. */
   WHATSAPP_ENABLED: environmentBoolean.default(false),
+  /**
+   * Brokered requests (referral / hiring): send their emails. Off by default while automatic emails
+   * are paused (2026-11-02); in-app notifications and progress work either way.
+   */
+  BROKER_EMAILS_ENABLED: environmentBoolean.default(false),
   WA_PHONE_NUMBER_ID: z.string().trim().min(1).optional(),
   WA_ACCESS_TOKEN: z.string().trim().min(1).optional(),
   /** App secret: verifies X-Hub-Signature-256 on every webhook call. */

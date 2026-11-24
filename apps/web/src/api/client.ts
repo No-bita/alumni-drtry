@@ -3,6 +3,7 @@ import { getApiRateLimit, rateLimitedFetch } from "../lib/apiRateLimit";
 import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
+import type { ExperienceBand, JobFunction } from "../lib/jobFunctions";
 
 /** Member-facing network failure text. Deployment details belong in docs, not in the UI. */
 export const NETWORK_ERROR_MESSAGE = "We couldn't reach the server. Check your connection and try again in a moment.";
@@ -163,6 +164,8 @@ export type MyProfileView = {
   role?: MePerson["role"];
   /** Open-to tags ("answer key"); raw JSON — parse with `parseOpenToPreferences`. */
   openToPreferences?: unknown;
+  /** Job function (Tech, Product, …): who hiring requests reach. Missing on older API versions. */
+  jobFunction?: JobFunction | null;
 };
 
 export type MeProfileResponse = { profile: MyProfileView };
@@ -355,6 +358,32 @@ export type NotificationItem =
       outcome: "accepted" | "declined";
       recipientPersonId: string;
       recipientFullName: string | null;
+      /** "referral_request" / "hiring_request" when Alma Mater found this person for you. */
+      source?: string | null;
+    }
+  | {
+      /** Alma Mater asked you on someone's behalf (Yes / Not this time). */
+      kind: "broker_ask_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      askId: string;
+      requestKind: "referral" | "hiring";
+      askerPersonId: string;
+      askerFullName: string | null;
+      company: string;
+      roleTitle: string | null;
+    }
+  | {
+      /** Your request closed after 2 days with no one available. */
+      kind: "broker_request_expired";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      askedCount: number;
     }
   | {
       kind: "bulletin_response";
@@ -435,6 +464,19 @@ export type IntentcastFeedItem = {
   authorIsDemo?: boolean;
   /** Who can see it; null or missing = Everyone. Fixed once posted. */
   audience?: PostAudience;
+  /** Hiring posts from the Wall composer: the tapped answers (null on older posts). */
+  hiring?: HiringFields | null;
+};
+
+/** A hiring post's answers; the card header is built from them (there is no heading). */
+export type HiringFields = {
+  jobFunction: JobFunction;
+  roleTitle: string | null;
+  experience: ExperienceBand;
+  location: string | null;
+  company: string | null;
+  respondVia: "reachout" | "link";
+  applyUrl: string | null;
 };
 
 /** GET /v1/intentcasts/:id/responses (author only) */

@@ -88,6 +88,15 @@ async function main() {
         .catch((err: unknown) => {
           app.log.error({ err }, "usage event purge failed");
         });
+      // Close brokered requests past their 2 days (also done on every read, so this only tidies up).
+      void app.brokerService
+        .expireDue()
+        .then((closed) => {
+          if (closed > 0) app.log.info({ closed }, "brokered requests closed");
+        })
+        .catch((err: unknown) => {
+          app.log.error({ err }, "brokered request expiry failed");
+        });
       // And forget expired WhatsApp links (short links and used-link records).
       void app.whatsappService.purgeExpiredLinks().catch((err: unknown) => {
         app.log.error({ err }, "whatsapp link purge failed");

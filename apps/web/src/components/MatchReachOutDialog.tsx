@@ -47,8 +47,8 @@ type MatchReachOutDialogProps = {
   advice?: { topic?: AdviceTopic | null; question?: string | null };
   /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
   rank?: number | null;
-  /** Where the asker came from: Ask, the WhatsApp bot's "Send a note" link, Careers, a profile, or directory search. */
-  source?: "match" | "whatsapp" | "careers" | "profile" | "search";
+  /** Where the asker came from: Ask, the WhatsApp bot's "Send a note" link, Careers, a profile, directory search, or a Wall hiring post. */
+  source?: "match" | "whatsapp" | "careers" | "profile" | "search" | "wall";
   /** After sending: a second way out, e.g. back to Careers. */
   backTo?: { to: string; label: string };
   /** Called once the note is sent (the dialog stays open on its "sent" step until closed). */

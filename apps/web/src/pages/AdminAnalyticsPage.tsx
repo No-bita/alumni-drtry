@@ -1,3 +1,4 @@
+import { BrokerWhatsAppSetting } from "../components/broker/BrokerWhatsAppSetting";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -744,6 +745,7 @@ export function AdminAnalyticsPage() {
                 </div>
               </section>
             ) : null}
+            <BrokerWhatsAppSetting />
             <section className="aa-review aa-admin-emails" aria-labelledby="aa-admin-emails-title">
               <div className="aa-review__text">
                 <h2 id="aa-admin-emails-title" className="aa-review__title">

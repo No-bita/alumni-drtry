@@ -7,6 +7,7 @@ import type { ArrivalPrompt } from "../lib/cities";
 import { Nav } from "../components/Nav";
 import { ProfilePageView } from "../components/profile/ProfilePageView";
 import { HeaderSheet } from "../components/profile/HeaderSheet";
+import { FunctionSheet } from "../components/profile/FunctionSheet";
 import { AreasSheet } from "../components/profile/AreasSheet";
 import { OpenToSheet } from "../components/profile/OpenToSheet";
 import { EntriesSheet } from "../components/profile/EntriesSheet";
@@ -23,8 +24,8 @@ import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPre
 import { browsingLimitFromError } from "../lib/browsingLimits";
 import { headlineInstituteLine, headlineRole, instituteEducation, type ProfileSection } from "../lib/profilePage";
 
-/** Deep links from other pages: ?edit=contact | open-to | city opens that section's sheet. */
-const EDIT_PARAM_SECTIONS: Record<string, ProfileSection> = { contact: "contact", "open-to": "openTo", city: "header" };
+/** Deep links from other pages: ?edit=contact | open-to | city | function opens that section's sheet. */
+const EDIT_PARAM_SECTIONS: Record<string, ProfileSection> = { contact: "contact", "open-to": "openTo", city: "header", function: "function" };
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -213,6 +214,7 @@ export function Profile() {
           privateContact={isOwnProfile ? (me ?? undefined) : undefined}
           ownerNotice={ownerNotice}
           ownerExtras={null}
+          jobFunction={isOwnProfile && me && "jobFunction" in me ? (me.jobFunction ?? null) : undefined}
           onEdit={setSection}
           onReachOut={() => setReachingOut(true)}
           onSignOut={() => {
@@ -237,6 +239,16 @@ export function Profile() {
             void auth.refetch();
             void savedAndClose();
             if (prompt) setArrivalPrompt(prompt);
+          }}
+        />
+      ) : null}
+      {isOwnProfile && section === "function" ? (
+        <FunctionSheet
+          saved={me?.jobFunction ?? null}
+          onClose={closeSheet}
+          onSaved={() => {
+            void auth.refetch();
+            closeSheet();
           }}
         />
       ) : null}

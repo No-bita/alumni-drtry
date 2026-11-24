@@ -17,6 +17,8 @@ import { adminPeopleRoutes } from "./routes/adminPeopleRoutes.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { connectionThreadRoutes } from "./routes/connectionThreadRoutes.js";
 import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
+import { brokerRoutes } from "./routes/brokerRoutes.js";
+import { BrokerService } from "./services/brokerService.js";
 import { feedbackRoutes } from "./routes/feedbackRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
@@ -147,6 +149,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const locationCleanupService = new LocationCleanupService(pool, adminPlacesService);
   const intentcastService = new IntentcastService(pool, emailSender, env.INTENTCAST_AUTHOR_DELETE_RETENTION_DAYS);
   const contactRequestService = new ContactRequestService(pool, emailSender);
+  const brokerService = new BrokerService(pool, emailSender);
   discoveryService.setReachOut(contactRequestService);
   const matchService = new MatchService(pool, null, contactRequestService);
   const whatsappEnabled = options.whatsapp?.enabled ?? env.WHATSAPP_ENABLED;
@@ -154,6 +157,8 @@ export async function createApp(options: CreateAppOptions = {}) {
     options.whatsapp?.sender ?? (env.WHATSAPP_ENABLED ? new CloudApiSender() : new RecordingSender());
   const whatsappService = new WhatsAppService(pool, whatsappSender, matchService, contactRequestService, whatsappEnabled);
   contactRequestService.setNoteChannel(whatsappService);
+  brokerService.setAskChannel(whatsappService);
+  whatsappService.setBrokerService(brokerService);
   profileService.setOnboardedListener((personId) => whatsappService.notifyOnboarded(personId));
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
   const announcementService = new AnnouncementService(pool, emailSender);
@@ -180,6 +185,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("locationCleanupService", locationCleanupService);
   app.decorate("intentcastService", intentcastService);
   app.decorate("contactRequestService", contactRequestService);
+  app.decorate("brokerService", brokerService);
   app.decorate("connectionThreadService", connectionThreadService);
   app.decorate("notificationService", notificationService);
   app.decorate("departmentOtherReview", new DepartmentOtherReviewRepo(pool));
@@ -292,6 +298,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   await app.register(intentcastRoutes);
   await app.register(contactRequestRoutes);
+  await app.register(brokerRoutes);
   await app.register(connectionThreadRoutes);
   await app.register(notificationRoutes);
   await app.register(orgRoutes);

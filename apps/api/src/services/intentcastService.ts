@@ -1,4 +1,6 @@
 import type { Pool } from "pg";
+import type { ExperienceBand, JobFunction } from "../lib/jobFunctions.js";
+import { isWebUrl } from "../lib/noteDetails.js";
 import {
   BULLETIN_CONTENT_MAX_LENGTH,
   BULLETIN_DESCRIPTION_MAX_CHARS,
@@ -14,7 +16,8 @@ import {
   type IntentcastFeedView,
   type IntentcastResponseView,
   type IntentcastResolvedOutcome,
-  type IntentcastStatus
+  type IntentcastStatus,
+  type HiringFieldsInput
 } from "../repos/intentcastRepo.js";
 import { PersonRepo } from "../repos/personRepo.js";
 import {
@@ -63,6 +66,37 @@ function assertGeneralIntentcastHeadlineDetails(content: string, category: Inten
   }
 }
 
+const HIRING_SHORT_MAX = 120;
+
+/** Checks a hiring post's tapped answers and returns them tidied, or throws a 400. */
+function cleanHiringFields(category: IntentcastCategory, input: NonNullable<CreateIntentcastInput["hiring"]>): HiringFieldsInput {
+  if (category !== "hiring") {
+    throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Hiring details only go with a hiring post.");
+  }
+  const line = (v: string | null | undefined) => (v ?? "").replace(/\s+/g, " ").trim();
+  const roleTitle = line(input.roleTitle);
+  const location = line(input.location);
+  const company = line(input.company);
+  for (const [value, label] of [[roleTitle, "Role title"], [location, "Location"], [company, "Company"]] as const) {
+    if (value.length > HIRING_SHORT_MAX) {
+      throw new AppError(400, "INTENTCAST_BAD_REQUEST", `${label} must be at most ${HIRING_SHORT_MAX} characters.`);
+    }
+  }
+  const applyUrl = line(input.applyUrl);
+  if (input.respondVia === "link" && !isWebUrl(applyUrl)) {
+    throw new AppError(400, "INTENTCAST_APPLY_LINK_REQUIRED", "Add the application link (starting with https://).");
+  }
+  return {
+    jobFunction: input.jobFunction,
+    roleTitle: roleTitle || null,
+    experience: input.experience,
+    location: location || null,
+    company: company || null,
+    respondVia: input.respondVia,
+    applyUrl: input.respondVia === "link" ? applyUrl : null
+  };
+}
+
 /**
  * Intentcast categories vs Careers hub (web):
  * - `hiring` — Hire alumni / role posts
@@ -75,6 +109,16 @@ export interface CreateIntentcastInput {
   content: string;
   /** Ask / Offer / Invitation: the author's own statement; optional so structured flows stay unmarked. */
   kind?: IntentcastKind | null;
+  /** Hiring posts from the Wall composer: the tapped answers. */
+  hiring?: {
+    jobFunction: JobFunction;
+    roleTitle?: string | null;
+    experience: ExperienceBand;
+    location?: string | null;
+    company?: string | null;
+    respondVia: "reachout" | "link";
+    applyUrl?: string | null;
+  } | null;
   /** Cities v1: canonical place id when posted from a city page. */
   placeId?: string | null;
   /** Who can see it. Missing or empty = Everyone. Values come from the author's profile, never the client. */
@@ -232,6 +276,7 @@ export class IntentcastService {
       );
     }
     assertGeneralIntentcastHeadlineDetails(content, input.category);
+    const hiring = input.hiring ? cleanHiringFields(input.category, input.hiring) : null;
 
     if (input.placeId) {
       // City review: only an approved city can tag a Wall post (pending and rejected cities stay hidden).
@@ -254,7 +299,8 @@ export class IntentcastService {
         kind: input.kind ?? null,
         expiresAt,
         placeId: input.placeId ?? null,
-        audience: audience.snapshot
+        audience: audience.snapshot,
+        hiring
       })
       .catch((err: unknown) => {
         // Unknown city id (foreign key): a bad request, not a server error.
