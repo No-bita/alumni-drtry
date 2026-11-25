@@ -484,18 +484,11 @@ function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
           </svg>
         </span>
       );
-    // A "said yes" row shows no kind tile: the headline already carries the outcome.
-    case "broker_request_connected":
-      return null;
+    // Broker rows show no kind tile: the headline already carries the outcome.
     case "broker_ask_received":
     case "broker_request_expired":
-      return (
-        <span className="notifications-page__kind-tile notifications-page__kind-tile--request" aria-hidden="true">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4l-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" />
-          </svg>
-        </span>
-      );
+    case "broker_request_connected":
+      return null;
     case "contact_request_resolved":
       return (
         <span className="notifications-page__kind-tile notifications-page__kind-tile--resolved" aria-hidden="true">
