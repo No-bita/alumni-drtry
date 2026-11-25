@@ -52,7 +52,8 @@ export type HelpKind = (typeof HELP_KINDS)[number];
 /* ---------------------------------------------------------------------- */
 
 export type CityRef = { placeId: string; city: string; country: string; slug: string };
-export type CityViewer = { personId: string; isDemo: boolean; isAdmin?: boolean };
+/** viewAs: an admin is viewing as this member (read-only); nothing is recorded for the member. */
+export type CityViewer = { personId: string; isDemo: boolean; isAdmin?: boolean; viewAs?: boolean };
 /** Shown on the page of a city that isn't approved (only its members and admins can open it). */
 export type CityReviewState = {
   status: "pending" | "rejected";
@@ -547,8 +548,8 @@ export class CitiesService implements ResidenceSync {
   }
 
   /** An arriver view counts as demand for the city, once per viewer, city and day (no person id is stored). */
-  private async logDemand(place: PlaceRow, viewer: { personId: string; isDemo: boolean }, resultCount: number): Promise<void> {
-    if (viewer.isDemo || !env.MATCH_ANALYTICS_ENABLED) return;
+  private async logDemand(place: PlaceRow, viewer: CityViewer, resultCount: number): Promise<void> {
+    if (viewer.isDemo || viewer.viewAs || !env.MATCH_ANALYTICS_ENABLED) return;
     try {
       const day = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
       const key = hashSecret(`cities-demand|${viewer.personId}|${place.id}|${day}`, env.AUTH_SECRET_PEPPER);

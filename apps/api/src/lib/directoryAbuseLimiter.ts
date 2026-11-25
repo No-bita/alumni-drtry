@@ -83,12 +83,12 @@ export function discoveryLimitsFromEnv(): DiscoveryLimits {
 /** Share of the daily cap that counts as "near the limit" on the admin page. */
 export const NEAR_LIMIT_SHARE = 0.8;
 
-type Actor = { personId: string; role: string; isDemo?: boolean };
+type Actor = { personId: string; role: string; isDemo?: boolean; viewAs?: unknown };
 
 /**
  * Directory, profile and people-list reads ("discovery reads"), counted per member in the database
  * so the limits survive restarts and hold across API instances. One upsert per counted request.
- * Admins are not counted.
+ * Admins are not counted, nor is an admin viewing as a member (it must not use up the member's budget).
  */
 export class DiscoveryReadLimiter {
   private readonly limits: DiscoveryLimits;
@@ -102,6 +102,7 @@ export class DiscoveryReadLimiter {
 
   async assert(actor: Actor, clientIp: string | null | undefined): Promise<void> {
     if (actor.role === "admin" || actor.role === "super_admin") return;
+    if (actor.viewAs) return;
 
     assertIpAllowed("discovery", clientIp, this.limits.perIpPerMinute, 1);
 

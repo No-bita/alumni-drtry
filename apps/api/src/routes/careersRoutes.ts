@@ -30,6 +30,8 @@ export const careersRoutes: FastifyPluginAsync = async (app) => {
       role: parsed.data.role ? parsed.data.role : null,
       viewerPersonId: request.actor.personId,
       viewerIsDemo: Boolean(request.actor.isDemo),
+      // Admin viewing as this member: don't count the lookup as the member's demand.
+      skipDemandLog: Boolean(request.actor.viewAs),
       offset
     });
     return reply.code(200).send(result);

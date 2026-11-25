@@ -10,6 +10,7 @@ import {
 } from "../lib/jobFunctions.js";
 import { composeNoteMessage, NoteDetailsError, validateNoteDetails, type NoteInput, type ReferralDetails } from "../lib/noteDetails.js";
 import { webAppUrl } from "../lib/webAppUrl.js";
+import { isViewAsRequest } from "../lib/viewAsContext.js";
 import {
   BrokerRepo,
   type AskerRequestView,
@@ -398,6 +399,8 @@ export class BrokerService {
 
   /** Closes requests past their 2 days (nobody said yes) and tells each asker. Safe to run often. */
   async expireDue(): Promise<number> {
+    // Admin viewing as a member (read-only): don't close requests or email askers from their reads; the hourly job does it.
+    if (isViewAsRequest()) return 0;
     const closed = await this.repo.expireDue(EXPIRE_BATCH);
     if (closed.length === 0) return 0;
     const askers = new Map((await this.repo.people([...new Set(closed.map((r) => r.asker_person_id))])).map((p) => [p.id, p]));
