@@ -14,7 +14,7 @@ export function BrokerProgress({ request }: { request: BrokerRequest }) {
             </span>
             <p className="broker-progress__label">
               {s.label}
-              {s.state === "current" ? <span className="pp-visually-hidden"> (now)</span> : null}
+              {s.state === "current" ? <span className="visually-hidden"> (now)</span> : null}
             </p>
           </li>
         ))}

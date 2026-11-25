@@ -54,7 +54,7 @@ export interface BrokerConversationView extends BrokerConversationSummary {
   /** Which side of the request the viewer is on. */
   role: "asker" | "helper";
   /** The other person: name, department and year for the header and a profile link. No contact. */
-  counterpart: { personId: string; fullName: string | null; departmentCode: string | null; batchYear: number | null };
+  counterpart: { personId: string; fullName: string | null; departmentCode: string | null; batchYear: number | null; institutionName: string | null };
   /** The request the conversation is about. */
   request: {
     kind: BrokerKind;
@@ -156,7 +156,8 @@ export class BrokerConversationService {
         personId: counterpart.personId,
         fullName: counterpart.fullName,
         departmentCode: counterpart.departmentCode,
-        batchYear: counterpart.batchYear
+        batchYear: counterpart.batchYear,
+        institutionName: counterpart.institutionName
       },
       request: context,
       state: reason ? "read_only" : "open",

@@ -2,6 +2,7 @@ import type { DbExecutor } from "../db/types.js";
 import { isExperienceBand, isJobFunction, type ExperienceBand, type JobFunction } from "../lib/jobFunctions.js";
 import type { NoteDetails } from "../lib/noteDetails.js";
 import type { BrokerKind } from "./brokerRepo.js";
+import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 
 /**
  * Brokered conversations (migration 079): a connection thread of kind 'broker', one per connected
@@ -39,6 +40,8 @@ export interface BrokerParticipant {
   fullName: string | null;
   departmentCode: string | null;
   batchYear: number | null;
+  /** Their institute, from the sign-in email domain ("IIT (BHU) Varanasi"). */
+  institutionName: string | null;
   /** Deleted or suspended: the conversation turns read-only. */
   unavailable: boolean;
   email: string;
@@ -181,6 +184,7 @@ export class BrokerConversationRepo {
       fullName: row.full_name,
       departmentCode: row.department_code && row.department_code.toLowerCase() !== "other" ? row.department_code : null,
       batchYear: row.batch_year,
+      institutionName: DOMAIN_DIRECTORY[row.institutional_email.split("@")[1]?.toLowerCase() ?? ""]?.institution ?? null,
       unavailable: row.unavailable,
       email: row.institutional_email
     };

@@ -49,7 +49,7 @@ export type BrokerConversationSummary = {
 export type BrokerConversation = BrokerConversationSummary & {
   requestId: string;
   role: "asker" | "helper";
-  counterpart: { personId: string; fullName: string | null; departmentCode: string | null; batchYear: number | null };
+  counterpart: { personId: string; fullName: string | null; departmentCode: string | null; batchYear: number | null; institutionName?: string | null };
   request: {
     kind: BrokerKind;
     company: string;

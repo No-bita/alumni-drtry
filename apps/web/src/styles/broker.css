@@ -72,25 +72,74 @@
 .career-feed-rows__reach-btn { margin-top: 10px; min-height: var(--chrome-min-touch-target, 44px); }
 
 /* A brokered request's conversation (the asker and the helper who said yes). */
-.broker-convo-page { max-width: 640px; margin: 0 auto; padding: 1.5rem var(--page-x) 3rem; display: grid; gap: 16px; min-width: 0; }
+/* Conversation page (/requests/:id/conversation): one card, person and request on top, then the talk. */
+.broker-convo-page { max-width: 760px; margin: 0 auto; padding: 1.25rem var(--page-x) 3rem; min-width: 0; }
 .broker-convo { display: grid; gap: 16px; min-width: 0; }
-.broker-convo__head { display: grid; gap: 6px; }
-.broker-convo__title { margin: 0; font-family: var(--font-display); font-size: 24px; overflow-wrap: anywhere; }
+.convo-card { padding: 0 20px 20px; border: 1px solid var(--rule); border-radius: 18px; background: var(--palette-card, #fcf8f0); box-shadow: 0 8px 28px rgba(58, 42, 30, 0.07); }
+.convo-card__bar { margin: 0 -20px; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.convo-card__back { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; }
+.convo-card__back svg { color: var(--brick); }
+.convo-card__back:hover { background: var(--palette-muted, #efe7d8); }
+.convo-card__back:focus-visible, .convo-card__quiet:focus-visible, .convo-composer__send:focus-visible { outline: 3px solid var(--ochre); outline-offset: 2px; }
+
+.convo-head { display: grid; gap: 12px; }
+.convo-head__person { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.convo-head__avatar.avatar { flex: none; }
+.convo-head__who { min-width: 0; padding-left: 14px; border-left: 1px solid var(--rule); }
+.broker-convo__title { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 1.15; overflow-wrap: anywhere; }
 .broker-convo__title a { color: var(--ink); text-decoration: none; }
 .broker-convo__title a:hover { color: var(--brick); }
-.broker-convo__messages { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.broker-convo__empty { color: var(--ink-muted); font-size: 14px; padding: 12px; border: 1px dashed var(--border-muted); border-radius: 12px; }
-.broker-convo__msg { max-width: 85%; justify-self: start; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--border-muted); display: grid; gap: 4px; min-width: 0; }
-.broker-convo__msg--mine { justify-self: end; border-radius: 14px 14px 4px 14px; background: var(--cream); }
+.convo-head__meta { margin: 3px 0 0; font-size: 14.5px; color: var(--ink-muted); }
+.convo-head__request { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #f4eadb; color: var(--brick); min-width: 0; }
+.convo-head__request .broker-header-line { color: var(--ink); font-size: 15px; letter-spacing: normal; overflow-wrap: anywhere; }
+.convo-head__privacy { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-muted); }
+.convo-head__privacy svg { flex: none; margin-top: 2px; color: var(--ink); }
+
+/* Empty: start the conversation */
+.convo-empty { display: grid; justify-items: center; gap: 10px; padding: 18px 8px 6px; text-align: center; }
+.convo-empty__art { max-width: 100%; height: auto; }
+.convo-empty__title { margin: 4px 0 0; font-family: var(--font-display); font-size: 26px; line-height: 1.15; color: var(--ink); }
+.convo-empty__copy { margin: 0; max-width: 460px; font-size: 15px; line-height: 1.55; color: var(--ink-muted); }
+
+/* Starter messages (designed; not shown until their copy is decided) */
+.convo-starters { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+.convo-starters__pill { min-height: 44px; padding: 0 18px; border: 1px solid var(--palette-border, #dccfbc); border-radius: 999px; background: #fbf5ec; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+.convo-starters__pill:hover:not(:disabled) { border-color: var(--brick); }
+.convo-starters__pill:focus-visible { outline: 3px solid var(--ochre); outline-offset: 2px; }
+
+/* Messages */
+.broker-convo__messages { list-style: none; margin: 0; padding: 4px 0 0; display: grid; gap: 10px; }
+.broker-convo__msg { max-width: 85%; justify-self: start; padding: 10px 12px; border-radius: 16px 16px 16px 4px; background: #fff; border: 1px solid var(--rule); display: grid; gap: 4px; min-width: 0; }
+.broker-convo__msg--mine { justify-self: end; border-radius: 16px 16px 4px 16px; background: #f4e1cf; border-color: #ecd2b9; }
 .broker-convo__body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.5; color: var(--ink); }
 .broker-convo__body a { color: var(--brick); }
 .broker-convo__time { font-size: 12px; color: var(--ink-muted); }
-.broker-convo__composer { display: grid; gap: 8px; }
-.broker-convo__label { font-weight: 600; font-size: 15px; color: var(--ink); }
-.broker-convo__composer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.broker-convo__count { font-size: 13px; color: var(--ink-muted); }
-.broker-convo__composer-row .btn { min-height: var(--chrome-min-touch-target, 44px); }
+.broker-convo__msg--mine .broker-convo__time { justify-self: end; }
+
+/* Composer: the send button sits inside the box */
+.convo-composer { display: grid; gap: 6px; }
+.convo-composer__notice { margin: 0; padding: 8px 12px; border-radius: 10px; background: #f6e3cf; color: var(--ink); font-size: 13.5px; line-height: 1.45; }
+.convo-composer__box { display: flex; align-items: flex-end; gap: 10px; padding: 10px 10px 10px 16px; border: 1px solid var(--palette-border, #dccfbc); border-radius: 16px; background: #fff; }
+.convo-composer__box:focus-within { border-color: var(--brick); box-shadow: 0 0 0 3px rgba(95, 38, 20, 0.12); }
+.convo-composer__input { flex: 1; min-width: 0; min-height: 48px; max-height: 40vh; padding: 6px 0; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--ink); font: inherit; font-size: 15px; line-height: 1.5; }
+.convo-composer__input::placeholder { color: var(--ink-muted); }
+.convo-composer__send { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 0; border-radius: 12px; background: var(--brick-light, #c25a2e); color: #fff; cursor: pointer; }
+.convo-composer__send:hover:not(:disabled) { background: var(--brick); }
+.convo-composer__send:disabled { opacity: 0.45; cursor: not-allowed; }
+.broker-convo__count { justify-self: start; padding-left: 4px; font-size: 13px; color: var(--ink-muted); }
 .broker-convo__readonly { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--cream); color: var(--ink); font-size: 14px; }
 .broker-convo__close { display: grid; gap: 8px; justify-items: start; }
+.convo-card__quiet { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--ink-muted); font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.convo-card__quiet:hover { color: var(--brick); }
 .broker-convo__missing { display: grid; gap: 12px; }
 .broker-convo__back-link { color: var(--brick); }
+
+@media (max-width: 520px) {
+  .convo-card { padding: 0 14px 16px; border-radius: 16px; }
+  .convo-card__bar { margin: 0 -14px; padding: 6px 8px; }
+  .broker-convo__title { font-size: 21px; }
+  .convo-head__avatar.avatar { width: 56px; height: 56px; font-size: 19px; }
+  .convo-head__who { padding-left: 12px; }
+  .convo-head__meta { font-size: 13.5px; }
+  .convo-empty__title { font-size: 23px; }
+}

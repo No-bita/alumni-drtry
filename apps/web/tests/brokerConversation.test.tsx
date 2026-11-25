@@ -23,7 +23,7 @@ import { isShownNotification } from "../src/lib/notificationsQueries";
 const conversation = (over: Partial<BrokerConversation> = {}): BrokerConversation => ({
   requestId: "r1",
   role: "asker",
-  counterpart: { personId: "h1", fullName: "Vikram Iyer", departmentCode: "cse", batchYear: 2016 },
+  counterpart: { personId: "h1", fullName: "Vikram Iyer", departmentCode: "cse", batchYear: 2016, institutionName: "IIT Bombay" },
   request: {
     kind: "referral",
     company: "Swiggy",
@@ -109,7 +109,10 @@ describe("the conversation", () => {
     const { container } = wrap(<BrokerConversationThread requestId="r1" />);
     expect(await screen.findByRole("link", { name: "Vikram Iyer" })).toBeTruthy();
     expect(screen.getByText("Referral · Swiggy · Product Manager")).toBeTruthy();
-    expect(screen.getByText(/Only the two of you can see this conversation\. Contact details stay private unless you choose to share them\./)).toBeTruthy();
+    expect(screen.getByText("IIT Bombay · Class of 2016")).toBeTruthy();
+    expect(
+      screen.getByText(/Vikram said yes to your request\. Just you and Vikram are in this conversation\. Contact details stay private unless you choose to share them\./),
+    ).toBeTruthy();
     const items = screen.getByRole("list", { name: "Messages" }).querySelectorAll("li");
     expect(items).toHaveLength(2);
     expect(items[0]!.className).toContain("broker-convo__msg--mine");
@@ -133,7 +136,8 @@ describe("the conversation", () => {
     expect(box.maxLength).toBe(1000);
     expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(box, { target: { value: "  Job ID is JOB-1234  " } });
-    expect(screen.getByText("18 / 1000")).toBeTruthy();
+    // The counter only appears near the limit (no permanent rules line).
+    expect(screen.queryByText("18 / 1000")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/broker-requests/r1/conversation/messages", { body: "Job ID is JOB-1234" }));
     expect(await screen.findByText("Job ID is JOB-1234")).toBeTruthy();
@@ -144,6 +148,30 @@ describe("the conversation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect((await screen.findByRole("alert")).textContent).toBe("You've sent 5 messages in a row. Wait for Vikram to reply.");
     expect(box.value).toBe("Any update?");
+  });
+
+  it("shows the character counter from 90% of the limit", async () => {
+    wrap(<BrokerConversationThread requestId="r1" />);
+    const box = (await screen.findByLabelText("Message Vikram")) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "x".repeat(899) } });
+    expect(screen.queryByText("899 / 1000")).toBeNull();
+    fireEvent.change(box, { target: { value: "x".repeat(900) } });
+    expect(screen.getByText("900 / 1000")).toBeTruthy();
+  });
+
+  it("after the unanswered limit: says so and waits for a reply before sending again", async () => {
+    const mine = Array.from({ length: 5 }, (_, i) => ({ id: `x${i}`, mine: true, body: `note ${i}`, createdAt: "2026-11-25T11:00:00Z" }));
+    current = conversation({ messages: [...conversation().messages, ...mine] });
+    wrap(<BrokerConversationThread requestId="r1" />);
+    expect(await screen.findByText("You've sent 5 messages in a row. You can write again once Vikram replies.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Message Vikram"), { target: { value: "Any update?" } });
+    expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("says when a quiet conversation is about to go read-only", async () => {
+    current = conversation({ readOnlyAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
+    wrap(<BrokerConversationThread requestId="r1" />);
+    expect(await screen.findByText(/this conversation goes read-only on .+ unless one of you writes/)).toBeTruthy();
   });
 
   it("either person can close it, after a confirmation", async () => {
@@ -172,6 +200,56 @@ describe("the conversation", () => {
     });
     wrap(<BrokerConversationThread requestId="r1" />);
     expect((await screen.findByRole("alert")).textContent).toMatch(/Only the member who asked and the alum who said yes can see it/);
+  });
+});
+
+describe("the conversation's header and first message", () => {
+  it("empty: start the conversation, per side; no starter pills, request link, menu or rules line yet", async () => {
+    current = conversation({ messages: [], messageCount: 0, lastMessageAt: null });
+    const { container } = wrap(<BrokerConversationThread requestId="r1" />);
+    expect(await screen.findByRole("heading", { name: "Start the conversation" })).toBeTruthy();
+    expect(screen.getByText("Say thanks, and share what would help Vikram: the job ID, your résumé link, or a good time to talk.")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Messages" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Start with" })).toBeNull();
+    expect(screen.queryByText(/View request/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /more|menu|options/i })).toBeNull();
+    expect(container.textContent).not.toMatch(/Text only|Links stay as typed|quiet days/);
+    cleanup();
+    current = conversation({ role: "helper", messages: [], messageCount: 0, lastMessageAt: null });
+    wrap(<BrokerConversationThread requestId="r1" />);
+    expect(await screen.findByText("Vikram will see your message here. Share only what the request needs.")).toBeTruthy();
+    expect(screen.getByText(/You said yes to Vikram's request\./)).toBeTruthy();
+  });
+
+  it("back goes to where the request lives for you: Your requests (asker) or Requests for you (helper)", async () => {
+    wrap(<BrokerConversationThread requestId="r1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Your requests" }));
+    expect(screen.getByTestId("loc").textContent).toBe("/notifications");
+    cleanup();
+    current = conversation({ role: "helper" });
+    wrap(<BrokerConversationThread requestId="r1" />);
+    expect(await screen.findByRole("button", { name: "Requests for you" })).toBeTruthy();
+  });
+});
+
+describe("starter messages (designed, not shown yet)", () => {
+  it("put the text in the message box instead of sending", async () => {
+    const { StarterMessages } = await import("../src/components/broker/StarterMessages");
+    const { STARTER_MESSAGES_DRAFT } = await import("../src/lib/conversationUi");
+    const onPick = vi.fn();
+    render(<StarterMessages options={STARTER_MESSAGES_DRAFT.helper.referral} onPick={onPick} />);
+    const pills = screen.getByRole("group", { name: "Start with" }).querySelectorAll("button");
+    expect(pills.length).toBe(STARTER_MESSAGES_DRAFT.helper.referral.length);
+    fireEvent.click(pills[0]!);
+    expect(onPick).toHaveBeenCalledWith(STARTER_MESSAGES_DRAFT.helper.referral[0]);
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it("count trailing messages of mine", async () => {
+    const { trailingMine } = await import("../src/lib/conversationUi");
+    expect(trailingMine([{ mine: false }, { mine: true }, { mine: true }])).toBe(2);
+    expect(trailingMine([{ mine: true }, { mine: false }])).toBe(0);
+    expect(trailingMine([])).toBe(0);
   });
 });
 
