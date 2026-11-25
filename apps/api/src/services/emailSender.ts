@@ -158,7 +158,7 @@ export class EmailUnreachableError extends Error {
 export interface BrokerEmailPayload {
   to: string;
   /** What happened, for logs and tests. */
-  event: "helper_asked" | "asker_sent" | "asker_seen" | "asker_connected" | "asker_expired" | "helper_connected";
+  event: "helper_asked" | "asker_sent" | "asker_seen" | "asker_connected" | "asker_expired" | "helper_connected" | "message_received";
   subject: string;
   greetingName: string;
   /** Plain-text paragraphs. */

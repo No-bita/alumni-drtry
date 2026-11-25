@@ -76,7 +76,7 @@ describe("Brokered requests (requires DB)", () => {
     const request = created.json().request as { id: string; askedCount: number; status: string; company: string };
     expect(request).toMatchObject({ askedCount: 3, status: "open", company: `Brokerco ${R}` });
 
-    const asksFor = async (who: Member) => (await req("GET", "/v1/broker-asks", who)).json().asks as Array<{ askId: string; status: string; askerContact: string | null }>;
+    const asksFor = async (who: Member) => (await req("GET", "/v1/broker-asks", who)).json().asks as Array<{ askId: string; status: string; conversation: unknown }>;
     const [a1] = await asksFor(h1);
     const [a2] = await asksFor(h2);
     const [a3] = await asksFor(h3);
@@ -86,7 +86,7 @@ describe("Brokered requests (requires DB)", () => {
 
     const yes = await req("POST", `/v1/broker-asks/${a2!.askId}/respond`, h2, { action: "accept" });
     expect(yes.statusCode, yes.body).toBe(200);
-    expect(yes.json().status).toBe("connected");
+    expect(yes.json()).toEqual({ status: "connected", requestId: request.id, askerName: expect.any(String) });
 
     const late = await req("POST", `/v1/broker-asks/${a3!.askId}/respond`, h3, { action: "accept" });
     expect(late.statusCode).toBe(409);
@@ -94,14 +94,19 @@ describe("Brokered requests (requires DB)", () => {
 
     const mine = (await req("GET", "/v1/broker-requests", asker)).json().requests[0];
     expect(mine).toMatchObject({ status: "connected", seenCount: 1, connection: { personId: h2.id } });
-    expect(mine.connection.contactShared).toContain("@iitbhu.ac.in");
+    // No contact is shared on a yes: the two of them talk in the request's conversation.
+    expect(mine.connection).toEqual({ personId: h2.id, fullName: expect.any(String) });
+    expect(mine.conversation).toMatchObject({ state: "open", unreadCount: 0 });
+    expect(JSON.stringify(mine)).not.toContain("@");
     // The asker never sees who declined or who else was asked.
     expect(JSON.stringify(mine)).not.toContain(h1.id);
     expect(JSON.stringify(mine)).not.toContain(h3.id);
 
     const reachout = await db.query(`SELECT status, source, source_category FROM contact_requests WHERE sender_person_id = $1 AND recipient_person_id = $2`, [asker.id, h2.id]);
     expect(reachout.rows[0]).toEqual({ status: "accepted", source: "referral_request", source_category: "referral" });
-    expect((await asksFor(h2))[0]!.askerContact).toContain("@iitbhu.ac.in");
+    const helperView = (await asksFor(h2))[0]!;
+    expect(helperView).toMatchObject({ status: "accepted", conversation: { state: "open" } });
+    expect(JSON.stringify(helperView)).not.toContain("@");
     expect(await asksFor(h3)).toEqual([]);
   });
 

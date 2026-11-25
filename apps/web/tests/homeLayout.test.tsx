@@ -39,7 +39,7 @@ const now = new Date().toISOString();
 const ask = {
   askId: "a1", requestId: "r1", kind: "referral", status: "asked", requestStatus: "open", askedAt: now, expiresAt: now, seenAt: null,
   company: "Sample Logistics", jobFunction: "data", experienceBand: null, roleTitle: "Data Analyst", jobUrl: null, message: "Please refer me.",
-  details: null, asker: { personId: "p5", fullName: "Asha Rao", institutionName: null, batchYear: null, departmentCode: null }, askerContact: null,
+  details: null, asker: { personId: "p5", fullName: "Asha Rao", institutionName: null, batchYear: null, departmentCode: null }, conversation: null,
 };
 
 /** Every API path Home touches gets an empty-but-valid answer unless overridden. */

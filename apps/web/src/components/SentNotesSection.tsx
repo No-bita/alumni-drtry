@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { SENT_NOTES_QUERY_KEY, fetchSentNotes, sentNoteStatusLabel } from "../lib/sentNotes";
 import { sharedContactHref } from "../lib/whatsapp";
+import { conversationPath } from "../lib/broker";
 
 /** Notifications page: notes you sent from "Reach out", with their status. */
 export function SentNotesSection({ enabled }: { enabled: boolean }) {
@@ -47,7 +48,13 @@ export function SentNotesSection({ enabled }: { enabled: boolean }) {
                     {n.respondedAt ? ` · ${n.status === "accepted" ? "accepted" : "declined"} ${formatRelativeTime(n.respondedAt)}` : null}
                   </p>
                   <p className="notifications-page__item-preview">“{n.message}”</p>
-                  {n.status === "accepted" && n.recipientContactShared ? (
+                  {n.status === "accepted" && n.brokerRequestId ? (
+                    <p className="notifications-page__item-detail">
+                      <Link to={conversationPath(n.brokerRequestId)} className="sent-notes__contact">
+                        Open conversation
+                      </Link>
+                    </p>
+                  ) : n.status === "accepted" && n.recipientContactShared ? (
                     <SharedContact contact={n.recipientContactShared} />
                   ) : null}
                 </div>

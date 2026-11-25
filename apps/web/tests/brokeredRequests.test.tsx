@@ -46,6 +46,7 @@ const request = (over: Partial<BrokerRequest> = {}): BrokerRequest => ({
   expiredAt: null,
   intentcastId: null,
   connection: null,
+  conversation: null,
   ...over,
 });
 
@@ -66,7 +67,7 @@ const ask = (over: Partial<BrokerAsk> = {}): BrokerAsk => ({
   message: "Referral request: Product Manager at Swiggy",
   details: { purpose: "referral", role: "Product Manager", company: "Swiggy", jobUrl: "https://jobs.example.com/pm", fit: "Two years on payments.", resumeUrl: null },
   asker: { personId: "asker", fullName: "Asha Rao", institutionName: "IIT (BHU) Varanasi", batchYear: 2021, departmentCode: "cse" },
-  askerContact: null,
+  conversation: null,
   ...over,
 });
 
@@ -99,7 +100,7 @@ beforeEach(() => {
   postMock.mockImplementation(async (path: string) => {
     if (path === "/v1/broker-requests") return { data: { request: request() } };
     if (path === "/v1/intentcasts") return { data: { intentcast: { id: "post-1" } } };
-    if (path.endsWith("/respond")) return { data: { status: "connected", askerContact: "asha@example.com", askerName: "Asha Rao" } };
+    if (path.endsWith("/respond")) return { data: { status: "connected", requestId: "r1", askerName: "Asha Rao" } };
     return { data: {} };
   });
 });
@@ -122,7 +123,7 @@ describe("progress, like a ride booking", () => {
   it("seen, then connected, or closed when no one was available", () => {
     expect(progressStages(request({ seenCount: 2 }))[2]).toEqual({ key: "seen", label: "2 have seen it", state: "done" });
     expect(progressStages(request({ seenCount: 2 }))[3]!.state).toBe("current");
-    const connected = request({ status: "connected", seenCount: 1, connection: { personId: "h", fullName: "Vikram Iyer", contactShared: "v@example.com" } });
+    const connected = request({ status: "connected", seenCount: 1, connection: { personId: "h", fullName: "Vikram Iyer" } });
     expect(progressStages(connected)[3]).toEqual({ key: "result", label: "Vikram Iyer said yes. You're connected", state: "done" });
     expect(progressStages(request({ status: "expired" }))[3]).toEqual({ key: "result", label: "Closed: no one was available this time", state: "closed" });
     expect(progressStages(request({ kind: "hiring" }))[1]!.label).toBe("Sent to 6 alumni who match your role");
@@ -223,17 +224,22 @@ describe("Get a referral (brokered)", () => {
 });
 
 describe("Requests for you", () => {
-  it("marks new asks seen, and yes connects with the asker's contact shown", async () => {
+  it("marks new asks seen, and yes connects you in a conversation, with no contact shown", async () => {
+    const accepted = ask({ status: "accepted", conversation: { state: "open", readOnlyReason: null, unreadCount: 0, messageCount: 0, lastMessageAt: null } });
     assertGet.mockImplementation(async (path: string) => {
-      if (path === "/v1/broker-asks") return { asks: postMock.mock.calls.some((c) => String(c[0]).endsWith("/respond")) ? [ask({ status: "accepted", askerContact: "asha@example.com" })] : [ask()] };
+      if (path === "/v1/broker-asks") return { asks: postMock.mock.calls.some((c) => String(c[0]).endsWith("/respond")) ? [accepted] : [ask()] };
       throw new Error(`unexpected ${path}`);
     });
-    wrap(<BrokerAsksSection enabled />);
+    const { container } = wrap(<BrokerAsksSection enabled />);
     expect(await screen.findByText(/is looking for a referral at Swiggy/)).toBeTruthy();
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/broker-asks/a1/seen"));
     fireEvent.click(screen.getByRole("button", { name: "Yes, I'll refer" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/broker-asks/a1/respond", { action: "accept" }));
-    expect(await screen.findByText(/you can reach them at asha@example.com/)).toBeTruthy();
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "You said yes. We've told Asha Rao. Talk it through here; your contact details stay private unless you share them.",
+    );
+    expect(screen.getByRole("link", { name: "Message Asha: conversation with Asha Rao" }).getAttribute("href")).toBe("/requests/r1/conversation");
+    expect(container.textContent).not.toMatch(/@|has your contact|reach them at/);
   });
 
   it("someone else got there first: says so", async () => {
@@ -245,14 +251,23 @@ describe("Requests for you", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Someone already helped with this one. Thank you!");
   });
 
-  it("your requests: progress, and the contact once connected", async () => {
+  it("your requests: progress, then the conversation (with unread messages) once connected, never a contact", async () => {
     assertGet.mockImplementation(async () => ({
-      requests: [request({ status: "connected", seenCount: 1, connection: { personId: "h", fullName: "Vikram Iyer", contactShared: "v@example.com" } })],
+      requests: [
+        request({
+          status: "connected",
+          seenCount: 1,
+          connection: { personId: "h", fullName: "Vikram Iyer" },
+          conversation: { state: "open", readOnlyReason: null, unreadCount: 2, messageCount: 3, lastMessageAt: "2026-11-25T10:00:00Z" },
+        }),
+      ],
     }));
-    wrap(<BrokerRequestsSection enabled />);
+    const { container } = wrap(<BrokerRequestsSection enabled />);
     expect(await screen.findByText("Referral · Swiggy · Product Manager")).toBeTruthy();
-    expect(screen.getByText(/v@example.com/)).toBeTruthy();
+    expect(screen.getByText("Vikram Iyer said yes. You're connected")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Vikram Iyer" }).getAttribute("href")).toBe("/profiles/h");
+    expect(screen.getByRole("link", { name: "2 new messages from Vikram Iyer" }).getAttribute("href")).toBe("/requests/r1/conversation");
+    expect(container.textContent).not.toMatch(/@|Their contact/);
   });
 });
 

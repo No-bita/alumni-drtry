@@ -51,6 +51,16 @@ describe("messaging paused guard", () => {
   });
 });
 
+describe("brokered conversations (the one messaging surface, 25 Nov 2026)", () => {
+  it("live only on a connected request's page and use their own limited endpoints", () => {
+    expect(sourceWithoutComments("App.tsx")).toContain('path="/requests/:requestId/conversation"');
+    for (const rel of ["lib/broker.ts", "components/broker/BrokerConversationThread.tsx", "pages/BrokerConversationPage.tsx"]) {
+      expect(sourceWithoutComments(rel), rel).not.toContain("/v1/connection-threads");
+      expect(sourceWithoutComments(rel), rel).not.toContain("GlobalMessagingWidget");
+    }
+  });
+});
+
 describe("hidden notification kinds", () => {
   it("hides paused message replies and Cities newcomer offers, shows the rest", async () => {
     const { isShownNotification } = await import("../src/lib/notificationsQueries");
@@ -58,6 +68,8 @@ describe("hidden notification kinds", () => {
     expect(isShownNotification(item("connection_thread_reply"))).toBe(false);
     expect(isShownNotification(item("city_help_offer_received"))).toBe(false);
     expect(isShownNotification(item("broker_ask_received"))).toBe(true);
+    expect(isShownNotification(item("broker_request_connected"))).toBe(true);
+    expect(isShownNotification(item("broker_message_received"))).toBe(true);
     expect(isShownNotification(item("contact_request_received"))).toBe(true);
   });
 });

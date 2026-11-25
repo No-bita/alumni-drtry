@@ -1,4 +1,5 @@
 import type { BrokerService } from "../services/brokerService.js";
+import type { BrokerConversationService } from "../services/brokerConversationService.js";
 import "fastify";
 import type { AdminMetricsService } from "../services/adminMetricsService.js";
 import type { AdminPeopleService } from "../services/adminPeopleService.js";
@@ -53,6 +54,7 @@ declare module "fastify" {
     intentcastService: IntentcastService;
     contactRequestService: ContactRequestService;
     brokerService: BrokerService;
+    brokerConversationService: BrokerConversationService;
     connectionThreadService: ConnectionThreadService;
     notificationService: NotificationService;
     campusMonthlyService: CampusMonthlyService;

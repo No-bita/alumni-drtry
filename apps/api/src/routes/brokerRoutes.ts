@@ -4,6 +4,7 @@ import { AppError } from "../lib/errors.js";
 import { EXPERIENCE_BANDS, JOB_FUNCTIONS } from "../lib/jobFunctions.js";
 import { noteInputSchema } from "../lib/noteDetails.js";
 import type { AskerRequestView, HelperAskView } from "../repos/brokerRepo.js";
+import type { BrokerConversationSummary } from "../services/brokerConversationService.js";
 
 const createSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -39,9 +40,13 @@ function iso(d: Date | null): string | null {
   return d ? d.toISOString() : null;
 }
 
-function requestDto(r: AskerRequestView) {
+/** Once connected, both sides get the way into their conversation (null before a yes). */
+type WithConversation = { conversation?: BrokerConversationSummary | null };
+
+function requestDto(r: AskerRequestView & WithConversation) {
   return {
     ...r,
+    conversation: r.conversation ?? null,
     createdAt: r.createdAt.toISOString(),
     expiresAt: r.expiresAt.toISOString(),
     firstSeenAt: iso(r.firstSeenAt),
@@ -50,8 +55,8 @@ function requestDto(r: AskerRequestView) {
   };
 }
 
-function askDto(a: HelperAskView) {
-  return { ...a, askedAt: a.askedAt.toISOString(), expiresAt: a.expiresAt.toISOString(), seenAt: iso(a.seenAt) };
+function askDto(a: HelperAskView & WithConversation) {
+  return { ...a, conversation: a.conversation ?? null, askedAt: a.askedAt.toISOString(), expiresAt: a.expiresAt.toISOString(), seenAt: iso(a.seenAt) };
 }
 
 /**
@@ -83,10 +88,14 @@ export const brokerRoutes: FastifyPluginAsync = async (app) => {
       .send(await app.brokerService.hiringEligible(request.actor.personId, isDemo(request), parsed.data.jobFunction, parsed.data.experience));
   });
 
-  /** The viewer's own requests, with progress (never who was asked). */
+  /** The viewer's own requests, with progress (never who was asked) and, once connected, the conversation. */
   app.get("/v1/broker-requests", { preHandler: app.authenticate }, async (request, reply) => {
     const requests = await app.brokerService.listMine(request.actor.personId);
-    return reply.code(200).send({ requests: requests.map(requestDto) });
+    const conversations = await app.brokerConversationService.summaries(
+      request.actor.personId,
+      requests.filter((r) => r.status === "connected").map((r) => r.id)
+    );
+    return reply.code(200).send({ requests: requests.map((r) => requestDto({ ...r, conversation: conversations.get(r.id) ?? null })) });
   });
 
   app.post(
@@ -118,10 +127,14 @@ export const brokerRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /** Asks waiting for the viewer's answer, and the ones they said yes to (with the asker's contact). */
+  /** Asks waiting for the viewer's answer, and the ones they said yes to (with their conversation). */
   app.get("/v1/broker-asks", { preHandler: app.authenticate }, async (request, reply) => {
     const asks = await app.brokerService.listForHelper(request.actor.personId);
-    return reply.code(200).send({ asks: asks.map(askDto) });
+    const conversations = await app.brokerConversationService.summaries(
+      request.actor.personId,
+      asks.filter((a) => a.status === "accepted").map((a) => a.requestId)
+    );
+    return reply.code(200).send({ asks: asks.map((a) => askDto({ ...a, conversation: conversations.get(a.requestId) ?? null })) });
   });
 
   app.post("/v1/broker-asks/:id/seen", { preHandler: app.authenticate }, async (request, reply) => {

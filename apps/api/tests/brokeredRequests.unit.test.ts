@@ -74,6 +74,7 @@ function respondHandler(ask: { ask_status: string; request_status: string; expir
     if (sql.includes("FROM people WHERE id = $1")) return { rows: [person(params[0] as string)] };
     if (sql.includes("UPDATE broker_asks SET status = $2")) return { rows: [], rowCount: 1 };
     if (sql.includes("INSERT INTO contact_requests")) return { rows: [{ id: "cr-1" }] };
+    if (sql.includes("INSERT INTO connection_threads")) return { rows: [{ id: "thread-1" }] };
     if (sql.includes("SET status = 'connected'")) return { rows: [], rowCount: 1 };
     if (sql.includes("SET status = 'withdrawn'")) return { rows: [{ helper_person_id: "someone-else" }] };
     return undefined;
@@ -127,21 +128,32 @@ describe("who gets asked", () => {
 });
 
 describe("answering an ask", () => {
-  it("the first yes connects: an accepted reachout with the helper's contact, others withdrawn", async () => {
+  it("the first yes connects: an accepted reachout with no contact, a conversation, others withdrawn", async () => {
     const { pool, calls } = fakePool(respondHandler({ ask_status: "asked", request_status: "open" }));
     const result = await new BrokerService(pool as never, new TestCaptureEmailSender()).respond(HELPER, ASK, "accept");
-    expect(result).toEqual({ status: "connected", askerContact: "asha@iitbhu.ac.in", askerName: "Asha Rao" });
+    expect(result).toEqual({ status: "connected", requestId: REQ, askerName: "Asha Rao" });
     const insert = calls.find((c) => c.sql.includes("INSERT INTO contact_requests"))!;
-    expect(insert.sql).toContain("'accepted'");
+    expect(insert.sql).toContain("'accepted', NULL");
     expect(insert.params).toEqual(expect.arrayContaining([ASKER, HELPER, "vikram@iitb.ac.in", "referral_request", "referral"]));
+    // The institutional email is only the forwarding record; nobody's personal contact is stored or returned.
+    expect(JSON.stringify(result)).not.toContain("@");
+    const thread = calls.find((c) => c.sql.includes("INSERT INTO connection_threads"))!;
+    expect(thread.sql).toContain("'broker'");
+    expect(thread.params).toEqual([ASKER, HELPER, REQ]);
     expect(calls.some((c) => c.sql.includes("SET status = 'withdrawn'") && c.params[1] === ASK)).toBe(true);
     expect(calls.some((c) => c.sql.includes("FOR UPDATE OF br, ba"))).toBe(true);
   });
 
-  it("WhatsApp yes can share the number instead of the email", async () => {
-    const { pool, calls } = fakePool(respondHandler({ ask_status: "asked", request_status: "open" }));
-    await new BrokerService(pool as never, new TestCaptureEmailSender()).respond(HELPER, ASK, "accept", { sharedContactOverride: "+919800000000" });
-    expect(calls.find((c) => c.sql.includes("INSERT INTO contact_requests"))!.params).toContain("+919800000000");
+  it("emails on a yes point at the conversation and never carry a contact", async () => {
+    (env as { BROKER_EMAILS_ENABLED: boolean }).BROKER_EMAILS_ENABLED = true;
+    const { pool } = fakePool(respondHandler({ ask_status: "asked", request_status: "open" }));
+    const capture = new TestCaptureEmailSender();
+    await new BrokerService(pool as never, capture).respond(HELPER, ASK, "accept");
+    expect(capture.brokerEmails.map((e) => e.event)).toEqual(["asker_connected", "helper_connected"]);
+    for (const e of capture.brokerEmails) {
+      expect(e.ctaUrl).toContain(`/requests/${REQ}/conversation`);
+      expect(e.paragraphs.join(" ")).not.toMatch(/reach them at|has your contact|@/i);
+    }
   });
 
   it("not this time: nothing is created and the asker is not told", async () => {

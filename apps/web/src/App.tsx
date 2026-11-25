@@ -63,6 +63,11 @@ const AdminAnalyticsPage = lazy(() =>
 const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
+// Brokered requests: the asker and the helper who said yes talk here (limited messaging; the general
+// messaging widget and /connections threads stay paused).
+const BrokerConversationPage = lazy(() =>
+  import("./pages/BrokerConversationPage").then((m) => ({ default: m.BrokerConversationPage }))
+);
 
 function RouteFallback() {
   return <FoldToFlight ready={false} />;
@@ -361,6 +366,16 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <OwnProfileRedirect />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/requests/:requestId/conversation"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <BrokerConversationPage />
+              </ProfileGate>
             </RequireAuth>
           }
         />

@@ -488,15 +488,17 @@ export class WhatsAppService implements NoteDeliveryChannel {
     });
   }
 
-  /** A helper answering a brokered ask: first yes connects, later answers are told it's taken care of. */
+  /**
+   * A helper answering a brokered ask: first yes connects, later answers are told it's taken care of.
+   * Both "yes" buttons of the shared note template simply say yes: a brokered yes never shares a
+   * number or an email; the two of them talk in the request's conversation on Alma Mater.
+   */
   private async handleBrokerAskAction(contact: WaContactRow, payload: string): Promise<void> {
     const [, askId, action] = payload.split(":") as [string, string, NoteAction];
     if (!this.broker || !contact.person_id || !askId || !["accept_wa", "accept_email", "decline"].includes(action)) return;
     let result: Awaited<ReturnType<BrokerService["respond"]>>;
     try {
-      result = await this.broker.respond(contact.person_id, askId, action === "decline" ? "decline" : "accept", {
-        ...(action === "accept_wa" ? { sharedContactOverride: `+${contact.wa_id}` } : {})
-      });
+      result = await this.broker.respond(contact.person_id, askId, action === "decline" ? "decline" : "accept");
     } catch (err) {
       if (isAppError(err) && err.code.startsWith("BROKER_")) {
         await this.reply(contact.wa_id, { kind: "text", body: err.message });
@@ -509,7 +511,7 @@ export class WhatsAppService implements NoteDeliveryChannel {
       body:
         result.status === "declined"
           ? "No problem. No one is told."
-          : `Done. ${result.askerName ?? "They"} now has your ${action === "accept_wa" ? "WhatsApp number" : "email"}. You can reach them at ${result.askerContact ?? "the address on Alma Mater"}.`
+          : `Done. We've told ${result.askerName ?? "them"}. Your contact stays private: message each other on Alma Mater at ${webAppUrl()}/requests/${result.requestId}/conversation`
     });
   }
 

@@ -1,7 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { env } from "../config/env.js";
 import { AppError } from "../lib/errors.js";
-import { normalizeEmail } from "../lib/domainAllowlist.js";
 import {
   EXPERIENCE_BAND_LABELS,
   JOB_FUNCTION_LABELS,
@@ -18,6 +17,7 @@ import {
   type BrokerRequestRow,
   type HelperAskView
 } from "../repos/brokerRepo.js";
+import { BrokerConversationRepo } from "../repos/brokerConversationRepo.js";
 import { IntentcastRepo } from "../repos/intentcastRepo.js";
 import type { BrokerEmailPayload, EmailSender } from "./emailSender.js";
 
@@ -60,8 +60,8 @@ export interface PrivateHiringInput {
 
 export interface RespondResult {
   status: "connected" | "declined";
-  /** Once connected: how to reach the asker. */
-  askerContact: string | null;
+  /** Once connected: the request, whose conversation the two of them now share. No contact is shared. */
+  requestId: string | null;
   askerName: string | null;
 }
 
@@ -318,13 +318,11 @@ export class BrokerService {
     });
   }
 
-  /** "Yes" or "Not this time". The first yes connects; asks answered after that are told it's taken care of. */
-  async respond(
-    helperPersonId: string,
-    askId: string,
-    action: "accept" | "decline",
-    options: { sharedContactOverride?: string } = {}
-  ): Promise<RespondResult> {
+  /**
+   * "Yes" or "Not this time". The first yes connects: a private conversation between the asker and the
+   * helper, tied to the request (no contact is shared). Asks answered after that are told it's taken care of.
+   */
+  async respond(helperPersonId: string, askId: string, action: "accept" | "decline"): Promise<RespondResult> {
     await this.expireDue();
     const outcome = await this.inTransaction(async (repo, client) => {
       const ask = await repo.askForResponse(askId, true);
@@ -346,7 +344,6 @@ export class BrokerService {
       const request = (await repo.request(ask.request_id))!;
       const [asker, helper] = await Promise.all([repo.person(request.asker_person_id), repo.person(helperPersonId)]);
       if (!asker || !helper) throw new AppError(404, "BROKER_ASK_NOT_FOUND", "Request not found.");
-      const helperContact = options.sharedContactOverride?.trim() || normalizeEmail(helper.personal_email ?? helper.institutional_email);
       await repo.setAskAnswer(askId, "accepted");
       const contactRequestId = await repo.insertAcceptedReachout({
         askerPersonId: asker.id,
@@ -355,21 +352,20 @@ export class BrokerService {
         message: request.message,
         details: request.details,
         source: request.kind === "referral" ? "referral_request" : "hiring_request",
-        sourceCategory: request.kind === "referral" ? "referral" : "hiring",
-        contactShared: helperContact
+        sourceCategory: request.kind === "referral" ? "referral" : "hiring"
       });
       if (!(await repo.markConnected(request.id, contactRequestId))) {
         throw new AppError(409, "BROKER_ALREADY_HELPED", "Someone already helped with this one. Thank you!");
       }
       await repo.withdrawOthers(request.id, askId);
-      void client;
-      return { status: "connected" as const, request, asker, helper, helperContact };
+      await new BrokerConversationRepo(client).create(request.id, asker.id, helper.id);
+      return { status: "connected" as const, request, asker, helper };
     });
 
-    if (outcome.status === "declined") return { status: "declined", askerContact: null, askerName: null };
+    if (outcome.status === "declined") return { status: "declined", requestId: null, askerName: null };
 
-    const { request, asker, helper, helperContact } = outcome;
-    const askerContact = normalizeEmail(asker.personal_email ?? asker.institutional_email);
+    const { request, asker, helper } = outcome;
+    const conversationUrl = `${webAppUrl()}/requests/${request.id}/conversation`;
     const helperName = helper.full_name?.trim() || "An alum";
     const askerName = asker.full_name?.trim() || "The member";
     await this.email({
@@ -381,21 +377,21 @@ export class BrokerService {
         request.kind === "referral"
           ? `${helperName} at ${request.company} said yes to your referral request.`
           : `${helperName} said they're interested in your hiring post (${hiringHeadline(request)}).`,
-        `Reach them at ${helperContact}.`
+        "Message them on Alma Mater. Contact details stay private unless one of you shares them."
       ],
-      ctaLabel: "See your requests",
-      ctaUrl: `${webAppUrl()}/notifications`
+      ctaLabel: "Open the conversation",
+      ctaUrl: conversationUrl
     });
     await this.email({
       to: helper.institutional_email,
       event: "helper_connected",
       subject: `You're connected with ${askerName}`,
       greetingName: firstName(helper.full_name),
-      paragraphs: [`Thanks for saying yes. ${askerName} has your contact, and you can reach them at ${askerContact}.`],
-      ctaLabel: "Open Alma Mater",
-      ctaUrl: `${webAppUrl()}/notifications`
+      paragraphs: [`Thanks for saying yes. We've told ${askerName}. Message each other on Alma Mater; contact details stay private unless one of you shares them.`],
+      ctaLabel: "Open the conversation",
+      ctaUrl: conversationUrl
     });
-    return { status: "connected", askerContact, askerName };
+    return { status: "connected", requestId: request.id, askerName };
   }
 
   /* ------------------------------ closing ------------------------------ */

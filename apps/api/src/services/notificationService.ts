@@ -6,6 +6,7 @@ import { CitiesRepo } from "../repos/citiesRepo.js";
 import { IntentcastRepo } from "../repos/intentcastRepo.js";
 import type { AnnouncementService } from "./announcementService.js";
 import { BrokerRepo } from "../repos/brokerRepo.js";
+import { BrokerConversationRepo } from "../repos/brokerConversationRepo.js";
 
 const POST_PREVIEW_MAX = 160;
 const THREAD_PREVIEW_MAX = 140;
@@ -78,6 +79,36 @@ export type NotificationItemDto =
       roleTitle: string | null;
     }
   | {
+      /** Someone said yes to your brokered request: you're connected, and can message them (no contact is shared). */
+      kind: "broker_request_connected";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      roleTitle: string | null;
+      helperPersonId: string;
+      helperFullName: string | null;
+    }
+  | {
+      /**
+       * A new message in a brokered conversation (one item per conversation, while the newest message is
+       * theirs). Unseen until you read the conversation or mark all as seen.
+       */
+      kind: "broker_message_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      counterpartPersonId: string;
+      counterpartFullName: string | null;
+      lastMessagePreview: string;
+      unreadCount: number;
+    }
+  | {
       /** Your brokered request closed after 2 days with no one available. */
       kind: "broker_request_expired";
       id: string;
@@ -133,6 +164,9 @@ export class NotificationService {
   private readonly intentcastRepo: IntentcastRepo;
   private readonly citiesRepo: CitiesRepo;
   private readonly brokerRepo: BrokerRepo;
+  private readonly brokerConversations: BrokerConversationRepo;
+  /** Runs before every read (closes due brokered requests so their notification is current). */
+  private beforeRead: (() => Promise<unknown>) | null = null;
 
   private readonly announcements: AnnouncementService | null;
 
@@ -141,9 +175,24 @@ export class NotificationService {
     this.announcements = announcements;
     this.citiesRepo = new CitiesRepo(pool);
     this.brokerRepo = new BrokerRepo(pool);
+    this.brokerConversations = new BrokerConversationRepo(pool);
     this.contactRequestRepo = new ContactRequestRepo(pool);
     this.connectionThreadRepo = new ConnectionThreadRepo(pool);
     this.intentcastRepo = new IntentcastRepo(pool);
+  }
+
+  setBeforeRead(hook: (() => Promise<unknown>) | null): void {
+    this.beforeRead = hook;
+  }
+
+  private async runBeforeRead(): Promise<void> {
+    if (!this.beforeRead) return;
+    try {
+      await this.beforeRead();
+    } catch (err) {
+      // Notifications still load; the hourly tick closes them next time.
+      console.error("[notifications] before-read hook failed:", err);
+    }
   }
 
   /** The person's seen watermark; a missing row means nothing has ever been marked seen. */
@@ -171,9 +220,21 @@ export class NotificationService {
   }
 
   async listForPerson(personId: string): Promise<NotificationItemDto[]> {
+    await this.runBeforeRead();
     const watermark = await this.getSeenWatermark(personId);
     const unseen = (occurredAt: string) => Date.parse(occurredAt) > watermark.getTime();
-    const [pendingIncoming, resolvedOutgoing, bulletinResponses, threadReplies, cityOffers, announcements, brokerAsks, brokerExpired] = await Promise.all([
+    const [
+      pendingIncoming,
+      resolvedOutgoing,
+      bulletinResponses,
+      threadReplies,
+      cityOffers,
+      announcements,
+      brokerAsks,
+      brokerExpired,
+      brokerConnected,
+      brokerMessages
+    ] = await Promise.all([
       this.contactRequestRepo.listPendingIncomingForRecipient(personId),
       this.contactRequestRepo.listResolvedOutgoingForSender(personId, OUTGOING_RESOLVED_LIMIT),
       this.intentcastRepo.listBulletinResponseNotificationsForAuthor(personId, BULLETIN_RESPONSE_LIMIT),
@@ -181,10 +242,47 @@ export class NotificationService {
       this.citiesRepo.offerNotifications(personId, CITY_OFFER_LIMIT),
       this.announcements ? this.announcements.notificationsForPerson(personId, ANNOUNCEMENT_LIMIT) : Promise.resolve([]),
       this.brokerRepo.listForHelper(personId, BROKER_LIMIT),
-      this.brokerRepo.expiredForAsker(personId, BROKER_LIMIT)
+      this.brokerRepo.expiredForAsker(personId, BROKER_LIMIT),
+      this.brokerConversations.connectedForAsker(personId, BROKER_LIMIT),
+      this.brokerConversations.messageNotifications(personId, BROKER_LIMIT)
     ]);
 
     const items: NotificationItemDto[] = [];
+
+    for (const c of brokerConnected) {
+      const at = c.connectedAt.toISOString();
+      items.push({
+        kind: "broker_request_connected",
+        id: `br-con:${c.requestId}`,
+        occurredAt: at,
+        unseen: unseen(at),
+        requestId: c.requestId,
+        requestKind: c.requestKind,
+        company: c.company,
+        roleTitle: c.roleTitle,
+        helperPersonId: c.helperPersonId,
+        helperFullName: c.helperFullName
+      });
+    }
+
+    for (const m of brokerMessages) {
+      const at = m.lastCreatedAt.toISOString();
+      // Reading the conversation clears it too, not only "Mark all as seen".
+      const read = m.lastReadAt !== null && m.lastReadAt.getTime() >= m.lastCreatedAt.getTime();
+      items.push({
+        kind: "broker_message_received",
+        id: `bm:${m.requestId}`,
+        occurredAt: at,
+        unseen: unseen(at) && !read,
+        requestId: m.requestId,
+        requestKind: m.requestKind,
+        company: m.company,
+        counterpartPersonId: m.counterpartPersonId,
+        counterpartFullName: m.counterpartFullName,
+        lastMessagePreview: truncatePreview(m.lastBody, THREAD_PREVIEW_MAX),
+        unreadCount: m.unreadCount
+      });
+    }
 
     for (const a of brokerAsks) {
       if (a.status !== "asked") continue;
@@ -307,7 +405,8 @@ export class NotificationService {
 
   /** Total notification rows (matches aggregation behind GET /v1/notifications, without row limits). */
   async countForPerson(personId: string): Promise<number> {
-    const [pending, resolvedOut, bulletin, threadReplies, cityOffers, announcements, brokerAsks, brokerExpired] = await Promise.all([
+    await this.runBeforeRead();
+    const [pending, resolvedOut, bulletin, threadReplies, cityOffers, announcements, brokerAsks, brokerExpired, brokerConnected, brokerMessages] = await Promise.all([
       this.contactRequestRepo.countPendingIncomingForRecipient(personId),
       this.contactRequestRepo.countResolvedOutgoingForSender(personId),
       this.intentcastRepo.countBulletinResponseNotificationsForAuthor(personId),
@@ -315,7 +414,9 @@ export class NotificationService {
       this.citiesRepo.countOfferNotifications(personId),
       this.announcements ? this.announcements.countNotificationsForPerson(personId) : Promise.resolve(0),
       this.brokerRepo.countOpenAsksForHelper(personId),
-      this.brokerRepo.countExpiredForAsker(personId)
+      this.brokerRepo.countExpiredForAsker(personId),
+      this.brokerConversations.countConnectedForAsker(personId),
+      this.brokerConversations.countMessageNotifications(personId)
     ]);
     return (
       pending +
@@ -325,7 +426,9 @@ export class NotificationService {
       Math.min(cityOffers, CITY_OFFER_LIMIT) +
       Math.min(announcements, ANNOUNCEMENT_LIMIT) +
       Math.min(brokerAsks, BROKER_LIMIT) +
-      Math.min(brokerExpired, BROKER_LIMIT)
+      Math.min(brokerExpired, BROKER_LIMIT) +
+      Math.min(brokerConnected, BROKER_LIMIT) +
+      Math.min(brokerMessages, BROKER_LIMIT)
     );
   }
 }

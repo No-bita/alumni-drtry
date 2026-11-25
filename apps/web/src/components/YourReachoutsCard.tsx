@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { HubSideCard } from "./HubSideCard";
-import { brokerKeys, fetchBrokerRequests, progressStages, type BrokerRequest } from "../lib/broker";
+import { brokerKeys, conversationPath, fetchBrokerRequests, progressStages, type BrokerRequest } from "../lib/broker";
 import { EXPERIENCE_BAND_LABELS, JOB_FUNCTION_LABELS } from "../lib/jobFunctions";
 import { SENT_NOTES_QUERY_KEY, fetchSentNotes, sentNoteStatusLabel } from "../lib/sentNotes";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
@@ -27,6 +27,8 @@ export function YourReachoutsCard() {
   const sent = useQuery({ queryKey: SENT_NOTES_QUERY_KEY, queryFn: ({ signal }) => fetchSentNotes(signal) });
   const brokered = useQuery({ queryKey: brokerKeys.requests(), queryFn: ({ signal }) => fetchBrokerRequests(signal) });
   const requests = (brokered.data ?? []).filter((r) => r.status !== "connected").slice(0, 3);
+  // Unread messages in a connected request's conversation show on its note.
+  const unreadByRequest = new Map((brokered.data ?? []).map((r) => [r.id, r.conversation?.unreadCount ?? 0]));
   const reachouts = (sent.data?.requests ?? []).slice(0, 3);
   if (requests.length === 0 && reachouts.length === 0) return null;
   return (
@@ -56,12 +58,17 @@ export function YourReachoutsCard() {
         ))}
         {reachouts.map((n) => (
           <li key={n.id}>
-            <Link to="/notifications" className="hub-card__item">
+            {/* A brokered yes opens its conversation (no contact is shared). */}
+            <Link to={n.brokerRequestId ? conversationPath(n.brokerRequestId) : "/notifications"} className="hub-card__item">
               <span className="hub-card__item-main">
                 <span className="hub-card__item-title">{n.recipientFullName?.trim() || "An alum"}</span>
                 <span className="hub-card__meta">Sent {formatRelativeTime(n.createdAt)}</span>
               </span>
-              <span className={`hub-card__status hub-card__status--${n.status}`}>{sentNoteStatusLabel(n)}</span>
+              {n.brokerRequestId && (unreadByRequest.get(n.brokerRequestId) ?? 0) > 0 ? (
+                <span className="hub-card__status hub-card__status--pending">{unreadByRequest.get(n.brokerRequestId)} new</span>
+              ) : (
+                <span className={`hub-card__status hub-card__status--${n.status}`}>{sentNoteStatusLabel(n)}</span>
+              )}
             </Link>
           </li>
         ))}
