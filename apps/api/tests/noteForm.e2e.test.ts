@@ -75,9 +75,11 @@ describe("note form rules (integration, local test database only)", () => {
     );
     // The recipient's inbox and the sender's sent list carry the fields.
     const inbox = (await app.inject({ method: "GET", url: "/v1/contact-requests/inbox", headers: { cookie: r.cookie } })).json() as {
-      requests: Array<{ details: { purpose: string } | null; message: string }>;
+      requests: Array<{ details: { purpose: string } | null; message: string; senderInstitutionName: string | null; senderBatchYear: number | null }>;
     };
     expect(inbox.requests[0]!.details!.purpose).toBe("referral");
+    // Who they are, for the request card: institute (from the sign-in email) and class year.
+    expect(inbox.requests[0]).toMatchObject({ senderInstitutionName: "IIT (BHU) Varanasi", senderBatchYear: 2019 });
     const sent = (await app.inject({ method: "GET", url: "/v1/contact-requests/sent", headers: { cookie: sender.cookie } })).json() as {
       requests: Array<{ details: { purpose: string } | null }>;
     };

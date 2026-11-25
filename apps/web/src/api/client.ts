@@ -282,6 +282,9 @@ export type ContactRequestInboxItem = {
   senderPersonId: string;
   senderFullName: string | null;
   senderDepartmentCode: string | null;
+  /** Sender's institute and class year (for "IIT Bombay · Class of 2022"). */
+  senderInstitutionName?: string | null;
+  senderBatchYear?: number | null;
   message: string;
   details?: NoteDetails | null;
   createdAt: string;
@@ -410,7 +413,7 @@ export type NotificationItem =
       source?: string | null;
     }
   | {
-      /** Alma Mater asked you on someone's behalf (Yes / Not this time). */
+      /** Alma Mater asked you on someone's behalf (Accept / Decline). */
       kind: "broker_ask_received";
       id: string;
       occurredAt: string;

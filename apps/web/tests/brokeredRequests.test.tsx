@@ -233,7 +233,7 @@ describe("Requests for you", () => {
     const { container } = wrap(<BrokerAsksSection enabled />);
     expect(await screen.findByText(/is looking for a referral at Swiggy/)).toBeTruthy();
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/broker-asks/a1/seen"));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, I'll refer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/broker-asks/a1/respond", { action: "accept" }));
     expect((await screen.findByRole("status")).textContent).toBe(
       "You said yes. We've told Asha Rao. Talk it through here; your contact details stay private unless you share them.",
@@ -247,7 +247,7 @@ describe("Requests for you", () => {
       path.endsWith("/respond") ? { error: { code: "BROKER_ALREADY_HELPED", message: "Someone already helped with this one. Thank you!" } } : { data: {} },
     );
     wrap(<BrokerAsksSection enabled />);
-    fireEvent.click(await screen.findByRole("button", { name: "Yes, I'll refer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Someone already helped with this one. Thank you!");
   });
 
