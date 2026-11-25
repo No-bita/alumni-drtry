@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { brokerKeys, fetchBrokerAsks, type BrokerAsk } from "../lib/broker";
 import { queryKeys } from "../lib/queryKeys";
 
 /**
- * Brokered asks waiting for the viewer, with Yes / Not this time. Showing an ask counts as the
- * viewer seeing it (the asker's "seen" step). Shared by Notifications and Home's Requests for you.
+ * Brokered asks waiting for the viewer, with Yes / Not this time. Shared by Notifications and Home's
+ * Requests for you. The asker's "seen" step: on Notifications (full cards) showing an ask counts as
+ * seeing it; Home shows a compact row first, so there an ask is seen when it is opened (`markSeen`).
  */
-export function useBrokerAsks(enabled: boolean) {
+export function useBrokerAsks(enabled: boolean, { seenOnShow = true }: { seenOnShow?: boolean } = {}) {
   const queryClient = useQueryClient();
   const q = useQuery({ queryKey: brokerKeys.asks(), queryFn: ({ signal }) => fetchBrokerAsks(signal), enabled });
   const asks = useMemo(() => q.data ?? [], [q.data]);
@@ -17,13 +18,16 @@ export function useBrokerAsks(enabled: boolean) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
+  const markSeen = useCallback((a: BrokerAsk) => {
+    if (a.status !== "asked" || a.seenAt || seenSent.current.has(a.askId)) return;
+    seenSent.current.add(a.askId);
+    void api.post(`/v1/broker-asks/${a.askId}/seen`);
+  }, []);
+
   useEffect(() => {
-    for (const a of asks) {
-      if (a.status !== "asked" || a.seenAt || seenSent.current.has(a.askId)) continue;
-      seenSent.current.add(a.askId);
-      void api.post(`/v1/broker-asks/${a.askId}/seen`);
-    }
-  }, [asks]);
+    if (!seenOnShow) return;
+    for (const a of asks) markSeen(a);
+  }, [asks, seenOnShow, markSeen]);
 
   const answer = async (a: BrokerAsk, action: "accept" | "decline") => {
     setBusy(a.askId);
@@ -46,6 +50,7 @@ export function useBrokerAsks(enabled: boolean) {
     busy,
     errors,
     answer,
+    markSeen,
   };
 }
 

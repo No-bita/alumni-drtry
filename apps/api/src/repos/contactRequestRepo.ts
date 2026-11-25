@@ -1,5 +1,6 @@
 import type { DbExecutor } from "../db/types.js";
 import type { NoteDetails } from "../lib/noteDetails.js";
+import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 
 /**
  * Not a brokered connection (sources referral_request / hiring_request). A brokered yes never shares
@@ -132,6 +133,9 @@ export interface ContactRequestInboxItemView {
   senderFullName: string | null;
   /** Department code from sender profile when set. */
   senderDepartmentCode: string | null;
+  /** Sender's institute (from their sign-in email domain) and class year, for "IIT Bombay · Class of 2022". */
+  senderInstitutionName: string | null;
+  senderBatchYear: number | null;
   message: string;
   details: NoteDetails | null;
   createdAt: Date;
@@ -145,6 +149,8 @@ interface ContactRequestInboxRow {
   sender_person_id: string;
   sender_full_name: string | null;
   sender_department_code: string | null;
+  sender_email_domain: string | null;
+  sender_batch_year: number | null;
   message: string;
   details: NoteDetails | null;
   created_at: Date;
@@ -178,6 +184,8 @@ function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView 
     senderPersonId: row.sender_person_id,
     senderFullName: row.sender_full_name,
     senderDepartmentCode: row.sender_department_code,
+    senderInstitutionName: row.sender_email_domain ? (DOMAIN_DIRECTORY[row.sender_email_domain]?.institution ?? null) : null,
+    senderBatchYear: row.sender_batch_year,
     message: row.message,
     details: row.details ?? null,
     createdAt: row.created_at,
@@ -291,6 +299,8 @@ export class ContactRequestRepo {
         c.sender_person_id,
         s.full_name AS sender_full_name,
         d.code AS sender_department_code,
+        split_part(lower(s.institutional_email::text), '@', 2) AS sender_email_domain,
+        s.batch_year AS sender_batch_year,
         c.message,
         c.details,
         c.created_at,

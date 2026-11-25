@@ -6,12 +6,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn(async () => ({ data: {} })));
+const apiPatch = vi.hoisted(() => vi.fn(async () => ({ data: {} })));
 const composerOpen = vi.hoisted(() => vi.fn());
 const authState = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
 vi.mock("../src/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/api/client")>()),
-  api: { get: vi.fn(async () => ({ data: null })), post: apiPost, patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(async () => ({ data: null })), post: apiPost, patch: apiPatch, put: vi.fn(), delete: vi.fn() },
 }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/components/WhatsAppFloatingButton", () => ({ WhatsAppFloatingButton: () => null }));
@@ -107,16 +108,105 @@ describe("Home redesign", () => {
     expect(composerOpen).toHaveBeenCalledTimes(3);
   });
 
-  it("Requests for you shows brokered asks and how many reachouts wait for a reply", async () => {
-    mockApi({ "/v1/broker-asks": { asks: [ask] }, "/v1/contact-requests/inbox": { requests: [{ id: "i1" }, { id: "i2" }] } });
+  const note = {
+    id: "i1", senderPersonId: "p7", senderFullName: "Priya Kapoor", senderDepartmentCode: null, senderInstitutionName: "IIT Bombay", senderBatchYear: 2022,
+    message: "Feedback on our pitch deck", createdAt: now,
+    details: { purpose: "advice", topic: "founder_advice", question: "Could you give feedback on our pitch deck before we raise our seed round next month?" },
+  };
+  const referralAsk = {
+    ...ask, jobUrl: "https://jobs.example.com/da", message: "Please refer me.",
+    asker: { personId: "p5", fullName: "Asha Rao", institutionName: "IIT (BHU) Varanasi", batchYear: 2025, departmentCode: null },
+    details: { purpose: "referral", jobUrl: "https://jobs.example.com/da", role: "Data Analyst", company: "Sample Logistics", fit: "Two years of analytics on the ops team.", resumeUrl: null },
+  };
+  const panelOf = async () => (await screen.findByRole("heading", { name: "Requests for you" })).closest("section")!;
+
+  it("Requests for you: compact rows (who, what, New), nothing answered or marked seen until opened", async () => {
+    mockApi({
+      "/v1/broker-asks": { asks: [referralAsk] },
+      "/v1/contact-requests/inbox": { requests: [note] },
+      "/v1/notifications": { items: [{ kind: "contact_request_received", id: "cr-in:i1", contactRequestId: "i1", unseen: true, occurredAt: now }] },
+    });
     wrap(<Home />);
-    const panel = (await screen.findByRole("heading", { name: "Requests for you" })).closest("section")!;
-    expect((await within(panel).findByRole("link", { name: "2 waiting for your reply" })).getAttribute("href")).toBe("/notifications");
-    expect(within(panel).getByRole("article", { name: "Asha Rao is looking for a referral at Sample Logistics" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Yes, I'll refer" })).toBeTruthy();
+    const panel = await panelOf();
+    const rows = await within(panel).findAllByRole("button", { name: /Referral for|Starting up|Could you give/ });
+    expect(rows.map((r) => r.querySelector(".home-request__title")?.textContent)).toEqual([
+      "Referral for Data Analyst at Sample Logistics",
+      "Could you give feedback on our pitch deck before we raise our seed round next month?",
+    ]);
+    expect(rows[0]!.querySelector(".home-request__meta")?.textContent).toBe("Asha Rao · IIT (BHU) Varanasi '25");
+    expect(rows[1]!.querySelector(".home-request__meta")?.textContent).toBe("Priya Kapoor · IIT Bombay '22");
+    await waitFor(() => expect(within(panel).getAllByText("New")).toHaveLength(2));
+    expect(within(panel).queryByRole("button", { name: "Yes, I'll refer" })).toBeNull();
     expect(within(panel).queryByText("Nothing waiting for you right now.")).toBeNull();
-    // Showing the ask counts as seeing it.
+    expect(apiPost).not.toHaveBeenCalledWith("/v1/broker-asks/a1/seen");
+  });
+
+  it("opening a brokered ask shows the full request, marks it seen, and closing returns to the row", async () => {
+    mockApi({ "/v1/broker-asks": { asks: [referralAsk] } });
+    wrap(<Home />);
+    const panel = await panelOf();
+    fireEvent.click(await within(panel).findByRole("button", { name: /Referral for Data Analyst at Sample Logistics/ }));
+    const detail = within(panel).getByRole("article", { name: "Referral for Data Analyst at Sample Logistics" });
+    expect(within(detail).getByText("Referral request")).toBeTruthy();
+    expect(within(detail).getByRole("link", { name: "Asha Rao" }).getAttribute("href")).toBe("/profiles/p5");
+    expect(within(detail).getByText("IIT (BHU) Varanasi · Class of 2025")).toBeTruthy();
+    expect(within(detail).getByText("Asha's note")).toBeTruthy();
+    expect(within(detail).getByText("Two years of analytics on the ops team.")).toBeTruthy();
+    const job = within(detail).getByRole("link", { name: /View job description/ });
+    expect(job.getAttribute("href")).toBe("https://jobs.example.com/da");
+    expect(job.getAttribute("target")).toBe("_blank");
+    expect(within(detail).getByText("Your contact details stay private unless you choose to share them.")).toBeTruthy();
+    expect(document.activeElement).toBe(within(detail).getByRole("heading", { name: "Referral for Data Analyst at Sample Logistics" }));
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/broker-asks/a1/seen"));
+    // The New tag goes once you've opened it.
+    fireEvent.click(within(detail).getByRole("button", { name: "Close request" }));
+    const row = within(panel).getByRole("button", { name: /Referral for Data Analyst/ });
+    expect(document.activeElement).toBe(row);
+    expect(within(row).queryByText("New")).toBeNull();
+    // Yes answers the ask.
+    fireEvent.click(row);
+    fireEvent.click(within(panel).getByRole("button", { name: "Yes, I'll refer" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/broker-asks/a1/respond", { action: "accept" }));
+  });
+
+  it("a direct reachout says yes shares your email, and answering removes it with a confirmation", async () => {
+    let answered = false;
+    mockApi({ "/v1/contact-requests/inbox": { requests: [note] } });
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/contact-requests/inbox") return { requests: answered ? [] : [note] };
+      if (path === "/v1/contact-requests/sent" || path === "/v1/broker-requests") return { requests: [] };
+      if (path === "/v1/broker-asks") return { asks: [] };
+      if (path.startsWith("/v1/intentcasts")) return { intentcasts: [], totalCount: 0, responses: [], pageInfo: { hasMore: false, nextOffset: null } };
+      throw new Error(path);
+    });
+    apiPatch.mockImplementation(async () => {
+      answered = true;
+      return { data: {} };
+    });
+    wrap(<Home />);
+    const panel = await panelOf();
+    fireEvent.click(await within(panel).findByRole("button", { name: /Could you give feedback/ }));
+    const detail = within(panel).getByRole("article");
+    expect(within(detail).getByText("Starting up")).toBeTruthy();
+    expect(within(detail).getByText("IIT Bombay · Class of 2022")).toBeTruthy();
+    // The question is the title, so it isn't repeated as a note.
+    expect(within(detail).queryByText("Priya's note")).toBeNull();
+    expect(within(detail).getByText("Saying yes shares your email with Priya, so they can reach you.")).toBeTruthy();
+    fireEvent.click(within(detail).getByRole("button", { name: "Yes, I'll help" }));
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/v1/contact-requests/i1", { action: "accept" }));
+    expect((await within(panel).findByRole("status")).textContent).toBe("You said yes to Priya Kapoor. They can reach you by email now.");
+    expect(within(panel).queryByRole("article")).toBeNull();
+    expect(await within(panel).findByText("Nothing waiting for you right now.")).toBeTruthy();
+  });
+
+  it("shows five requests, then a link to the rest in Notifications", async () => {
+    const many = Array.from({ length: 7 }, (_, i) => ({ ...note, id: `n${i}`, createdAt: new Date(Date.now() - i * 60_000).toISOString() }));
+    mockApi({ "/v1/contact-requests/inbox": { requests: many } });
+    wrap(<Home />);
+    const panel = await panelOf();
+    const list = await within(panel).findByRole("list", { name: "Requests for you" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(panel).getByRole("link", { name: "See 2 more in Notifications" }).getAttribute("href")).toBe("/notifications");
   });
 
   it("Your reachouts appears only when there is something", async () => {

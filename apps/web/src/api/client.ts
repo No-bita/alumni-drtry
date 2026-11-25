@@ -282,6 +282,9 @@ export type ContactRequestInboxItem = {
   senderPersonId: string;
   senderFullName: string | null;
   senderDepartmentCode: string | null;
+  /** Sender's institute and class year (for "IIT Bombay · Class of 2022"). */
+  senderInstitutionName?: string | null;
+  senderBatchYear?: number | null;
   message: string;
   details?: NoteDetails | null;
   createdAt: string;
