@@ -7,8 +7,10 @@ export type SentNote = {
   recipientFullName: string | null;
   message: string;
   status: "pending" | "accepted" | "declined";
-  /** Only set once accepted. */
+  /** Only set once accepted, and never for a brokered yes (that one opens its conversation). */
   recipientContactShared: string | null;
+  /** A brokered yes: the request whose conversation this note opens (older APIs omit it). */
+  brokerRequestId?: string | null;
   createdAt: string;
   respondedAt: string | null;
 };

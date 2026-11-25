@@ -6,6 +6,7 @@
  */
 import type { MatchCategory, MatchIntent } from "./matchIntent.js";
 import type { OpenToOptionId } from "./openToPreferences.js";
+import { JOB_FUNCTION_LABELS, functionForRoleLabel } from "./jobFunctions.js";
 
 export interface OccupationSignal {
   roleTitle: string;
@@ -42,6 +43,8 @@ export interface MatchCandidateSignals {
   studyTypeMatch: OccupationSignal | null;
   /** Founded-a-venture occupation or a founder title. */
   founderMatch: OccupationSignal | null;
+  /** Hiring only: the person's job function is the one the hiring question's role belongs to. */
+  functionMatch: boolean;
   /** Keywords from the question found in role, description, org name or areas of experience. */
   keywordHits: string[];
   openTo: OpenToOptionId[];
@@ -59,6 +62,7 @@ export type MatchReasonKey =
   | "study_program"
   | "higher_education"
   | "founder"
+  | "same_function"
   | "keyword"
   | "open_to";
 
@@ -82,10 +86,11 @@ export const MATCH_RESULT_LIMIT = 5;
 /** "Will help" tags per category. */
 export const CATEGORY_OPEN_TO: Record<MatchCategory, OpenToOptionId[]> = {
   referral: ["referrals", "hiring"],
+  // No Open-to option means "looking for a job", so nothing boosts candidates (approved).
+  hiring: [],
   interview_prep: ["mentorship", "coffee"],
   career_switch: ["mentorship", "coffee"],
   higher_studies: ["study_advice", "mentorship", "advising"],
-  relocation: ["city_help", "coffee", "intros"],
   founder_advice: ["collaboration", "advising"]
 };
 
@@ -118,6 +123,7 @@ export const MATCH_WEIGHTS = {
   studyProgram: 35,
   studyType: 20,
   founder: 40,
+  sameFunction: 20,
   keywordEach: 4,
   keywordMax: 8,
   openTo: 10
@@ -131,6 +137,7 @@ export type SignalName =
   | "place"
   | "study"
   | "founder"
+  | "function"
   | "keyword";
 
 function has(c: MatchCandidateSignals, s: SignalName): boolean {
@@ -149,6 +156,8 @@ function has(c: MatchCandidateSignals, s: SignalName): boolean {
       return Boolean(c.studyProgramMatch || c.studyTypeMatch);
     case "founder":
       return Boolean(c.founderMatch);
+    case "function":
+      return c.functionMatch;
     case "keyword":
       return c.keywordHits.length > 0;
   }
@@ -173,6 +182,11 @@ export function primarySignalsForIntent(intent: MatchIntent): SignalName[] {
       if (intent.company) return ["currentCompany"];
       if (intent.role) return ["currentRole"];
       return anyEntity();
+    case "hiring":
+      // Candidates: alumni who hold the role now, or work in its function (approved). The company
+      // named is the asker's own, so it never qualifies anyone. No role yet: ask for it first.
+      if (!intent.role) return [];
+      return functionForRoleLabel(intent.role) ? ["currentRole", "function"] : ["currentRole"];
     case "interview_prep":
       if (intent.company && intent.role) return ["company", "role"];
       if (intent.company) return ["company"];
@@ -184,9 +198,6 @@ export function primarySignalsForIntent(intent: MatchIntent): SignalName[] {
       return anyEntity();
     case "higher_studies":
       return ["study"];
-    case "relocation":
-      if (intent.city || intent.country) return ["place"];
-      return [];
     case "founder_advice":
       return ["founder"];
     default:
@@ -244,6 +255,9 @@ export function buildMatchReasons(intent: MatchIntent, c: MatchCandidateSignals)
 
   if (c.founderMatch) pushOccupation("founder", c.founderMatch, tensePhrase(c.founderMatch));
 
+  const fn = intent.category === "hiring" ? functionForRoleLabel(intent.role) : null;
+  if (fn && c.functionMatch && !c.currentRoleMatch) reasons.push({ key: "same_function", text: `Works in ${JOB_FUNCTION_LABELS[fn]}` });
+
   if (c.cityMatch) {
     const label = placeLabel(c.residenceCity, c.residenceCountry);
     if (label) reasons.push({ key: "lives_in_city", text: `Lives in ${label}` });
@@ -268,7 +282,7 @@ export function buildMatchReasons(intent: MatchIntent, c: MatchCandidateSignals)
 export function relevantOpenTo(intent: MatchIntent, c: MatchCandidateSignals): OpenToOptionId[] {
   if (!intent.category) return [];
   const wanted = CATEGORY_OPEN_TO[intent.category];
-  // Category order: the most specific tag (e.g. city_help for relocation) reads first.
+  // Category order: the most specific tag (e.g. referrals for a referral) reads first.
   return wanted.filter((id) => c.openTo.includes(id));
 }
 
@@ -285,6 +299,7 @@ export function scoreCandidate(intent: MatchIntent, c: MatchCandidateSignals): n
   if (c.studyProgramMatch) score += w.studyProgram;
   else if (c.studyTypeMatch) score += w.studyType;
   if (c.founderMatch) score += w.founder;
+  if (c.functionMatch) score += w.sameFunction;
   score += Math.min(w.keywordMax, c.keywordHits.length * w.keywordEach);
   if (relevantOpenTo(intent, c).length > 0) score += w.openTo;
   return score;

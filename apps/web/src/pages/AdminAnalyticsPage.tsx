@@ -1,8 +1,10 @@
+import { BrokerWhatsAppSetting } from "../components/broker/BrokerWhatsAppSetting";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { AdminBrowsingLimits } from "../components/AdminBrowsingLimits";
+import { ViewAsCard } from "../components/ViewAsCard";
 import { WeeklyBars } from "../components/WeeklyBars";
 import { MetricInfoPill } from "../components/MetricInfoPill";
 import { METRIC_HELP } from "../lib/analyticsMetricHelp";
@@ -25,7 +27,7 @@ import {
   rate,
   type CitiesMetrics,
 } from "../lib/adminAnalytics";
-import { MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
+import { LEGACY_MATCH_CATEGORY_LABELS, MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
 import { api, type AdminAllowedEmailsResponse } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { Button } from "../components/Button";
@@ -84,7 +86,7 @@ const SINCE_RELEASE = "Counted from the analytics release onward.";
 
 function categoryLabel(c: string | null): string {
   if (!c) return "No clear kind of help";
-  return isMatchCategory(c) ? MATCH_CATEGORY_LABELS[c] : c;
+  return isMatchCategory(c) ? MATCH_CATEGORY_LABELS[c] : (LEGACY_MATCH_CATEGORY_LABELS[c] ?? c);
 }
 
 function Tile({ label, value, hint, hero = false, info }: { label: string; value: ReactNode; hint?: ReactNode; hero?: boolean; info?: string }) {
@@ -614,8 +616,10 @@ export function AdminAnalyticsPage() {
   const queryClient = useQueryClient();
   const [days, setDays] = useState<AnalyticsWindow>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const isAdmin = auth.status === "authenticated" && auth.person.role !== "alumni";
-  const displayName = auth.status === "authenticated" ? auth.myProfile?.fullName?.trim() || undefined : undefined;
+  // While viewing as a member, `person` is that member: analytics stays hidden (and unloaded) until Exit.
+  const viewing = auth.status === "authenticated" && Boolean(auth.viewAs);
+  const isAdmin = auth.status === "authenticated" && auth.person.role !== "alumni" && !viewing;
+  const displayName = auth.status === "authenticated" && !viewing ? auth.myProfile?.fullName?.trim() || undefined : undefined;
 
   const query = useQuery({
     queryKey: analyticsQueryKey(days),
@@ -707,7 +711,12 @@ export function AdminAnalyticsPage() {
         }
       />
       <main className="aa-page">
-        {!isAdmin ? (
+        <ViewAsCard id="view-as" />
+        {viewing ? (
+          <p className="aa-message" role="status">
+            Analytics is hidden while you&apos;re viewing as a member. Go back to your account to see it.
+          </p>
+        ) : !isAdmin ? (
           <p className="aa-message" role="alert">
             This page is for admins.
           </p>
@@ -744,6 +753,7 @@ export function AdminAnalyticsPage() {
                 </div>
               </section>
             ) : null}
+            <BrokerWhatsAppSetting />
             <section className="aa-review aa-admin-emails" aria-labelledby="aa-admin-emails-title">
               <div className="aa-review__text">
                 <h2 id="aa-admin-emails-title" className="aa-review__title">

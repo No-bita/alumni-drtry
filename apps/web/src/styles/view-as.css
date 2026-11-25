@@ -1,0 +1,165 @@
+/*
+ * Admin "view as member" banner. Only present while viewing (html[data-view-as="on"]). Fixed at the very
+ * top, above the app's top bar, and reserves its own space so it never covers controls. Stacks under the
+ * staging marker when both are on.
+ */
+html[data-view-as="on"] {
+  --view-as-banner-height: 44px;
+}
+
+html[data-view-as="on"] #root {
+  padding-top: calc(var(--staging-marker-height, 0px) + var(--view-as-banner-height));
+}
+
+html[data-view-as="on"][data-app-shell="topbar"] #root {
+  padding-top: calc(
+    var(--nav-height) + env(safe-area-inset-top, 0px) + var(--staging-marker-height, 0px) + var(--view-as-banner-height)
+  );
+}
+
+html[data-view-as="on"] .nav-app-toolbar {
+  top: calc(var(--staging-marker-height, 0px) + var(--view-as-banner-height));
+}
+
+.view-as-banner {
+  position: fixed;
+  top: var(--staging-marker-height, 0px);
+  left: 0;
+  right: 0;
+  z-index: 210;
+  min-height: var(--view-as-banner-height, 44px);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 16px;
+  padding: 6px max(var(--page-x, 16px), env(safe-area-inset-right, 0px)) 6px var(--page-x, 16px);
+  background: #b3261e;
+  color: #fff;
+  border-bottom: 3px solid #ffd54a;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.view-as-banner__text {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.view-as-banner__text strong {
+  font-weight: 700;
+}
+
+.view-as-banner__error {
+  margin: 0;
+  font-weight: 600;
+  color: #ffe9a8;
+}
+
+.view-as-banner__exit {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 16px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #fff;
+  color: #b3261e;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view-as-banner__exit:hover:not(:disabled) {
+  background: #ffd54a;
+  border-color: #ffd54a;
+}
+
+.view-as-banner__exit:focus-visible {
+  outline: 3px solid #ffd54a;
+  outline-offset: 2px;
+}
+
+.view-as-banner__exit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+@media (max-width: 480px) {
+  html[data-view-as="on"] {
+    --view-as-banner-height: 64px;
+  }
+}
+
+/* Admin page: /admin/view-as */
+.va-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.va-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.va-result__who {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.va-result__name {
+  display: block;
+  font-weight: 600;
+}
+
+/* View-as card (analytics page and /admin/view-as): who you're viewing, search, View as / Switch to. */
+.va-card {
+  margin-top: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--palette-bg-cream, transparent);
+}
+
+.va-card__now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.va-card__now p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.va-result__current {
+  flex: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #b3261e;
+}
+
+.view-as-banner__switch {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.view-as-banner__switch:focus-visible {
+  outline: 3px solid #ffd54a;
+  outline-offset: 2px;
+}

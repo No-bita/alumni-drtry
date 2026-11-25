@@ -48,7 +48,6 @@
   margin-bottom: -16px;
 }
 
-.careers__hero,
 .careers__section,
 .careers__head {
   display: grid;
@@ -60,13 +59,6 @@
   gap: 4px;
 }
 
-.careers__head--row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .careers__title {
   margin: 0;
   font-family: var(--font-display);
@@ -75,16 +67,11 @@
   overflow-wrap: anywhere;
 }
 
-.careers__lede,
 .careers__note {
   margin: 0;
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink-muted);
-}
-
-.careers__lede {
-  font-size: 15px;
 }
 
 .careers__h2 {
@@ -93,40 +80,7 @@
   font-weight: 600;
 }
 
-.careers__search {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--border-muted);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.careers__label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.careers__optional {
-  font-weight: 400;
-  color: var(--ink-muted);
-}
-
-.careers__input {
-  min-height: 46px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  background: var(--cream);
-  font: inherit;
-  font-size: 16px;
-  color: var(--ink);
-}
-
 .careers__primary,
-.careers__secondary,
 .careers__ghost {
   min-height: 48px;
   padding: 0 18px;
@@ -162,36 +116,12 @@
   flex: none;
 }
 
-.careers__ghost,
-.careers__secondary {
+.careers__ghost {
   border: 1px solid var(--border-default);
   background: var(--surface);
   color: var(--ink);
 }
 
-.careers__topics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.careers__topic {
-  min-height: 56px;
-  padding: 10px 12px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border-muted);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.careers__rows,
-.careers__cards,
 .careers__people {
   list-style: none;
   margin: 0;
@@ -200,18 +130,6 @@
   min-width: 0;
 }
 
-.careers__rows {
-  border: 1px solid var(--border-muted);
-  border-radius: 14px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.careers__rows > li + li {
-  border-top: 1px solid var(--border-muted);
-}
-
-.careers__cards,
 .careers__people {
   gap: 8px;
 }
@@ -226,19 +144,6 @@
   gap: 12px;
   color: var(--ink);
   text-decoration: none;
-}
-
-.careers__row--stack {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
-}
-
-.careers__row--card {
-  border: 1px solid var(--border-muted);
-  border-radius: 12px;
-  background: var(--surface);
 }
 
 .careers__row-title {
@@ -256,24 +161,6 @@
   overflow-wrap: anywhere;
 }
 
-.careers__card {
-  padding: 12px 14px;
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--border-muted);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.careers__card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-
 .careers__status {
   flex: none;
   padding: 2px 8px;
@@ -287,31 +174,6 @@
 .careers__status--accepted {
   background: var(--badge-open-bg);
   color: var(--badge-open-text);
-}
-
-.careers__helper {
-  padding: 16px;
-  border-radius: 14px;
-  background: var(--cream-dark);
-}
-
-.careers__helper .careers__card--static {
-  background: var(--surface);
-}
-
-.careers__count {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--brick);
-  color: var(--cream);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .careers__more {
@@ -426,123 +288,6 @@
 
 /* Careers cards mirroring the merged Wall card structure (PR #127): lane badge
    floats right in the title row, company/description clear below, author block
-   bottom-left with posted time bottom-right. Whole card links to the profile. */
-.careers__postcard {
-  position: relative;
-  display: block;
-  padding: 12px 15px 10px;
-  border: 1px solid #dccfbc;
-  border-left: 3px solid #9c7f6d;
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
-
-@media (hover: hover) {
-  .careers__postcard:hover {
-    border-color: color-mix(in srgb, var(--ink) 18%, transparent);
-    border-left-color: #9c7f6d;
-    box-shadow: 0 10px 36px color-mix(in srgb, var(--ink) 9%, transparent);
-    transform: translateY(-1px);
-  }
-}
-
-.careers__postcard-badge {
-  float: right;
-  margin: 2px 0 6px 10px;
-  padding: 5px 11px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  background: color-mix(in srgb, var(--ink) 9%, #fff);
-  color: color-mix(in srgb, var(--ink) 81%, #fff);
-  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
-}
-
-.careers__postcard-title {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  color: var(--ink);
-}
-
-.careers__postcard-company,
-.careers__postcard-desc {
-  display: block;
-  clear: both;
-  font-size: 13px;
-}
-
-.careers__postcard-company {
-  margin-top: 6px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.careers__postcard-desc {
-  margin-top: 2px;
-  line-height: 1.45;
-  color: color-mix(in srgb, var(--ink) 48%, transparent);
-}
-
-.careers__postcard-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 10px;
-  clear: both;
-}
-
-.careers__postcard-author {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 6px;
-  font-size: 12.5px;
-  min-width: 0;
-}
-
-.careers__postcard-author > span + span::before {
-  content: "\00b7  ";
-  color: color-mix(in srgb, var(--ink) 40%, transparent);
-}
-
-.careers__postcard .dept-batch-meta__cap-icon {
-  display: none;
-}
-
-.careers__postcard-author-name {
-  display: block;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--ink) 78%, transparent);
-}
-
-.careers__postcard-author-meta {
-  display: block;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: color-mix(in srgb, var(--ink) 50%, transparent);
-  line-height: 1.35;
-}
-
-.careers__postcard-time {
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in srgb, var(--ink) 46%, transparent);
-  white-space: nowrap;
-}
 
 .careers__load-more {
   padding: 0 var(--page-x) 2rem;

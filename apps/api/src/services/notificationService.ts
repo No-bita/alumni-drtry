@@ -5,6 +5,8 @@ import { ContactRequestRepo } from "../repos/contactRequestRepo.js";
 import { CitiesRepo } from "../repos/citiesRepo.js";
 import { IntentcastRepo } from "../repos/intentcastRepo.js";
 import type { AnnouncementService } from "./announcementService.js";
+import { BrokerRepo } from "../repos/brokerRepo.js";
+import { BrokerConversationRepo } from "../repos/brokerConversationRepo.js";
 
 const POST_PREVIEW_MAX = 160;
 const THREAD_PREVIEW_MAX = 140;
@@ -12,6 +14,7 @@ const OUTGOING_RESOLVED_LIMIT = 1000;
 const BULLETIN_RESPONSE_LIMIT = 1000;
 const CITY_OFFER_LIMIT = 200;
 const ANNOUNCEMENT_LIMIT = 50;
+const BROKER_LIMIT = 50;
 
 function truncatePreview(text: string, max: number): string {
   const t = text.trim().replace(/\s+/g, " ");
@@ -59,6 +62,62 @@ export type NotificationItemDto =
       outcome: "accepted" | "declined";
       recipientPersonId: string;
       recipientFullName: string | null;
+      /** "referral_request" / "hiring_request" when the platform found this person for you. */
+      source: string | null;
+    }
+  | {
+      /** Brokered request: the platform asked you on someone's behalf (Yes / Not this time). */
+      kind: "broker_ask_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      askId: string;
+      requestKind: "referral" | "hiring";
+      askerPersonId: string;
+      askerFullName: string | null;
+      company: string;
+      roleTitle: string | null;
+    }
+  | {
+      /** Someone said yes to your brokered request: you're connected, and can message them (no contact is shared). */
+      kind: "broker_request_connected";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      roleTitle: string | null;
+      helperPersonId: string;
+      helperFullName: string | null;
+    }
+  | {
+      /**
+       * A new message in a brokered conversation (one item per conversation, while the newest message is
+       * theirs). Unseen until you read the conversation or mark all as seen.
+       */
+      kind: "broker_message_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      counterpartPersonId: string;
+      counterpartFullName: string | null;
+      lastMessagePreview: string;
+      unreadCount: number;
+    }
+  | {
+      /** Your brokered request closed after 2 days with no one available. */
+      kind: "broker_request_expired";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      askedCount: number;
     }
   | {
       kind: "bulletin_response";
@@ -104,6 +163,10 @@ export class NotificationService {
   private readonly connectionThreadRepo: ConnectionThreadRepo;
   private readonly intentcastRepo: IntentcastRepo;
   private readonly citiesRepo: CitiesRepo;
+  private readonly brokerRepo: BrokerRepo;
+  private readonly brokerConversations: BrokerConversationRepo;
+  /** Runs before every read (closes due brokered requests so their notification is current). */
+  private beforeRead: (() => Promise<unknown>) | null = null;
 
   private readonly announcements: AnnouncementService | null;
 
@@ -111,9 +174,25 @@ export class NotificationService {
     this.pool = pool;
     this.announcements = announcements;
     this.citiesRepo = new CitiesRepo(pool);
+    this.brokerRepo = new BrokerRepo(pool);
+    this.brokerConversations = new BrokerConversationRepo(pool);
     this.contactRequestRepo = new ContactRequestRepo(pool);
     this.connectionThreadRepo = new ConnectionThreadRepo(pool);
     this.intentcastRepo = new IntentcastRepo(pool);
+  }
+
+  setBeforeRead(hook: (() => Promise<unknown>) | null): void {
+    this.beforeRead = hook;
+  }
+
+  private async runBeforeRead(): Promise<void> {
+    if (!this.beforeRead) return;
+    try {
+      await this.beforeRead();
+    } catch (err) {
+      // Notifications still load; the hourly tick closes them next time.
+      console.error("[notifications] before-read hook failed:", err);
+    }
   }
 
   /** The person's seen watermark; a missing row means nothing has ever been marked seen. */
@@ -141,18 +220,99 @@ export class NotificationService {
   }
 
   async listForPerson(personId: string): Promise<NotificationItemDto[]> {
+    await this.runBeforeRead();
     const watermark = await this.getSeenWatermark(personId);
     const unseen = (occurredAt: string) => Date.parse(occurredAt) > watermark.getTime();
-    const [pendingIncoming, resolvedOutgoing, bulletinResponses, threadReplies, cityOffers, announcements] = await Promise.all([
+    const [
+      pendingIncoming,
+      resolvedOutgoing,
+      bulletinResponses,
+      threadReplies,
+      cityOffers,
+      announcements,
+      brokerAsks,
+      brokerExpired,
+      brokerConnected,
+      brokerMessages
+    ] = await Promise.all([
       this.contactRequestRepo.listPendingIncomingForRecipient(personId),
       this.contactRequestRepo.listResolvedOutgoingForSender(personId, OUTGOING_RESOLVED_LIMIT),
       this.intentcastRepo.listBulletinResponseNotificationsForAuthor(personId, BULLETIN_RESPONSE_LIMIT),
       this.connectionThreadRepo.listThreadNotificationRowsForRecipient(personId, 50),
       this.citiesRepo.offerNotifications(personId, CITY_OFFER_LIMIT),
-      this.announcements ? this.announcements.notificationsForPerson(personId, ANNOUNCEMENT_LIMIT) : Promise.resolve([])
+      this.announcements ? this.announcements.notificationsForPerson(personId, ANNOUNCEMENT_LIMIT) : Promise.resolve([]),
+      this.brokerRepo.listForHelper(personId, BROKER_LIMIT),
+      this.brokerRepo.expiredForAsker(personId, BROKER_LIMIT),
+      this.brokerConversations.connectedForAsker(personId, BROKER_LIMIT),
+      this.brokerConversations.messageNotifications(personId, BROKER_LIMIT)
     ]);
 
     const items: NotificationItemDto[] = [];
+
+    for (const c of brokerConnected) {
+      const at = c.connectedAt.toISOString();
+      items.push({
+        kind: "broker_request_connected",
+        id: `br-con:${c.requestId}`,
+        occurredAt: at,
+        unseen: unseen(at),
+        requestId: c.requestId,
+        requestKind: c.requestKind,
+        company: c.company,
+        roleTitle: c.roleTitle,
+        helperPersonId: c.helperPersonId,
+        helperFullName: c.helperFullName
+      });
+    }
+
+    for (const m of brokerMessages) {
+      const at = m.lastCreatedAt.toISOString();
+      // Reading the conversation clears it too, not only "Mark all as seen".
+      const read = m.lastReadAt !== null && m.lastReadAt.getTime() >= m.lastCreatedAt.getTime();
+      items.push({
+        kind: "broker_message_received",
+        id: `bm:${m.requestId}`,
+        occurredAt: at,
+        unseen: unseen(at) && !read,
+        requestId: m.requestId,
+        requestKind: m.requestKind,
+        company: m.company,
+        counterpartPersonId: m.counterpartPersonId,
+        counterpartFullName: m.counterpartFullName,
+        lastMessagePreview: truncatePreview(m.lastBody, THREAD_PREVIEW_MAX),
+        unreadCount: m.unreadCount
+      });
+    }
+
+    for (const a of brokerAsks) {
+      if (a.status !== "asked") continue;
+      items.push({
+        kind: "broker_ask_received",
+        id: `ba:${a.askId}`,
+        occurredAt: a.askedAt.toISOString(),
+        unseen: unseen(a.askedAt.toISOString()),
+        askId: a.askId,
+        requestKind: a.kind,
+        askerPersonId: a.asker.personId,
+        askerFullName: a.asker.fullName,
+        company: a.company,
+        roleTitle: a.roleTitle
+      });
+    }
+
+    for (const r of brokerExpired) {
+      const at = (r.expired_at ?? r.expires_at).toISOString();
+      items.push({
+        kind: "broker_request_expired",
+        id: `br-exp:${r.id}`,
+        occurredAt: at,
+        unseen: unseen(at),
+        requestId: r.id,
+        requestKind: r.kind,
+        company: r.company,
+        askedCount: Number(r.asked_count)
+      });
+    }
 
     for (const p of pendingIncoming) {
       items.push({
@@ -193,7 +353,8 @@ export class NotificationService {
         contactRequestId: r.id,
         outcome: r.status,
         recipientPersonId: r.recipientPersonId,
-        recipientFullName: r.recipientFullName
+        recipientFullName: r.recipientFullName,
+        source: r.source
       });
     }
 
@@ -244,13 +405,18 @@ export class NotificationService {
 
   /** Total notification rows (matches aggregation behind GET /v1/notifications, without row limits). */
   async countForPerson(personId: string): Promise<number> {
-    const [pending, resolvedOut, bulletin, threadReplies, cityOffers, announcements] = await Promise.all([
+    await this.runBeforeRead();
+    const [pending, resolvedOut, bulletin, threadReplies, cityOffers, announcements, brokerAsks, brokerExpired, brokerConnected, brokerMessages] = await Promise.all([
       this.contactRequestRepo.countPendingIncomingForRecipient(personId),
       this.contactRequestRepo.countResolvedOutgoingForSender(personId),
       this.intentcastRepo.countBulletinResponseNotificationsForAuthor(personId),
       this.connectionThreadRepo.countThreadNotificationRowsForRecipient(personId),
       this.citiesRepo.countOfferNotifications(personId),
-      this.announcements ? this.announcements.countNotificationsForPerson(personId) : Promise.resolve(0)
+      this.announcements ? this.announcements.countNotificationsForPerson(personId) : Promise.resolve(0),
+      this.brokerRepo.countOpenAsksForHelper(personId),
+      this.brokerRepo.countExpiredForAsker(personId),
+      this.brokerConversations.countConnectedForAsker(personId),
+      this.brokerConversations.countMessageNotifications(personId)
     ]);
     return (
       pending +
@@ -258,7 +424,11 @@ export class NotificationService {
       bulletin +
       threadReplies +
       Math.min(cityOffers, CITY_OFFER_LIMIT) +
-      Math.min(announcements, ANNOUNCEMENT_LIMIT)
+      Math.min(announcements, ANNOUNCEMENT_LIMIT) +
+      Math.min(brokerAsks, BROKER_LIMIT) +
+      Math.min(brokerExpired, BROKER_LIMIT) +
+      Math.min(brokerConnected, BROKER_LIMIT) +
+      Math.min(brokerMessages, BROKER_LIMIT)
     );
   }
 }

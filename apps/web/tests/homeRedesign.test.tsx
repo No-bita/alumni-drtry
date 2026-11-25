@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -13,7 +13,6 @@ import { HomeSentNotesLine } from "../src/components/HomeSentNotesLine";
 import { HomeBrowseRow } from "../src/components/HomeBrowseRow";
 import { HomeOpportunityRail } from "../src/components/HomeOpportunityRail";
 import { HomeFeedbackSection } from "../src/components/HomeFeedbackSection";
-import { HomeToolbarSearch } from "../src/components/HomeToolbarSearch";
 
 function wrap(node: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -83,7 +82,7 @@ describe("Browse row", () => {
     const nav = screen.getByRole("navigation", { name: "Browse" });
     expect(nav.textContent).toContain("Or browse:");
     expect(screen.getByRole("link", { name: "Careers" }).getAttribute("href")).toBe("/intent/career");
-    expect(screen.getByRole("link", { name: "Cities" }).getAttribute("href")).toBe("/intent/location");
+    // Cities page commented out: expect(screen.getByRole("link", { name: "Cities" }).getAttribute("href")).toBe("/intent/location");
     expect(screen.getByRole("link", { name: "All alumni" }).getAttribute("href")).toBe("/search");
     expect(screen.queryByText("Share with alumni")).toBeNull();
   });
@@ -91,17 +90,18 @@ describe("Browse row", () => {
 
 describe("The Wall", () => {
   const zero = { careers: 0, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 };
-  it("stays on Home when empty, with no 'quiet' message and a way to post", () => {
+  it("stays on Home when empty, with no 'quiet' message and no example post", () => {
     const onPost = vi.fn();
     wrap(
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}} categoryCounts={zero} onPost={onPost} />,
     );
-    expect(screen.getByRole("heading", { name: "The Wall" })).toBeTruthy();
-    expect(screen.getByText("Curated opportunities for you")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Opportunities for you" })).toBeTruthy();
+    expect(screen.getByText("Roles, collaborations and other relevant asks from alumni.")).toBeTruthy();
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Post", exact: true }));
-    expect(onPost).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Write your first post on The Wall" })).toBeNull();
+    expect(screen.getByText("No posts yet.")).toBeTruthy();
   });
 });
 
@@ -112,10 +112,5 @@ describe("Small lines", () => {
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("href")).toContain("https://wa.me/919137839907");
     expect(screen.getByText(/How can we make this better\?/)).toBeTruthy();
-  });
-  it("top search keeps its accessible label and no placeholder", () => {
-    wrap(<HomeToolbarSearch searchText="" onSearchTextChange={() => {}} onSubmitSearch={() => {}} />);
-    const input = screen.getByLabelText(/Search alumni and companies/);
-    expect(input.getAttribute("placeholder")).toBeNull();
   });
 });

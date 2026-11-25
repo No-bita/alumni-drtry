@@ -13,7 +13,8 @@ vi.mock("../src/api/client", async (importOriginal) => {
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ status: "authenticated" }) }));
 const notifMocks = vi.hoisted(() => ({ items: [] as import("../src/api/client").NotificationItem[], markAllMutate: vi.fn() }));
-vi.mock("../src/lib/notificationsQueries", () => ({
+vi.mock("../src/lib/notificationsQueries", async (importOriginal) => ({
+  isShownNotification: (await importOriginal<typeof import("../src/lib/notificationsQueries")>()).isShownNotification,
   useNotificationsList: () => ({ data: { items: notifMocks.items }, isPending: false, isError: false }),
   useMarkAllNotificationsSeen: () => ({ mutate: notifMocks.markAllMutate, isPending: false }),
 }));

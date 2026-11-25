@@ -1,26 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api/client";
-import { useAuth } from "../../contexts/AuthContext";
-import { readFlag, writeFlag } from "../../lib/onboardingChecklist";
+// import { useAuth } from "../../contexts/AuthContext"; - see the coffee note below
 import {
   OPEN_TO_CATALOG,
   OPEN_TO_MAX_SELECTED,
-  OPEN_TO_OPTION_IDS,
+  OPEN_TO_PICKABLE_IDS,
   canSelectMoreOpenTo,
-  coffeeLimitOf,
-  coffeeNeedsLimit,
   isOpenToSelected,
   normalizeOpenToPreferences,
   openToPreferencesForEdit,
+  toggleOpenToSelection,
   type OpenToPreferences,
 } from "../../lib/openToPreferences";
 import { AREAS_PROMPT_OPEN_TO } from "../../lib/personAreas";
-import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
+// Coffee (and its weekly limit) came with Cities, which is out of the product: the coffee limit gate
+// and the one-time limit prompt are commented out (restore by uncommenting). Coffee is no longer offered.
+// import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
 import { OpenToIcon } from "./OpenToIcon";
 import { ProfileSheet } from "./ProfileSheet";
 
 /** Members who had coffee on before weekly limits: the limit sheet shows once in the editor. */
-const COFFEE_LIMIT_SEEN_FLAG = "coffeeLimitSheetSeen";
+// const COFFEE_LIMIT_SEEN_FLAG = "coffeeLimitSheetSeen";
 
 type Props = {
   saved: OpenToPreferences | null;
@@ -36,24 +36,24 @@ type Props = {
   onSaved: () => void;
 };
 
-/** Choose up to five ways you're open to helping. Coffee asks for a weekly limit. */
+/** Choose up to five ways you're open to helping. */
 export function OpenToSheet({ saved, initialDraft = null, notice = null, hasAreas, onAddAreas, onClose, onSaved }: Props) {
-  const auth = useAuth();
-  const personId = auth.status === "authenticated" ? auth.person.personId : null;
+  // const auth = useAuth(); - only the commented-out coffee limit prompt used the person id
+  // const personId = auth.status === "authenticated" ? auth.person.personId : null;
   const [draft, setDraft] = useState<OpenToPreferences>(() => initialDraft ?? openToPreferencesForEdit(saved));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const gate = useCoffeeLimitGate(draft, setDraft);
-  const legacyShown = useRef(false);
-  const { changeLimit } = gate;
-
-  useEffect(() => {
-    if (!coffeeNeedsLimit(draft) || legacyShown.current || !personId) return;
-    legacyShown.current = true;
-    if (readFlag(personId, COFFEE_LIMIT_SEEN_FLAG)) return;
-    writeFlag(personId, COFFEE_LIMIT_SEEN_FLAG);
-    changeLimit();
-  }, [draft, personId, changeLimit]);
+  // const gate = useCoffeeLimitGate(draft, setDraft);
+  // const legacyShown = useRef(false);
+  // const { changeLimit } = gate;
+  //
+  // useEffect(() => {
+  //   if (!coffeeNeedsLimit(draft) || legacyShown.current || !personId) return;
+  //   legacyShown.current = true;
+  //   if (readFlag(personId, COFFEE_LIMIT_SEEN_FLAG)) return;
+  //   writeFlag(personId, COFFEE_LIMIT_SEEN_FLAG);
+  //   changeLimit();
+  // }, [draft, personId, changeLimit]);
 
   const save = async () => {
     setSaving(true);
@@ -96,16 +96,17 @@ export function OpenToSheet({ saved, initialDraft = null, notice = null, hasArea
         </p>
       ) : null}
       <ul className="pp-opento-edit">
-        {OPEN_TO_OPTION_IDS.map((id) => {
+        {OPEN_TO_PICKABLE_IDS.map((id) => {
           const selected = isOpenToSelected(draft, id);
           const atLimit = !selected && !canSelectMoreOpenTo(draft);
           return (
             <li key={id} className={`pp-opento-edit__item${atLimit ? " pp-opento-edit__item--disabled" : ""}`}>
               <label className="pp-opento-edit__toggle">
-                <input type="checkbox" checked={selected} disabled={atLimit} onChange={() => gate.toggle(id)} />
+                <input type="checkbox" checked={selected} disabled={atLimit} onChange={() => setDraft(toggleOpenToSelection(draft, id))} />
                 <OpenToIcon kind={id} className="pp-opento-edit__icon" />
                 <span>{OPEN_TO_CATALOG[id].title}</span>
               </label>
+              {/* Coffee's weekly limit line (Cities out of the product; coffee is no longer listed).
               {id === "coffee" && selected ? (
                 <p className="pp-opento-edit__hint">
                   {coffeeLimitOf(draft)} a week ·{" "}
@@ -113,12 +114,12 @@ export function OpenToSheet({ saved, initialDraft = null, notice = null, hasArea
                     Change
                   </button>
                 </p>
-              ) : null}
+              ) : null} */}
             </li>
           );
         })}
       </ul>
-      {gate.sheet}
+      {/* {gate.sheet} */}
     </ProfileSheet>
   );
 }

@@ -236,8 +236,8 @@ describe("Cities page: city home (local)", () => {
   it("empty city: the requests section stays useful and offers no View all", async () => {
     world(lists, payload({ posts: [], postsHasMore: false }));
     mount();
-    expect(await screen.findByText("Nothing to see here yet.")).toBeTruthy();
-    expect(screen.getByText(/Be the first to ask/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Ask the Bengaluru community" })).toBeTruthy();
+    expect(screen.queryByText(/Be the first to ask/)).toBeNull();
     expect(screen.queryByRole("button", { name: "View all posts" })).toBeNull();
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
   });
@@ -305,7 +305,7 @@ describe("Cities page: hub layout", () => {
     expect(within(section).queryByText("Nothing to see here yet.")).toBeNull();
   });
 
-  it("the shared reachout cards sit in the Your city column", async () => {
+  it("the shared reachout cards sit in their own grid area, reachouts present: default order", async () => {
     world(lists, payload());
     const base = apiGet.getMockImplementation()!;
     apiGet.mockImplementation(async (path: string) => {
@@ -315,9 +315,29 @@ describe("Cities page: hub layout", () => {
       return base(path);
     });
     mount();
-    const side = await screen.findByRole("complementary", { name: "Your city" });
-    expect(await within(side).findByRole("heading", { name: "Reachouts waiting for you" })).toBeTruthy();
-    expect(await within(side).findByRole("heading", { name: "Your reachouts" })).toBeTruthy();
+    await screen.findByRole("heading", { name: "Reachouts waiting for you" });
+    const reachouts = document.querySelector(".cities-hub__reachouts")!;
+    expect(within(reachouts as HTMLElement).getByRole("heading", { name: "Reachouts waiting for you" })).toBeTruthy();
+    expect(within(reachouts as HTMLElement).getByRole("heading", { name: "Your reachouts" })).toBeTruthy();
+    expect(document.querySelector(".cities-hub__grid")!.className).not.toContain("cities-hub__grid--wall-first");
+    // The at-a-glance card keeps its own column.
+    expect(await screen.findByRole("complementary", { name: "Your city" })).toBeTruthy();
+  });
+
+  it("no reachouts: the community feed gets the wall-first class so it leads on phone", async () => {
+    world(lists, payload());
+    const base = apiGet.getMockImplementation()!;
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/v1/contact-requests/inbox") return { requests: [] };
+      if (path === "/v1/contact-requests/sent") return { requests: [] };
+      if (path === "/v1/careers/my-company-demand") return { demand: null };
+      return base(path);
+    });
+    mount();
+    await screen.findByRole("heading", { name: "Reachouts waiting for you" });
+    await waitFor(() =>
+      expect(document.querySelector(".cities-hub__grid")!.className).toContain("cities-hub__grid--wall-first"),
+    );
   });
 });
 
@@ -575,7 +595,7 @@ describe("Cities page: other cities (check 13)", () => {
     mount();
     expect(await screen.findByRole("button", { name: "Change city: Pune" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "What do you need in Pune?" })).toBeTruthy();
-    expect(screen.getByText("Nothing to see here yet.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask the Pune community" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ask the community" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Alumni in Pune" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "You can help" })).toBeNull();

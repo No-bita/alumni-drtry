@@ -1,6 +1,12 @@
 import type { DbExecutor } from "../db/types.js";
 import type { NoteDetails } from "../lib/noteDetails.js";
 
+/**
+ * Not a brokered connection (sources referral_request / hiring_request). A brokered yes never shares
+ * contact (migration 079); rows from before keep theirs in the table but it is never read back out.
+ */
+const NOT_BROKERED_SQL = (alias: string) => `(${alias}.source IS NULL OR ${alias}.source NOT IN ('referral_request', 'hiring_request'))`;
+
 export type ContactRequestStatus = "pending" | "accepted" | "declined";
 
 interface ContactRequestRow {
@@ -58,7 +64,17 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities" | "profile" | "search";
+export type ContactRequestSource =
+  | "match"
+  | "whatsapp"
+  | "careers"
+  | "cities"
+  | "profile"
+  | "search"
+  | "wall"
+  /** Brokered connections (created already accepted; never sent by a client). */
+  | "referral_request"
+  | "hiring_request";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;
@@ -82,8 +98,10 @@ export interface ContactRequestSentView {
   message: string;
   details: NoteDetails | null;
   status: ContactRequestStatus;
-  /** Only set once the recipient accepted. */
+  /** Only set once the recipient accepted, and never for a brokered yes (they talk in its conversation). */
   recipientContactShared: string | null;
+  /** A brokered connection: the request whose conversation this note opens. */
+  brokerRequestId: string | null;
   createdAt: Date;
   respondedAt: Date | null;
 }
@@ -141,6 +159,8 @@ export interface ContactRequestOutgoingResolvedView {
   recipientPersonId: string;
   recipientFullName: string | null;
   respondedAt: Date;
+  /** Where the note came from; "referral_request" / "hiring_request" are brokered connections. */
+  source: string | null;
 }
 
 interface ContactRequestOutgoingResolvedRow {
@@ -149,6 +169,7 @@ interface ContactRequestOutgoingResolvedRow {
   recipient_person_id: string;
   recipient_full_name: string | null;
   responded_at: Date;
+  source: string | null;
 }
 
 function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView {
@@ -308,6 +329,7 @@ export class ContactRequestRepo {
       WHERE sender_person_id = $1
         AND status IN ('accepted', 'declined')
         AND responded_at IS NOT NULL
+        AND ${NOT_BROKERED_SQL("contact_requests")}
       `,
       [senderPersonId]
     );
@@ -325,12 +347,15 @@ export class ContactRequestRepo {
         c.status,
         c.recipient_person_id,
         r.full_name AS recipient_full_name,
-        c.responded_at
+        c.responded_at,
+        c.source
       FROM contact_requests c
       JOIN people r ON r.id = c.recipient_person_id
       WHERE c.sender_person_id = $1
         AND c.status IN ('accepted', 'declined')
         AND c.responded_at IS NOT NULL
+        -- A brokered yes has its own notification (broker_request_connected, with the conversation).
+        AND ${NOT_BROKERED_SQL("c")}
       ORDER BY c.responded_at DESC, c.id DESC
       LIMIT $2
       `,
@@ -341,7 +366,8 @@ export class ContactRequestRepo {
       status: row.status as "accepted" | "declined",
       recipientPersonId: row.recipient_person_id,
       recipientFullName: row.recipient_full_name,
-      respondedAt: row.responded_at
+      respondedAt: row.responded_at,
+      source: row.source ?? null
     }));
   }
 
@@ -365,12 +391,14 @@ export class ContactRequestRepo {
       details: NoteDetails | null;
       status: ContactRequestStatus;
       recipient_contact_shared: string | null;
+      broker_request_id: string | null;
       created_at: Date;
       responded_at: Date | null;
     }>(
       `
       SELECT c.id, c.recipient_person_id, r.full_name AS recipient_full_name, c.message, c.details, c.status,
-             CASE WHEN c.status = 'accepted' THEN c.recipient_contact_shared::text END AS recipient_contact_shared,
+             CASE WHEN c.status = 'accepted' AND ${NOT_BROKERED_SQL("c")} THEN c.recipient_contact_shared::text END AS recipient_contact_shared,
+             (SELECT br.id FROM broker_requests br WHERE br.contact_request_id = c.id LIMIT 1) AS broker_request_id,
              c.created_at, c.responded_at
       FROM contact_requests c
       JOIN people r ON r.id = c.recipient_person_id
@@ -388,6 +416,7 @@ export class ContactRequestRepo {
       details: row.details ?? null,
       status: row.status,
       recipientContactShared: row.recipient_contact_shared,
+      brokerRequestId: row.broker_request_id,
       createdAt: row.created_at,
       respondedAt: row.responded_at
     }));
@@ -404,6 +433,8 @@ export class ContactRequestRepo {
       SELECT DISTINCT ON (recipient_person_id) recipient_person_id, status
       FROM contact_requests
       WHERE sender_person_id = $1 AND recipient_person_id = ANY($2::uuid[])
+        -- A brokered yes isn't a reachout whose contact you can see ("See their contact"): it has a conversation.
+        AND ${NOT_BROKERED_SQL("contact_requests")}
       ORDER BY recipient_person_id, created_at DESC, id DESC
       `,
       [senderPersonId, [...recipientPersonIds]]
@@ -436,6 +467,8 @@ export class ContactRequestRepo {
           FILTER (WHERE responded_at IS NOT NULL) AS median_reply_seconds
       FROM contact_requests
       WHERE recipient_person_id = ANY($1::uuid[])
+        -- Brokered connections are created already accepted: they say nothing about reply speed.
+        AND (source IS NULL OR source NOT IN ('referral_request', 'hiring_request'))
         AND created_at >= now() - ($2::int * interval '1 month')
         AND (status <> 'pending' OR created_at <= now() - ($3::int * interval '1 day'))
       GROUP BY recipient_person_id

@@ -1,25 +1,30 @@
-import { api, type ApiError } from "../api/client";
+import { api, type ApiError, type SearchProfileView } from "../api/client";
 import type { BulletinUiCategory } from "./bulletinPostCardUtils";
 import type { OpenToOptionId } from "./openToPreferences";
 
 /** Must match `MATCH_CATEGORIES` in apps/api/src/lib/matchIntent.ts. */
 export const MATCH_CATEGORIES = [
   "referral",
+  "hiring",
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "relocation",
   "founder_advice",
 ] as const;
 export type MatchCategory = (typeof MATCH_CATEGORIES)[number];
 
 export const MATCH_CATEGORY_LABELS: Record<MatchCategory, string> = {
   referral: "Referral",
+  hiring: "Hiring",
   interview_prep: "Interview prep",
   career_switch: "Career switch",
   higher_studies: "Higher studies",
-  relocation: "Moving cities",
   founder_advice: "Co-founder / startup advice",
+};
+
+/** Kinds of help Ask no longer recognises; older analytics rows still carry them. */
+export const LEGACY_MATCH_CATEGORY_LABELS: Record<string, string> = {
+  relocation: "Moving cities",
 };
 
 export const MATCH_QUESTION_MIN = 3;
@@ -67,6 +72,8 @@ export type MatchResponse = {
   intent: MatchIntent;
   needsDetail: boolean;
   results: MatchResult[];
+  /** Alumni whose name matches the question (typed or mentioned a name). Never repeats `results`. */
+  people?: MatchResult[];
   fallback: "post_bulletin" | null;
 };
 
@@ -130,8 +137,8 @@ export function bulletinCategoryForMatch(category: MatchCategory | null): Bullet
     case "interview_prep":
     case "career_switch":
       return "careers";
-    case "relocation":
-      return "relocation";
+    case "hiring":
+      return "hiring";
     case "founder_advice":
       return "startups";
     default:
@@ -171,10 +178,10 @@ export function matchErrorMessage(err: unknown): string {
 /** Copy for the "needs detail" state, by category. */
 export function needsDetailPrompt(category: MatchCategory | null): { title: string; field: MatchOverrideField | null } {
   switch (category) {
-    case "relocation":
-      return { title: "Which city are you moving to?", field: "city" };
     case "referral":
       return { title: "Which company do you want a referral at?", field: "company" };
+    case "hiring":
+      return { title: "What role are you hiring for?", field: "role" };
     case "interview_prep":
       return { title: "Which company or role is the interview for?", field: "company" };
     case "career_switch":
@@ -187,4 +194,41 @@ export function needsDetailPrompt(category: MatchCategory | null): { title: stri
 /** Must match apps/api contact request limits. */
 export function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
+/** An Ask result shaped for the directory card, so both lists look the same. Reasons become the pills. */
+export function matchResultAsProfile(r: MatchResult): SearchProfileView {
+  return {
+    id: r.id,
+    fullName: r.fullName,
+    departmentCode: r.departmentCode,
+    departmentName: r.departmentName,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: r.batchYear,
+    parsedJoiningYear: null,
+    degreeCode: null,
+    degreeName: null,
+    headlineRoleTitle: r.headlineRoleTitle,
+    headlineOrganizationName: r.headlineOrganizationName,
+    residenceCountry: r.residenceCountry,
+    residenceCity: r.residenceCity,
+    matchReasons: r.reasons.map((x) => x.text),
+  };
+}
+
+/** Ask URLs on the one results page keep the old parameters, with the question under `ask` (`q` belongs to the directory). */
+export function askParamsFromMatch(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams();
+  next.set("ask", params.get("q") ?? "");
+  for (const [key, value] of params) if (key !== "q") next.append(key, value);
+  return next;
+}
+
+/** The reverse: read an `/search?ask=…` URL the way the Ask code expects (question under `q`). */
+export function matchParamsFromAsk(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams();
+  next.set("q", params.get("ask") ?? "");
+  for (const [key, value] of params) if (key !== "ask" && key !== "q") next.append(key, value);
+  return next;
 }

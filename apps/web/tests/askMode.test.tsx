@@ -21,7 +21,7 @@ vi.mock("../src/components/PostBulletinFlow", () => ({
   }),
 }));
 
-import { MatchPage } from "../src/pages/MatchPage";
+import { AskMode } from "../src/pages/AskMode";
 
 const intent = {
   category: "referral",
@@ -78,10 +78,10 @@ function mount(url: string) {
       <QueryClientProvider client={qc}>
         <Routes>
           <Route
-            path="/match"
+            path="/search"
             element={
               <>
-                <MatchPage />
+                <AskMode />
                 <LocationProbe />
               </>
             }
@@ -99,10 +99,36 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("MatchPage", () => {
+describe("Ask mode", () => {
+  it("a name shows the alumni it matches, without the empty state", async () => {
+    const named = { ...result, whyThem: "", reasons: [], relevantOpenTo: [] };
+    post.mockResolvedValue({
+      data: { intent: { ...intent, category: null, company: null, role: null }, needsDetail: false, results: [], people: [named], fallback: null },
+    });
+    mount("/search?ask=Ananya+Rao");
+    expect(await screen.findByRole("heading", { name: "1 alum whose name matches" })).toBeTruthy();
+    expect(screen.getByRole("article", { name: "Ananya Rao" })).toBeTruthy();
+    expect(screen.queryByText("No alum on Alma Mater matches this yet.")).toBeNull();
+  });
+
+  it("shows name matches above the alumni who can help", async () => {
+    const named = { ...result, id: "22222222-2222-2222-2222-222222222222", fullName: "Razor Pai", whyThem: "", reasons: [] };
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], people: [named], fallback: null } });
+    mount("/search?ask=referral+for+PM+at+Razorpay");
+    const byName = await screen.findByRole("heading", { name: "1 alum whose name matches" });
+    const canHelp = screen.getByRole("heading", { name: "1 alum who can help" });
+    expect(byName.compareDocumentPosition(canHelp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("still shows the empty state when neither help nor a name matches", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [], people: [], fallback: "post_bulletin" } });
+    mount("/search?ask=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("No alum on Alma Mater matches this yet.")).toBeTruthy();
+  });
+
   it("sends the question and renders the factual why-them", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/match", { question: "referral for PM at Razorpay" }, expect.anything());
     expect(screen.getByText("Currently Senior Product Manager at Razorpay")).toBeTruthy();
@@ -110,9 +136,22 @@ describe("MatchPage", () => {
     expect(screen.getByRole("combobox", { name: "Looking for" })).toHaveProperty("value", "referral");
   });
 
+  it("shows results on the directory card: reasons as pills, Reach out, View profile", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
+    mount("/search?ask=referral+for+PM+at+Razorpay");
+    const card = (await screen.findByRole("article", { name: "Ananya Rao" })) as HTMLElement;
+    const pills = card.querySelectorAll(".search-card__pill");
+    expect(Array.from(pills).map((p) => p.textContent)).toEqual([
+      "Currently Senior Product Manager at Razorpay",
+      "Open to referrals",
+    ]);
+    expect(screen.getByRole("button", { name: "Reach out" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "View Ananya Rao's profile" })).toBeTruthy();
+  });
+
   it("shows no open-to chip row on the result cards", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
     // Willingness stays once, inside Why them; the separate chip row is gone.
     expect(screen.getByText("Open to referrals")).toBeTruthy();
@@ -121,7 +160,7 @@ describe("MatchPage", () => {
 
   it("shows what-we-understood below the results", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     const resultsHeading = await screen.findByRole("heading", { name: /who can help/ });
     const understood = screen.getByRole("heading", { name: "What we understood" });
     const pos = resultsHeading.compareDocumentPosition(understood);
@@ -130,14 +169,14 @@ describe("MatchPage", () => {
 
   it("has no back-to-home button on the results page", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /back to home/i })).toBeNull();
   });
 
   it("clearing a chip puts the correction in the URL and re-asks", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Remove company" }));
     await waitFor(() => expect(screen.getByTestId("search").textContent).toContain("company="));
     await waitFor(() =>
@@ -151,18 +190,27 @@ describe("MatchPage", () => {
 
   it("offers to post a bulletin when nobody matches", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [], fallback: "post_bulletin" } });
-    mount("/match?q=referral+for+PM+at+Razorpay");
+    mount("/search?ask=referral+for+PM+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Post this as a bulletin" }));
     expect(bulletinOpen).toHaveBeenCalledWith({ category: "careers", headline: "referral for PM at Razorpay" });
   });
 
-  it("asks for the missing city on a vague relocation question", async () => {
+  it("asks for the missing company on a vague referral question", async () => {
     post.mockResolvedValue({
-      data: { intent: { ...intent, category: "relocation", company: null, role: null }, needsDetail: true, results: [], fallback: null },
+      data: { intent: { ...intent, company: null, role: null }, needsDetail: true, results: [], fallback: null },
     });
-    mount("/match?q=Moving+to+a+new+city");
-    expect(await screen.findByText("Which city are you moving to?")).toBeTruthy();
-    expect(screen.getByLabelText("City")).toBeTruthy();
+    mount("/search?ask=need+a+referral");
+    expect(await screen.findByText("Which company do you want a referral at?")).toBeTruthy();
+    expect(screen.getByLabelText("Company")).toBeTruthy();
+  });
+
+  it("a question with no kind of help and nothing named asks for more, generally (Moving cities is gone)", async () => {
+    post.mockResolvedValue({
+      data: { intent: { ...intent, category: null, company: null, role: null }, needsDetail: true, results: [], fallback: null },
+    });
+    mount("/search?ask=Moving+to+a+new+city");
+    expect(await screen.findByText("Tell us a bit more: what kind of help, and a company, role or city.")).toBeTruthy();
+    expect(screen.queryByText("Which city are you moving to?")).toBeNull();
   });
 
   it("reach out on a referral question opens the referral form, prefilled, then previews and sends the fields", async () => {
@@ -171,7 +219,7 @@ describe("MatchPage", () => {
         ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
         : { data: { contactRequest: { id: "x" } } },
     );
-    mount("/match?q=Need+a+referral+at+Razorpay");
+    mount("/search?ask=Need+a+referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
     // No topic is preselected, even though the question reads as a referral.
@@ -207,7 +255,7 @@ describe("MatchPage", () => {
     post.mockResolvedValue({
       data: { intent, needsDetail: false, results: [result], fallback: null },
     });
-    mount("/match?q=Need+a+referral+at+Razorpay");
+    mount("/search?ask=Need+a+referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "referral" } });
     fireEvent.change(screen.getByLabelText("Job link"), { target: { value: JOB } });
@@ -243,7 +291,7 @@ describe("MatchPage", () => {
         ? { data: { intent: { ...intent, category: "interview_prep" }, needsDetail: false, results: [result], fallback: null } }
         : { data: { contactRequest: { id: "x" } } },
     );
-    mount("/match?q=Google+PM+interview+next+week");
+    mount("/search?ask=Google+PM+interview+next+week");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
     // The question is kept, but the topic is not preselected.
@@ -267,7 +315,7 @@ describe("MatchPage", () => {
 
   it("no clear kind of question: they choose referral or advice first; no 'say hi'", async () => {
     post.mockResolvedValue({ data: { intent: { ...intent, category: null }, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?q=Razorpay+people");
+    mount("/search?ask=Razorpay+people");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.getByRole("heading", { name: "Reach out to Ananya" })).toBeTruthy();
     expect(screen.queryByText(/say hi/i)).toBeNull();
@@ -281,30 +329,30 @@ describe("MatchPage", () => {
 
   it("shows a friendly message when rate limited", async () => {
     post.mockResolvedValue({ error: { code: "DISCOVERY_RATE_LIMITED", message: "x" }, retryAfterSeconds: 30 });
-    mount("/match?q=referral+at+Razorpay");
+    mount("/search?ask=referral+at+Razorpay");
     expect(await screen.findByText("Too many searches in a short time. Try again in a minute.")).toBeTruthy();
   });
 });
 
 describe("MatchPage — filling a missing field", () => {
-  it("after saving a city, the chip shows the city instead of reopening empty", async () => {
-    const vague = { ...intent, category: "relocation", company: null, role: null };
+  it("after saving a company, the chip shows the company instead of reopening empty", async () => {
+    const vague = { ...intent, company: null, role: null };
     let resolveSecond: (v: unknown) => void = () => {};
     post
       .mockResolvedValueOnce({ data: { intent: vague, needsDetail: true, results: [], fallback: null } })
       .mockImplementationOnce(() => new Promise((r) => (resolveSecond = r)));
-    mount("/match?q=Moving+to+a+new+city");
-    const cityInput = await screen.findByLabelText("City");
-    fireEvent.change(cityInput, { target: { value: "Pune" } });
+    mount("/search?ask=need+a+referral");
+    const companyInput = await screen.findByLabelText("Company");
+    fireEvent.change(companyInput, { target: { value: "Swiggy" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     // While the new request is in flight, the old needsDetail response must not reopen the chip.
-    await waitFor(() => expect(screen.getByTestId("search").textContent).toContain("city=Pune"));
-    expect(screen.queryByLabelText("City")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toContain("company=Swiggy"));
+    expect(screen.queryByLabelText("Company")).toBeNull();
     resolveSecond({
-      data: { intent: { ...vague, city: "Pune", country: "India" }, needsDetail: false, results: [], fallback: "post_bulletin" },
+      data: { intent: { ...vague, company: "Swiggy" }, needsDetail: false, results: [], fallback: "post_bulletin" },
     });
-    expect(await screen.findByRole("button", { name: "City: Pune. Edit" })).toBeTruthy();
-    expect(screen.queryByLabelText("City")).toBeNull();
+    expect(await screen.findByRole("button", { name: "Company: Swiggy. Edit" })).toBeTruthy();
+    expect(screen.queryByLabelText("Company")).toBeNull();
   });
 });
 
@@ -318,7 +366,7 @@ describe("MatchPage — reach-out loop", () => {
         fallback: null,
       },
     });
-    mount("/match?q=referral+at+Razorpay");
+    mount("/search?ask=referral+at+Razorpay");
     expect(await screen.findByText(/Reachout sent · waiting for reply/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reach out" })).toBeNull();
     expect(screen.getByText("Replied to 4 of 5 reachouts · usually within 2 days")).toBeTruthy();
@@ -331,7 +379,7 @@ describe("MatchPage — reach-out loop", () => {
         ? { data: { intent, needsDetail: false, results: [{ ...result, yourNote: null, replyStats: null }], fallback: null } }
         : { error: { code: "CONTACT_REQUEST_DUPLICATE_PENDING", message: "You already have a note waiting for Ananya Rao." } },
     );
-    mount("/match?q=referral+at+Razorpay");
+    mount("/search?ask=referral+at+Razorpay");
     fireEvent.click(await screen.findByRole("button", { name: "Reach out" }));
     expect(screen.queryByText(/Replied to/)).toBeNull();
     await sendReferral();
@@ -346,7 +394,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
         ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
         : { data: { contactRequest: { id: "x" } } },
     );
-    mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
+    mount(`/search?ask=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
     await sendReferral();
     expect(await screen.findByText("Reachout sent to Ananya")).toBeTruthy();
     expect(post).toHaveBeenCalledWith("/v1/contact-requests", {
@@ -359,7 +407,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
 
   it("uses the bot's reading of the question (company, referral) so the website shows the same list", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
-    mount(`/match?q=Referral+at+razorpay%2C+pm&cat=referral&company=Razorpay&reach=${result.id}&via=whatsapp`);
+    mount(`/search?ask=Referral+at+razorpay%2C+pm&cat=referral&company=Razorpay&reach=${result.id}&via=whatsapp`);
     // Even from the bot's referral link, the topic is not preselected.
     const topic = (await screen.findByLabelText("Topic")) as HTMLSelectElement;
     expect(topic.value).toBe("");
@@ -380,7 +428,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
         ? { data: { intent, needsDetail: false, results: [result], fallback: null } }
         : { data: { contactRequest: { id: "x" } } },
     );
-    mount(`/match?q=Referral+at+Razorpay&cat=referral&company=Razorpay&reach=${priya}&via=whatsapp`);
+    mount(`/search?ask=Referral+at+Razorpay&cat=referral&company=Razorpay&reach=${priya}&via=whatsapp`);
     expect(((await screen.findByLabelText("Topic")) as HTMLSelectElement).value).toBe("");
     fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "referral" } });
     await screen.findByLabelText("Job link");
@@ -396,7 +444,7 @@ describe("MatchPage — from the WhatsApp bot", () => {
 
   it("doesn't reopen the note box for someone they've already sent a note to", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [{ ...result, yourNote: "pending" }], fallback: null } });
-    mount(`/match?q=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
+    mount(`/search?ask=Referral+at+Razorpay&reach=${result.id}&via=whatsapp`);
     expect(await screen.findByText("Ananya Rao", { selector: "a" })).toBeTruthy();
     expect(screen.queryByLabelText("Job link")).toBeNull();
     expect(getJson).not.toHaveBeenCalled();
@@ -406,23 +454,23 @@ describe("MatchPage — from the WhatsApp bot", () => {
 describe("MatchPage — from a Careers topic shortcut", () => {
   it("shows the topic's prompt and keeps the topic on the first question", async () => {
     post.mockResolvedValue({ data: { intent: { ...intent, category: "interview_prep" }, needsDetail: false, results: [result], fallback: null } });
-    mount("/match?cat=interview_prep");
+    mount("/search?ask=&cat=interview_prep");
     expect(screen.getByText(/Which company or role are you interviewing for\?/)).toBeTruthy();
     expect(post).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Google SDE interview next month" } });
     fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
-    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?q=Google+SDE+interview+next+month&cat=interview_prep"));
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?ask=Google+SDE+interview+next+month&cat=interview_prep"));
     // A later new question starts fresh, as before.
     fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Moving to Pune for work" } });
     fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
-    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?q=Moving+to+Pune+for+work"));
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?ask=Moving+to+Pune+for+work"));
   });
 });
 
 describe("MatchPage starter sentence (?draft=, from Business shortcuts)", () => {
   it("fills the box without searching, then searches the finished question on its topic", async () => {
     post.mockResolvedValue({ data: { intent: { ...intent, category: "founder_advice", company: null, role: null }, needsDetail: false, results: [], fallback: null } });
-    mount("/match?draft=I%27m+looking+for+a+co-founder+or+early+hire+for+&cat=founder_advice");
+    mount("/search?ask=&draft=I%27m+looking+for+a+co-founder+or+early+hire+for+&cat=founder_advice");
     const box = screen.getByLabelText("Your question") as HTMLInputElement;
     expect(box.value).toBe("I'm looking for a co-founder or early hire for ");
     expect(post).not.toHaveBeenCalled();
@@ -438,7 +486,7 @@ describe("MatchPage starter sentence (?draft=, from Business shortcuts)", () => 
 
   it("a real question in the link wins over a starter", () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [], fallback: null } });
-    mount("/match?q=Referral+at+Razorpay&draft=ignored");
+    mount("/search?ask=Referral+at+Razorpay&draft=ignored");
     expect((screen.getByLabelText("Your question") as HTMLInputElement).value).toBe("Referral at Razorpay");
   });
 });

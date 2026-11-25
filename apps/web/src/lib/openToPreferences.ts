@@ -16,6 +16,19 @@ export const OPEN_TO_OPTION_IDS = [
 
 export type OpenToOptionId = (typeof OPEN_TO_OPTION_IDS)[number];
 
+/**
+ * Options that came with Cities, which is out of the product (2026-11-25): no longer offered in the
+ * profile or onboarding pickers. Saved selections stay (and still count toward the limit).
+ */
+const OPEN_TO_HIDDEN_IDS: readonly OpenToOptionId[] = ["coffee", "city_help"];
+
+/** Options members can pick now, in catalog order. */
+export const OPEN_TO_PICKABLE_IDS: readonly OpenToOptionId[] = OPEN_TO_OPTION_IDS.filter((id) => !OPEN_TO_HIDDEN_IDS.includes(id));
+
+export function isOpenToPickable(id: OpenToOptionId): boolean {
+  return !OPEN_TO_HIDDEN_IDS.includes(id);
+}
+
 /** Coffee asks a week the member is happy to get (Cities v1). There is no "unlimited". */
 export const COFFEE_LIMIT_OPTIONS = [1, 2, 3, 5] as const;
 export type CoffeeLimit = (typeof COFFEE_LIMIT_OPTIONS)[number];

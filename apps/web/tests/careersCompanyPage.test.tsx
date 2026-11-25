@@ -5,23 +5,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
-const wall = vi.hoisted(() => ({ open: vi.fn(), onPublish: null as null | (() => void) }));
+const referral = vi.hoisted(() => ({ opened: [] as string[] }));
 vi.mock("../src/contexts/AuthContext", () => ({
   useAuth: () => ({ status: "authenticated", person: { personId: "p1", role: "alumni" }, myProfile: { id: "me1", fullName: "Me" } }),
 }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
 vi.mock("../src/api/client", async (orig) => ({ ...(await orig<Record<string, unknown>>()), api: { post: apiPost } }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
-vi.mock("../src/components/PostBulletinFlow", async () => {
-  const { useImperativeHandle } = await import("react");
-  return {
-    PostBulletinFlow: ({ ref, onPublishSuccess }: { ref: import("react").Ref<{ open: (o: unknown) => void }>; onPublishSuccess: () => void }) => {
-      wall.onPublish = onPublishSuccess;
-      useImperativeHandle(ref, () => ({ open: wall.open }));
-      return null;
-    },
-  };
-});
+vi.mock("../src/components/broker/ReferralRequestFlow", () => ({
+  ReferralRequestFlow: ({ initialCompany }: { initialCompany?: string }) => {
+    referral.opened.push(initialCompany ?? "");
+    return <div role="dialog" aria-label="Get a referral" />;
+  },
+}));
 
 import { CareerCompanyPage } from "../src/pages/CareerCompanyPage";
 
@@ -46,7 +42,7 @@ function mount(url: string) {
 beforeEach(() => {
   apiGet.mockReset();
   apiPost.mockReset();
-  wall.open.mockReset();
+  referral.opened.length = 0;
   apiPost.mockResolvedValue({ data: { contactRequest: { id: "c1" } } });
 });
 afterEach(cleanup);
@@ -150,15 +146,20 @@ describe("Careers company screen", () => {
     );
   });
 
-  it("nobody there now or before: says so, and the Wall is the next step, prefilled; posting closes the loop", async () => {
+  it("not the right people: Alma Mater can ask everyone at the company for you", async () => {
+    apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Razorpay", current: [person("x", "Ravi Kumar")], past: [] });
+    mount("/intent/career/company?name=Razorpay");
+    fireEvent.click(await screen.findByRole("button", { name: "Ask everyone at Razorpay for me" }));
+    expect(screen.getByRole("dialog", { name: "Get a referral" })).toBeTruthy();
+    expect(referral.opened.at(-1)).toBe("Razorpay");
+  });
+
+  it("nobody there now or before: says so, with no referral request to send", async () => {
     apiGet.mockResolvedValue({ pageInfo: { nextCursor: null }, company: "Microsoft", current: [], past: [] });
     mount("/intent/career/company?name=Microsoft&role=SDE");
     expect(await screen.findByText("No one at Microsoft on Alma Mater yet.")).toBeTruthy();
     expect(screen.getByText("No one on Alma Mater has worked there either.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Post it on the Wall" }));
-    expect(wall.open).toHaveBeenCalledWith({ careersPreset: "referralSeeking", referralCompanyName: "Microsoft", headline: "SDE" });
-    wall.onPublish?.();
-    expect(await screen.findByText(/Posted\. It's on the/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Ask everyone at Microsoft/ })).toBeNull();
     expect(screen.getByRole("link", { name: "Try another company" }).getAttribute("href")).toBe("/intent/career");
   });
 

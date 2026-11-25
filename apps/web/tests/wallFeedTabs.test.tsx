@@ -51,7 +51,7 @@ describe("Wall feed without tabs", () => {
     expect(screen.queryByText("For you")).toBeNull();
     expect(screen.getByText("Test project")).toBeTruthy();
     expect(onCategoryChange).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("button", { name: "Post", exact: true })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
   });
   // PARKED 2026-11-18: topic chips are parked (see HomeOpportunityRail), so this
   // interaction test is parked with them. Restore together.

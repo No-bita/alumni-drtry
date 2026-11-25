@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AppError } from "../lib/errors.js";
 import type { UpdateMyProfileInput } from "../services/profileService.js";
 import { COFFEE_LIMIT_OPTIONS, OPEN_TO_MAX_SELECTED, OPEN_TO_OPTION_IDS } from "../lib/openToPreferences.js";
+import { JOB_FUNCTIONS } from "../lib/jobFunctions.js";
 import { PROFILE_LINK_URL_MAX, isWebUrl } from "../lib/webUrl.js";
 
 const maxProfileBatchYear = new Date().getUTCFullYear() + 5;
@@ -14,6 +15,8 @@ const invitedBySchema = z.object({
   ref: z.string().uuid(),
   channel: z.enum(["copy", "whatsapp"])
 });
+
+const jobFunctionSchema = z.object({ jobFunction: z.enum(JOB_FUNCTIONS).nullable() });
 
 const openToPreferencesSchema = z
   .object({
@@ -138,8 +141,13 @@ const uuidParamSchema = z.object({
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
   app.get("/v1/me", { preHandler: app.authenticate }, async (request, reply) => {
+    // While an admin views as a member, `person` is that member and `viewAs` says so (read-only).
+    const { viewAs: _viewAsMarker, ...person } = request.actor;
     return reply.code(200).send({
-      person: request.actor
+      person,
+      viewAs: request.viewAs ?? null,
+      // Whether the signed-in admin (themselves) may use "view as member": admin AND on the allowlist.
+      canViewAs: request.viewAs ? true : app.viewAsService.canUse(request.actor)
     });
   });
 
@@ -166,6 +174,20 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
   );
 
   /** Rejected companies on the caller's own job entries, for the own-profile "company needs updating" flag. */
+  /** One tap on the profile: the member's job function (or null to clear it). */
+  app.put(
+    "/v1/me/job-function",
+    { preHandler: [app.authenticate, app.requireNonDemoMutation] },
+    async (request, reply) => {
+      const parsed = jobFunctionSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError(400, "PROFILE_BAD_REQUEST", "Pick one of the listed functions.");
+      }
+      await app.profileService.setJobFunction(request.actor.personId, parsed.data.jobFunction);
+      return reply.code(200).send({ jobFunction: parsed.data.jobFunction });
+    }
+  );
+
   app.get("/v1/me/rejected-organizations", { preHandler: app.authenticate }, async (request, reply) => {
     const organizations = await app.organizationService.listRejectedForPerson(request.actor.personId);
     return reply.code(200).send({ organizations });

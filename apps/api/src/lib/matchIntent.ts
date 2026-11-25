@@ -7,12 +7,14 @@
  * parser is always the fallback.
  */
 
+/** Kinds of help Ask recognises. "relocation" (Moving cities) was removed with Cities (2026-11-25):
+ * questions about a move are now general questions, qualified on the place they name. */
 export const MATCH_CATEGORIES = [
   "referral",
+  "hiring",
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "relocation",
   "founder_advice"
 ] as const;
 
@@ -278,6 +280,15 @@ const CATEGORY_PATTERNS: Record<MatchCategory, [RegExp, number][]> = {
     [/\bget (?:an? )?(?:job|offer) at\b/, 1],
     [/\bopenings? at\b/, 1]
   ],
+  // The asker is hiring (job seekers' wording is removed in pickCategory: see JOB_SEEKER_HIRING).
+  hiring: [
+    [/\bhir(?:e|es|ing)\b/, 2],
+    [/\brecruit(?:s|ing)?\b/, 2],
+    [/\bjoin (?:my|our) (?:team|startup|company)\b/, 2],
+    [/\bopen (?:positions?|roles?|reqs?|requisitions?|openings?) (?:on|in|at) (?:my|our)\b/, 2],
+    [/\b(?:need|looking for|want) (?:an?|some|\d+) [a-z /&-]{2,40}? for (?:my|our) (?:team|startup|company|org(?:anization)?)\b/, 2],
+    [/\bheadcount\b/, 1]
+  ],
   interview_prep: [
     [/\binterview(?:s|ing)?\b/, 2],
     [/\bmock\b/, 1],
@@ -304,17 +315,6 @@ const CATEGORY_PATTERNS: Record<MatchCategory, [RegExp, number][]> = {
     [/\b(?:admissions?|applications?) (?:to|for)\b/, 1],
     [/\buniversit(?:y|ies)\b/, 1]
   ],
-  relocation: [
-    [/\brelocat\w*\b/, 2],
-    [/\bmoving to\b/, 1],
-    [/\bmove to\b/, 1],
-    [/\bshift(?:ing)? to\b/, 1],
-    [/\bnew city\b/, 2],
-    [/\bflat(?:mates?)?\b/, 2],
-    [/\bhousing\b/, 2],
-    [/\brent(?:al|ing)?\b/, 1],
-    [/\bsettl(?:e|ing) (?:in|into|down)\b/, 1]
-  ],
   founder_advice: [
     [/\bco-?founders?\b/, 2],
     [/\bstart-?ups?\b/, 2],
@@ -332,11 +332,11 @@ const CATEGORY_PATTERNS: Record<MatchCategory, [RegExp, number][]> = {
 /** Tie-break order when two categories score equally. */
 const CATEGORY_PRIORITY: readonly MatchCategory[] = [
   "referral",
+  "hiring",
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "founder_advice",
-  "relocation"
+  "founder_advice"
 ];
 
 const STOPWORDS = new Set(
@@ -347,6 +347,7 @@ const STOPWORDS = new Set(
     "need needs want wants looking look trying try get got help helps someone anyone somebody anybody who whom which what when where why how " +
     "please pls any some one two next week month year years time now soon really very just also like know " +
     "alum alumni alumnus senior seniors junior juniors iit bhu campus college batch " +
+    "hire hires hiring hired recruit recruiting candidate candidates headcount " +
     "job jobs role roles position team company companies work working career advice tips guidance talk chat " +
     "find finding connect connecting reach ask asking question questions best good great new " +
     "first alone between choose choosing decide deciding offer offers option options thinking planning plan " +
@@ -542,7 +543,17 @@ function scoreCategories(lowerText: string): Map<MatchCategory, number> {
   return scores;
 }
 
-const RELOCATION_STRONG = /\b(?:relocat\w*|new city|flat(?:mates?)?|housing|rent(?:al|ing)?|settl(?:e|ing) (?:in|into|down))\b/;
+/** Job seekers talking about hiring ("who is hiring", "is Razorpay hiring", "get hired", "hiring process"). */
+const JOB_SEEKER_HIRING = new RegExp(
+  [
+    "\\bwho(?:'s| is| are)? (?:\\S+ ){0,2}?hiring\\b", // who is hiring, who all are hiring
+    "\\b(?:anyone|anybody|which (?:companies|startups|teams|firms))(?: \\S+){0,2}? hiring\\b", // anyone hiring?
+    "\\b(?:is|are) (?!we\\b|i\\b)(?:\\S+ ){1,3}hiring\\b", // is Razorpay hiring, are startups still hiring (not "we are hiring")
+    "\\b(?:companies|startups|firms|teams) (?:that are |who are |which are )?hiring\\b",
+    "\\b(?:get|getting|got|be) hired\\b",
+    "\\bhiring (?:process|manager|managers|freeze|bar|loop|timeline)\\b"
+  ].join("|")
+);
 
 function pickCategory(
   lowerText: string,
@@ -556,13 +567,10 @@ function pickCategory(
     switchRole: string | null;
   }
 ): MatchCategory | null {
-  // "moving to Berlin" is relocation; "moving to product" is a career switch.
-  if (scores.has("relocation") && !ctx.hasPlace && !ctx.hasCountry && ctx.switchRole && !RELOCATION_STRONG.test(lowerText)) {
-    scores.delete("relocation");
-  }
+  if (scores.has("hiring") && JOB_SEEKER_HIRING.test(lowerText)) scores.delete("hiring");
+  // "moving to Berlin" is a move, not a career switch ("moving to product" is): no kind of help.
   if (scores.has("career_switch") && ctx.hasPlace && !ctx.switchRole) {
     scores.delete("career_switch");
-    scores.set("relocation", (scores.get("relocation") ?? 0) + 1);
   }
 
   let best: MatchCategory | null = null;
@@ -579,8 +587,7 @@ function pickCategory(
   // Entity-only questions.
   if (ctx.studyPrograms.length > 0) return "higher_studies";
   if (ctx.switchRole) return "career_switch";
-  // "Who works at Google in Seattle?" is about the company, not a move.
-  if (ctx.hasPlace && !ctx.hasCompany && !ctx.hasRole) return "relocation";
+  // A place alone ("anyone in Pune?") names no kind of help: matching qualifies on the place.
   return null;
 }
 
@@ -616,7 +623,7 @@ export function parseMatchQuestion(question: string, lexicon: MatchLexicon = EMP
     fromRole = switchRoles.fromRole;
     if (!role) role = findRoleInText(lower)?.label ?? null;
     if (fromRole && fromRole === role) fromRole = null;
-  } else if (category !== "relocation" && category !== "higher_studies") {
+  } else if (category !== "higher_studies") {
     role = findRoleInText(lower)?.label ?? null;
   }
 

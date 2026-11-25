@@ -6,7 +6,15 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type MePerson, type MyProfileView } from "../api/client";
+import {
+  api,
+  isViewAsReadOnly,
+  setViewAsReadOnly,
+  VIEW_AS_END_API_PATH,
+  type MePerson,
+  type MyProfileView,
+  type ViewAsInfo,
+} from "../api/client";
 import {
   AUTH_SESSION_QUERY_KEY,
   fetchAuthSession,
@@ -23,6 +31,10 @@ type AuthState =
       person: MePerson;
       myProfile: MyProfileView | null;
       myProfileError: boolean;
+      /** Admin "view as member" in progress (read-only): `person` and `myProfile` are that member's. */
+      viewAs?: ViewAsInfo | null;
+      /** The signed-in admin may use "view as member" (admin and on the server allowlist). */
+      canViewAs?: boolean;
     };
 
 /** Resolved session after GET /v1/me + /v1/me/profile (same shape `refetch` returns for navigation). */
@@ -62,7 +74,16 @@ function dataToAuthState(data: AuthSessionData | undefined): AuthState {
     person: data.person,
     myProfile: data.myProfile,
     myProfileError: data.myProfileError,
+    viewAs: data.viewAs ?? null,
+    canViewAs: Boolean(data.canViewAs),
   };
+}
+
+/** Signing out while viewing as a member: end view-as first (the API refuses every other write meanwhile). */
+async function endViewAsBeforeSignOut(): Promise<void> {
+  if (!isViewAsReadOnly()) return;
+  await api.post(VIEW_AS_END_API_PATH);
+  setViewAsReadOnly(false);
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -90,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [query]);
 
   const logout = useCallback(async () => {
+    await endViewAsBeforeSignOut();
     const { error } = await api.post("/v1/auth/logout");
     if (error) throw new Error(error.message ?? "Couldn't sign out. Try again.");
     queryClient.clear();
@@ -97,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logoutAll = useCallback(async () => {
+    await endViewAsBeforeSignOut();
     const { error } = await api.post("/v1/auth/logout-all");
     if (error) throw new Error(error.message ?? "Couldn't sign out of all devices. Try again.");
     queryClient.clear();

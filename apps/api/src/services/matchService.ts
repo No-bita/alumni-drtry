@@ -14,8 +14,10 @@ import {
 } from "../lib/matchIntent.js";
 import { parseQuestionWithLlm, type MatchIntentLlmProvider } from "../lib/matchIntentLlm.js";
 import { intentNeedsDetail, primarySignalsForIntent, rankMatches, type MatchReason, type SignalName } from "../lib/matchScore.js";
-import type { OpenToOptionId } from "../lib/openToPreferences.js";
-import { MatchRepo, type MatchCandidateQuery, type MatchGateSignal } from "../repos/matchRepo.js";
+import { parseOpenToPreferences, type OpenToOptionId } from "../lib/openToPreferences.js";
+import { functionForRoleLabel } from "../lib/jobFunctions.js";
+import { MatchRepo, type MatchCandidateQuery, type MatchGateSignal, type NameMatchRow } from "../repos/matchRepo.js";
+import { NAME_MATCH_LIMIT, namePhrase, namePrefixWords } from "../lib/nameQuery.js";
 import type { ContactRequestStatus } from "../repos/contactRequestRepo.js";
 import type { ReplyStatsView } from "./contactRequestService.js";
 
@@ -61,6 +63,11 @@ export interface MatchResponse {
   /** True when there is nothing to search on yet (e.g. relocation without a city). */
   needsDetail: boolean;
   results: MatchResultView[];
+  /**
+   * Alumni whose name matches the question (typed a name, or mentioned one), up to
+   * NAME_MATCH_LIMIT. Never repeats someone already in `results`. Empty when no name matches.
+   */
+  people: MatchResultView[];
   /** Suggest posting the question as a bulletin when a searchable intent found nobody. */
   fallback: "post_bulletin" | null;
 }
@@ -89,16 +96,31 @@ export class MatchService {
     const parsed = await this.resolveIntent(input.question, lexicon);
     const intent = applyIntentOverrides(parsed, input.overrides);
 
+    const byNamePromise = this.repo.findByName({
+      prefixWords: namePrefixWords(input.question),
+      phrase: namePhrase(input.question),
+      viewerPersonId: input.viewerPersonId,
+      viewerIsDemo: input.viewerIsDemo,
+      limit: NAME_MATCH_LIMIT
+    });
+
     if (intentNeedsDetail(intent)) {
       await this.log(intent, 0, input, true);
-      return { intent, needsDetail: true, results: [], fallback: null };
+      const byName = await byNamePromise;
+      const people = await this.withReachOut(byName.map(nameRowAsResult), input.viewerPersonId);
+      return { intent, needsDetail: true, results: [], people, fallback: null };
     }
 
-    const candidates = await this.repo.findCandidates(buildCandidateQuery(intent, lexicon, input));
+    const [candidates, byName] = await Promise.all([
+      this.repo.findCandidates(buildCandidateQuery(intent, lexicon, input)),
+      byNamePromise
+    ]);
     const ranked = rankMatches(intent, candidates);
     await this.log(intent, ranked.length, input, false);
 
-    const ids = ranked.map((m) => m.candidate.personId);
+    const rankedIds = new Set(ranked.map((m) => m.candidate.personId));
+    const nameOnly = byName.filter((r) => !rankedIds.has(r.id));
+    const ids = [...ranked.map((m) => m.candidate.personId), ...nameOnly.map((r) => r.id)];
     const [yourNotes, replyStats] = this.reachOut
       ? await Promise.all([
           this.reachOut.latestStatusFromSender(input.viewerPersonId, ids),
@@ -126,8 +148,23 @@ export class MatchService {
         yourNote: yourNotes.get(m.candidate.personId) ?? null,
         replyStats: replyStats.get(m.candidate.personId) ?? null
       })),
-      fallback: ranked.length === 0 ? "post_bulletin" : null
+      people: nameOnly.map((r) => ({
+        ...nameRowAsResult(r),
+        yourNote: yourNotes.get(r.id) ?? null,
+        replyStats: replyStats.get(r.id) ?? null
+      })),
+      fallback: ranked.length === 0 && nameOnly.length === 0 ? "post_bulletin" : null
     };
+  }
+
+  private async withReachOut(rows: MatchResultView[], viewerPersonId: string): Promise<MatchResultView[]> {
+    if (!this.reachOut || rows.length === 0) return rows;
+    const ids = rows.map((r) => r.id);
+    const [yourNotes, replyStats] = await Promise.all([
+      this.reachOut.latestStatusFromSender(viewerPersonId, ids),
+      this.reachOut.replyStatsForRecipients(ids)
+    ]);
+    return rows.map((r) => ({ ...r, yourNote: yourNotes.get(r.id) ?? null, replyStats: replyStats.get(r.id) ?? null }));
   }
 
   private async log(intent: MatchIntent, resultCount: number, input: MatchInput, needsDetail: boolean): Promise<void> {
@@ -149,6 +186,27 @@ export class MatchService {
       /* analytics must never break matching */
     }
   }
+}
+
+/** A name match shown on the same card as Ask results; it has no "why them" beyond the name. */
+function nameRowAsResult(r: NameMatchRow): MatchResultView {
+  return {
+    id: r.id,
+    fullName: r.full_name,
+    batchYear: r.batch_year,
+    departmentCode: r.department_code,
+    departmentName: r.department_name,
+    headlineRoleTitle: r.headline_role_title,
+    headlineOrganizationName: r.headline_organization_name,
+    residenceCity: r.residence_city,
+    residenceCountry: r.residence_country,
+    whyThem: "",
+    reasons: [],
+    openTo: parseOpenToPreferences(r.open_to_preferences)?.selected ?? [],
+    relevantOpenTo: [],
+    yourNote: null,
+    replyStats: null
+  };
 }
 
 function cityNamesFor(city: string | null, lexicon: MatchLexicon): string[] {
@@ -181,6 +239,7 @@ const GATE_FOR_SIGNAL: Record<SignalName, MatchGateSignal[]> = {
   place: ["city", "country"],
   study: ["sp", "st"],
   founder: ["fd"],
+  function: ["fn"],
   keyword: []
 };
 
@@ -192,7 +251,8 @@ export function buildCandidateQuery(
   return {
     viewerPersonId: viewer.viewerPersonId,
     viewerIsDemo: viewer.viewerIsDemo,
-    companyPattern: intent.company ? escapeRegexLiteral(intent.company.trim()) : null,
+    // Hiring: the company named is the asker's own, so it neither qualifies nor boosts anyone.
+    companyPattern: intent.company && intent.category !== "hiring" ? escapeRegexLiteral(intent.company.trim()) : null,
     rolePattern: rolePatternFor(intent.role),
     fromRolePattern: intent.category === "career_switch" ? rolePatternFor(intent.fromRole) : null,
     cityNames: cityNamesFor(intent.city, lexicon),
@@ -201,6 +261,7 @@ export function buildCandidateQuery(
     studyPrograms: intent.studyPrograms,
     wantStudy: intent.category === "higher_studies" || intent.studyPrograms.length > 0,
     wantFounder: intent.category === "founder_advice",
+    jobFunction: intent.category === "hiring" ? functionForRoleLabel(intent.role) : null,
     keywords: intent.keywords.map((k) => ({ keyword: k, pattern: escapeRegexLiteral(k) })),
     candidateLimit: MATCH_CANDIDATE_LIMIT,
     requiredAnyOf: [...new Set(primarySignalsForIntent(intent).flatMap((sig) => GATE_FOR_SIGNAL[sig]))]

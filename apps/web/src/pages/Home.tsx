@@ -9,7 +9,7 @@ import {
   type IntentcastFeedResponse,
   type MyProfileView,
   type ReceivedBulletinRepliesFeedResponse,
-  type SearchResult,
+  // type SearchResult, - only the commented-out Your network panel used it
 } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { queryKeys } from "../lib/queryKeys";
@@ -26,20 +26,22 @@ import { HomeIntentHero } from "../components/HomeIntentHero";
 // PARKED 2026-11-21 with the homepage callout (see home-activity block below).
 // import { HomeFootprintStrip } from "../components/HomeFootprintStrip";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
-import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
-import { trackBetaUsageEvent } from "../lib/betaAnalytics";
+// Your network (batchmates) panel: out of the Home redesign, commented out (restore by uncommenting).
+// import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
 // Replaced by the "Your reachouts" card (Careers style); component kept.
 // import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
-import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
+// "Reachouts waiting for you" card: its waiting count moved into Requests for you (Home redesign).
+// import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
 import { YourReachoutsCard } from "../components/YourReachoutsCard";
-import { useMinWidth } from "../hooks/useMinWidth";
+import { HomeActionTiles, type HomeTileAction } from "../components/HomeActionTiles";
+import { HomeRequestsPanel } from "../components/HomeRequestsPanel";
+import { HomeFeedbackLine } from "../components/HomeFeedbackLine";
 // PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
 // import { OnboardingChecklistCard } from "../components/OnboardingChecklistCard";
 import "../styles/home-layout.css";
 import "../styles/home-refresh.css";
+import "../styles/home-redesign.css";
 
-/** Width at which Home shows its right-hand column (matches `.home-ideal__container` in home-layout.css and the Careers hub grid breakpoint). */
-const HOME_RAIL_MIN_PX = 1024;
 
 // PARKED 2026-11-21 with the homepage callout: only the footprint strip used this.
 // const EMPTY_POSTS: IntentcastFeedItem[] = [];
@@ -321,6 +323,7 @@ function homeMockOpportunityToIntentcast(item: (typeof HOME_MOCK_OPPORTUNITIES)[
   };
 }
 
+/* Your network panel is out of the Home redesign (2026-11-25); its dev mock is kept for a restore.
 const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
   {
     id: "mock-person-1",
@@ -612,16 +615,19 @@ const HOME_MOCK_NETWORK_MEMBERS: SearchResult["results"] = [
     matchReasons: [],
   },
 ];
+*/
 
 /**
- * Signed-in home (`/home`): hero, batch snapshot, bulletin.
+ * Signed-in home (`/home`), Home redesign (2026-11-25): the hero and ask box, four tiles that start
+ * every flow, then Opportunities for you (the Wall ranked for you) beside Requests for you, Your
+ * reachouts when you have any, and a feedback line. No navbar: the tiles replace the section pages.
  * Route is protected by RequireAuth + RequireProfileComplete.
  */
 export function Home() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
-  const railVisible = useMinWidth(HOME_RAIL_MIN_PX);
+  const askInputRef = useRef<HTMLInputElement>(null);
   const authPersonId = auth.status === "authenticated" ? auth.person.personId : undefined;
   const profile = auth.status === "authenticated" ? auth.myProfile : null;
   const [activeCategory, setActiveCategory] = useState<HomeOpportunityCategory>("all");
@@ -630,32 +636,29 @@ export function Home() {
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("mockHome") === "1";
   const authenticated = auth.status === "authenticated";
-  const profileBatchYear = profile?.batchYear ?? null;
-  const profileDeptLower = (() => {
-    const dc = profile?.departmentCode;
-    return dc ? dc.toLowerCase() : "";
-  })();
-  const batchSnapshotEnabled = Boolean(
-    authenticated && authPersonId && profileBatchYear != null && profileDeptLower
-  );
 
-  const batchQuery = useQuery({
-    queryKey: queryKeys.home.batchSnapshot(authPersonId ?? "", profileBatchYear ?? 0, profileDeptLower),
-    queryFn: ({ signal }) => {
-      const params = new URLSearchParams({
-        batch: String(profileBatchYear),
-        dept: profileDeptLower,
-        limit: "100",
-      });
-      return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
-    },
-    enabled: batchSnapshotEnabled,
-  });
+  // Your network (batch snapshot) is out of the Home redesign: its query is commented out with the panel.
+  // const profileBatchYear = profile?.batchYear ?? null;
+  // const profileDeptLower = (() => {
+  //   const dc = profile?.departmentCode;
+  //   return dc ? dc.toLowerCase() : "";
+  // })();
+  // const batchSnapshotEnabled = Boolean(authenticated && authPersonId && profileBatchYear != null && profileDeptLower);
+  // const batchQuery = useQuery({
+  //   queryKey: queryKeys.home.batchSnapshot(authPersonId ?? "", profileBatchYear ?? 0, profileDeptLower),
+  //   queryFn: ({ signal }) => {
+  //     const params = new URLSearchParams({ batch: String(profileBatchYear), dept: profileDeptLower, limit: "100" });
+  //     return assertApiGet<SearchResult>(`/v1/search?${params.toString()}`, signal);
+  //   },
+  //   enabled: batchSnapshotEnabled,
+  // });
+
+  // Opportunities for you: the Wall ranked for the viewer, own posts left out (docs/bulletin-feed-ranking.md).
   const opportunitiesQuery = useQuery({
     queryKey: ["home", "opportunity-rail"],
     queryFn: ({ signal }) =>
       assertApiGet<IntentcastFeedResponse>(
-        "/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true&scope=home_wall",
+        "/v1/intentcasts?limit=48&offset=0&excludeAuthorSoftDeleted=true&scope=home_wall&sort=for_you",
         signal
       ),
     enabled: authenticated,
@@ -693,25 +696,6 @@ export function Home() {
     (bulletinRepliesQuery.isPending ||
       (bulletinRepliesQuery.isFetching && bulletinRepliesQuery.data === undefined));
 
-  const batchMeta = useMemo(() => {
-    if (!batchQuery.data || !authPersonId) return null;
-    const others = batchQuery.data.results.filter((row) => row.id !== authPersonId);
-    const hasMore = batchQuery.data.pageInfo.hasMore;
-    const countLabel =
-      others.length === 0
-        ? "0"
-        : hasMore && others.length >= 100
-          ? "100+"
-          : hasMore
-            ? `${others.length}+`
-            : String(others.length);
-    return {
-      countLabel,
-      members: others,
-      empty: others.length === 0,
-    };
-  }, [batchQuery.data, authPersonId]);
-  const batchDirectorySearchHref = "/search";
   const opportunityIntentcasts = useMemo(() => {
     if (useDevMocks) return HOME_MOCK_OPPORTUNITIES.map(homeMockOpportunityToIntentcast);
     return opportunitiesQuery.data?.intentcasts ?? [];
@@ -758,69 +742,49 @@ export function Home() {
     auth.status === "authenticated" ? auth.person.institutionalEmail : undefined
   );
   const displayName = (profile.fullName ?? "").trim() || profile.fullName?.trim() || firstName;
-  const liveBatchList = batchMeta?.members.slice(0, 8) ?? [];
-  const batchList = useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : liveBatchList;
   const handleOpportunityCategoryChange = (category: HomeOpportunityCategory) => setActiveCategory(category);
-  // PARKED 2026-11-21 with the homepage callout: only the footprint strip opened replies this way.
-  // const openRepliesTab = () => {
-  //   setActiveCategory("replies");
-  //   window.requestAnimationFrame(() => {
-  //     document.getElementById("home-opportunities-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  //   });
-  // };
-  const handleBulletinPublishSuccess = (posted: IntentcastFeedItem) => {
-    queryClient.setQueryData<IntentcastFeedResponse>(["home", "opportunity-rail"], (prev) => {
-      if (!prev) return prev;
-      const withoutDup = prev.intentcasts.filter((item) => item.id !== posted.id);
-      return {
-        ...prev,
-        intentcasts: [...withoutDup.filter((ic) => ic.wallPinnedAt), posted, ...withoutDup.filter((ic) => !ic.wallPinnedAt)].slice(0, 48),
-      };
-    });
+  // Your own posts are not in Opportunities for you, so a new post is not added to it: just refresh.
+  const handleBulletinPublishSuccess = () => {
     void queryClient.invalidateQueries({
       queryKey: ["home", "opportunity-rail"],
       refetchType: "active",
     });
   };
 
-  const reachoutCards = (
-    <>
-      <ReachoutsWaitingCard />
-      <YourReachoutsCard />
-    </>
-  );
+  const handleTile = (action: HomeTileAction) => {
+    if (action === "career") bulletinFlowRef.current?.open({ category: "careers" });
+    else if (action === "business") bulletinFlowRef.current?.open({ category: "startups" });
+    else if (action === "else") bulletinFlowRef.current?.open({ category: "general" });
+    else {
+      const input = askInputRef.current;
+      input?.scrollIntoView({ behavior: "smooth", block: "center" });
+      input?.focus({ preventScroll: true });
+    }
+  };
 
   return (
     <>
       <PostBulletinFlow ref={bulletinFlowRef} onPublishSuccess={handleBulletinPublishSuccess} />
-      <Nav
-        variant="home"
-        avatarName={displayName}
-        appToolbarSearch={null}
-      />
+      <Nav variant="home" avatarName={displayName} />
       <div className="home-dashboard home-dashboard--ideal home-dashboard--premium">
-        <div className="home-ideal__container">
-          <HomeIntentHero />
-          <div className="home-ideal__main">
-            {/* Below the rail width, the reachout cards sit between the search and the Wall. */}
-            {!railVisible ? <div className="home-reachouts">{reachoutCards}</div> : null}
-            <div className="home-activity">
-              {/* <HomeSentNotesLine /> replaced by YourReachoutsCard. */}
-              {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented
-                  out, code kept (same expiry change that disables auto-expiry). Replies on your posts
-                  remain available via the Replies tab.
-              {authPersonId && !useDevMocks ? (
-                <HomeFootprintStrip
-                  myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
-                  replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
-                  viewerPersonId={authPersonId}
-                  onOpenReplies={openRepliesTab}
-                />
-              ) : null}
-              */}
-            </div>
-            {/* PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
-            <OnboardingChecklistCard /> */}
+        <div className="home-ideal__container home-ideal__container--stacked">
+          <HomeIntentHero askInputRef={askInputRef} />
+          <HomeActionTiles onAction={handleTile} />
+          {/* PARKED 2026-11-21 per user instruction: homepage activity/expiry callout commented
+              out, code kept (same expiry change that disables auto-expiry).
+          {authPersonId && !useDevMocks ? (
+            <HomeFootprintStrip
+              myPosts={myPostsQuery.data?.intentcasts ?? EMPTY_POSTS}
+              replyCount={bulletinRepliesQuery.data?.totalCount ?? 0}
+              viewerPersonId={authPersonId}
+              onOpenReplies={openRepliesTab}
+            />
+          ) : null}
+          */}
+          {/* PARKED 2026-11-18 per user instruction: Getting-started checklist hidden for now.
+          <OnboardingChecklistCard /> */}
+          {/* Side by side on wide screens, stacked on phones; an empty panel keeps its column. */}
+          <div className="home-panels">
             <HomeOpportunityRail
               intentcasts={opportunityIntentcasts}
               activeCategory={viewModel.activeCategory}
@@ -832,21 +796,18 @@ export function Home() {
               canManageWallPins={auth.status === "authenticated" && (auth.person.role === "admin" || auth.person.role === "super_admin") && !auth.person.isDemo}
               bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
               bulletinRepliesLoading={bulletinRepliesFeedLoading}
-              onPost={() => {
-                trackBetaUsageEvent("home_wall_post_clicked");
-                bulletinFlowRef.current?.open();
-              }}
             />
+            <HomeRequestsPanel />
           </div>
-          <aside className="home-ideal__rail" aria-label="Your network">
-            {railVisible ? reachoutCards : null}
-            <HomeNetworkPanel
-              members={batchList}
-              directoryHref={batchDirectorySearchHref}
-              countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
-              inviterPersonId={authPersonId ?? null}
-            />
-          </aside>
+          <YourReachoutsCard />
+          {/* Your network (batchmates): out of the Home redesign (restore with the batch query above).
+          <HomeNetworkPanel
+            members={useDevMocks ? HOME_MOCK_NETWORK_MEMBERS : batchMeta?.members.slice(0, 8) ?? []}
+            directoryHref="/search"
+            countLabel={useDevMocks ? undefined : batchMeta?.countLabel}
+            inviterPersonId={authPersonId ?? null}
+          /> */}
+          <HomeFeedbackLine />
         </div>
       </div>
     </>

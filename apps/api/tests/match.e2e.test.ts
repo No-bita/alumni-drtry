@@ -11,11 +11,13 @@ const run = Date.now();
 const ORG_X = `Zentrix${run}`;
 const ORG_Z = `Quorbel${run}`;
 const CITY = `Qorvale${run}`;
+const NAMED = `Vrishali Q${run}x`;
 
 interface MatchBody {
   intent: { category: string | null; company: string | null; role: string | null; city: string | null; source: string };
   needsDetail: boolean;
   results: { id: string; fullName: string; whyThem: string; reasons: { key: string; text: string }[]; relevantOpenTo: string[] }[];
+  people: { id: string; fullName: string; whyThem: string }[];
   fallback: string | null;
 }
 
@@ -78,6 +80,12 @@ describe("POST /v1/match (integration)", () => {
     await job(await person("suspended", { suspended: true, openTo: ["referrals"] }), "Product Manager", orgX, true);
     await job(await person("incomplete", { completed: false }), "Product Manager", orgX, true);
     await job(await person("berliner", { city: true, openTo: ["coffee"] }), "Software Engineer", orgZ, true);
+    // Name search: a distinctive name per run, plus a hidden namesake who must never show.
+    const rename = (key: string, name: string) => db.query(`UPDATE people SET full_name = $1 WHERE id = $2`, [name, ids[key]]);
+    await person("named");
+    await rename("named", NAMED);
+    await person("namedHidden", { suspended: true });
+    await rename("namedHidden", NAMED);
     // The viewer also works at ORG_X and must never match themselves.
     await db.query(`UPDATE people SET ${TEST_IDENTITY_SET}, batch_year = 2019, full_name = 'Viewer', profile_completed_at = now() WHERE id = $1`, [viewer.personId]);
     await job(viewer.personId, "Product Manager", orgX, true);
@@ -126,11 +134,11 @@ describe("POST /v1/match (integration)", () => {
     expect(all).not.toContain(viewer.personId);
   });
 
-  it("relocation: matches on the directory's canonical place", async () => {
+  it("a move (no Moving cities kind of help any more) matches on the directory's canonical place", async () => {
     const body = (await post({ question: `Moving to ${CITY} next month, need a flat` })).json() as MatchBody;
-    expect(body.intent).toMatchObject({ category: "relocation", city: CITY });
+    expect(body.intent).toMatchObject({ category: null, city: CITY });
     expect(body.results.map((r) => r.id)).toEqual([ids.berliner]);
-    expect(body.results[0]!.whyThem).toBe(`Lives in ${CITY}, Germany · Open to coffee chats`);
+    expect(body.results[0]!.whyThem).toBe(`Lives in ${CITY}, Germany`);
   });
 
   it("asks for detail when there is nothing to search on", async () => {
@@ -153,15 +161,50 @@ describe("POST /v1/match (integration)", () => {
     const { parseMatchQuestion } = await import("../src/lib/matchIntent.js");
     const { rankMatches } = await import("../src/lib/matchScore.js");
     const repo = new MatchRepo(db);
-    const question = `Moving to ${CITY}, also used to work at ${ORG_X}`;
+    const question = `Moving to ${CITY} next month`;
     const lexicon = await repo.findLexicon(question);
     const intent = parseMatchQuestion(question, lexicon);
-    expect(intent.category).toBe("relocation");
+    expect(intent.category).toBeNull();
     const query = { ...buildCandidateQuery(intent, lexicon, { viewerPersonId: viewer.personId, viewerIsDemo: false }), candidateLimit: 1 };
     const rows = await repo.findCandidates(query);
-    // ORG_X employees score higher in SQL but cannot qualify for relocation, so they are not fetched.
+    // A place-only question qualifies on the place: ORG_X employees elsewhere are not fetched.
     expect(rows.map((r) => r.personId)).toEqual([ids.berliner]);
     expect(rankMatches(intent, rows).map((m) => m.candidate.personId)).toEqual([ids.berliner]);
+  });
+
+  it("a name finds the alum: the full name, a partial name, or a name inside a longer question", async () => {
+    for (const question of [NAMED, `vrish q${run}`, `q${run}x vrishali`, `Could ${NAMED} help with pricing?`]) {
+      const res = await post({ question });
+      expect(res.statusCode, res.body).toBe(200);
+      const body = res.json() as MatchBody;
+      expect(body.people.map((p) => p.id), question).toEqual([ids.named]);
+      expect(body.people[0]!.fullName).toBe(NAMED);
+      expect(body.results.map((r) => r.id)).not.toContain(ids.named);
+    }
+    // Found by name alone: no "post a bulletin" fallback.
+    expect(((await post({ question: NAMED })).json() as MatchBody).fallback).toBeNull();
+  });
+
+  it("name search never lists hidden people or the viewer, and ignores too-short words", async () => {
+    const hidden = (await post({ question: NAMED })).json() as MatchBody;
+    expect(hidden.people.map((p) => p.id)).not.toContain(ids.namedHidden);
+    const self = (await post({ question: "Viewer" })).json() as MatchBody;
+    expect(self.people.map((p) => p.id)).not.toContain(viewer.personId);
+    // One letter is not a name: "v q123" does not list everyone with those initials.
+    expect(((await post({ question: `v q${run}` })).json() as MatchBody).people).toEqual([]);
+  });
+
+  it("a name match already among the results is not repeated", async () => {
+    const body = (await post({ question: `Need a referral for PM at ${ORG_X.toLowerCase()}` })).json() as MatchBody;
+    expect(body.people).toEqual([]);
+  });
+
+  it("the directory finds a partial name too", async () => {
+    const res = await app.inject({ method: "GET", url: `/v1/search?q=${encodeURIComponent(`vrish q${run}`)}`, headers: { cookie: viewer.cookie } });
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json() as { results: { id: string; matchReasons: string[] }[] };
+    expect(body.results.map((r) => r.id)).toEqual([ids.named]);
+    expect(body.results[0]!.matchReasons).toContain("name_match");
   });
 
   it("strips NUL and control characters instead of failing", async () => {

@@ -7,6 +7,7 @@ import { FoldToFlight, FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { StagingMarker } from "./components/StagingMarker";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
+import { ViewAsBanner } from "./components/ViewAsBanner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
   canAccessOnboardingFlow,
@@ -14,8 +15,8 @@ import {
 } from "./lib/onboardingEligibility";
 import { RouteNotice } from "./components/RouteNotice";
 import { FINISH_PROFILE_NOTICE, noticeState } from "./lib/routeNotices";
-import { isBuildIntentPageEnabled } from "./lib/buildIntentPage";
-import { isDevHubPagesEnabled } from "./lib/devHubPages";
+// import { isBuildIntentPageEnabled } from "./lib/buildIntentPage"; - used only by the commented-out section routes
+// import { isDevHubPagesEnabled } from "./lib/devHubPages";
 import { APP_BASE_PATH } from "./lib/appBase";
 import { rememberReturnTo } from "./lib/returnTo";
 
@@ -32,12 +33,15 @@ const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })
 // const ConnectionThread = lazy(() =>
 //   import("./pages/ConnectionThread").then((m) => ({ default: m.ConnectionThread }))
 // );
-const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
-const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
-const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
-const CareerCompanyPage = lazy(() => import("./pages/CareerCompanyPage").then((m) => ({ default: m.CareerCompanyPage })));
-const BusinessPage = lazy(() => import("./pages/BusinessPage").then((m) => ({ default: m.BusinessPage })));
-const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
+// Section pages commented out with the Home redesign (2026-11-25): Home's tiles replace them.
+// Restore by uncommenting these and their routes below.
+// const IntentPage = lazy(() => import("./pages/IntentPage").then((m) => ({ default: m.IntentPage })));
+// Cities page commented out (restore by uncommenting).
+// const LocationPage = lazy(() => import("./pages/LocationPage").then((m) => ({ default: m.LocationPage })));
+// const CareerPage = lazy(() => import("./pages/CareerPage").then((m) => ({ default: m.CareerPage })));
+// const CareerCompanyPage = lazy(() => import("./pages/CareerCompanyPage").then((m) => ({ default: m.CareerCompanyPage })));
+// const BusinessPage = lazy(() => import("./pages/BusinessPage").then((m) => ({ default: m.BusinessPage })));
+// const EventsPage = lazy(() => import("./pages/Events").then((m) => ({ default: m.EventsPage })));
 const WhatsAppEntryPage = lazy(() =>
   import("./pages/WhatsAppEntryPage").then((m) => ({ default: m.WhatsAppEntryPage }))
 );
@@ -57,8 +61,14 @@ const AdminCompanyReviewPage = lazy(() =>
 const AdminAnalyticsPage = lazy(() =>
   import("./pages/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage }))
 );
+const AdminViewAsPage = lazy(() => import("./pages/AdminViewAsPage").then((m) => ({ default: m.AdminViewAsPage })));
 const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
+);
+// Brokered requests: the asker and the helper who said yes talk here (limited messaging; the general
+// messaging widget and /connections threads stay paused).
+const BrokerConversationPage = lazy(() =>
+  import("./pages/BrokerConversationPage").then((m) => ({ default: m.BrokerConversationPage }))
 );
 
 function RouteFallback() {
@@ -258,6 +268,7 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
+        {/* Events commented out with the Home redesign (restore by uncommenting). Deep links fall through to the catch-all -> /home.
         <Route
           path="/events"
           element={
@@ -267,8 +278,9 @@ function AppRoutes() {
               </ProfileGate>
             </RequireAuth>
           }
-        />
-        <Route
+        /> */}
+        {/* Cities page commented out (restore by uncommenting). Deep links fall through to the catch-all -> /home. */}
+        {/* <Route
           path="/intent/location"
           element={
             <RequireAuth>
@@ -287,7 +299,9 @@ function AppRoutes() {
               </ProfileGate>
             </RequireAuth>
           }
-        />
+        /> */}
+        {/* Careers, the career company page, Business and the other /intent pages commented out with the Home redesign
+            (restore by uncommenting). Deep links fall through to the catch-all -> /home.
         <Route
           path="/intent/career"
           element={
@@ -326,7 +340,6 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
-        {/* The Build hub became Business: old links keep working. */}
         <Route path="/intent/build" element={<Navigate to="/intent/business" replace />} />
         <Route
           path="/intent/:intentSlug"
@@ -337,7 +350,7 @@ function AppRoutes() {
               </ProfileGate>
             </RequireAuth>
           }
-        />
+        /> */}
         {/* Messaging paused: thread page route removed while messaging is commented out.
         <Route
           path="/connections/:threadId"
@@ -355,6 +368,16 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <OwnProfileRedirect />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/requests/:requestId/conversation"
+          element={
+            <RequireAuth>
+              <ProfileGate mode="home">
+                <BrokerConversationPage />
+              </ProfileGate>
             </RequireAuth>
           }
         />
@@ -414,6 +437,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/view-as"
+          element={
+            <RequireAuth>
+              <AdminViewAsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/admin/locations"
           element={
             <RequireAuth>
@@ -443,6 +474,7 @@ export default function App() {
       <StagingMarker />
       <AuthProvider>
         <AuthSessionExpiredRegistrar />
+        <ViewAsBanner />
         <AppRoutes />
         <RouteNotice />
         <GlobalNotificationsWidget />

@@ -3,6 +3,7 @@ import { getApiRateLimit, rateLimitedFetch } from "../lib/apiRateLimit";
 import type { NoteDetails } from "../lib/noteForm";
 import { notifyAuthSessionExpired } from "../lib/authSessionExpiredBridge";
 import type { OpenToPreferences } from "../lib/openToPreferences";
+import type { ExperienceBand, JobFunction } from "../lib/jobFunctions";
 
 /** Member-facing network failure text. Deployment details belong in docs, not in the UI. */
 export const NETWORK_ERROR_MESSAGE = "We couldn't reach the server. Check your connection and try again in a moment.";
@@ -17,11 +18,44 @@ const API_BASE = API_BASE_URL;
 
 export type ApiError = { code: string; message?: string };
 
+/** Admin "view as member": the only writes allowed while viewing end it or switch to another member. */
+export const VIEW_AS_END_API_PATH = "/v1/admin/view-as/end";
+export const VIEW_AS_SWITCH_API_PATH = "/v1/admin/view-as/switch";
+export const VIEW_AS_READ_ONLY_CODE = "VIEW_AS_READ_ONLY";
+export const VIEW_AS_READ_ONLY_MESSAGE = "You're viewing as a member (read-only). Exit view-as to make changes.";
+
+let viewAsReadOnly = false;
+
+/**
+ * Set from the session snapshot (GET /v1/me `viewAs`). While on, the browser does not send any write
+ * (POST/PUT/PATCH/DELETE) except ending view-as or switching member: background beacons and "seen" markers stay quiet and
+ * explicit actions get the same read-only error the API would return. The API enforces it regardless.
+ */
+export function setViewAsReadOnly(on: boolean): void {
+  viewAsReadOnly = on;
+}
+
+export function isViewAsReadOnly(): boolean {
+  return viewAsReadOnly;
+}
+
+function blockedByViewAs(method: string | undefined, path: string): boolean {
+  const m = (method ?? "GET").toUpperCase();
+  if (!viewAsReadOnly || m === "GET" || m === "HEAD") return false;
+  const p = path.split("?")[0];
+  return p !== VIEW_AS_END_API_PATH && !(m === "POST" && p === VIEW_AS_SWITCH_API_PATH);
+}
+
+const viewAsReadOnlyError = (): ApiError => ({ code: VIEW_AS_READ_ONLY_CODE, message: VIEW_AS_READ_ONLY_MESSAGE });
+
 async function request<T>(
   path: string,
   options: RequestInit & { manualRetry?: boolean } = {}
 ): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean; status?: number }> {
   const url = `${API_BASE}${path}`;
+  if (blockedByViewAs(options.method, path)) {
+    return { error: viewAsReadOnlyError(), status: 403 };
+  }
   const { signal, headers: optHeaders, manualRetry, ...rest } = options;
   const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };
   // Fastify rejects `Content-Type: application/json` when there is no JSON body (e.g. GET).
@@ -85,6 +119,9 @@ export const api = {
 /** Multipart POST (e.g. PDF upload). Sends cookies; response body must be JSON. */
 export async function apiPostForm<T>(path: string, form: FormData): Promise<{ data?: T; error?: ApiError }> {
   const url = `${API_BASE}${path}`;
+  if (blockedByViewAs("POST", path)) {
+    return { error: viewAsReadOnlyError() };
+  }
   let res: Response;
   try {
     res = await rateLimitedFetch(url, { method: "POST", body: form, credentials: "include" });
@@ -128,7 +165,19 @@ export function isSuperAdmin(person: Pick<MePerson, "role"> | undefined | null):
   return person?.role === "super_admin";
 }
 
-export type Me = { person: MePerson };
+/** Active admin view-as session (GET /v1/me `viewAs`): `person` is then the member being viewed. */
+export type ViewAsInfo = {
+  sessionId: string;
+  adminPersonId: string;
+  targetPersonId: string;
+  targetName: string | null;
+  targetEmail: string;
+  expiresAt: string;
+  readOnly: true;
+};
+
+/** `canViewAs`: the signed-in admin themselves may use "view as member" (admin and on the server allowlist). */
+export type Me = { person: MePerson; viewAs?: ViewAsInfo | null; canViewAs?: boolean };
 
 /** GET /v1/me/profile returns { profile } */
 export type MyProfileView = {
@@ -163,6 +212,8 @@ export type MyProfileView = {
   role?: MePerson["role"];
   /** Open-to tags ("answer key"); raw JSON — parse with `parseOpenToPreferences`. */
   openToPreferences?: unknown;
+  /** Job function (Tech, Product, …): who hiring requests reach. Missing on older API versions. */
+  jobFunction?: JobFunction | null;
 };
 
 export type MeProfileResponse = { profile: MyProfileView };
@@ -355,6 +406,59 @@ export type NotificationItem =
       outcome: "accepted" | "declined";
       recipientPersonId: string;
       recipientFullName: string | null;
+      /** "referral_request" / "hiring_request" when Alma Mater found this person for you. */
+      source?: string | null;
+    }
+  | {
+      /** Alma Mater asked you on someone's behalf (Yes / Not this time). */
+      kind: "broker_ask_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      askId: string;
+      requestKind: "referral" | "hiring";
+      askerPersonId: string;
+      askerFullName: string | null;
+      company: string;
+      roleTitle: string | null;
+    }
+  | {
+      /** Someone said yes to your request: you're connected and can message them (no contact is shared). */
+      kind: "broker_request_connected";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      roleTitle: string | null;
+      helperPersonId: string;
+      helperFullName: string | null;
+    }
+  | {
+      /** A new message in a request's conversation; unseen until you read it (or mark all as seen). */
+      kind: "broker_message_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      counterpartPersonId: string;
+      counterpartFullName: string | null;
+      lastMessagePreview: string;
+      unreadCount: number;
+    }
+  | {
+      /** Your request closed after 2 days with no one available. */
+      kind: "broker_request_expired";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      askedCount: number;
     }
   | {
       kind: "bulletin_response";
@@ -390,7 +494,7 @@ export type NotificationItem =
       announcementId: string;
       title: string;
       body: string;
-      /** Path inside the web app, e.g. "/intent/career" (router-relative), or null. */
+      /** Path inside the web app, e.g. "/notifications" (router-relative), or null. */
       linkPath: string | null;
     };
 
@@ -435,6 +539,19 @@ export type IntentcastFeedItem = {
   authorIsDemo?: boolean;
   /** Who can see it; null or missing = Everyone. Fixed once posted. */
   audience?: PostAudience;
+  /** Hiring posts from the Wall composer: the tapped answers (null on older posts). */
+  hiring?: HiringFields | null;
+};
+
+/** A hiring post's answers; the card header is built from them (there is no heading). */
+export type HiringFields = {
+  jobFunction: JobFunction;
+  roleTitle: string | null;
+  experience: ExperienceBand;
+  location: string | null;
+  company: string | null;
+  respondVia: "reachout" | "link";
+  applyUrl: string | null;
 };
 
 /** GET /v1/intentcasts/:id/responses (author only) */

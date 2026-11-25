@@ -45,6 +45,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       .logBetaUsageEvent({
         eventType: "search_executed",
         personId: request.actor.personId,
+        viewAs: request.actor.viewAs,
         route: request.routeOptions.url ?? request.url,
         metadata: { limit: parsed.data.limit, hasQuery: Boolean(parsed.data.q) }
       })
@@ -71,6 +72,7 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       .logBetaUsageEvent({
         eventType: "profile_viewed",
         personId: request.actor.personId,
+        viewAs: request.actor.viewAs,
         route: request.routeOptions.url ?? request.url,
         metadata: { profileId: parsed.data.id }
       })

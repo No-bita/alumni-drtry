@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { nameNormalizeSql, namePrefixConditionSql, namePrefixWords } from "../lib/nameQuery.js";
 import { personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
 import type { PoolExecutor } from "../db/types.js";
@@ -362,11 +363,17 @@ export class DiscoveryRepo {
     }
 
     let qPh: string | null = null;
+    // Partial names: "anan" or "ananya r" find Ananya Rao (whole words already match below). They
+    // rank with other text matches (tier 2) and get the name_match reason.
+    let namePrefixSql: string | null = null;
     if (input.q) {
       qPh = bind(input.q);
+      const prefixWords = namePrefixWords(input.q);
+      namePrefixSql = prefixWords ? namePrefixConditionSql(nameNormalizeSql("p.full_name"), bind(prefixWords)) : null;
       whereInner.push(
         `(
-          to_tsvector('simple'::regconfig, COALESCE(p.full_name, '') || ' ' || COALESCE(p.residence_country, '') || ' ' || COALESCE(p.residence_city, '')) @@ plainto_tsquery('simple', ${qPh})
+          ${namePrefixSql ?? "FALSE"}
+          OR to_tsvector('simple'::regconfig, COALESCE(p.full_name, '') || ' ' || COALESCE(p.residence_country, '') || ' ' || COALESCE(p.residence_city, '')) @@ plainto_tsquery('simple', ${qPh})
           OR EXISTS (
             SELECT 1
             FROM occupations so

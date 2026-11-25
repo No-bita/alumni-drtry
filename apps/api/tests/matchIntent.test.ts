@@ -52,23 +52,23 @@ describe("parseMatchQuestion — categories and entities", () => {
     expect(i.role).toBe("Product Manager");
   });
 
-  it("'moving to product' is a career switch, not relocation", () => {
+  it("'moving to product' is a career switch, not a move", () => {
     const i = parseMatchQuestion("thinking of moving to product management", lexicon);
     expect(i.category).toBe("career_switch");
     expect(i.role).toBe("Product Manager");
     expect(i.city).toBeNull();
   });
 
-  it("relocation with a directory place alias", () => {
+  it("a move names no kind of help (Moving cities left with Cities) but keeps the directory place", () => {
     const i = parseMatchQuestion("Moving to Bangalore next month, need help finding a flat", lexicon);
-    expect(i.category).toBe("relocation");
+    expect(i.category).toBeNull();
     expect(i.city).toBe("Bengaluru");
     expect(i.country).toBe("India");
   });
 
-  it("relocation uses fallback places when the directory has none", () => {
+  it("a move uses fallback places when the directory has none", () => {
     const i = parseMatchQuestion("Relocating to Berlin alone", { organizations: [], places: [] });
-    expect(i.category).toBe("relocation");
+    expect(i.category).toBeNull();
     expect(i.city).toBe("Berlin");
     expect(i.country).toBe("Germany");
     expect(i.company).toBeNull();
@@ -137,7 +137,7 @@ describe("helpers", () => {
 describe("parseMatchQuestion — review regressions", () => {
   const none: MatchLexicon = { organizations: [], places: [] };
 
-  it("relocation picks the destination, not the city being left", () => {
+  it("a move picks the destination, not the city being left", () => {
     expect(parseMatchQuestion("Relocating to London from Bangalore", none).city).toBe("London");
     expect(parseMatchQuestion("Moving from Delhi to Pune", none).city).toBe("Pune");
     expect(parseMatchQuestion("i'm moving to boston from new york", none).city).toBe("Boston");
@@ -155,7 +155,7 @@ describe("parseMatchQuestion — review regressions", () => {
     expect(parseMatchQuestion("MBA interview prep", none).category).toBe("interview_prep");
   });
 
-  it("a company plus a place is not a relocation question", () => {
+  it("a company plus a place names no kind of help", () => {
     const i = parseMatchQuestion("Who works at Google in Seattle?", none);
     expect(i.category).toBeNull();
     expect(i.company).toBe("Google");
