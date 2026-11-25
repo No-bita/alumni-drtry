@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { IntentcastFeedItem } from "../src/api/client";
 import { HomeOpportunityRail } from "../src/components/HomeOpportunityRail";
+import { WallEmptyPrompt } from "../src/components/WallEmptyPrompt";
 import {
   WALL_EMPTY_EXAMPLES,
   WALL_EMPTY_FINAL_TEXT,
@@ -26,6 +27,12 @@ const POST: IntentcastFeedItem = {
   createdAt: "2026-11-01T00:00:00Z", editableUntil: "2026-11-02T00:00:00Z",
   responseCount: 0, viewerHasResponded: false,
 };
+
+function renderCard() {
+  const onPost = vi.fn();
+  const view = render(<WallEmptyPrompt onPost={onPost} />);
+  return { ...view, onPost };
+}
 
 function renderRail(props: { intentcasts?: IntentcastFeedItem[]; counts?: typeof EMPTY_COUNTS; onPost?: () => void } = {}) {
   const onPost = props.onPost ?? vi.fn();
@@ -86,7 +93,7 @@ afterEach(() => {
 
 describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall", () => {
   it("types each example in order, settles on 'Your post here', then ripples the button once", () => {
-    renderRail();
+    renderCard();
     const card = screen.getByRole("button", { name: "Write your first post on The Wall" });
     expect(card.textContent).toContain("Example");
 
@@ -120,12 +127,12 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
   });
 
   it("plays once per browser session: later views show the final card straight away, with no Post button", () => {
-    const first = renderRail();
+    const first = renderCard();
     act(() => void vi.advanceTimersByTime(500));
     expect(window.sessionStorage.getItem(WALL_EMPTY_SESSION_KEY)).toBe("1");
     first.unmount();
 
-    renderRail();
+    renderCard();
     const card = screen.getByRole("button", { name: "Write your first post on The Wall" });
     expect(card.textContent).toContain(WALL_EMPTY_FINAL_TEXT);
     expect(typed()).toBeNull();
@@ -135,7 +142,7 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
 
   it("with reduced motion shows the final card at once, with no typing", () => {
     setReducedMotion(true);
-    renderRail();
+    renderCard();
     expect(screen.getByRole("button", { name: "Write your first post on The Wall" }).textContent).toContain(WALL_EMPTY_FINAL_TEXT);
     expect(typed()).toBeNull();
     act(() => void vi.advanceTimersByTime(totalScriptMs()));
@@ -144,7 +151,7 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
   });
 
   it("the card opens the post flow on click, and is a real button for Enter and Space", () => {
-    const { onPost } = renderRail();
+    const { onPost } = renderCard();
     const card = screen.getByRole("button", { name: "Write your first post on The Wall" });
     expect(card.tagName).toBe("BUTTON");
     expect(card.getAttribute("type")).toBe("button");
@@ -153,7 +160,7 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
   });
 
   it("screen readers get a stable name, never the characters being typed", () => {
-    renderRail();
+    renderCard();
     act(() => void vi.advanceTimersByTime(1500));
     const card = screen.getByRole("button", { name: "Write your first post on The Wall" });
     expect(card.getAttribute("aria-label")).toBe("Write your first post on The Wall");
@@ -161,31 +168,15 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
     expect(card.querySelector("[aria-live]")).toBeNull();
   });
 
-  it("is not shown when there are posts, and disappears if posts arrive later", () => {
-    const view = renderRail({ intentcasts: [POST], counts: { ...EMPTY_COUNTS, startups: 1 } });
+  it("Home's Opportunities for you shows a plain note, not the example card, when the Wall is empty", () => {
+    renderRail();
     expect(screen.queryByRole("button", { name: "Write your first post on The Wall" })).toBeNull();
-    view.unmount();
-
-    const empty = renderRail();
-    expect(screen.getByRole("button", { name: "Write your first post on The Wall" })).toBeTruthy();
-    empty.rerender(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient()}>
-          <HomeOpportunityRail
-            intentcasts={[POST]}
-            activeCategory="all"
-            onCategoryChange={() => {}}
-            categoryCounts={{ ...EMPTY_COUNTS, startups: 1 }}
-            onPost={empty.onPost}
-          />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-    expect(screen.queryByRole("button", { name: "Write your first post on The Wall" })).toBeNull();
+    expect(screen.queryByTestId("wall-empty-typed")).toBeNull();
+    expect(screen.getByText("No posts yet.")).toBeTruthy();
   });
 
   it("pauses while the tab is hidden and resumes when it's visible again", () => {
-    renderRail();
+    renderCard();
     act(() => void vi.advanceTimersByTime(1200));
     const before = typed();
     act(() => setHidden(true));
@@ -197,7 +188,7 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
   });
 
   it("clears its timers on unmount", () => {
-    const view = renderRail();
+    const view = renderCard();
     act(() => void vi.advanceTimersByTime(1200));
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);

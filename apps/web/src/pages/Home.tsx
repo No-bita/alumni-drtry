@@ -28,7 +28,6 @@ import { HomeIntentHero } from "../components/HomeIntentHero";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
 // Your network (batchmates) panel: out of the Home redesign, commented out (restore by uncommenting).
 // import { HomeNetworkPanel } from "../components/HomeNetworkPanel";
-import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 // Replaced by the "Your reachouts" card (Careers style); component kept.
 // import { HomeSentNotesLine } from "../components/HomeSentNotesLine";
 // "Reachouts waiting for you" card: its waiting count moved into Requests for you (Home redesign).
@@ -797,12 +796,6 @@ export function Home() {
               canManageWallPins={auth.status === "authenticated" && (auth.person.role === "admin" || auth.person.role === "super_admin") && !auth.person.isDemo}
               bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
               bulletinRepliesLoading={bulletinRepliesFeedLoading}
-              // No Post button since the Home redesign: the tiles start every post. An empty Wall's example
-              // card still opens the composer (it then asks which category).
-              onPost={() => {
-                trackBetaUsageEvent("home_wall_post_clicked");
-                bulletinFlowRef.current?.open();
-              }}
             />
             <HomeRequestsPanel />
           </div>

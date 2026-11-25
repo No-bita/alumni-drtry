@@ -15,7 +15,6 @@ import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/i
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
-import { WallEmptyPrompt } from "./WallEmptyPrompt";
 import { useWallShareTarget } from "../hooks/useWallShareTarget";
 import { LineIcon } from "./LineIcon";
 import "../styles/hub-cards.css";
@@ -56,9 +55,7 @@ type HomeOpportunityRailProps = {
   canManageWallPins?: boolean;
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
   bulletinRepliesLoading?: boolean;
-  /** Opens the post composer; powers the "be the first to ask" button on an empty feed. */
-  /** Opens the post flow ("Post to The Wall"). */
-  /** Empty Wall only: the example card opens the composer (the header Post button was removed in the Home redesign). */
+  /** Unused: the tiles start every post. Kept optional so callers need no change. */
   onPost?: () => void;
 };
 
@@ -128,7 +125,6 @@ export function HomeOpportunityRail({
   canManageWallPins = false,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
-  onPost,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
   // Opened from a shared post link (#wall-<id>): find it, scroll to it, mark it "Shared with you".
@@ -275,9 +271,11 @@ export function HomeOpportunityRail({
           <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
       ) : activityRows.length === 0 ? (
-        // Nothing posted yet: a blank card types example posts, then points at "Post to The Wall".
+        // Nothing posted yet: a plain note, no example post (the tiles start every post).
         feedIsEmpty ? (
-          onPost ? <WallEmptyPrompt onPost={onPost} /> : null
+          <div className="home-ideal__empty">
+            <p>No posts yet.</p>
+          </div>
         ) : (
           <div className="home-ideal__empty">
             <p>No posts in this category yet.</p>
