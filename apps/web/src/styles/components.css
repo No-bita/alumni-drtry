@@ -5216,19 +5216,21 @@ button.career-hub__panel--clickable {
   gap: var(--space-sm);
 }
 
-/* Scoped quiet secondary for notification action rows (Accept/Decline): the
-   primary stays dark ink and leads, Decline recedes. Matches the approved
-   mockup; the warm-paper tokens used by the bb-post-card quiet secondary are
-   scoped to .home-dashboard--ideal, so the resolved values are used here. The
-   global .btn--secondary stays brick. */
-.notifications-page__item-actions .btn--secondary {
+/* Scoped quiet secondary for notification action rows and broker ask cards
+   (Accept/Decline): the primary stays dark ink and leads, Decline recedes.
+   Matches the approved mockup; the warm-paper tokens used by the bb-post-card
+   quiet secondary are scoped to .home-dashboard--ideal, so the resolved values
+   are used here. The global .btn--secondary stays brick. */
+.notifications-page__item-actions .btn--secondary,
+.broker-card__actions .btn--secondary {
   background: #f6efe2;
   border: 1px solid #d8cbb8;
   color: #4f453d;
   font-weight: 560;
 }
 
-.notifications-page__item-actions .btn--secondary:hover {
+.notifications-page__item-actions .btn--secondary:hover,
+.broker-card__actions .btn--secondary:hover {
   background: #efe6d4;
   border-color: #c9b99f;
 }

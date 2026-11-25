@@ -98,8 +98,7 @@
   white-space: nowrap;
 }
 
-.home-request__new,
-.home-request__said-yes {
+.home-request__new {
   flex: none;
   padding: 4px 10px;
   border-radius: 999px;
@@ -112,11 +111,6 @@
 .home-request__new {
   background: #f6e3cf;
   color: var(--brick);
-}
-
-.home-request__said-yes {
-  background: #eef4ea;
-  color: #2f5d34;
 }
 
 .home-request__chevron {
@@ -136,23 +130,47 @@
   min-width: 0;
 }
 
+/* The opened request is a pop-up, like the forms (referral-discovery), not an
+   in-place expansion: the list stays put behind a dimmed overlay (his call,
+   26 Nov 2026). */
+.home-request-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(28, 20, 16, 0.45);
+}
+
+.home-request-detail--dialog {
+  box-sizing: border-box;
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(28, 20, 16, 0.25);
+}
+
+@media (max-height: 560px) {
+  .home-request-dialog-overlay {
+    align-items: flex-start;
+    padding: 12px 20px;
+  }
+  .home-request-detail--dialog {
+    max-height: calc(100dvh - 24px);
+  }
+}
+
 .home-request-detail__top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* No label chip (dropped 26 Nov 2026): keep the close button at the trailing edge. */
+  justify-content: flex-end;
   gap: 12px;
-}
-
-.home-request-detail__label {
-  padding: 5px 10px;
-  border-radius: 8px;
-  background: #f6e3cf;
-  color: var(--brick);
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .home-request-detail__close {
@@ -347,7 +365,7 @@
   text-transform: none;
 }
 
-/* Yes: filled sandstone. Not this time: outlined, the quieter choice. */
+/* Accept: filled, leads. Decline: neutral outline, no brand color (his call, 26 Nov 2026). */
 .home-request-detail__actions .btn--primary {
   background: var(--brick);
   border-color: var(--brick);
@@ -360,12 +378,12 @@
 
 .home-request-detail__actions .btn--secondary {
   background: transparent;
-  border: 1.5px solid var(--brick);
-  color: var(--brick);
+  border: 1.5px solid var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .home-request-detail__actions .btn--secondary:hover:not(:disabled) {
-  background: #f6e3cf;
+  background: rgba(58, 42, 30, 0.06);
 }
 
 .home-request-detail__actions > a.btn:only-child {
@@ -397,8 +415,7 @@
     padding-left: 12px;
   }
 
-  .home-request__new,
-  .home-request__said-yes {
+  .home-request__new {
     padding: 3px 8px;
   }
 

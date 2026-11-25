@@ -114,10 +114,10 @@ export function BrokerAskCards({ state }: { state: ReturnType<typeof useBrokerAs
             ) : (
               <div className="broker-card__actions">
                 <Button type="button" variant="primary" disabled={busy === a.askId} onClick={() => void answer(a, "accept")}>
-                  {busy === a.askId ? "…" : a.kind === "referral" ? "Yes, I'll refer" : "Yes, I'm interested"}
+                  {busy === a.askId ? "…" : "Accept"}
                 </Button>
                 <Button type="button" variant="secondary" disabled={busy === a.askId} onClick={() => void answer(a, "decline")}>
-                  Not this time
+                  Decline
                 </Button>
               </div>
             )}
@@ -142,7 +142,7 @@ export function BrokerAsksSection({ enabled }: { enabled: boolean }) {
       <h2 id="broker-asks-title" className="broker-section__title">
         Requests for you
       </h2>
-      <p className="broker-section__sub">Alma Mater asked you on a member&apos;s behalf. Not this time? No one is told.</p>
+      <p className="broker-section__sub">Alma Mater asked you on a member&apos;s behalf. Decline and no one is told.</p>
       <BrokerAskCards state={state} />
     </section>
   );

@@ -5,7 +5,7 @@ import { brokerKeys, fetchBrokerAsks, type BrokerAsk } from "../lib/broker";
 import { queryKeys } from "../lib/queryKeys";
 
 /**
- * Brokered asks waiting for the viewer, with Yes / Not this time. Shared by Notifications and Home's
+ * Brokered asks waiting for the viewer, with Accept / Decline. Shared by Notifications and Home's
  * Requests for you. The asker's "seen" step: on Notifications (full cards) showing an ask counts as
  * seeing it; Home shows a compact row first, so there an ask is seen when it is opened (`markSeen`).
  */

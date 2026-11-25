@@ -133,10 +133,10 @@ describe("Home redesign", () => {
       "Referral for Data Analyst at Sample Logistics",
       "Could you give feedback on our pitch deck before we raise our seed round next month?",
     ]);
-    expect(rows[0]!.querySelector(".home-request__meta")?.textContent).toBe("Asha Rao · IIT (BHU) Varanasi '25");
-    expect(rows[1]!.querySelector(".home-request__meta")?.textContent).toBe("Priya Kapoor · IIT Bombay '22");
+    expect(rows[0]!.querySelector(".home-request__meta")?.textContent).toBe("Asha Rao · IIT (BHU) Varanasi");
+    expect(rows[1]!.querySelector(".home-request__meta")?.textContent).toBe("Priya Kapoor · IIT Bombay");
     await waitFor(() => expect(within(panel).getAllByText("New")).toHaveLength(2));
-    expect(within(panel).queryByRole("button", { name: "Yes, I'll refer" })).toBeNull();
+    expect(within(panel).queryByRole("button", { name: "Accept" })).toBeNull();
     expect(within(panel).queryByText("Nothing waiting for you right now.")).toBeNull();
     expect(apiPost).not.toHaveBeenCalledWith("/v1/broker-asks/a1/seen");
   });
@@ -146,8 +146,7 @@ describe("Home redesign", () => {
     wrap(<Home />);
     const panel = await panelOf();
     fireEvent.click(await within(panel).findByRole("button", { name: /Referral for Data Analyst at Sample Logistics/ }));
-    const detail = within(panel).getByRole("article", { name: "Referral for Data Analyst at Sample Logistics" });
-    expect(within(detail).getByText("Referral request")).toBeTruthy();
+    const detail = within(panel).getByRole("dialog", { name: "Referral for Data Analyst at Sample Logistics" });
     expect(within(detail).getByRole("link", { name: "Asha Rao" }).getAttribute("href")).toBe("/profiles/p5");
     expect(within(detail).getByText("IIT (BHU) Varanasi · Class of 2025")).toBeTruthy();
     expect(within(detail).getByText("Asha's note")).toBeTruthy();
@@ -165,7 +164,7 @@ describe("Home redesign", () => {
     expect(within(row).queryByText("New")).toBeNull();
     // Yes answers the ask.
     fireEvent.click(row);
-    fireEvent.click(within(panel).getByRole("button", { name: "Yes, I'll refer" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/v1/broker-asks/a1/respond", { action: "accept" }));
   });
 
@@ -186,16 +185,15 @@ describe("Home redesign", () => {
     wrap(<Home />);
     const panel = await panelOf();
     fireEvent.click(await within(panel).findByRole("button", { name: /Could you give feedback/ }));
-    const detail = within(panel).getByRole("article");
-    expect(within(detail).getByText("Starting up")).toBeTruthy();
+    const detail = within(panel).getByRole("dialog");
     expect(within(detail).getByText("IIT Bombay · Class of 2022")).toBeTruthy();
     // The question is the title, so it isn't repeated as a note.
     expect(within(detail).queryByText("Priya's note")).toBeNull();
     expect(within(detail).getByText("Saying yes shares your email with Priya, so they can reach you.")).toBeTruthy();
-    fireEvent.click(within(detail).getByRole("button", { name: "Yes, I'll help" }));
+    fireEvent.click(within(detail).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/v1/contact-requests/i1", { action: "accept" }));
     expect((await within(panel).findByRole("status")).textContent).toBe("You said yes to Priya Kapoor. They can reach you by email now.");
-    expect(within(panel).queryByRole("article")).toBeNull();
+    expect(within(panel).queryByRole("dialog", { name: /Could you give feedback/ })).toBeNull();
     expect(await within(panel).findByText("Nothing waiting for you right now.")).toBeTruthy();
   });
 

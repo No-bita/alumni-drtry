@@ -20,8 +20,8 @@ export const HOME_REQUESTS_MAX = 5;
 
 /**
  * Home's "Requests for you": what other members want from you, as one list. Brokered referral and
- * hiring asks, and direct reachouts. Each is a compact row (who, what, New) that opens in place into
- * the full request: their note, the job description, what saying yes means, and Yes / Not this time.
+ * hiring asks, and direct reachouts. Each is a compact row (who, what, New) that opens as a pop-up
+ * (like the forms): their note, the job description, what saying yes means, and Accept / Decline.
  * Replies to your own Wall posts stay in Notifications. Empty: one short line, the column stays.
  */
 export function HomeRequestsPanel() {
@@ -67,6 +67,13 @@ export function HomeRequestsPanel() {
   const settled = asks.settled && (inbox.isSuccess || inbox.isError);
   const shown = rows.slice(0, HOME_REQUESTS_MAX);
   const more = rows.length - shown.length;
+  const openRow = rows.find((r) => r.key === openKey) ?? null;
+
+  const closeDialog = () => {
+    const key = openKey;
+    setOpenKey(null);
+    if (key) setFocusKey(key);
+  };
 
   const open = (row: RequestRow) => {
     setOpenKey(row.key);
@@ -127,22 +134,7 @@ export function HomeRequestsPanel() {
           <ul className="home-requests__list" aria-label="Requests for you">
             {shown.map((row) => (
               <li key={row.key}>
-                {openKey === row.key ? (
-                  <RequestDetail
-                    row={row}
-                    busy={row.source === "ask" ? asks.busy === row.ask?.askId : noteBusy === row.key}
-                    error={row.source === "ask" ? (asks.errors[row.ask!.askId] ?? "") : (noteErrors[row.key] ?? "")}
-                    onClose={() => {
-                      setOpenKey(null);
-                      setFocusKey(row.key);
-                    }}
-                    onAnswer={(action) =>
-                      row.ask ? void asks.answer(row.ask, action).then(() => action === "decline" && setOpenKey(null)) : void answerNote(row, action)
-                    }
-                  />
-                ) : (
-                  <RequestRowButton row={row} isNew={isNew(row)} focus={focusKey === row.key} onOpen={() => open(row)} />
-                )}
+                <RequestRowButton row={row} isNew={isNew(row)} focus={focusKey === row.key} onOpen={() => open(row)} />
               </li>
             ))}
           </ul>
@@ -153,6 +145,25 @@ export function HomeRequestsPanel() {
           ) : null}
         </>
       )}
+      {openRow ? (
+        <div
+          className="home-request-dialog-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeDialog();
+          }}
+        >
+          <RequestDetail
+            row={openRow}
+            busy={openRow.source === "ask" ? asks.busy === openRow.ask?.askId : noteBusy === openRow.key}
+            error={openRow.source === "ask" ? (asks.errors[openRow.ask!.askId] ?? "") : (noteErrors[openRow.key] ?? "")}
+            onClose={closeDialog}
+            onAnswer={(action) =>
+              openRow.ask ? void asks.answer(openRow.ask, action).then(() => action === "decline" && closeDialog()) : void answerNote(openRow, action)
+            }
+          />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -169,7 +180,7 @@ function RequestRowButton({ row, isNew, focus, onOpen }: { row: RequestRow; isNe
         <span className="home-request__title">{row.title}</span>
         <span className="home-request__meta">{rowMeta(row.person)}</span>
       </span>
-      {isNew ? <span className="home-request__new">New</span> : !row.pending ? <span className="home-request__said-yes">You said yes</span> : null}
+      {isNew ? <span className="home-request__new">New</span> : null}
       <span className="home-request__chevron" aria-hidden>
         <LineIcon name="chevron" size={18} />
       </span>
@@ -198,21 +209,21 @@ function RequestDetail({
   const titleId = `request-${row.key.replace(":", "-")}`;
   const who = personLine(row.person);
   const ask = row.ask;
-  const yesLabel = ask ? (ask.kind === "referral" ? "Yes, I'll refer" : "Yes, I'm interested") : "Yes, I'll help";
   const consequence = ask
     ? "Your contact details stay private unless you choose to share them."
     : `Saying yes shares your email with ${first}, so they can reach you.`;
 
   return (
-    <article
-      className="home-request-detail"
+    <div
+      className="home-request-detail home-request-detail--dialog"
+      role="dialog"
+      aria-modal="true"
       aria-labelledby={titleId}
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
       <div className="home-request-detail__top">
-        <span className="home-request-detail__label">{row.label}</span>
         <button type="button" className="home-request-detail__close" aria-label="Close request" onClick={onClose}>
           ×
         </button>
@@ -275,10 +286,10 @@ function RequestDetail({
           </p>
           <div className="home-request-detail__actions">
             <Button type="button" variant="primary" disabled={busy} onClick={() => onAnswer("accept")}>
-              {busy ? "…" : yesLabel}
+              {busy ? "…" : "Accept"}
             </Button>
             <Button type="button" variant="secondary" disabled={busy} onClick={() => onAnswer("decline")}>
-              Not this time
+              Decline
             </Button>
           </div>
         </>
@@ -288,6 +299,6 @@ function RequestDetail({
           {error}
         </p>
       ) : null}
-    </article>
+    </div>
   );
 }

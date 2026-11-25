@@ -413,7 +413,7 @@ export type NotificationItem =
       source?: string | null;
     }
   | {
-      /** Alma Mater asked you on someone's behalf (Yes / Not this time). */
+      /** Alma Mater asked you on someone's behalf (Accept / Decline). */
       kind: "broker_ask_received";
       id: string;
       occurredAt: string;

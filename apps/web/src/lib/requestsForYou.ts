@@ -1,13 +1,12 @@
 import type { ContactRequestInboxItem } from "../api/client";
 import type { BrokerAsk } from "./broker";
-import { formatBatchYearShort } from "./bulletinPostCardUtils";
 import { EXPERIENCE_BAND_LABELS, JOB_FUNCTION_LABELS } from "./jobFunctions";
 import { ADVICE_TOPIC_LABELS, noteLabel } from "./noteForm";
 
 /**
  * Home's "Requests for you": brokered asks (Alma Mater asked you on someone's behalf) and direct
  * reachouts (someone wrote to you), as one list of rows. Compact by default (who, what, status); a row
- * opens into the full request (their note, links, what saying yes means, Yes / Not this time).
+ * opens into the full request (their note, links, what saying yes means, Accept / Decline).
  */
 export type RequestRow = {
   /** "ask:<askId>" or "note:<contactRequestId>". */
@@ -35,10 +34,9 @@ export function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
 
-/** "Aaryan Shah · IIT (BHU) Varanasi '25" (compact row). */
+/** "Aaryan Shah · IIT (BHU) Varanasi" (compact row; no class year - his call, 26 Nov 2026). */
 export function rowMeta(p: RequestRow["person"]): string {
-  const place = [p.institution, p.batchYear ? formatBatchYearShort(p.batchYear) : null].filter(Boolean).join(" ");
-  return [p.name, place].filter(Boolean).join(" · ");
+  return [p.name, p.institution].filter(Boolean).join(" · ");
 }
 
 /** "IIT (BHU) Varanasi · Class of 2025" (open request). */
