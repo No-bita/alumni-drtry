@@ -112,7 +112,7 @@ describe("Brokered conversations and notifications (requires DB)", () => {
       role: "asker",
       state: "open",
       canSend: true,
-      counterpart: { personId: yes.id },
+      counterpart: { personId: yes.id, institutionName: "IIT (BHU) Varanasi" },
       messages: [],
       limits: { maxChars: BROKER_MESSAGE_MAX_CHARS }
     });
