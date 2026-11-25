@@ -136,6 +136,8 @@ describe("Brokered conversations and notifications (requires DB)", () => {
     for (const p of payloads) expectNoContact(p, asker, yes);
     const sent = (await req("GET", "/v1/contact-requests/sent", asker)).json().requests as Array<{ recipientPersonId: string; recipientContactShared: string | null; brokerRequestId: string | null }>;
     expect(sent.find((s) => s.recipientPersonId === yes.id)).toMatchObject({ recipientContactShared: null, brokerRequestId: requestId });
+    // Profiles and search never say "Accepted your reachout · See their contact" for a brokered yes.
+    expect((await req("GET", `/v1/contact-requests/status?recipientPersonId=${yes.id}`, asker)).json()).toEqual({ yourNote: null });
 
     // Third parties: the helper who declined, the one asked too late, and anyone else.
     for (const other of [decliner, late, stranger]) {

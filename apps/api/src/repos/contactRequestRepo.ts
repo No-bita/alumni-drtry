@@ -433,6 +433,8 @@ export class ContactRequestRepo {
       SELECT DISTINCT ON (recipient_person_id) recipient_person_id, status
       FROM contact_requests
       WHERE sender_person_id = $1 AND recipient_person_id = ANY($2::uuid[])
+        -- A brokered yes isn't a reachout whose contact you can see ("See their contact"): it has a conversation.
+        AND ${NOT_BROKERED_SQL("contact_requests")}
       ORDER BY recipient_person_id, created_at DESC, id DESC
       `,
       [senderPersonId, [...recipientPersonIds]]
