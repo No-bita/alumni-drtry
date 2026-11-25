@@ -1,7 +1,7 @@
 import { api } from "../api/client";
 import type { NoteDetails } from "./noteForm";
 import { assertApiGet } from "./assertApiGet";
-import type { ExperienceBand, JobFunction } from "./jobFunctions";
+import { EXPERIENCE_BAND_LABELS, JOB_FUNCTION_LABELS, type ExperienceBand, type JobFunction } from "./jobFunctions";
 
 /**
  * Brokered requests: say what you need once; Alma Mater asks every eligible alum on your behalf and
@@ -27,8 +27,46 @@ export type BrokerRequest = {
   connectedAt: string | null;
   expiredAt: string | null;
   intentcastId: string | null;
-  connection: { personId: string; fullName: string | null; contactShared: string | null } | null;
+  /** Who said yes: name and profile only. No contact is shared; you talk in the conversation. */
+  connection: { personId: string; fullName: string | null } | null;
+  /** Once connected: the way into your conversation with them. */
+  conversation: BrokerConversationSummary | null;
 };
+
+/** Why a conversation takes no new messages. */
+export type BrokerReadOnlyReason = "closed_by_you" | "closed_by_them" | "inactive" | "limit" | "unavailable";
+
+/** On list cards: is the conversation open, and how many messages you haven't read. */
+export type BrokerConversationSummary = {
+  state: "open" | "read_only";
+  readOnlyReason: BrokerReadOnlyReason | null;
+  unreadCount: number;
+  messageCount: number;
+  lastMessageAt: string | null;
+};
+
+/** GET /v1/broker-requests/:id/conversation: the asker and the helper who said yes, nobody else. */
+export type BrokerConversation = BrokerConversationSummary & {
+  requestId: string;
+  role: "asker" | "helper";
+  counterpart: { personId: string; fullName: string | null; departmentCode: string | null; batchYear: number | null };
+  request: {
+    kind: BrokerKind;
+    company: string;
+    jobFunction: JobFunction;
+    experienceBand: ExperienceBand | null;
+    roleTitle: string | null;
+    jobUrl: string | null;
+    message: string;
+    details: NoteDetails | null;
+  };
+  readOnlyAt: string | null;
+  canSend: boolean;
+  limits: { maxChars: number; maxUnanswered: number; inactiveDays: number; maxMessages: number };
+  messages: BrokerMessage[];
+};
+
+export type BrokerMessage = { id: string; mine: boolean; body: string; createdAt: string };
 
 /** GET /v1/broker-asks: asks waiting for the viewer, and the ones they said yes to. */
 export type BrokerAsk = {
@@ -48,7 +86,8 @@ export type BrokerAsk = {
   message: string;
   details: NoteDetails | null;
   asker: { personId: string; fullName: string | null; institutionName: string | null; batchYear: number | null; departmentCode: string | null };
-  askerContact: string | null;
+  /** Once you said yes: the way into your conversation with the asker. */
+  conversation: BrokerConversationSummary | null;
 };
 
 export const brokerKeys = {
@@ -56,6 +95,7 @@ export const brokerKeys = {
   requests: () => ["broker", "requests"] as const,
   asks: () => ["broker", "asks"] as const,
   companies: () => ["broker", "referral-companies"] as const,
+  conversation: (requestId: string) => ["broker", "conversation", requestId] as const,
 };
 
 export async function fetchBrokerRequests(signal: AbortSignal): Promise<BrokerRequest[]> {
@@ -76,6 +116,61 @@ export function referralEligible(company: string, signal?: AbortSignal) {
 
 export function hiringEligible(jobFunction: JobFunction, experience: ExperienceBand, signal?: AbortSignal) {
   return api.get<{ count: number }>(`/v1/broker-requests/hiring-eligible?jobFunction=${jobFunction}&experience=${experience}`, { signal });
+}
+
+export async function fetchBrokerConversation(requestId: string, signal: AbortSignal): Promise<BrokerConversation> {
+  return (await assertApiGet<{ conversation: BrokerConversation }>(`/v1/broker-requests/${requestId}/conversation`, signal)).conversation;
+}
+
+export function sendBrokerMessage(requestId: string, body: string) {
+  return api.post<{ message: BrokerMessage }>(`/v1/broker-requests/${requestId}/conversation/messages`, { body });
+}
+
+export function markBrokerConversationRead(requestId: string) {
+  return api.post(`/v1/broker-requests/${requestId}/conversation/read`, {});
+}
+
+export function closeBrokerConversation(requestId: string) {
+  return api.post(`/v1/broker-requests/${requestId}/conversation/close`, {});
+}
+
+/** Where the conversation for a connected request lives. */
+export function conversationPath(requestId: string): string {
+  return `/requests/${requestId}/conversation`;
+}
+
+/** Refresh while the conversation is open (new messages arrive without a reload). */
+export const BROKER_CONVERSATION_POLL_MS = 15_000;
+
+/** Why it's read-only, in the broker UI's wording. */
+export function readOnlyLabel(reason: BrokerReadOnlyReason, name: string, inactiveDays: number): string {
+  switch (reason) {
+    case "closed_by_you":
+      return "You closed this conversation. You can still read it.";
+    case "closed_by_them":
+      return `${name} closed this conversation. You can still read it.`;
+    case "inactive":
+      return `This conversation went quiet for ${inactiveDays} days, so it's read-only now.`;
+    case "limit":
+      return "This conversation reached its message limit, so it's read-only now.";
+    case "unavailable":
+      return `${name} is no longer on Alma Mater.`;
+  }
+}
+
+/** "Message Vikram" / "2 new messages" on a card. */
+export function conversationLinkLabel(c: BrokerConversationSummary, firstName: string): string {
+  if (c.unreadCount > 0) return c.unreadCount === 1 ? "1 new message" : `${c.unreadCount} new messages`;
+  if (c.state === "read_only" || c.messageCount > 0) return "Open conversation";
+  return `Message ${firstName}`;
+}
+
+/** "Referral · Swiggy · Product Manager" / "Hiring · Product role · 3–7 yrs". */
+export function brokerRequestTitle(r: Pick<BrokerRequest, "kind" | "company" | "roleTitle" | "jobFunction" | "experienceBand">): string {
+  if (r.kind === "referral") return ["Referral", r.company, r.roleTitle].filter(Boolean).join(" · ");
+  return ["Hiring", r.roleTitle || `${JOB_FUNCTION_LABELS[r.jobFunction]} role`, r.experienceBand ? EXPERIENCE_BAND_LABELS[r.experienceBand] : null]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** "6 alumni" / "1 alum". */

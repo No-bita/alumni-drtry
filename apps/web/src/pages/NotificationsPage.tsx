@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isShownNotification, useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
@@ -16,6 +17,22 @@ export function NotificationsPage() {
   const markAllSeen = useMarkAllNotificationsSeen();
   // Paused kinds (messages, Cities notes) stay hidden, same as the quick-view sheet.
   const items = (listQuery.data?.items ?? []).filter(isShownNotification);
+
+  // Links like /notifications#requests-for-you land on that section once it has loaded (the router
+  // doesn't scroll to a hash, and the sections render after their data arrives).
+  useEffect(() => {
+    const id = location.hash.slice(1);
+    if (!id) return undefined;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const el = document.getElementById(id);
+      if (el || ++tries >= 30) {
+        window.clearInterval(timer);
+        el?.scrollIntoView?.({ block: "start" });
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [location.hash, location.key]);
 
   return (
     <main className="notifications-page">

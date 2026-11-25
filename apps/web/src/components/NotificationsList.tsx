@@ -8,6 +8,7 @@ import { trackBetaUsageEvent } from "../lib/betaAnalytics";
 import { queryKeys } from "../lib/queryKeys";
 import { HELP_KIND_LABELS, cityNoteKindLabel } from "../lib/cities";
 import { noteLabel } from "../lib/noteForm";
+import { conversationPath } from "../lib/broker";
 import { Button } from "./Button";
 import { NoteBody } from "./NoteBody";
 
@@ -50,6 +51,13 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
   const handleItemActivate = (item: NotificationItem) => {
     trackBetaUsageEvent("notification_item_clicked", { kind: item.kind, id: item.id });
     onNavigate?.();
+
+    // A yes or a new message opens that request's conversation directly, even from the quick view:
+    // the inbox has nothing more to show for it.
+    if (item.kind === "broker_request_connected" || item.kind === "broker_message_received") {
+      navigate(conversationPath(item.requestId));
+      return;
+    }
 
     if (activationTarget === "inbox") {
       navigate("/notifications");
@@ -232,31 +240,7 @@ function NotificationListItem({
     case "contact_request_resolved": {
       const name = displayName(item.recipientFullName);
       const outcomeLabel = item.outcome === "accepted" ? "accepted" : "declined";
-      if (item.source === "referral_request" || item.source === "hiring_request") {
-        // A brokered connection: Alma Mater found this person for you.
-        const said = item.source === "referral_request" ? "said yes to your referral request" : "is interested in your role";
-        return (
-          <>
-            <button
-              type="button"
-              className="notifications-page__item-activate"
-              onClick={onActivate}
-              aria-label={inSheet ? `Open inbox: ${name} ${said}` : `Open profile of ${name}`}
-            />
-            <ClickableNotificationBody
-              title={
-                <>
-                  <ProfileName personId={item.recipientPersonId} name={name} inSheet={inSheet} /> {said}
-                </>
-              }
-              preview="You're connected. Their contact is under Your requests."
-            />
-            <time className="notifications-page__item-time" dateTime={item.occurredAt}>
-              {timeLabel}
-            </time>
-          </>
-        );
-      }
+      // A brokered yes arrives as broker_request_connected (with its conversation), never here.
       return (
         <>
           <button
@@ -396,6 +380,57 @@ function NotificationListItem({
         </>
       );
     }
+    case "broker_request_connected": {
+      const name = shortName(displayName(item.helperFullName));
+      const said = item.requestKind === "referral" ? `said yes to your referral request at ${item.company}` : "is interested in your role";
+      return (
+        <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={`Open conversation: ${name} ${said}`}
+          />
+          <ClickableNotificationBody
+            title={
+              <>
+                <ProfileName personId={item.helperPersonId} name={name} inSheet={inSheet} /> {said}
+              </>
+            }
+            preview="You're connected. Message them here; contact details stay private unless one of you shares them."
+          />
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
+    case "broker_message_received": {
+      const name = shortName(displayName(item.counterpartFullName));
+      const about = item.requestKind === "referral" ? `about the referral at ${item.company}` : "about the hiring request";
+      const sent = item.unreadCount > 1 ? `sent you ${item.unreadCount} messages` : "sent you a message";
+      return (
+        <>
+          <button
+            type="button"
+            className="notifications-page__item-activate"
+            onClick={onActivate}
+            aria-label={`Open conversation with ${name}`}
+          />
+          <ClickableNotificationBody
+            title={
+              <>
+                <ProfileName personId={item.counterpartPersonId} name={name} inSheet={inSheet} /> {sent} {about}
+              </>
+            }
+            preview={item.lastMessagePreview}
+          />
+          <time className="notifications-page__item-time" dateTime={item.occurredAt}>
+            {timeLabel}
+          </time>
+        </>
+      );
+    }
     case "broker_request_expired": {
       const what = item.requestKind === "referral" ? `your referral request at ${item.company}` : "your hiring request";
       return (
@@ -451,6 +486,7 @@ function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
       );
     case "broker_ask_received":
     case "broker_request_expired":
+    case "broker_request_connected":
       return (
         <span className="notifications-page__kind-tile notifications-page__kind-tile--request" aria-hidden="true">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -478,6 +514,7 @@ function NotificationKindTile({ kind }: { kind: NotificationItem["kind"] }) {
         </span>
       );
     case "connection_thread_reply":
+    case "broker_message_received":
       return (
         <span className="notifications-page__kind-tile notifications-page__kind-tile--message" aria-hidden="true">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

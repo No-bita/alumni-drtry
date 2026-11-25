@@ -375,6 +375,33 @@ export type NotificationItem =
       roleTitle: string | null;
     }
   | {
+      /** Someone said yes to your request: you're connected and can message them (no contact is shared). */
+      kind: "broker_request_connected";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      roleTitle: string | null;
+      helperPersonId: string;
+      helperFullName: string | null;
+    }
+  | {
+      /** A new message in a request's conversation; unseen until you read it (or mark all as seen). */
+      kind: "broker_message_received";
+      id: string;
+      occurredAt: string;
+      unseen: boolean;
+      requestId: string;
+      requestKind: "referral" | "hiring";
+      company: string;
+      counterpartPersonId: string;
+      counterpartFullName: string | null;
+      lastMessagePreview: string;
+      unreadCount: number;
+    }
+  | {
       /** Your request closed after 2 days with no one available. */
       kind: "broker_request_expired";
       id: string;

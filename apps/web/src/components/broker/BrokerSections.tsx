@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { brokerKeys, fetchBrokerRequests, type BrokerRequest } from "../../lib/broker";
+import {
+  brokerKeys,
+  brokerRequestTitle,
+  conversationLinkLabel,
+  conversationPath,
+  fetchBrokerRequests,
+  type BrokerConversationSummary,
+} from "../../lib/broker";
 import { useBrokerAsks } from "../../hooks/useBrokerAsks";
 import { EXPERIENCE_BAND_LABELS, JOB_FUNCTION_LABELS } from "../../lib/jobFunctions";
 import { formatBatchYearShort } from "../../lib/bulletinPostCardUtils";
@@ -9,11 +16,23 @@ import { NoteBody } from "../NoteBody";
 import { BrokerProgress } from "./BrokerProgress";
 import "../../styles/broker.css";
 
-function requestTitle(r: Pick<BrokerRequest, "kind" | "company" | "roleTitle" | "jobFunction" | "experienceBand">): string {
-  if (r.kind === "referral") return ["Referral", r.company, r.roleTitle].filter(Boolean).join(" · ");
-  return ["Hiring", r.roleTitle || `${JOB_FUNCTION_LABELS[r.jobFunction]} role`, r.experienceBand ? EXPERIENCE_BAND_LABELS[r.experienceBand] : null]
-    .filter(Boolean)
-    .join(" · ");
+function firstNameOf(name: string): string {
+  return name.split(/\s+/)[0] || name;
+}
+
+/** The way into a connected request's conversation, with how many messages you haven't read. */
+export function ConversationLink({ requestId, summary, name }: { requestId: string; summary: BrokerConversationSummary; name: string }) {
+  const label = conversationLinkLabel(summary, firstNameOf(name));
+  return (
+    <Link
+      to={conversationPath(requestId)}
+      className={`btn ${summary.unreadCount > 0 ? "btn--primary" : "btn--secondary"} broker-card__convo`}
+      aria-label={summary.unreadCount > 0 ? `${label} from ${name}` : `${label}: conversation with ${name}`}
+    >
+      {label}
+      {summary.unreadCount > 0 ? <span className="broker-card__unread" aria-hidden="true" /> : null}
+    </Link>
+  );
 }
 
 /** "Your requests": the asker's progress for each brokered request. Hidden when there are none. */
@@ -28,16 +47,23 @@ export function BrokerRequestsSection({ enabled }: { enabled: boolean }) {
       </h2>
       <p className="broker-section__sub">We ask alumni for you. You only hear when someone says yes.</p>
       {requests.map((r) => (
-        <article key={r.id} className="broker-card" aria-label={requestTitle(r)}>
+        <article key={r.id} className="broker-card" aria-label={brokerRequestTitle(r)}>
           <div className="broker-card__head">
-            <p className="broker-card__title">{requestTitle(r)}</p>
+            <p className="broker-card__title">{brokerRequestTitle(r)}</p>
           </div>
           <BrokerProgress request={r} />
           {r.status === "connected" && r.connection ? (
-            <p className="broker-card__contact">
-              <Link to={`/profiles/${r.connection.personId}`}>{r.connection.fullName?.trim() || "Your contact"}</Link>
-              {r.connection.contactShared ? <> · {r.connection.contactShared}</> : null}
-            </p>
+            <>
+              <p className="broker-card__contact">
+                <Link to={`/profiles/${r.connection.personId}`}>{r.connection.fullName?.trim() || "An alum"}</Link>
+                {" "}· Message them here. Contact details stay private unless one of you shares them.
+              </p>
+              {r.conversation ? (
+                <div className="broker-card__actions">
+                  <ConversationLink requestId={r.id} summary={r.conversation} name={r.connection.fullName?.trim() || "them"} />
+                </div>
+              ) : null}
+            </>
           ) : null}
         </article>
       ))}
@@ -75,9 +101,16 @@ export function BrokerAskCards({ state }: { state: ReturnType<typeof useBrokerAs
               </p>
             ) : null}
             {a.status === "accepted" ? (
-              <p className="broker-card__contact" role="status">
-                You said yes. {name} has your contact{a.askerContact ? <>, and you can reach them at {a.askerContact}</> : null}.
-              </p>
+              <>
+                <p className="broker-card__contact" role="status">
+                  You said yes. We&apos;ve told {name}. Talk it through here; your contact details stay private unless you share them.
+                </p>
+                {a.conversation ? (
+                  <div className="broker-card__actions">
+                    <ConversationLink requestId={a.requestId} summary={a.conversation} name={name} />
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="broker-card__actions">
                 <Button type="button" variant="primary" disabled={busy === a.askId} onClick={() => void answer(a, "accept")}>
