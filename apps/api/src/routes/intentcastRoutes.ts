@@ -73,6 +73,8 @@ export const FEED_PAGE_MAX = 48;
 
 const feedQuerySchema = z.object({
   scope: z.literal("home_wall").optional(),
+  /** With scope=home_wall: "Opportunities for you" (ranked for the viewer, own posts left out). */
+  sort: z.literal("for_you").optional(),
   // Anti-scraping: clamped to FEED_PAGE_MAX (the web asks for 48 at most).
   limit: z.coerce.number().int().min(1).max(100).default(20).transform((v) => Math.min(v, FEED_PAGE_MAX)),
   offset: z.coerce.number().int().min(0).default(0),
@@ -181,6 +183,10 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Home Wall scope requires the open shared feed.");
     }
 
+    if (parsed.data.sort && !parsed.data.scope) {
+      throw new AppError(400, "INTENTCAST_BAD_REQUEST", "sort=for_you requires scope=home_wall.");
+    }
+
     if (parsed.data.authorHistory && !parsed.data.mine) {
       throw new AppError(
         400,
@@ -200,6 +206,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       parsed.data.offset,
       {
         homeWall: parsed.data.scope === "home_wall",
+        forYou: parsed.data.sort === "for_you",
         category: parsed.data.category,
         status: parsed.data.status,
         mine: parsed.data.mine,

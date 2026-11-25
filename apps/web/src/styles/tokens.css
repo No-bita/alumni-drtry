@@ -143,18 +143,6 @@
 
   /* Nav */
   --nav-height: 78px;
-  /** Phone bottom tab bar (signed-in shell ≤639px); floating pill: 76px tall + 16px bottom gap; keep in sync with `.nav-bottom-dock`. */
-  --nav-bottom-dock-height: 92px;
-  /** Signed-in shell: primary links live in a fixed left rail; main column uses top toolbar only. */
-  --nav-sidebar-width: 264px;
-  /** Left rail — Chunar sandstone field + cream typography */
-  --nav-sidebar-bg: var(--palette-primary);
-  --nav-sidebar-text: rgba(248, 242, 231, 0.94);
-  --nav-sidebar-text-muted: rgba(248, 242, 231, 0.74);
-  --nav-sidebar-active-pill: rgba(255, 255, 255, 0.14);
-  --nav-sidebar-active-ring: rgba(255, 255, 255, 0.22);
-  --nav-sidebar-border: rgba(34, 16, 8, 0.35);
-  --nav-sidebar-link-hover-bg: rgba(255, 255, 255, 0.1);
 
   /* Progress bar */
   --progress-height: 2px;

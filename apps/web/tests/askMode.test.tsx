@@ -169,13 +169,22 @@ describe("Ask mode", () => {
     expect(bulletinOpen).toHaveBeenCalledWith({ category: "careers", headline: "referral for PM at Razorpay" });
   });
 
-  it("asks for the missing city on a vague relocation question", async () => {
+  it("asks for the missing company on a vague referral question", async () => {
     post.mockResolvedValue({
-      data: { intent: { ...intent, category: "relocation", company: null, role: null }, needsDetail: true, results: [], fallback: null },
+      data: { intent: { ...intent, company: null, role: null }, needsDetail: true, results: [], fallback: null },
+    });
+    mount("/search?ask=need+a+referral");
+    expect(await screen.findByText("Which company do you want a referral at?")).toBeTruthy();
+    expect(screen.getByLabelText("Company")).toBeTruthy();
+  });
+
+  it("a question with no kind of help and nothing named asks for more, generally (Moving cities is gone)", async () => {
+    post.mockResolvedValue({
+      data: { intent: { ...intent, category: null, company: null, role: null }, needsDetail: true, results: [], fallback: null },
     });
     mount("/search?ask=Moving+to+a+new+city");
-    expect(await screen.findByText("Which city are you moving to?")).toBeTruthy();
-    expect(screen.getByLabelText("City")).toBeTruthy();
+    expect(await screen.findByText("Tell us a bit more: what kind of help, and a company, role or city.")).toBeTruthy();
+    expect(screen.queryByText("Which city are you moving to?")).toBeNull();
   });
 
   it("reach out on a referral question opens the referral form, prefilled, then previews and sends the fields", async () => {
@@ -300,24 +309,24 @@ describe("Ask mode", () => {
 });
 
 describe("MatchPage — filling a missing field", () => {
-  it("after saving a city, the chip shows the city instead of reopening empty", async () => {
-    const vague = { ...intent, category: "relocation", company: null, role: null };
+  it("after saving a company, the chip shows the company instead of reopening empty", async () => {
+    const vague = { ...intent, company: null, role: null };
     let resolveSecond: (v: unknown) => void = () => {};
     post
       .mockResolvedValueOnce({ data: { intent: vague, needsDetail: true, results: [], fallback: null } })
       .mockImplementationOnce(() => new Promise((r) => (resolveSecond = r)));
-    mount("/search?ask=Moving+to+a+new+city");
-    const cityInput = await screen.findByLabelText("City");
-    fireEvent.change(cityInput, { target: { value: "Pune" } });
+    mount("/search?ask=need+a+referral");
+    const companyInput = await screen.findByLabelText("Company");
+    fireEvent.change(companyInput, { target: { value: "Swiggy" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     // While the new request is in flight, the old needsDetail response must not reopen the chip.
-    await waitFor(() => expect(screen.getByTestId("search").textContent).toContain("city=Pune"));
-    expect(screen.queryByLabelText("City")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toContain("company=Swiggy"));
+    expect(screen.queryByLabelText("Company")).toBeNull();
     resolveSecond({
-      data: { intent: { ...vague, city: "Pune", country: "India" }, needsDetail: false, results: [], fallback: "post_bulletin" },
+      data: { intent: { ...vague, company: "Swiggy" }, needsDetail: false, results: [], fallback: "post_bulletin" },
     });
-    expect(await screen.findByRole("button", { name: "City: Pune. Edit" })).toBeTruthy();
-    expect(screen.queryByLabelText("City")).toBeNull();
+    expect(await screen.findByRole("button", { name: "Company: Swiggy. Edit" })).toBeTruthy();
+    expect(screen.queryByLabelText("Company")).toBeNull();
   });
 });
 

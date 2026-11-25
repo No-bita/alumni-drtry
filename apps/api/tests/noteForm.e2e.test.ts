@@ -85,12 +85,12 @@ describe("note form rules (integration, local test database only)", () => {
   });
 
   it("advice maps its topic to the category; 'other' has none; with no source, no category", async () => {
-    await send(recipients[1]!, { note: adviceNote({ topic: "relocation" }), source: "careers" });
+    await send(recipients[1]!, { note: adviceNote({ topic: "interview_prep" }), source: "careers" });
     await send(recipients[2]!, { note: adviceNote({ topic: "other" }), source: "careers" });
     await send(recipients[3]!, { note: adviceNote({ topic: "career_switch" }) });
     const cat = async (r: Who) =>
       (await db.query<{ source_category: string | null }>(`SELECT source_category FROM contact_requests WHERE sender_person_id = $1 AND recipient_person_id = $2`, [sender.personId, r.personId])).rows[0]!.source_category;
-    expect(await cat(recipients[1]!)).toBe("relocation");
+    expect(await cat(recipients[1]!)).toBe("interview_prep");
     expect(await cat(recipients[2]!)).toBeNull();
     expect(await cat(recipients[3]!)).toBeNull();
   });

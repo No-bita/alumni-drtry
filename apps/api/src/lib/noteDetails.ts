@@ -13,14 +13,15 @@ export const NOTE_QUESTION_MAX = 1000;
 export const NOTE_SHORT_FIELD_MAX = 120;
 export const NOTE_URL_MAX = 500;
 
-export const ADVICE_TOPICS = ["interview_prep", "career_switch", "higher_studies", "relocation", "founder_advice", "other"] as const;
+/** Topics a new advice note can pick. "relocation" (Moving cities) left with Cities (2026-11-25); notes
+ * already sent keep their stored message text. */
+export const ADVICE_TOPICS = ["interview_prep", "career_switch", "higher_studies", "founder_advice", "other"] as const;
 export type AdviceTopic = (typeof ADVICE_TOPICS)[number];
 
 export const ADVICE_TOPIC_LABELS: Record<AdviceTopic, string> = {
   interview_prep: "Interview prep",
   career_switch: "Career switch",
   higher_studies: "Higher studies",
-  relocation: "Moving cities",
   founder_advice: "Starting up",
   other: "Other"
 };

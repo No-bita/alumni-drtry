@@ -36,13 +36,12 @@ describe("match URL state", () => {
 describe("match helpers", () => {
   it("maps categories to bulletin categories", () => {
     expect(bulletinCategoryForMatch("referral")).toBe("careers");
-    expect(bulletinCategoryForMatch("relocation")).toBe("relocation");
     expect(bulletinCategoryForMatch("founder_advice")).toBe("startups");
     expect(bulletinCategoryForMatch(null)).toBe("guidance");
   });
 
   it("asks for the missing field by category", () => {
-    expect(needsDetailPrompt("relocation")).toEqual({ title: "Which city are you moving to?", field: "city" });
+    expect(needsDetailPrompt("referral")).toEqual({ title: "Which company do you want a referral at?", field: "company" });
     expect(needsDetailPrompt(null).field).toBeNull();
   });
 });

@@ -13,7 +13,6 @@ import { HomeSentNotesLine } from "../src/components/HomeSentNotesLine";
 import { HomeBrowseRow } from "../src/components/HomeBrowseRow";
 import { HomeOpportunityRail } from "../src/components/HomeOpportunityRail";
 import { HomeFeedbackSection } from "../src/components/HomeFeedbackSection";
-import { HomeToolbarSearch } from "../src/components/HomeToolbarSearch";
 
 function wrap(node: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -96,8 +95,8 @@ describe("The Wall", () => {
     wrap(
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}} categoryCounts={zero} onPost={onPost} />,
     );
-    expect(screen.getByRole("heading", { name: "The Wall" })).toBeTruthy();
-    expect(screen.getByText("Curated opportunities for you")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Opportunities for you" })).toBeTruthy();
+    expect(screen.getByText("Roles, collaborations and other relevant asks from alumni.")).toBeTruthy();
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Post", exact: true }));
@@ -112,10 +111,5 @@ describe("Small lines", () => {
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("href")).toContain("https://wa.me/919137839907");
     expect(screen.getByText(/How can we make this better\?/)).toBeTruthy();
-  });
-  it("top search keeps its accessible label and no placeholder", () => {
-    wrap(<HomeToolbarSearch searchText="" onSearchTextChange={() => {}} onSubmitSearch={() => {}} />);
-    const input = screen.getByLabelText(/Search alumni and companies/);
-    expect(input.getAttribute("placeholder")).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, renderHook, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -14,7 +14,6 @@ import { HomeAskBox } from "../src/components/HomeAskBox";
 import { HomeOpportunityRail } from "../src/components/HomeOpportunityRail";
 import { ReachoutsWaitingCard } from "../src/components/ReachoutsWaitingCard";
 import { YourReachoutsCard } from "../src/components/YourReachoutsCard";
-import { useMinWidth } from "../src/hooks/useMinWidth";
 
 function wrap(node: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -50,7 +49,7 @@ describe("Home search box (Careers style)", () => {
   it("has a search icon, a placeholder and an arrow button that keeps the name Find alumni", () => {
     wrap(<HomeAskBox />);
     const input = screen.getByLabelText("How can Alma Mater help you?");
-    expect(input.getAttribute("placeholder")).toBe("Ask for a referral, advice, or help moving cities…");
+    expect(input.getAttribute("placeholder")).toBe("Ask for a referral, advice, or an intro…");
     const go = screen.getByRole("button", { name: "Find alumni" });
     expect(go.textContent).toBe("");
     expect(go.querySelector("svg")).toBeTruthy();
@@ -87,18 +86,39 @@ describe("Reachout cards", () => {
 
   it("Your reachouts: last three with status; hidden when none were sent", async () => {
     const now = new Date().toISOString();
-    apiGet.mockResolvedValue({
-      requests: [1, 2, 3, 4].map((i) => ({ id: `n${i}`, recipientFullName: `Alum ${i}`, status: i === 1 ? "accepted" : "pending", createdAt: now })),
-    });
+    const notes = [1, 2, 3, 4].map((i) => ({ id: `n${i}`, recipientFullName: `Alum ${i}`, status: i === 1 ? "accepted" : "pending", createdAt: now }));
+    apiGet.mockImplementation(async (path: string) => (path === "/v1/broker-requests" ? { requests: [] } : { requests: notes }));
     wrap(<YourReachoutsCard />);
     const section = (await screen.findByRole("heading", { name: "Your reachouts" })).closest("section")!;
     expect(within(section).getAllByRole("listitem")).toHaveLength(3);
     expect(within(section).getByRole("link", { name: "All" }).getAttribute("href")).toBe("/notifications");
     cleanup();
+    apiGet.mockReset();
     apiGet.mockResolvedValue({ requests: [] });
     const { container } = wrap(<YourReachoutsCard />);
     await vi.waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
     expect(container.textContent).toBe("");
+  });
+
+  it("Your reachouts: requests we're asking around for come first, with where they stand; connected ones show as the accepted note", async () => {
+    const now = new Date().toISOString();
+    const req = (id: string, status: string, extra: Record<string, unknown> = {}) => ({
+      id, kind: "referral", company: `Co ${id}`, jobFunction: "product", experienceBand: null, roleTitle: null, jobUrl: null, status,
+      askedCount: 6, seenCount: 2, createdAt: now, expiresAt: now, firstSeenAt: now, connectedAt: null, expiredAt: null, intentcastId: null, connection: null, ...extra,
+    });
+    apiGet.mockImplementation(async (path: string) =>
+      path === "/v1/broker-requests"
+        ? { requests: [req("a", "open"), req("b", "connected"), req("c", "expired")] }
+        : { requests: [{ id: "n1", recipientFullName: "Alum 1", status: "accepted", createdAt: now }] },
+    );
+    wrap(<YourReachoutsCard />);
+    const section = (await screen.findByRole("heading", { name: "Your reachouts" })).closest("section")!;
+    const items = await within(section).findAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      expect.stringContaining("Referral at Co a2 have seen itAsking"),
+      expect.stringContaining("Referral at Co cClosed: no one was available this timeClosed"),
+      expect.stringContaining("Alum 1"),
+    ]);
   });
 });
 
@@ -117,8 +137,8 @@ describe("The Wall on Home", () => {
 
   it("has an icon header and a short 'Post' button", () => {
     const { container } = rail(3);
-    expect(screen.getByRole("heading", { name: "The Wall" })).toBeTruthy();
-    expect(screen.getByText("Curated opportunities for you")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Opportunities for you" })).toBeTruthy();
+    expect(screen.getByText("Roles, collaborations and other relevant asks from alumni.")).toBeTruthy();
     expect(container.querySelector(".home-ideal__opportunities-header .hub-card__icon svg")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Post", exact: true })).toHaveLength(1);
   });
@@ -135,27 +155,5 @@ describe("The Wall on Home", () => {
     cleanup();
     rail(0);
     expect(screen.queryByText(/Every alum here can see it/)).toBeNull();
-  });
-});
-
-describe("useMinWidth", () => {
-  it("is false without matchMedia, and follows the media query when present", () => {
-    const original = window.matchMedia;
-    try {
-      // @ts-expect-error simulate a browser without matchMedia
-      delete window.matchMedia;
-      expect(renderHook(() => useMinWidth(1200)).result.current).toBe(false);
-
-      let listener: (() => void) | null = null;
-      const mq = { matches: true, addEventListener: (_: string, l: () => void) => { listener = l; }, removeEventListener: () => {} };
-      window.matchMedia = vi.fn(() => mq) as unknown as typeof window.matchMedia;
-      const { result } = renderHook(() => useMinWidth(1200));
-      expect(result.current).toBe(true);
-      mq.matches = false;
-      act(() => listener?.());
-      expect(result.current).toBe(false);
-    } finally {
-      window.matchMedia = original;
-    }
   });
 });

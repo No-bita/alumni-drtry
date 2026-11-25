@@ -29,41 +29,13 @@ body {
   flex-direction: column;
 }
 
-html[data-app-shell="sidebar"] #root {
-  padding-left: var(--nav-sidebar-width);
+/* Signed-in shell: content starts below the fixed top bar (no sidebar or bottom dock). */
+html[data-app-shell="topbar"] #root {
   padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   padding-right: env(safe-area-inset-right, 0px);
 }
 
 @media (max-width: 767px) {
-  html[data-app-shell="sidebar"] {
-    --nav-sidebar-width: 82px;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__logo {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-align: center;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__link-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__link {
-    justify-content: center;
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
   h2,
   .section-headline {
     font-size: clamp(1.5rem, 5.5vw, var(--text-section-headline));
@@ -74,15 +46,6 @@ html[data-app-shell="sidebar"] #root {
 @media (max-width: 639px) {
   :root {
     --page-x: var(--page-x-phone);
-  }
-
-  html[data-app-shell="sidebar"] {
-    --nav-sidebar-width: 0px;
-  }
-
-  html[data-app-shell="sidebar"] #root {
-    padding-left: 0;
-    padding-bottom: calc(var(--nav-bottom-dock-height) + env(safe-area-inset-bottom, 0px));
   }
 }
 

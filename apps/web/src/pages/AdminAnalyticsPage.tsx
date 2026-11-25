@@ -26,7 +26,7 @@ import {
   rate,
   type CitiesMetrics,
 } from "../lib/adminAnalytics";
-import { MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
+import { LEGACY_MATCH_CATEGORY_LABELS, MATCH_CATEGORY_LABELS, isMatchCategory } from "../lib/matchApi";
 import { api, type AdminAllowedEmailsResponse } from "../api/client";
 import { assertApiGet } from "../lib/assertApiGet";
 import { Button } from "../components/Button";
@@ -85,7 +85,7 @@ const SINCE_RELEASE = "Counted from the analytics release onward.";
 
 function categoryLabel(c: string | null): string {
   if (!c) return "No clear kind of help";
-  return isMatchCategory(c) ? MATCH_CATEGORY_LABELS[c] : c;
+  return isMatchCategory(c) ? MATCH_CATEGORY_LABELS[c] : (LEGACY_MATCH_CATEGORY_LABELS[c] ?? c);
 }
 
 function Tile({ label, value, hint, hero = false, info }: { label: string; value: ReactNode; hint?: ReactNode; hero?: boolean; info?: string }) {

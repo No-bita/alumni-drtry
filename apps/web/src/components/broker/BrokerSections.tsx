@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../api/client";
-import { brokerKeys, fetchBrokerAsks, fetchBrokerRequests, type BrokerAsk, type BrokerRequest } from "../../lib/broker";
+import { useQuery } from "@tanstack/react-query";
+import { brokerKeys, fetchBrokerRequests, type BrokerRequest } from "../../lib/broker";
+import { useBrokerAsks } from "../../hooks/useBrokerAsks";
 import { EXPERIENCE_BAND_LABELS, JOB_FUNCTION_LABELS } from "../../lib/jobFunctions";
 import { formatBatchYearShort } from "../../lib/bulletinPostCardUtils";
-import { queryKeys } from "../../lib/queryKeys";
 import { Button } from "../Button";
 import { NoteBody } from "../NoteBody";
 import { BrokerProgress } from "./BrokerProgress";
@@ -47,48 +45,11 @@ export function BrokerRequestsSection({ enabled }: { enabled: boolean }) {
   );
 }
 
-/** "Requests for you": Alma Mater asked you on someone's behalf. Yes connects you; no one is told about a no. */
-export function BrokerAsksSection({ enabled }: { enabled: boolean }) {
-  const queryClient = useQueryClient();
-  const q = useQuery({ queryKey: brokerKeys.asks(), queryFn: ({ signal }) => fetchBrokerAsks(signal), enabled });
-  const asks = useMemo(() => q.data ?? [], [q.data]);
-  const seenSent = useRef(new Set<string>());
-  const [busy, setBusy] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-
-  // Opening the page counts as seeing each new ask (the asker's "seen" step).
-  useEffect(() => {
-    for (const a of asks) {
-      if (a.status !== "asked" || a.seenAt || seenSent.current.has(a.askId)) continue;
-      seenSent.current.add(a.askId);
-      void api.post(`/v1/broker-asks/${a.askId}/seen`);
-    }
-  }, [asks]);
-
-  const answer = async (a: BrokerAsk, action: "accept" | "decline") => {
-    setBusy(a.askId);
-    setErrors((e) => ({ ...e, [a.askId]: "" }));
-    const { error } = await api.post(`/v1/broker-asks/${a.askId}/respond`, { action });
-    setBusy(null);
-    if (error) {
-      setErrors((e) => ({ ...e, [a.askId]: error.message ?? "Couldn't save your answer. Try again." }));
-      if (error.code === "BROKER_ALREADY_HELPED" || error.code === "BROKER_REQUEST_CLOSED") void q.refetch();
-      return;
-    }
-    if (action === "decline") setHidden((h) => new Set(h).add(a.askId));
-    void queryClient.invalidateQueries({ queryKey: brokerKeys.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-  };
-
-  const visible = asks.filter((a) => !hidden.has(a.askId));
-  if (!enabled || visible.length === 0) return null;
+/** The ask cards themselves (no section chrome). */
+export function BrokerAskCards({ state }: { state: ReturnType<typeof useBrokerAsks> }) {
+  const { visible, busy, errors, answer } = state;
   return (
-    <section className="broker-section" id="requests-for-you" aria-labelledby="broker-asks-title">
-      <h2 id="broker-asks-title" className="broker-section__title">
-        Requests for you
-      </h2>
-      <p className="broker-section__sub">Alma Mater asked you on a member&apos;s behalf. Not this time? No one is told.</p>
+    <>
       {visible.map((a) => {
         const name = a.asker.fullName?.trim() || "An alum";
         const who = [a.asker.institutionName, a.asker.batchYear ? formatBatchYearShort(a.asker.batchYear) : null].filter(Boolean).join(" · ");
@@ -135,6 +96,21 @@ export function BrokerAsksSection({ enabled }: { enabled: boolean }) {
           </article>
         );
       })}
+    </>
+  );
+}
+
+/** "Requests for you" on Notifications: Alma Mater asked you on someone's behalf. Yes connects you; no one is told about a no. */
+export function BrokerAsksSection({ enabled }: { enabled: boolean }) {
+  const state = useBrokerAsks(enabled);
+  if (!enabled || state.visible.length === 0) return null;
+  return (
+    <section className="broker-section" id="requests-for-you" aria-labelledby="broker-asks-title">
+      <h2 id="broker-asks-title" className="broker-section__title">
+        Requests for you
+      </h2>
+      <p className="broker-section__sub">Alma Mater asked you on a member&apos;s behalf. Not this time? No one is told.</p>
+      <BrokerAskCards state={state} />
     </section>
   );
 }

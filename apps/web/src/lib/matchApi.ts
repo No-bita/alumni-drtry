@@ -8,7 +8,6 @@ export const MATCH_CATEGORIES = [
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "relocation",
   "founder_advice",
 ] as const;
 export type MatchCategory = (typeof MATCH_CATEGORIES)[number];
@@ -18,8 +17,12 @@ export const MATCH_CATEGORY_LABELS: Record<MatchCategory, string> = {
   interview_prep: "Interview prep",
   career_switch: "Career switch",
   higher_studies: "Higher studies",
-  relocation: "Moving cities",
   founder_advice: "Co-founder / startup advice",
+};
+
+/** Kinds of help Ask no longer recognises; older analytics rows still carry them. */
+export const LEGACY_MATCH_CATEGORY_LABELS: Record<string, string> = {
+  relocation: "Moving cities",
 };
 
 export const MATCH_QUESTION_MIN = 3;
@@ -130,8 +133,6 @@ export function bulletinCategoryForMatch(category: MatchCategory | null): Bullet
     case "interview_prep":
     case "career_switch":
       return "careers";
-    case "relocation":
-      return "relocation";
     case "founder_advice":
       return "startups";
     default:
@@ -171,8 +172,6 @@ export function matchErrorMessage(err: unknown): string {
 /** Copy for the "needs detail" state, by category. */
 export function needsDetailPrompt(category: MatchCategory | null): { title: string; field: MatchOverrideField | null } {
   switch (category) {
-    case "relocation":
-      return { title: "Which city are you moving to?", field: "city" };
     case "referral":
       return { title: "Which company do you want a referral at?", field: "company" };
     case "interview_prep":

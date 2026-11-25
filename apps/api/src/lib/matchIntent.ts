@@ -7,12 +7,13 @@
  * parser is always the fallback.
  */
 
+/** Kinds of help Ask recognises. "relocation" (Moving cities) was removed with Cities (2026-11-25):
+ * questions about a move are now general questions, qualified on the place they name. */
 export const MATCH_CATEGORIES = [
   "referral",
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "relocation",
   "founder_advice"
 ] as const;
 
@@ -304,17 +305,6 @@ const CATEGORY_PATTERNS: Record<MatchCategory, [RegExp, number][]> = {
     [/\b(?:admissions?|applications?) (?:to|for)\b/, 1],
     [/\buniversit(?:y|ies)\b/, 1]
   ],
-  relocation: [
-    [/\brelocat\w*\b/, 2],
-    [/\bmoving to\b/, 1],
-    [/\bmove to\b/, 1],
-    [/\bshift(?:ing)? to\b/, 1],
-    [/\bnew city\b/, 2],
-    [/\bflat(?:mates?)?\b/, 2],
-    [/\bhousing\b/, 2],
-    [/\brent(?:al|ing)?\b/, 1],
-    [/\bsettl(?:e|ing) (?:in|into|down)\b/, 1]
-  ],
   founder_advice: [
     [/\bco-?founders?\b/, 2],
     [/\bstart-?ups?\b/, 2],
@@ -335,8 +325,7 @@ const CATEGORY_PRIORITY: readonly MatchCategory[] = [
   "interview_prep",
   "career_switch",
   "higher_studies",
-  "founder_advice",
-  "relocation"
+  "founder_advice"
 ];
 
 const STOPWORDS = new Set(
@@ -542,8 +531,6 @@ function scoreCategories(lowerText: string): Map<MatchCategory, number> {
   return scores;
 }
 
-const RELOCATION_STRONG = /\b(?:relocat\w*|new city|flat(?:mates?)?|housing|rent(?:al|ing)?|settl(?:e|ing) (?:in|into|down))\b/;
-
 function pickCategory(
   lowerText: string,
   scores: Map<MatchCategory, number>,
@@ -556,13 +543,9 @@ function pickCategory(
     switchRole: string | null;
   }
 ): MatchCategory | null {
-  // "moving to Berlin" is relocation; "moving to product" is a career switch.
-  if (scores.has("relocation") && !ctx.hasPlace && !ctx.hasCountry && ctx.switchRole && !RELOCATION_STRONG.test(lowerText)) {
-    scores.delete("relocation");
-  }
+  // "moving to Berlin" is a move, not a career switch ("moving to product" is): no kind of help.
   if (scores.has("career_switch") && ctx.hasPlace && !ctx.switchRole) {
     scores.delete("career_switch");
-    scores.set("relocation", (scores.get("relocation") ?? 0) + 1);
   }
 
   let best: MatchCategory | null = null;
@@ -579,8 +562,7 @@ function pickCategory(
   // Entity-only questions.
   if (ctx.studyPrograms.length > 0) return "higher_studies";
   if (ctx.switchRole) return "career_switch";
-  // "Who works at Google in Seattle?" is about the company, not a move.
-  if (ctx.hasPlace && !ctx.hasCompany && !ctx.hasRole) return "relocation";
+  // A place alone ("anyone in Pune?") names no kind of help: matching qualifies on the place.
   return null;
 }
 
@@ -616,7 +598,7 @@ export function parseMatchQuestion(question: string, lexicon: MatchLexicon = EMP
     fromRole = switchRoles.fromRole;
     if (!role) role = findRoleInText(lower)?.label ?? null;
     if (fromRole && fromRole === role) fromRole = null;
-  } else if (category !== "relocation" && category !== "higher_studies") {
+  } else if (category !== "higher_studies") {
     role = findRoleInText(lower)?.label ?? null;
   }
 

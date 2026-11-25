@@ -1,5 +1,5 @@
 import type { DbExecutor } from "../db/types.js";
-import { isExperienceBand, isJobFunction, type ExperienceBand, type JobFunction } from "../lib/jobFunctions.js";
+import { experienceBandSql, isExperienceBand, isJobFunction, type ExperienceBand, type JobFunction } from "../lib/jobFunctions.js";
 import { personIsDemoSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 import {
@@ -210,6 +210,11 @@ export interface CreateIntentcastInput {
 
 export interface FeedInput {
   homeWall?: boolean;
+  /**
+   * Home Wall only: "Opportunities for you". Leaves out the viewer's own posts and ranks the rest
+   * in tiers for the viewer (see docs/bulletin-feed-ranking.md).
+   */
+  forYou?: boolean;
   viewerPersonId: string;
   limit: number;
   offset: number;
@@ -383,6 +388,71 @@ function mapResponseRow(row: IntentcastResponseViewRow): IntentcastResponseView 
   };
 }
 
+/** The Wall lane a post shows in: its `[[cat:…]]` prefix, else the stored category (mirrors the web card). */
+const WALL_LANE_SQL = `COALESCE(
+  lower(substring(i.content from '^\\s*\\[\\[cat:([A-Za-z]+)\\]\\]')),
+  CASE i.category WHEN 'hiring' THEN 'hiring' WHEN 'guidance' THEN 'guidance' WHEN 'mentorship' THEN 'careers' ELSE 'startups' END
+)`;
+
+/** Company in a Wall referral ask's first line: "Looking for referral for {role} at {company}". */
+const REFERRAL_ASK_COMPANY_SQL = `lower(btrim(substring(
+  split_part(regexp_replace(i.content, '^\\s*\\[\\[cat:[A-Za-z]+\\]\\]\\s*', ''), E'\\n', 1)
+  from '(?i)^\\s*looking for referral for .* at (.+)$'
+)))`;
+
+/** The viewer's current company (canonical name when merged), for the referral match. */
+export const FOR_YOU_VIEWER_COMPANY_JOIN = `
+      LEFT JOIN LATERAL (
+        SELECT lower(COALESCE(vcanon.name, vorg.name)::text) AS company
+        FROM occupations vo
+        JOIN organizations vorg ON vorg.id = vo.organization_id
+        LEFT JOIN organizations vcanon ON vcanon.id = vorg.canonical_organization_id
+        WHERE vo.person_id = vp.id
+          AND vo.is_current = TRUE
+        ORDER BY vo.start_date DESC NULLS LAST, vo.created_at DESC
+        LIMIT 1
+      ) v_co ON TRUE`;
+
+/** Viewer's Open to includes any of these option ids. */
+function viewerOpenToSql(ids: readonly string[]): string {
+  return `(COALESCE(vp.open_to_preferences -> 'selected', '[]'::jsonb) ?| ARRAY[${ids.map((id) => `'${id}'`).join(", ")}]::text[])`;
+}
+
+/**
+ * "Opportunities for you" tiers, after pins (docs/bulletin-feed-ranking.md):
+ * 0. demo viewer + demo author (seeded demo posts stay visible to demo accounts, as in the default order);
+ * 1. hiring posts matching the viewer's job function and experience band;
+ * 2. asks the viewer can help with: a referral ask at their current company, a lane matching their
+ *    Open to (Guidance = Mentorship or Advising; Startups = Advising or Collaboration), or one of their
+ *    areas appearing in the post as a whole term (not inside a longer word);
+ * 3. everything else. Newest first within each tier.
+ */
+export function forYouOrderSql(): string {
+  const tier1 = `(
+    i.category = 'hiring'
+    AND i.hiring_function IS NOT NULL
+    AND i.hiring_function = vp.job_function
+    AND i.hiring_experience = ${experienceBandSql("vp.batch_year")}
+  )`;
+  const tier2 = `(
+    (v_co.company IS NOT NULL AND ${REFERRAL_ASK_COMPANY_SQL} = v_co.company)
+    OR (${WALL_LANE_SQL} = 'guidance' AND ${viewerOpenToSql(["mentorship", "advising"])})
+    OR (${WALL_LANE_SQL} = 'startups' AND ${viewerOpenToSql(["advising", "collaboration"])})
+    OR EXISTS (
+      SELECT 1
+      FROM person_areas pa
+      WHERE pa.person_id = vp.id
+        AND i.content ~* ('(^|[^[:alnum:]_])' || regexp_replace(pa.label, '([.^$*+?()\\[\\]{}|\\\\-])', '\\\\\\1', 'g') || '([^[:alnum:]_]|$)')
+    )
+  )`;
+  return `CASE
+          WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
+          WHEN ${tier1} THEN 1
+          WHEN ${tier2} THEN 2
+          ELSE 3
+        END ASC,`;
+}
+
 export class IntentcastRepo {
   constructor(private readonly db: DbExecutor) {}
 
@@ -509,6 +579,10 @@ export class IntentcastRepo {
     }
 
     const viewerPh = bind(input.viewerPersonId);
+    const forYou = Boolean(input.forYou && input.homeWall && !input.mine && !input.authorHistory);
+    if (forYou) {
+      where.push(`i.author_person_id <> ${viewerPh}::uuid`);
+    }
     if (input.excludeAuthorSoftDeleted) {
       where.push("i.author_soft_deleted_at IS NULL");
     } else {
@@ -581,18 +655,19 @@ export class IntentcastRepo {
         ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
         LIMIT 1
       ) cur_occ ON TRUE
+      ${forYou ? FOR_YOU_VIEWER_COMPANY_JOIN : ""}
       WHERE ${where.join("\n  AND ")}
       /* Bulletin feed ordering — document in docs/bulletin-feed-ranking.md; update when this changes. */
       ORDER BY
         ${input.homeWall && !input.mine && !input.authorHistory ? 'wall_pinned_at DESC NULLS LAST,' : ''}
-        CASE
+        ${forYou ? forYouOrderSql() : `CASE
           WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
           WHEN (
             (SELECT COUNT(*)::int FROM intentcast_responses r WHERE r.intentcast_id = i.id) = 0
             AND i.created_at >= (now() - interval '48 hours')
           ) THEN 1
           ELSE 2
-        END ASC,
+        END ASC,`}
         i.created_at DESC,
         i.id DESC
       LIMIT ${limitPh}

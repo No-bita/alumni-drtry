@@ -231,13 +231,14 @@ export function HomeOpportunityRail({
     <section className="home-ideal__opportunities ds-surface-card" aria-labelledby="home-opportunities-heading">
       <header className="home-ideal__opportunities-header ds-section-head">
         <span className="hub-card__icon home-wall__icon" aria-hidden>
-          <LineIcon name="wall" />
+          <LineIcon name="bolt" />
         </span>
         <div className="home-ideal__opportunities-headcopy">
+          {/* The Wall, ranked for the viewer (GET /v1/intentcasts?scope=home_wall&sort=for_you). */}
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
-            The Wall
+            Opportunities for you
           </h2>
-          <p className="home-ideal__opportunities-sub">Curated opportunities for you</p>
+          <p className="home-ideal__opportunities-sub">Roles, collaborations and other relevant asks from alumni.</p>
         </div>
         {onPost ? (
           <button

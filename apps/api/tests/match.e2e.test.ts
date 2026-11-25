@@ -126,11 +126,11 @@ describe("POST /v1/match (integration)", () => {
     expect(all).not.toContain(viewer.personId);
   });
 
-  it("relocation: matches on the directory's canonical place", async () => {
+  it("a move (no Moving cities kind of help any more) matches on the directory's canonical place", async () => {
     const body = (await post({ question: `Moving to ${CITY} next month, need a flat` })).json() as MatchBody;
-    expect(body.intent).toMatchObject({ category: "relocation", city: CITY });
+    expect(body.intent).toMatchObject({ category: null, city: CITY });
     expect(body.results.map((r) => r.id)).toEqual([ids.berliner]);
-    expect(body.results[0]!.whyThem).toBe(`Lives in ${CITY}, Germany · Open to coffee chats`);
+    expect(body.results[0]!.whyThem).toBe(`Lives in ${CITY}, Germany`);
   });
 
   it("asks for detail when there is nothing to search on", async () => {
@@ -153,13 +153,13 @@ describe("POST /v1/match (integration)", () => {
     const { parseMatchQuestion } = await import("../src/lib/matchIntent.js");
     const { rankMatches } = await import("../src/lib/matchScore.js");
     const repo = new MatchRepo(db);
-    const question = `Moving to ${CITY}, also used to work at ${ORG_X}`;
+    const question = `Moving to ${CITY} next month`;
     const lexicon = await repo.findLexicon(question);
     const intent = parseMatchQuestion(question, lexicon);
-    expect(intent.category).toBe("relocation");
+    expect(intent.category).toBeNull();
     const query = { ...buildCandidateQuery(intent, lexicon, { viewerPersonId: viewer.personId, viewerIsDemo: false }), candidateLimit: 1 };
     const rows = await repo.findCandidates(query);
-    // ORG_X employees score higher in SQL but cannot qualify for relocation, so they are not fetched.
+    // A place-only question qualifies on the place: ORG_X employees elsewhere are not fetched.
     expect(rows.map((r) => r.personId)).toEqual([ids.berliner]);
     expect(rankMatches(intent, rows).map((m) => m.candidate.personId)).toEqual([ids.berliner]);
   });

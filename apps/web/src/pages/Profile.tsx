@@ -1,9 +1,10 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
+// Cities is out of the product: the "show as new in <city>" prompt is commented out (restore by uncommenting).
+// import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import type { ArrivalPrompt } from "../lib/cities";
+// import type { ArrivalPrompt } from "../lib/cities"; - Cities out of the product
 import { Nav } from "../components/Nav";
 import { ProfilePageView } from "../components/profile/ProfilePageView";
 import { HeaderSheet } from "../components/profile/HeaderSheet";
@@ -37,7 +38,7 @@ export function Profile() {
   const [section, setSection] = useState<ProfileSection | null>(null);
   const [reachingOut, setReachingOut] = useState(false);
   /** Cities: after a city change into a v1 city, offer "New in [city]?" (screen 5). */
-  const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null);
+  // const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null); - Cities out of the product
   /** Cities' "Moved away? Update your city" opened the sheet (for the city-update count). */
   const [fromCities, setFromCities] = useState(false);
   /** Cities sent the member here at the 5-tag cap to make room for city help. */
@@ -234,11 +235,11 @@ export function Profile() {
           country={profile.residenceCountry}
           focusCity={fromCities}
           onClose={closeSheet}
-          onSaved={({ arrivalPrompt: prompt, changedCity }) => {
+          onSaved={({ changedCity }) => {
             if (fromCities && changedCity) trackBetaUsageEvent("cities_city_updated");
             void auth.refetch();
             void savedAndClose();
-            if (prompt) setArrivalPrompt(prompt);
+            // if (prompt) setArrivalPrompt(prompt); - Cities out of the product
           }}
         />
       ) : null}
@@ -344,6 +345,7 @@ export function Profile() {
         />
       ) : null}
 
+      {/* Cities out of the product (restore by uncommenting).
       {arrivalPrompt ? (
         <ArrivalOptInSheet
           placeId={arrivalPrompt.placeId}
@@ -351,7 +353,7 @@ export function Profile() {
           onClose={() => setArrivalPrompt(null)}
           onDone={() => navigate("/intent/location")}
         />
-      ) : null}
+      ) : null} */}
     </>
   );
 }

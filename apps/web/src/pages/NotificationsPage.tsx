@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
+import { isShownNotification, useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "../components/NotificationsList";
 import { SentNotesSection } from "../components/SentNotesSection";
 import { BrokerAsksSection, BrokerRequestsSection } from "../components/broker/BrokerSections";
@@ -14,8 +14,8 @@ export function NotificationsPage() {
   const authenticated = auth.status === "authenticated";
   const listQuery = useNotificationsList(authenticated);
   const markAllSeen = useMarkAllNotificationsSeen();
-  // Messaging paused: message reply notifications stay hidden, same as the quick-view sheet.
-  const items = (listQuery.data?.items ?? []).filter((item) => item.kind !== "connection_thread_reply");
+  // Paused kinds (messages, Cities notes) stay hidden, same as the quick-view sheet.
+  const items = (listQuery.data?.items ?? []).filter(isShownNotification);
 
   return (
     <main className="notifications-page">

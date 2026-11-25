@@ -26,5 +26,3 @@
   }
 }
 
-/* Phone: the top-bar avatar links straight to the profile ("You"), so the account menu is hidden
-   behind .nav__you-menu-slot (see components.css). Desktop keeps the menu. */
