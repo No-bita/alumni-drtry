@@ -59,7 +59,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 
 ## Ask → Match
 
-- `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
+- `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, people, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. `people` (up to 5, same card shape with empty `reasons` and `whyThem`) lists alumni whose name matches: every word of a short question (1–4 words, one at least 3 letters) starts a word of their name, or their full name appears in the question. It never repeats someone in `results`, and `fallback` is `null` when it is non-empty. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
 
 ## Intentcasts And Bulletin
 

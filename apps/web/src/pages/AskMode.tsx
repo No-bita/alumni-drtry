@@ -151,6 +151,25 @@ export function AskMode() {
     });
   };
 
+  const people = data?.people ?? [];
+  const renderCards = (list: MatchResult[], offset: number) => (
+    <ul className="match-page__results match-page__results--cards">
+      {list.map((r, i) => (
+        <li key={r.id}>
+          <SearchResultRow
+            profile={matchResultAsProfile(r)}
+            note={r.yourNote === "pending" || r.yourNote === "accepted" ? r.yourNote : null}
+            onNote={() => {}}
+            onReachOut={() => setReachOutTo({ result: r, rank: offset + i + 1 })}
+            resultIndex={offset + i}
+            detail={r.replyStats ? replyStatsLine(r.replyStats) : null}
+            skipStatusCheck
+          />
+        </li>
+      ))}
+    </ul>
+  );
+
   const displayName = auth.status === "authenticated" ? auth.myProfile?.fullName?.trim() || undefined : undefined;
   const detail = data?.needsDetail ? needsDetailPrompt(data.intent.category) : null;
   // Only auto-open a chip for the response that belongs to this URL — never for the previous
@@ -222,6 +241,15 @@ export function AskMode() {
               </p>
             ) : null}
 
+            {people.length > 0 ? (
+              <section aria-labelledby="match-people-title">
+                <h2 id="match-people-title" className="match-page__section-title">
+                  {people.length === 1 ? "1 alum whose name matches" : `${people.length} alumni whose names match`}
+                </h2>
+                {renderCards(people, 0)}
+              </section>
+            ) : null}
+
             {data.needsDetail ? (
               <div className="match-page__state">
                 <p className="match-page__state-title">{detail?.title}</p>
@@ -241,7 +269,7 @@ export function AskMode() {
                   </button>
                 </div>
               </div>
-            ) : data.results.length === 0 ? (
+            ) : data.results.length === 0 && people.length > 0 ? null : data.results.length === 0 ? (
               <div className="match-page__state">
                 <p className="match-page__state-title">No alum on Alma Mater matches this yet.</p>
                 <p className="match-page__state-copy">
@@ -270,21 +298,7 @@ export function AskMode() {
                     </button>
                   </div>
                 ) : null}
-                <ul className="match-page__results match-page__results--cards">
-                  {data.results.map((r, i) => (
-                    <li key={r.id}>
-                      <SearchResultRow
-                        profile={matchResultAsProfile(r)}
-                        note={r.yourNote === "pending" || r.yourNote === "accepted" ? r.yourNote : null}
-                        onNote={() => {}}
-                        onReachOut={() => setReachOutTo({ result: r, rank: i + 1 })}
-                        resultIndex={i}
-                        detail={r.replyStats ? replyStatsLine(r.replyStats) : null}
-                        skipStatusCheck
-                      />
-                    </li>
-                  ))}
-                </ul>
+                {renderCards(data.results, people.length)}
                 <p className="match-page__footnote">
                   Matches use only what alumni have added to their profiles.{" "}
                   {isHiring ? (

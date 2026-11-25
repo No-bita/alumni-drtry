@@ -72,6 +72,8 @@ export type MatchResponse = {
   intent: MatchIntent;
   needsDetail: boolean;
   results: MatchResult[];
+  /** Alumni whose name matches the question (typed or mentioned a name). Never repeats `results`. */
+  people?: MatchResult[];
   fallback: "post_bulletin" | null;
 };
 
