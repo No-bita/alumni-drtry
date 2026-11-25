@@ -23,7 +23,7 @@ vi.mock("../src/components/PostBulletinFlow", () => ({
 import { BusinessPage } from "../src/pages/BusinessPage";
 import { encodeBulletinContentWithUiCategory } from "../src/lib/bulletinPostCardUtils";
 import { askDraftPath, inBusinessTab, isBusinessPost, requestStep } from "../src/lib/business";
-import { INTENT_LABELS, NAV_INTENT_LABELS, NAV_INTENT_SLUGS } from "../src/constants/intents";
+import { INTENT_LABELS } from "../src/constants/intents";
 
 type Over = Partial<IntentcastFeedItem>;
 let seq = 0;
@@ -90,10 +90,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Business naming", () => {
-  it("the Build hub is now Business in the menu", () => {
-    expect(NAV_INTENT_SLUGS).toContain("business");
-    expect(NAV_INTENT_SLUGS).not.toContain("build");
-    expect(NAV_INTENT_LABELS.business).toBe("Business");
+  it("the Build hub is now Business", () => {
     expect(INTENT_LABELS.business).toBe("Business");
   });
 });

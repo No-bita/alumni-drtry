@@ -1,0 +1,258 @@
+/* Home redesign (2026-11-25): hero with the campus, four tiles, two panels, feedback line.
+   Loaded after home-layout.css and home-refresh.css; selectors carry the Home root classes so they
+   win over the older Home rules without !important. */
+
+/* One column at every width (the old feed + 360px rail grid is gone). */
+@media (min-width: 1024px) {
+  .home-dashboard--ideal .home-ideal__container.home-ideal__container--stacked,
+  .home-dashboard--ideal.home-dashboard--premium .home-ideal__container.home-ideal__container--stacked {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Hero: a soft warm band with the campus fading in on the right. */
+.home-dashboard--ideal.home-dashboard--premium .home-ideal__intent-hero.home-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 0;
+  padding: clamp(22px, 4vw, 40px) clamp(18px, 4vw, 40px) clamp(20px, 3vw, 28px);
+  border-radius: 20px;
+  background: linear-gradient(120deg, #fcf6ec 0%, #f9efe2 55%, #f6e6d2 100%);
+}
+
+.home-hero__art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 46%;
+  z-index: -1;
+  background-position: 62% 30%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 30%, #000 70%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 30%, #000 70%);
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.home-hero .home-ideal__intent-hero-head {
+  max-width: min(640px, 64%);
+}
+
+.home-hero__lede {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* The ask box and Try chips sit over the faded part of the art: keep them readable. */
+.home-hero .home-ask {
+  position: relative;
+}
+
+@media (max-width: 639px) {
+  .home-hero__art {
+    inset: 0 0 auto auto;
+    width: 46%;
+    height: 210px;
+    background-position: 58% 20%;
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, #000 60%),
+      linear-gradient(180deg, #000 45%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0%, #000 60%),
+      linear-gradient(180deg, #000 45%, transparent 100%);
+    mask-composite: intersect;
+  }
+
+  .home-hero__art {
+    opacity: 0.7;
+  }
+
+  .home-hero .home-ideal__intent-hero-head {
+    max-width: 78%;
+  }
+}
+
+/* Four tiles: one row on wide screens, two by two below. */
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .home-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+.home-tile {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 18px 18px 20px;
+  border: 1px solid rgba(58, 42, 30, 0.08);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(72, 48, 32, 0.05);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.home-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(72, 48, 32, 0.09);
+}
+
+.home-tile:focus-visible {
+  outline: 2px solid var(--brick);
+  outline-offset: 2px;
+}
+
+.home-tile--career {
+  background: linear-gradient(160deg, #fcefe4 0%, #f8e0cf 100%);
+}
+
+.home-tile--business {
+  background: linear-gradient(160deg, #f3f4e6 0%, #e6ebd3 100%);
+}
+
+.home-tile--advice {
+  background: linear-gradient(160deg, #f4eef7 0%, #e9e0f0 100%);
+}
+
+.home-tile--else {
+  background: linear-gradient(160deg, #fcf4e6 0%, #f7e7cc 100%);
+}
+
+.home-tile__icon {
+  display: inline-flex;
+  color: var(--brick);
+  margin-bottom: 4px;
+}
+
+.home-tile__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 1.6vw, 1.35rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.home-tile__line {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+@media (max-width: 639px) {
+  .home-tile {
+    padding: 14px 14px 16px;
+  }
+
+  .home-tile__line {
+    display: none;
+  }
+}
+
+/* Two panels: side by side from 900px, stacked below. An empty panel keeps its column. */
+.home-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .home-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+.home-dashboard--ideal .home-requests {
+  display: grid;
+  gap: var(--home-space-3, 12px);
+  padding: var(--home-space-4, 16px);
+  border-radius: var(--home-radius-lg, 16px);
+  min-width: 0;
+}
+
+.home-requests__empty {
+  margin: 0;
+  padding: 18px 4px 10px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.home-requests__list {
+  display: grid;
+  gap: 12px;
+}
+
+.home-requests__waiting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fbf3e8;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-requests__waiting:hover {
+  border-color: var(--brick);
+}
+
+/* Feedback line at the bottom of Home. */
+.home-feedback-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+  margin: 4px 0 0;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--ink-muted);
+}
+
+.home-feedback-line__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--brick);
+  cursor: pointer;
+}
+
+/* Panel headings: one size for both panels, small enough that "Opportunities for you" stays on one line. */
+.home-dashboard--ideal.home-dashboard--premium .home-panels .home-ideal__opportunities-title.ds-title-lg {
+  font-size: clamp(1.3rem, 1.9vw, 1.5rem);
+  line-height: 1.15;
+}

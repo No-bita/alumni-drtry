@@ -352,12 +352,24 @@ describe("editing one section at a time", () => {
     await waitFor(() => expect(h.patch).toHaveBeenCalledWith("/v1/me/profile", { personalEmail: "me@example.com", mobilePhone: "+91 90000 00000" }));
   });
 
-  it("open to: the cap notice from Cities, and an empty selection saves as null", async () => {
+  it("open to: Coffee and city help are no longer offered, but a saved coffee choice is kept on save", async () => {
     mountPage("/profiles/me-1?edit=open-to&limit=city_help");
     const dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
     expect(within(dialog).getByText(/make room for city help/)).toBeTruthy();
+    expect(within(dialog).queryByLabelText("Coffee chats")).toBeNull();
+    expect(within(dialog).queryByText(/Settling into my city/)).toBeNull();
     fireEvent.click(within(dialog).getByLabelText("Referrals"));
-    fireEvent.click(within(dialog).getByLabelText("Coffee chats"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(h.patch).toHaveBeenCalledWith("/v1/me/profile", { openToPreferences: { selected: ["coffee"], limits: { coffee: 2 } } }),
+    );
+  });
+
+  it("open to: an empty selection saves as null", async () => {
+    h.state.profile = { ...baseProfile, openToPreferences: { selected: ["referrals"] } };
+    mountPage("/profiles/me-1?edit=open-to");
+    const dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
+    fireEvent.click(within(dialog).getByLabelText("Referrals"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(h.patch).toHaveBeenCalledWith("/v1/me/profile", { openToPreferences: null }));
   });

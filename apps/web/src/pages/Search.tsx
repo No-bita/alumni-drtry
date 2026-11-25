@@ -341,7 +341,7 @@ function DirectorySearch() {
 
   return (
     <>
-      <Nav appToolbarLead={toolbarLead} appToolbarSearch={null} />
+      <Nav appToolbarLead={toolbarLead} />
       <div className="search-page search-page--search-first">
         {searchPending ? (
           <header className="search-page__hero">

@@ -419,7 +419,7 @@ export type NotificationItem =
       announcementId: string;
       title: string;
       body: string;
-      /** Path inside the web app, e.g. "/intent/career" (router-relative), or null. */
+      /** Path inside the web app, e.g. "/notifications" (router-relative), or null. */
       linkPath: string | null;
     };
 

@@ -590,9 +590,8 @@
 }
 
 @media (max-width: 639px) {
-  /* Keep the last card's actions clear of the floating bottom dock. */
   .match-page {
-    padding-bottom: calc(var(--nav-bottom-dock-height) + var(--space-lg));
+    padding-bottom: var(--space-lg);
   }
 
   .match-page__ask-row {

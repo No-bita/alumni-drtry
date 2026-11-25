@@ -477,13 +477,14 @@ export class CitiesService implements ResidenceSync {
     };
   }
 
-  /** People open to city help in the place, ranked with Ask's relocation scoring. */
+  /** People open to city help in the place, ranked with Ask's scoring for a question naming only the place. */
   private async helpers(place: PlaceRow, viewer: { personId: string; isDemo: boolean }, facts: ViewerFacts): Promise<CityHelper[]> {
     const helperIds = await this.repo.cityHelperIds(place.id, viewer.personId, viewer.isDemo);
     if (helperIds.size === 0) return [];
     const names = await this.repo.placeNames(place.id);
     const intent: MatchIntent = {
-      category: "relocation",
+      // Ask no longer has a Moving cities kind of help: a place-only question qualifies on the place.
+      category: null,
       company: null,
       role: null,
       fromRole: null,

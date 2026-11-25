@@ -23,8 +23,7 @@ export const ANSWER_KEY_EXAMPLES: Record<OpenToOptionId, string> = {
 export const ANSWER_KEY_ORDER: readonly OpenToOptionId[] = [
   "referrals",
   "mentorship",
-  "coffee",
-  "city_help",
+  // "coffee", "city_help" - came with Cities, which is out of the product: no longer offered.
   "study_advice",
   "advising",
   "collaboration",

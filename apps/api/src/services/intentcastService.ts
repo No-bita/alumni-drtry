@@ -329,6 +329,8 @@ export class IntentcastService {
     offset: number,
     options?: {
       homeWall?: boolean;
+      /** Home Wall only: rank for the viewer and leave out their own posts. */
+      forYou?: boolean;
       category?: IntentcastCategory;
       status?: IntentcastStatus;
       mine?: boolean;
@@ -344,6 +346,7 @@ export class IntentcastService {
     const result = await this.intentcastRepo.listFeed({
       viewerPersonId,
       homeWall: options?.homeWall,
+      forYou: options?.forYou,
       limit,
       offset,
       category: options?.category,

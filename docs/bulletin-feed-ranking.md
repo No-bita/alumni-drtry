@@ -30,6 +30,26 @@ Admins and super-admins can use `PATCH /v1/admin/intentcasts/:id/pin` with `{ "p
 
 Manual close or author removal clears the pin slot without reopening or restoring the post. A pin never grants edit or delete rights. The Home UI displays both a pin icon and a `Pinned` label to viewers; only admins receive pin/unpin menu actions.
 
+## Opportunities for you (`scope=home_wall&sort=for_you`)
+
+Home's "Opportunities for you" panel is the Home Wall ranked for the viewer. `sort=for_you` needs `scope=home_wall` (400 otherwise). The viewer's own posts are left out. All other eligibility rules apply as usual.
+
+Order, applied in SQL before pagination:
+
+1. **Pins**, as for the Home Wall.
+2. **Demo viewer + demo author**, as in the default order below.
+3. **Tier 1: matching hiring.** Hiring posts whose function equals the viewer's job function and whose experience band equals the viewer's (from graduation year).
+4. **Tier 2: asks the viewer can help with.** Any of:
+   - a referral ask ("Looking for referral for {role} at {company}") whose company equals the viewer's current company (canonical name when merged);
+   - a Guidance post, and the viewer is Open to Mentorship or Advising;
+   - a Startups post, and the viewer is Open to Advising or Collaboration;
+   - one of the viewer's areas appears in the post as a whole term, not inside a longer word.
+5. **Tier 3: everything else.**
+
+Within each tier: `created_at DESC`, then `id DESC`. The default order's "unanswered and recent" boost does not apply here.
+
+Job function is a new field, so tier 1 starts small until members fill it in.
+
 ## Ordering (ranking)
 
 After the Home-only pin priority, posts are **not** ranked by likes, replies, or category popularity. Order is deterministic:

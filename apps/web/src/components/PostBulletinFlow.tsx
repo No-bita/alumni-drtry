@@ -44,7 +44,7 @@ import { brokerKeys, type BrokerRequest } from "../lib/broker";
 type TopCategory = "careers" | "relocation" | "startups" | "general";
 const TOP_CATEGORY_OPTIONS: ReadonlyArray<{ value: TopCategory; label: string }> = [
   { value: "careers", label: "Careers" },
-  { value: "relocation", label: "Relocation" },
+  // { value: "relocation", label: "Relocation" }, - Cities is out of the product (old Relocation posts still edit)
   { value: "startups", label: "Startups" },
   { value: "general", label: "General" },
 ];

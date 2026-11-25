@@ -33,7 +33,6 @@ const TOPIC_PROMPTS: Partial<Record<string, string>> = {
   interview_prep: "Which company or role are you interviewing for? For example: Google, software engineer",
   career_switch: "What are you moving from and to? For example: from consulting to product management",
   higher_studies: "What are you planning? For example: MS in computer science in the US",
-  relocation: "Which city are you moving to? For example: moving to Bengaluru for work",
 };
 
 /**
@@ -145,7 +144,6 @@ export function AskMode() {
     <div className="match-page-shell">
       <Nav
         avatarName={displayName}
-        appToolbarSearch={null}
         appToolbarLead={
           <div className="nav-app-toolbar__welcome">
             <h1 className="nav-app-toolbar__welcome-title">Ask alumni</h1>

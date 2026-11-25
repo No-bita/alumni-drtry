@@ -4,9 +4,12 @@ import {
   OPEN_TO_MAX_SELECTED,
   canSelectMoreOpenTo,
   isOpenToSelected,
+  toggleOpenToSelection,
   type OpenToPreferences,
 } from "../../lib/openToPreferences";
-import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
+// Coffee came with Cities (out of the product) and is no longer offered, so its weekly-limit gate is
+// commented out (restore by uncommenting).
+// import { useCoffeeLimitGate } from "../cities/useCoffeeLimitGate";
 import "./OnboardingAnswerKey.css";
 
 type OnboardingAnswerKeyProps = {
@@ -18,7 +21,7 @@ type OnboardingAnswerKeyProps = {
 export function OnboardingAnswerKey({ value, onChange }: OnboardingAnswerKeyProps) {
   const full = !canSelectMoreOpenTo(value);
   // Turning coffee on asks for a weekly limit first (Cities v1).
-  const coffeeGate = useCoffeeLimitGate(value, onChange);
+  // const coffeeGate = useCoffeeLimitGate(value, onChange);
   return (
     <div className="onboarding-answer-key">
       <p className="onboarding-answer-key__hint">
@@ -39,7 +42,7 @@ export function OnboardingAnswerKey({ value, onChange }: OnboardingAnswerKeyProp
               className={`chip onboarding-answer-key__option${selected ? " chip--active" : ""}`}
               aria-pressed={selected}
               disabled={!selected && full}
-              onClick={() => coffeeGate.toggle(id)}
+              onClick={() => onChange(toggleOpenToSelection(value, id))}
             >
               <span className="onboarding-answer-key__title">{OPEN_TO_CATALOG[id].title}</span>
               <span className="onboarding-answer-key__example">{ANSWER_KEY_EXAMPLES[id]}</span>
@@ -50,7 +53,7 @@ export function OnboardingAnswerKey({ value, onChange }: OnboardingAnswerKeyProp
       <p className="onboarding-answer-key__count" aria-live="polite">
         {value.selected.length}/{OPEN_TO_MAX_SELECTED} selected
       </p>
-      {coffeeGate.sheet}
+      {/* {coffeeGate.sheet} */}
     </div>
   );
 }

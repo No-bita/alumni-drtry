@@ -13,7 +13,7 @@ export function WhatsAppFloatingButton() {
   const { pathname } = useLocation();
   const enabled = auth.status === "authenticated" && isWhatsAppMainPage(pathname, auth.myProfile?.id);
   const query = useQuery({ queryKey: WHATSAPP_SETTINGS_KEY, queryFn: ({ signal }) => fetchWhatsAppSettings(signal), enabled });
-  const [layout, setLayout] = useState({ hidden: false, bottom: 24 });
+  const [hidden, setHidden] = useState(false);
   useEffect(() => {
     if (!enabled) return;
     const update = () => {
@@ -22,10 +22,7 @@ export function WhatsAppFloatingButton() {
       const typing = focus instanceof HTMLElement && (focus.matches("input, textarea, select") || focus.isContentEditable);
       const keyboard = typing || (viewport != null && viewport.height < window.innerHeight - 140);
       const dialog = !!document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]');
-      const dock = document.querySelector(".nav-bottom-dock");
-      const rect = dock?.getBoundingClientRect();
-      const bottom = rect && rect.height > 0 ? window.innerHeight - rect.top + 16 : 24;
-      setLayout(prev => prev.hidden === (keyboard || dialog) && prev.bottom === bottom ? prev : { hidden: keyboard || dialog, bottom });
+      setHidden(keyboard || dialog);
     };
     update();
     const observer = new MutationObserver(update);
@@ -34,11 +31,8 @@ export function WhatsAppFloatingButton() {
     window.visualViewport?.addEventListener("resize", update);
     document.addEventListener("focusin", update);
     document.addEventListener("focusout", update);
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    const dock = document.querySelector(".nav-bottom-dock");
-    if (dock) resizeObserver?.observe(dock);
     return () => {
-      observer.disconnect(); resizeObserver?.disconnect();
+      observer.disconnect();
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
       document.removeEventListener("focusin", update);
@@ -47,5 +41,5 @@ export function WhatsAppFloatingButton() {
   }, [enabled]);
   const botNumber = query.data?.botNumber;
   if (!enabled || !botNumber || !/^\d{8,15}$/.test(botNumber)) return null;
-  return <a className="wa-fab" style={{ bottom: layout.bottom }} hidden={layout.hidden} href={whatsappChatUrl(botNumber)} target="_blank" rel="noopener noreferrer" aria-label="Open Alma on WhatsApp"><img src={glyph} width="30" height="30" alt="" /></a>;
+  return <a className="wa-fab" style={{ bottom: 24 }} hidden={hidden} href={whatsappChatUrl(botNumber)} target="_blank" rel="noopener noreferrer" aria-label="Open Alma on WhatsApp"><img src={glyph} width="30" height="30" alt="" /></a>;
 }

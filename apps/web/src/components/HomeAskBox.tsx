@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type Ref } from "react";
 import { useNavigate } from "react-router-dom";
 import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN, matchHref } from "../lib/matchApi";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
@@ -10,11 +10,11 @@ const EXAMPLE_QUESTIONS = [
   // Clicking a phone chip still submits its full query.
   { query: "Referral at Meesho", phoneLabel: "Referral at Meesho" },
   { query: "Interview prep for consulting", phoneLabel: null },
-  { query: "Moving to Bengaluru next month", phoneLabel: "Moving to Bengaluru" },
+  { query: "Breaking into product management", phoneLabel: "Breaking into PM" },
 ] as const;
 
-/** Home hero: plain-language question → `/match`. */
-export function HomeAskBox() {
+/** Home hero: plain-language question → `/match`. `inputRef` lets Home focus the box (Get advice tile). */
+export function HomeAskBox({ inputRef }: { inputRef?: Ref<HTMLInputElement> } = {}) {
   const navigate = useNavigate();
   const inputId = useId();
   const hintId = useId();
@@ -48,13 +48,14 @@ export function HomeAskBox() {
           <LineIcon name="search" />
         </span>
         <input
+          ref={inputRef}
           id={inputId}
           className="home-ask__field"
           type="text"
           value={question}
           maxLength={MATCH_QUESTION_MAX}
           autoComplete="off"
-          placeholder="Ask for a referral, advice, or help moving cities…"
+          placeholder="Ask for a referral, advice, or an intro…"
           aria-describedby={hintId}
           aria-invalid={error ? true : undefined}
           onChange={(e) => {

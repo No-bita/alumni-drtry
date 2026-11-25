@@ -70,7 +70,7 @@ export function NotificationsList({ items, onNavigate, activationTarget }: Notif
         navigate("/home");
         break;
       case "city_help_offer_received":
-        navigate("/intent/location");
+        // Cities is out of the product (hidden by isShownNotification); original: navigate("/intent/location");
         break;
       case "announcement":
         // Only offered when the announcement has a link (a path inside the app).

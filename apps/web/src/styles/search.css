@@ -490,7 +490,7 @@
 @media (max-width: 639px) {
   .search-page {
     min-height: calc(
-      100dvh - var(--nav-height) - var(--nav-bottom-dock-height) -
+      100dvh - var(--nav-height) -
         env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
     );
   }

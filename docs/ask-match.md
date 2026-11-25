@@ -20,9 +20,10 @@ A member types what they are trying to get done ("Need a referral for PM at Razo
 | `interview_prep` | At the company now or before, and/or held the role | mentorship, coffee |
 | `career_switch` | Holds the target role now (bonus if they held the "from" role before) | mentorship, coffee |
 | `higher_studies` | Higher-education / research job (bonus for the named program) | mentorship, advising |
-| `relocation` | Lives in the city (or the country, when no city was named) | coffee, intros |
 | `founder_advice` | "Founded a venture" job type or a founder title | collaboration, advising |
 | *(no clear category)* | The most specific thing named: company, then role, then place, then study program | — |
+
+`relocation` ("Moving cities") was removed with Cities on 2026-11-25. A question about a move now has no category and qualifies on the place it names. Older rows in `match_queries` and `contact_requests` keep the value, and the database still allows it.
 
 The SQL query only fetches rows that have one of the qualifying signals above, so its candidate cap (300) can never hide someone who would qualify behind people who can't.
 

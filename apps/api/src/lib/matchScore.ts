@@ -85,7 +85,6 @@ export const CATEGORY_OPEN_TO: Record<MatchCategory, OpenToOptionId[]> = {
   interview_prep: ["mentorship", "coffee"],
   career_switch: ["mentorship", "coffee"],
   higher_studies: ["study_advice", "mentorship", "advising"],
-  relocation: ["city_help", "coffee", "intros"],
   founder_advice: ["collaboration", "advising"]
 };
 
@@ -184,9 +183,6 @@ export function primarySignalsForIntent(intent: MatchIntent): SignalName[] {
       return anyEntity();
     case "higher_studies":
       return ["study"];
-    case "relocation":
-      if (intent.city || intent.country) return ["place"];
-      return [];
     case "founder_advice":
       return ["founder"];
     default:
@@ -268,7 +264,7 @@ export function buildMatchReasons(intent: MatchIntent, c: MatchCandidateSignals)
 export function relevantOpenTo(intent: MatchIntent, c: MatchCandidateSignals): OpenToOptionId[] {
   if (!intent.category) return [];
   const wanted = CATEGORY_OPEN_TO[intent.category];
-  // Category order: the most specific tag (e.g. city_help for relocation) reads first.
+  // Category order: the most specific tag (e.g. referrals for a referral) reads first.
   return wanted.filter((id) => c.openTo.includes(id));
 }
 
