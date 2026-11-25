@@ -5,6 +5,7 @@ import type { MatchLexicon, MatchLexiconPlace, StudyProgram } from "../lib/match
 import type { MatchCandidateSignals, OccupationSignal } from "../lib/matchScore.js";
 import { parseOpenToPreferences } from "../lib/openToPreferences.js";
 import type { JobFunction } from "../lib/jobFunctions.js";
+import { nameMentionConditionSql, nameNormalizeSql, namePrefixConditionSql } from "../lib/nameQuery.js";
 
 /** Structured search terms derived from a `MatchIntent` by `MatchService`. */
 export interface MatchCandidateQuery {
@@ -91,8 +92,90 @@ function occupationFromRow(row: CandidateRow, alias: OccupationSignalAlias): Occ
   };
 }
 
+/** An alum whose name matches the question (see lib/nameQuery.ts). */
+export interface NameMatchRow {
+  id: string;
+  full_name: string;
+  batch_year: number | null;
+  department_code: string | null;
+  department_name: string | null;
+  headline_role_title: string | null;
+  headline_organization_name: string | null;
+  residence_city: string | null;
+  residence_country: string | null;
+  open_to_preferences: unknown;
+  [key: string]: unknown;
+}
+
 export class MatchRepo {
   constructor(private readonly db: PoolExecutor) {}
+
+  /**
+   * Alumni whose name matches: every word of a short question starts a word of their name
+   * (`prefixWords`, null to skip), or their full name appears in the question (`phrase`).
+   * An exact full name ranks first, then a name mentioned in the question, then prefix matches.
+   * Same visibility rules as Ask candidates.
+   */
+  async findByName(input: {
+    prefixWords: string[] | null;
+    phrase: string;
+    viewerPersonId: string;
+    viewerIsDemo: boolean;
+    limit: number;
+  }): Promise<NameMatchRow[]> {
+    if (!input.prefixWords && !input.phrase.includes(" ")) return [];
+    const params: unknown[] = [];
+    const bind = (value: unknown): string => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+    const viewerPh = bind(input.viewerPersonId);
+    const phrasePh = bind(input.phrase);
+    const nn = "n.nn";
+    const conds = [nameMentionConditionSql(nn, phrasePh)];
+    if (input.prefixWords) conds.push(namePrefixConditionSql(nn, bind(input.prefixWords)));
+    const limitPh = bind(input.limit);
+
+    const query = `
+      SELECT
+        p.id,
+        p.full_name,
+        p.batch_year,
+        CASE WHEN d.code = 'other' THEN NULL ELSE lower(COALESCE(d.code, p.department_code)) END AS department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS department_name,
+        head.role_title AS headline_role_title,
+        head.org_name AS headline_organization_name,
+        p.residence_city,
+        p.residence_country,
+        p.open_to_preferences
+      FROM people p
+      CROSS JOIN LATERAL (SELECT ${nameNormalizeSql("p.full_name")} AS nn) n
+      LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN LATERAL (
+        SELECT o.role_title, org.name::text AS org_name
+        FROM occupations o
+        LEFT JOIN organizations org ON org.id = o.organization_id
+        WHERE o.person_id = p.id
+        ORDER BY o.is_current DESC, o.start_date DESC NULLS LAST, o.created_at DESC
+        LIMIT 1
+      ) head ON TRUE
+      WHERE p.deleted_at IS NULL
+        AND p.suspended_at IS NULL
+        AND p.full_name IS NOT NULL
+        AND p.profile_completed_at IS NOT NULL
+        AND ${personIsDiscoverableForViewerSql("p", input.viewerIsDemo)}
+        AND p.id <> ${viewerPh}::uuid
+        AND (${conds.join(" OR ")})
+      ORDER BY
+        CASE WHEN ${nn} = ${phrasePh}::text THEN 0 WHEN ${conds[0]} THEN 1 ELSE 2 END,
+        (head.role_title IS NOT NULL) DESC,
+        p.full_name ASC,
+        p.id ASC
+      LIMIT ${limitPh}
+    `;
+    const result = await this.runWithTimeout<NameMatchRow>(query, params);
+    return result.rows;
+  }
 
   /**
    * Organization and place names that appear (as substrings) in the question. The parser
@@ -394,7 +477,7 @@ export class MatchRepo {
     );
   }
 
-  private async runWithTimeout<T extends CandidateRow>(text: string, params: unknown[]): Promise<{ rows: T[] }> {
+  private async runWithTimeout<T extends { [key: string]: unknown }>(text: string, params: unknown[]): Promise<{ rows: T[] }> {
     const ms = env.DISCOVERY_SEARCH_STATEMENT_TIMEOUT_MS;
     if (ms === 0) return this.db.query<T>(text, params);
     const client = await this.db.connect();

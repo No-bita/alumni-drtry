@@ -100,6 +100,32 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Ask mode", () => {
+  it("a name shows the alumni it matches, without the empty state", async () => {
+    const named = { ...result, whyThem: "", reasons: [], relevantOpenTo: [] };
+    post.mockResolvedValue({
+      data: { intent: { ...intent, category: null, company: null, role: null }, needsDetail: false, results: [], people: [named], fallback: null },
+    });
+    mount("/search?ask=Ananya+Rao");
+    expect(await screen.findByRole("heading", { name: "1 alum whose name matches" })).toBeTruthy();
+    expect(screen.getByRole("article", { name: "Ananya Rao" })).toBeTruthy();
+    expect(screen.queryByText("No alum on Alma Mater matches this yet.")).toBeNull();
+  });
+
+  it("shows name matches above the alumni who can help", async () => {
+    const named = { ...result, id: "22222222-2222-2222-2222-222222222222", fullName: "Razor Pai", whyThem: "", reasons: [] };
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], people: [named], fallback: null } });
+    mount("/search?ask=referral+for+PM+at+Razorpay");
+    const byName = await screen.findByRole("heading", { name: "1 alum whose name matches" });
+    const canHelp = screen.getByRole("heading", { name: "1 alum who can help" });
+    expect(byName.compareDocumentPosition(canHelp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("still shows the empty state when neither help nor a name matches", async () => {
+    post.mockResolvedValue({ data: { intent, needsDetail: false, results: [], people: [], fallback: "post_bulletin" } });
+    mount("/search?ask=referral+for+PM+at+Razorpay");
+    expect(await screen.findByText("No alum on Alma Mater matches this yet.")).toBeTruthy();
+  });
+
   it("sends the question and renders the factual why-them", async () => {
     post.mockResolvedValue({ data: { intent, needsDetail: false, results: [result], fallback: null } });
     mount("/search?ask=referral+for+PM+at+Razorpay");
