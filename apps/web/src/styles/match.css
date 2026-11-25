@@ -183,6 +183,17 @@
   gap: var(--space-md-lg);
 }
 
+/* Ask results use the directory card: two columns from 622px, like the directory grid. */
+.match-page__results--cards > li {
+  min-width: 0;
+}
+
+@media (min-width: 622px) {
+  .match-page__results--cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .match-page__inline-link {
   padding: 0;
   border: 0;

@@ -21,6 +21,10 @@ type SearchResultRowProps = {
   resultIndex: number;
   /** Kept for search analytics, not used yet. */
   searchSessionId?: string | null;
+  /** One quiet line under the actions, e.g. how often this alum replies (Ask results). */
+  detail?: string | null;
+  /** The caller already knows where the reachout stands (Ask results): tapping Reach out opens the form at once. */
+  skipStatusCheck?: boolean;
 };
 
 /** At most this many "why this matched" pills. */
@@ -30,7 +34,7 @@ const MATCH_PILLS_MAX = 3;
  * Directory result card (layout A): name, institute and class, role at company, why they matched,
  * then Reach out and View profile. Reach out checks where an earlier reachout stands only when tapped.
  */
-export function SearchResultRow({ profile, note, onNote, onReachOut, style }: SearchResultRowProps) {
+export function SearchResultRow({ profile, note, onNote, onReachOut, style, detail, skipStatusCheck }: SearchResultRowProps) {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +51,10 @@ export function SearchResultRow({ profile, note, onNote, onReachOut, style }: Se
 
   const reachOut = async () => {
     if (checking) return;
+    if (skipStatusCheck) {
+      onReachOut(profile);
+      return;
+    }
     setChecking(true);
     setError(null);
     const { data, error: err } = await api.get<{ yourNote: "pending" | "accepted" | "declined" | null }>(
@@ -110,6 +118,7 @@ export function SearchResultRow({ profile, note, onNote, onReachOut, style }: Se
         <Link to={profileHref} className="search-card__view" aria-label={`View ${name}'s profile`}>
           View profile
         </Link>
+        {detail ? <p className="search-card__detail">{detail}</p> : null}
         {error ? (
           <p className="search-card__error" role="alert">
             {error}

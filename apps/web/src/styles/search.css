@@ -457,6 +457,13 @@
   font-weight: 600;
 }
 
+.search-card__detail {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: #7a5a45;
+}
+
 .search-card__error {
   flex-basis: 100%;
   margin: 0;
