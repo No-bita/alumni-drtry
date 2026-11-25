@@ -7,6 +7,7 @@ import { FoldToFlight, FoldToFlightGate } from "./components/FoldToFlight";
 import { GlobalNotificationsWidget } from "./components/GlobalNotificationsWidget";
 import { StagingMarker } from "./components/StagingMarker";
 import { AuthSessionExpiredRegistrar } from "./components/AuthSessionExpiredRegistrar";
+import { ViewAsBanner } from "./components/ViewAsBanner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import {
   canAccessOnboardingFlow,
@@ -60,6 +61,7 @@ const AdminCompanyReviewPage = lazy(() =>
 const AdminAnalyticsPage = lazy(() =>
   import("./pages/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage }))
 );
+const AdminViewAsPage = lazy(() => import("./pages/AdminViewAsPage").then((m) => ({ default: m.AdminViewAsPage })));
 const NotificationsPage = lazy(() =>
   import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
@@ -435,6 +437,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/view-as"
+          element={
+            <RequireAuth>
+              <AdminViewAsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/admin/locations"
           element={
             <RequireAuth>
@@ -464,6 +474,7 @@ export default function App() {
       <StagingMarker />
       <AuthProvider>
         <AuthSessionExpiredRegistrar />
+        <ViewAsBanner />
         <AppRoutes />
         <RouteNotice />
         <GlobalNotificationsWidget />

@@ -742,6 +742,11 @@ export function AdminAnalyticsPage() {
                   <Link to="/admin/announcements" className="aa-link">
                     Announcements
                   </Link>
+                  {auth.status === "authenticated" && auth.canViewAs ? (
+                    <Link to="/admin/view-as" className="aa-link">
+                      View as member
+                    </Link>
+                  ) : null}
                 </div>
               </section>
             ) : null}
