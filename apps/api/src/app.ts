@@ -65,6 +65,7 @@ import { STATE_CHANGING_METHODS, verifyCsrfOrigin } from "./lib/csrfProtection.j
 import {
   VIEW_AS_COOKIE_NAME,
   VIEW_AS_END_PATH,
+  VIEW_AS_SWITCH_PATH,
   VIEW_AS_READ_ONLY_CODE,
   VIEW_AS_READ_ONLY_MESSAGE
 } from "./lib/viewAs.js";
@@ -262,6 +263,11 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   const isViewAsEndRequest = (request: FastifyRequest) =>
     pathOnly(request.routeOptions?.url ?? request.url) === VIEW_AS_END_PATH;
+  /** Ending view-as or switching to another member: the only writes allowed while view-as is active. */
+  const isViewAsControlRequest = (request: FastifyRequest) => {
+    const path = pathOnly(request.routeOptions?.url ?? request.url);
+    return path === VIEW_AS_END_PATH || (request.method === "POST" && path === VIEW_AS_SWITCH_PATH);
+  };
 
   // Each request gets its own context so code deep in services can tell a view-as request apart
   // (isViewAsRequest) and skip member side effects. Callback style so the rest of the request runs inside it.
@@ -276,7 +282,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     if (!STATE_CHANGING_METHODS.has(request.method)) return;
     const token = request.cookies?.[VIEW_AS_COOKIE_NAME];
     if (typeof token !== "string" || token.length === 0) return;
-    if (isViewAsEndRequest(request)) return;
+    if (isViewAsControlRequest(request)) return;
     const real = await resolveRealActor(request);
     if (!real) return;
     const viewAs = await resolveViewAs(request, real);

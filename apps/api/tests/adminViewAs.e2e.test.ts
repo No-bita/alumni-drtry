@@ -365,4 +365,44 @@ describe("admin view as member (integration, local test database only)", () => {
     expect((await req(app, "GET", "/v1/me", both)).json().person.personId).toBe(target.personId);
     expect((await end(both)).json()).toEqual({ ended: true });
   });
+  it("switching goes straight to another member: one step, audited, and only for the allowlisted admin", async () => {
+    const switchTo = (cookie: string, personId: string) => req(app, "POST", "/v1/admin/view-as/switch", cookie, { personId });
+    const viewing = async (cookie: string) => (await req(app, "GET", "/v1/me", cookie)).json() as { person: { personId: string } };
+    const before = (await audit(owner.personId)).length;
+
+    const first = await startAsOwner();
+    expect((await viewing(first)).person.personId).toBe(target.personId);
+    // Starting again while viewing is still refused; switching is the way to change member.
+    expect((await req(app, "POST", "/v1/admin/view-as", first, { personId: member.personId })).json().code).toBe("VIEW_AS_READ_ONLY");
+
+    const res = await switchTo(first, member.personId);
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().viewAs).toMatchObject({ targetPersonId: member.personId, readOnly: true });
+    const second = `${owner.cookie}; ${viewAsCookieFrom(res)}`;
+    expect((await viewing(second)).person.personId).toBe(member.personId);
+    // The previous session is over: its cookie now gives the admin's own account.
+    expect((await viewing(first)).person.personId).toBe(owner.personId);
+    // Still read-only after switching.
+    expect((await req(app, "POST", "/v1/notifications/mark-all-seen", second, {})).json().code).toBe("VIEW_AS_READ_ONLY");
+
+    // The end and the new start share one transaction (same timestamp), so compare without order.
+    const rows = (await audit(owner.personId)).slice(before).map((r) => `${r.event}:${r.target_person_id}`);
+    expect(rows.sort()).toEqual([`end:${target.personId}`, `start:${member.personId}`, `start:${target.personId}`].sort());
+    expect(viewAsLogs().some((l) => l.msg === "admin view-as switched" && l.viewAs?.targetPersonId === member.personId)).toBe(true);
+
+    // Not to yourself (Exit does that), and never for anyone else.
+    expect((await switchTo(second, owner.personId)).json().code).toBe("VIEW_AS_SELF");
+    expect((await switchTo(otherAdmin.cookie, target.personId)).json().code).toBe("VIEW_AS_FORBIDDEN");
+    expect((await switchTo(member.cookie, target.personId)).statusCode).toBe(403);
+    // A member's own session plus the admin's view-as cookie switches nothing.
+    const stolen = `${member.cookie}; ${second.split("; ")[1]!}`;
+    expect((await switchTo(stolen, target.personId)).statusCode).toBe(403);
+    expect((await viewing(second)).person.personId).toBe(member.personId);
+
+    expect((await end(second)).json()).toEqual({ ended: true });
+    // Without an active view-as, switching simply starts one.
+    const fresh = await switchTo(owner.cookie, target.personId);
+    expect(fresh.statusCode, fresh.body).toBe(201);
+    expect((await end(`${owner.cookie}; ${viewAsCookieFrom(fresh)}`)).json()).toEqual({ ended: true });
+  });
 });

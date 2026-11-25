@@ -1,4 +1,4 @@
-import { api, setViewAsReadOnly, VIEW_AS_END_API_PATH, type ViewAsInfo } from "../api/client";
+import { api, setViewAsReadOnly, VIEW_AS_END_API_PATH, VIEW_AS_SWITCH_API_PATH, type ViewAsInfo } from "../api/client";
 import { APP_BASE_PATH } from "./appBase";
 
 /** Admin "view as member" (testing only). The API decides who may use it; see docs/api-contracts.md. */
@@ -12,6 +12,19 @@ export type ViewAsPerson = {
   role: "alumni" | "admin" | "super_admin";
   suspended: boolean;
 };
+
+/** "priya@iitbhu.ac.in · ’19 · CSE · Admin" under a member's name in search results. */
+export function viewAsPersonLine(p: ViewAsPerson): string {
+  return [
+    p.institutionalEmail,
+    p.batchYear ? `’${String(p.batchYear).slice(2)}` : null,
+    p.departmentCode ? p.departmentCode.toUpperCase() : null,
+    p.role !== "alumni" ? (p.role === "super_admin" ? "Super admin" : "Admin") : null,
+    p.suspended ? "Suspended" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 export const VIEW_AS_SEARCH_MIN = 2;
 export const viewAsPeopleKey = (q: string) => ["admin", "view-as", "people", q] as const;
@@ -43,6 +56,13 @@ export async function searchViewAsPeople(q: string, signal?: AbortSignal): Promi
 export async function startViewAs(personId: string): Promise<ViewAsInfo> {
   const { data, error } = await api.post<{ viewAs: ViewAsInfo }>("/v1/admin/view-as", { personId });
   if (error || !data) fail(error, "Couldn't start viewing as this member.");
+  return data.viewAs;
+}
+
+/** Go straight to another member: ends the current view-as (if any) and starts this one, in one step. */
+export async function switchViewAs(personId: string): Promise<ViewAsInfo> {
+  const { data, error } = await api.post<{ viewAs: ViewAsInfo }>(VIEW_AS_SWITCH_API_PATH, { personId });
+  if (error || !data) fail(error, "Couldn't switch to this member.");
   return data.viewAs;
 }
 

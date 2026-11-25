@@ -16,6 +16,7 @@ import { viewAsName } from "../src/lib/viewAs";
 const fns = vi.hoisted(() => ({
   searchViewAsPeople: vi.fn(),
   startViewAs: vi.fn(),
+  switchViewAs: vi.fn(),
   endViewAs: vi.fn(),
   reloadAppAt: vi.fn(),
 }));
@@ -71,9 +72,12 @@ describe("API client while viewing as a member", () => {
     }
     expect(fetchMock).not.toHaveBeenCalled();
 
+    // Starting a new view-as stays blocked; switching member and ending go out.
+    expect((await api.post("/v1/admin/view-as", { personId: "m-2" })).error?.code).toBe(VIEW_AS_READ_ONLY_CODE);
     await api.get("/v1/me");
     await api.post("/v1/admin/view-as/end");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await api.post("/v1/admin/view-as/switch", { personId: "m-2" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("writes go out normally when not viewing as anyone", async () => {
@@ -129,6 +133,7 @@ describe("View-as banner", () => {
     expect(banner.textContent).toContain("Viewing as Priya Sharma — read-only.");
     expect(document.documentElement.dataset.viewAs).toBe("on");
     expect(document.title).toContain("[Viewing as Priya Sharma]");
+    expect(screen.getByRole("link", { name: "Switch" }).getAttribute("href")).toBe("/admin/analytics#view-as");
     fireEvent.click(screen.getByRole("button", { name: "Exit" }));
     await waitFor(() => expect(fns.reloadAppAt).toHaveBeenCalledWith("/admin/view-as?ended=1"));
     expect(fns.endViewAs).toHaveBeenCalledTimes(1);
@@ -195,15 +200,16 @@ describe("Admin view-as page", () => {
     fns.searchViewAsPeople.mockResolvedValue([
       { personId: "m-1", fullName: "Priya Sharma", institutionalEmail: "priya@iitbhu.ac.in", batchYear: 2019, departmentCode: "cse", role: "alumni", suspended: false },
     ]);
-    fns.startViewAs.mockResolvedValue(info);
+    fns.switchViewAs.mockResolvedValue(info);
     mountPage();
+    expect(screen.getByText("You're on your own account.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Name or email"), { target: { value: "priya" } });
     const btn = await screen.findByRole("button", { name: "View as Priya Sharma" });
     expect(fns.searchViewAsPeople).toHaveBeenCalledWith("priya", expect.anything());
     expect(screen.getByText("priya@iitbhu.ac.in · ’19 · CSE")).toBeTruthy();
     fireEvent.click(btn);
     await waitFor(() => expect(fns.reloadAppAt).toHaveBeenCalledWith("/home"));
-    expect(fns.startViewAs).toHaveBeenCalledWith("m-1");
+    expect(fns.switchViewAs).toHaveBeenCalledWith("m-1");
   });
 
   it("shows the API's refusal instead of starting", async () => {
@@ -212,7 +218,7 @@ describe("Admin view-as page", () => {
     fns.searchViewAsPeople.mockResolvedValue([
       { personId: "m-1", fullName: "Priya Sharma", institutionalEmail: "priya@iitbhu.ac.in", batchYear: null, departmentCode: null, role: "alumni", suspended: false },
     ]);
-    fns.startViewAs.mockRejectedValue(new ViewAsError("VIEW_AS_FORBIDDEN", "View as member isn't enabled for your account."));
+    fns.switchViewAs.mockRejectedValue(new ViewAsError("VIEW_AS_FORBIDDEN", "View as member isn't enabled for your account."));
     mountPage();
     fireEvent.change(screen.getByLabelText("Name or email"), { target: { value: "priya" } });
     fireEvent.click(await screen.findByRole("button", { name: "View as Priya Sharma" }));
@@ -220,14 +226,35 @@ describe("Admin view-as page", () => {
     expect(fns.reloadAppAt).not.toHaveBeenCalled();
   });
 
-  it("says when view-as ended, and points to Exit while one is active", () => {
+  it("says when view-as ended", () => {
     authState.value = { status: "authenticated", person: { personId: "a-1", role: "admin" }, myProfile: null, canViewAs: true };
     mountPage("/admin/view-as?ended=expired");
     expect(screen.getByText(/View-as ended after its time limit/)).toBeTruthy();
-    cleanup();
+  });
+
+  it("while viewing: says who, switches straight to another member, or goes back to your account", async () => {
     authState.value = { status: "authenticated", person: { personId: "m-1", role: "alumni" }, myProfile: null, canViewAs: true, viewAs: info };
+    fns.searchViewAsPeople.mockResolvedValue([
+      { personId: "m-1", fullName: "Priya Sharma", institutionalEmail: "priya@iitbhu.ac.in", batchYear: 2019, departmentCode: "cse", role: "alumni", suspended: false },
+      { personId: "m-2", fullName: "Rohan Gupta", institutionalEmail: "rohan@iitbhu.ac.in", batchYear: 2017, departmentCode: "ece", role: "alumni", suspended: false },
+    ]);
+    fns.switchViewAs.mockResolvedValue({ ...info, targetPersonId: "m-2", targetName: "Rohan Gupta" });
+    fns.endViewAs.mockResolvedValue(undefined);
     mountPage();
-    expect(screen.getByRole("status").textContent).toContain(`You're viewing as ${viewAsName(info)}`);
-    expect(screen.queryByLabelText("Name or email")).toBeNull();
+    expect(screen.getByText((_, el) => el?.tagName === "P" && el.textContent?.startsWith(`Viewing as ${viewAsName(info)}, read-only`) === true)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Switch to another member"), { target: { value: "ro" } });
+    // The member you're viewing is marked, not offered again.
+    expect(await screen.findByText("Viewing now")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Switch to Priya Sharma" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Rohan Gupta" }));
+    await waitFor(() => expect(fns.reloadAppAt).toHaveBeenCalledWith("/home"));
+    expect(fns.switchViewAs).toHaveBeenCalledWith("m-2");
+    // (The real app reloads here; mount again to try the other way out.)
+    cleanup();
+    fns.reloadAppAt.mockClear();
+    mountPage();
+    fireEvent.click(screen.getByRole("button", { name: "Back to my account" }));
+    await waitFor(() => expect(fns.reloadAppAt).toHaveBeenCalledWith("/admin/analytics"));
+    expect(fns.endViewAs).toHaveBeenCalled();
   });
 });

@@ -116,17 +116,52 @@ export class ViewAsService {
     ip: string | null;
     userAgent: string | null;
   }): Promise<{ token: string; info: ViewAsInfo }> {
+    return this.switchTo({ ...input, currentToken: null });
+  }
+
+  /**
+   * Start viewing as a member, first ending the admin's current view-as session (if `currentToken` is
+   * theirs and still open). Both happen in one transaction, each with its audit row, so the admin is
+   * never left on two sessions or on none half way.
+   */
+  async switchTo(input: {
+    admin: SessionActor;
+    currentToken: string | null;
+    targetPersonId: string;
+    ip: string | null;
+    userAgent: string | null;
+  }): Promise<{ token: string; info: ViewAsInfo; endedSessionId: string | null }> {
     this.assertCanUse(input.admin);
     if (input.targetPersonId === input.admin.personId) {
-      throw new AppError(400, "VIEW_AS_SELF", "You can't view as yourself.");
+      throw new AppError(400, "VIEW_AS_SELF", "You can't view as yourself. Use Exit to go back to your own account.");
     }
     const target = await this.repo.findTarget(input.targetPersonId);
     if (!target) {
       throw new AppError(404, "VIEW_AS_TARGET_NOT_FOUND", "Member not found.");
     }
     const token = generateOpaqueToken(32);
-    const session = await this.inTransaction(async (client) => {
+    const { session, endedSessionId } = await this.inTransaction(async (client) => {
       const repo = new ViewAsRepo(client);
+      let endedSessionId: string | null = null;
+      if (input.currentToken) {
+        const hash = this.hash(input.currentToken);
+        const current = await repo.findActiveByHash(hash);
+        // Only the admin's own open session is ended; anyone else's token is ignored.
+        if (current && current.admin_person_id === input.admin.personId) {
+          const ended = await repo.endByHash(hash);
+          if (ended) {
+            endedSessionId = ended.id;
+            await repo.insertAudit({
+              sessionId: ended.id,
+              event: "end",
+              adminPersonId: ended.admin_person_id,
+              targetPersonId: ended.target_person_id,
+              ip: input.ip,
+              userAgent: input.userAgent
+            });
+          }
+        }
+      }
       const created = await repo.createSession({
         tokenHash: this.hash(token),
         adminPersonId: input.admin.personId,
@@ -143,10 +178,11 @@ export class ViewAsService {
         ip: input.ip,
         userAgent: input.userAgent
       });
-      return created;
+      return { session: created, endedSessionId };
     });
     return {
       token,
+      endedSessionId,
       info: {
         sessionId: session.id,
         adminPersonId: session.admin_person_id,
