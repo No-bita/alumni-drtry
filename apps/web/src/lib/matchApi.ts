@@ -1,4 +1,4 @@
-import { api, type ApiError } from "../api/client";
+import { api, type ApiError, type SearchProfileView } from "../api/client";
 import type { BulletinUiCategory } from "./bulletinPostCardUtils";
 import type { OpenToOptionId } from "./openToPreferences";
 
@@ -187,4 +187,41 @@ export function needsDetailPrompt(category: MatchCategory | null): { title: stri
 /** Must match apps/api contact request limits. */
 export function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
+/** An Ask result shaped for the directory card, so both lists look the same. Reasons become the pills. */
+export function matchResultAsProfile(r: MatchResult): SearchProfileView {
+  return {
+    id: r.id,
+    fullName: r.fullName,
+    departmentCode: r.departmentCode,
+    departmentName: r.departmentName,
+    parsedDepartmentCode: null,
+    parsedDepartmentName: null,
+    batchYear: r.batchYear,
+    parsedJoiningYear: null,
+    degreeCode: null,
+    degreeName: null,
+    headlineRoleTitle: r.headlineRoleTitle,
+    headlineOrganizationName: r.headlineOrganizationName,
+    residenceCountry: r.residenceCountry,
+    residenceCity: r.residenceCity,
+    matchReasons: r.reasons.map((x) => x.text),
+  };
+}
+
+/** Ask URLs on the one results page keep the old parameters, with the question under `ask` (`q` belongs to the directory). */
+export function askParamsFromMatch(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams();
+  next.set("ask", params.get("q") ?? "");
+  for (const [key, value] of params) if (key !== "q") next.append(key, value);
+  return next;
+}
+
+/** The reverse: read an `/search?ask=…` URL the way the Ask code expects (question under `q`). */
+export function matchParamsFromAsk(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams();
+  next.set("q", params.get("ask") ?? "");
+  for (const [key, value] of params) if (key !== "ask" && key !== "q") next.append(key, value);
+  return next;
 }

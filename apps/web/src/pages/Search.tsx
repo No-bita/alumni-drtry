@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "../components/Nav";
+import { AskMode } from "./AskMode";
 import { Button } from "../components/Button";
 import { SearchResultRow, type SearchCardNote } from "../components/SearchResultRow";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
@@ -45,7 +46,7 @@ function directoryResultsColumnCount(resultsWidth: number): 1 | 2 | 3 {
   return 1;
 }
 
-export function Search() {
+function DirectorySearch() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [draft, setDraft] = useState(() => parseDirectorySearchFromParams(searchParams));
@@ -518,4 +519,10 @@ export function Search() {
       ) : null}
     </>
   );
+}
+
+/** The one results page: the directory, or Ask mode when the URL has `ask` (a plain-language question). */
+export function Search() {
+  const [searchParams] = useSearchParams();
+  return searchParams.has("ask") ? <AskMode /> : <DirectorySearch />;
 }
