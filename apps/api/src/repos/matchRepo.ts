@@ -4,6 +4,7 @@ import { personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import type { MatchLexicon, MatchLexiconPlace, StudyProgram } from "../lib/matchIntent.js";
 import type { MatchCandidateSignals, OccupationSignal } from "../lib/matchScore.js";
 import { parseOpenToPreferences } from "../lib/openToPreferences.js";
+import type { JobFunction } from "../lib/jobFunctions.js";
 
 /** Structured search terms derived from a `MatchIntent` by `MatchService`. */
 export interface MatchCandidateQuery {
@@ -20,6 +21,8 @@ export interface MatchCandidateQuery {
   studyPrograms: StudyProgram[];
   wantStudy: boolean;
   wantFounder: boolean;
+  /** Hiring: the job function the role belongs to (people.job_function), or null. */
+  jobFunction: JobFunction | null;
   /** Display keyword + escaped pattern pairs. */
   keywords: { keyword: string; pattern: string }[];
   /** Max candidate rows to score in TS. */
@@ -31,7 +34,7 @@ export interface MatchCandidateQuery {
   requiredAnyOf: MatchGateSignal[];
 }
 
-export type MatchGateSignal = "cc" | "pc" | "cr" | "pr" | "sp" | "st" | "fd" | "city" | "country";
+export type MatchGateSignal = "cc" | "pc" | "cr" | "pr" | "sp" | "st" | "fd" | "fn" | "city" | "country";
 
 export const STUDY_OCCUPATION_TYPE_CODES = ["higher_education_non_research", "phd_research", "postdoctoral_research"] as const;
 
@@ -60,6 +63,7 @@ interface CandidateRow {
   completeness_score: number;
   city_match: boolean;
   country_match: boolean;
+  function_match: boolean;
   keyword_hits: string[] | null;
   [key: string]: unknown;
 }
@@ -239,14 +243,19 @@ export class MatchRepo {
           })()
         : `ARRAY[]::text[]`;
 
+    const functionMatchSql = input.jobFunction ? `(p.job_function = ${bind(input.jobFunction)})` : "FALSE";
+
     // A row is a candidate only if it has one of the category's qualifying signals.
     const gate = input.requiredAnyOf
       .filter((g) => {
         if (g === "city") return input.cityNames.length > 0;
         if (g === "country") return input.countryNames.length > 0;
+        if (g === "fn") return input.jobFunction !== null;
         return Boolean(conds[g]);
       })
-      .map((g) => (g === "city" ? "city_match" : g === "country" ? "country_match" : `${g}_role IS NOT NULL`));
+      .map((g) =>
+        g === "city" ? "city_match" : g === "country" ? "country_match" : g === "fn" ? "function_match" : `${g}_role IS NOT NULL`
+      );
     if (gate.length === 0) return [];
 
     const roughScore = `(
@@ -255,6 +264,7 @@ export class MatchRepo {
       + (CASE WHEN city_match THEN 40 WHEN country_match THEN 20 ELSE 0 END)
       + (CASE WHEN sp_role IS NOT NULL THEN 35 WHEN st_role IS NOT NULL THEN 20 ELSE 0 END)
       + (CASE WHEN fd_role IS NOT NULL THEN 40 ELSE 0 END)
+      + (CASE WHEN function_match THEN 20 ELSE 0 END)
     )`;
 
     const limitPh = bind(input.candidateLimit);
@@ -280,6 +290,7 @@ export class MatchRepo {
           ${OCCUPATION_SIGNALS.map((a) => `${a}.role_title AS ${a}_role, ${a}.org_name AS ${a}_org, ${a}.is_current AS ${a}_current`).join(",\n          ")},
           ${cityMatchSql} AS city_match,
           ${countryMatchSql} AS country_match,
+          ${functionMatchSql} AS function_match,
           ${keywordSql} AS keyword_hits
         FROM people p
         LEFT JOIN departments d ON d.id = p.department_id
@@ -340,6 +351,7 @@ export class MatchRepo {
         studyProgramMatch: occupationFromRow(row, "sp"),
         studyTypeMatch: occupationFromRow(row, "st"),
         founderMatch: occupationFromRow(row, "fd"),
+        functionMatch: row.function_match === true,
         keywordHits: row.keyword_hits ?? [],
         openTo: parseOpenToPreferences(row.open_to_preferences)?.selected ?? [],
         completenessScore: row.completeness_score

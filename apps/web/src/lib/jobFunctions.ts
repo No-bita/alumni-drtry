@@ -14,6 +14,25 @@ export const JOB_FUNCTION_LABELS: Record<JobFunction, string> = {
   other: "Other",
 };
 
+/** Ask's role labels to their job function (mirrors the API's functionForRoleLabel). */
+const ROLE_LABEL_FUNCTIONS: Record<string, JobFunction> = {
+  "Product Manager": "product",
+  "Software Engineer": "tech",
+  "Data Scientist": "data",
+  "Data Analyst": "data",
+  "Investment Banker": "finance",
+  "Quant / Trader": "finance",
+  Designer: "design",
+  Marketing: "marketing",
+  "Sales / BD": "sales",
+  Finance: "finance",
+  "Strategy / Operations": "ops",
+};
+
+export function functionForRoleLabel(label: string | null | undefined): JobFunction | null {
+  return label ? (ROLE_LABEL_FUNCTIONS[label.trim()] ?? null) : null;
+}
+
 export const EXPERIENCE_BANDS = ["intern", "0_3", "3_7", "7_plus"] as const;
 export type ExperienceBand = (typeof EXPERIENCE_BANDS)[number];
 

@@ -151,6 +151,21 @@ describe("Brokered requests (requires DB)", () => {
     expect(again.statusCode).toBe(409);
   });
 
+  it("hiring from Ask: asks matching members privately with no Wall post; one open per function and level", async () => {
+    const now = new Date().getUTCFullYear();
+    const hirer = await member();
+    const match = await member({ jobFunction: "data", batch: now - 2 });
+    const role = { jobFunction: "data", experience: "0_3", roleTitle: "Data Analyst", company: `Hireco ${R}`, message: "Small analytics team; you'd own the weekly business review." };
+    const asked = await req("POST", "/v1/broker-requests", hirer, { kind: "hiring", role });
+    expect(asked.statusCode, asked.body).toBe(201);
+    expect(asked.json().request).toMatchObject({ kind: "hiring", intentcastId: null, jobFunction: "data", experienceBand: "0_3", roleTitle: "Data Analyst" });
+    const asks = (await req("GET", "/v1/broker-asks", match)).json().asks as Array<{ kind: string; message: string; company: string }>;
+    expect(asks).toEqual([expect.objectContaining({ kind: "hiring", company: `Hireco ${R}`, message: role.message })]);
+    expect((await req("POST", "/v1/broker-requests", hirer, { kind: "hiring", role })).statusCode).toBe(409);
+    // Exactly one of a post or a role.
+    expect((await req("POST", "/v1/broker-requests", hirer, { kind: "hiring" })).statusCode).toBe(400);
+  });
+
   it("hiring posts need an apply link when people should apply via link", async () => {
     const poster = await member();
     const res = await req("POST", "/v1/intentcasts", poster, {

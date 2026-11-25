@@ -5,6 +5,7 @@ import type { OpenToOptionId } from "./openToPreferences";
 /** Must match `MATCH_CATEGORIES` in apps/api/src/lib/matchIntent.ts. */
 export const MATCH_CATEGORIES = [
   "referral",
+  "hiring",
   "interview_prep",
   "career_switch",
   "higher_studies",
@@ -14,6 +15,7 @@ export type MatchCategory = (typeof MATCH_CATEGORIES)[number];
 
 export const MATCH_CATEGORY_LABELS: Record<MatchCategory, string> = {
   referral: "Referral",
+  hiring: "Hiring",
   interview_prep: "Interview prep",
   career_switch: "Career switch",
   higher_studies: "Higher studies",
@@ -133,6 +135,8 @@ export function bulletinCategoryForMatch(category: MatchCategory | null): Bullet
     case "interview_prep":
     case "career_switch":
       return "careers";
+    case "hiring":
+      return "hiring";
     case "founder_advice":
       return "startups";
     default:
@@ -174,6 +178,8 @@ export function needsDetailPrompt(category: MatchCategory | null): { title: stri
   switch (category) {
     case "referral":
       return { title: "Which company do you want a referral at?", field: "company" };
+    case "hiring":
+      return { title: "What role are you hiring for?", field: "role" };
     case "interview_prep":
       return { title: "Which company or role is the interview for?", field: "company" };
     case "career_switch":

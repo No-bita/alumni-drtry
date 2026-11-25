@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import type { BulletinUiCategory } from "./bulletinPostCardUtils";
+import type { JobFunction } from "./jobFunctions";
 
 /** Bulletin categories supported by the general post wizard (hiring uses its own compose path). */
 export type BulletinGeneralCategory = BulletinUiCategory;
@@ -29,6 +30,8 @@ export type PostBulletinOpenOptions = {
   housingPhotoTip?: boolean;
   /** Preselect Ask / Offer / Invitation (Business "Post a request" opens with Ask chosen). */
   kind?: "ask" | "offer" | "invitation";
+  /** Hiring (category "hiring"): prefill from Ask's hiring question; every field stays editable. */
+  hiring?: { jobFunction?: JobFunction | null; roleTitle?: string | null; company?: string | null };
 };
 
 export type PostBulletinFlowHandleShape = {

@@ -797,6 +797,8 @@ export function Home() {
               canManageWallPins={auth.status === "authenticated" && (auth.person.role === "admin" || auth.person.role === "super_admin") && !auth.person.isDemo}
               bulletinRepliesFeed={bulletinRepliesQuery.data ?? undefined}
               bulletinRepliesLoading={bulletinRepliesFeedLoading}
+              // No Post button since the Home redesign: the tiles start every post. An empty Wall's example
+              // card still opens the composer (it then asks which category).
               onPost={() => {
                 trackBetaUsageEvent("home_wall_post_clicked");
                 bulletinFlowRef.current?.open();

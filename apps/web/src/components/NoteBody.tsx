@@ -61,6 +61,24 @@ export function NoteBody({
           ) : null}
           {toggle}
         </>
+      ) : details.purpose === "hiring" ? (
+        <>
+          <p className="note-card__headline">
+            {details.role} at {details.company}
+          </p>
+          <p className={clampClass ? `note-card__text ${clampClass}` : "note-card__text"} ref={longTextRef}>
+            {details.message}
+          </p>
+          {details.jobUrl ? (
+            <p className="note-card__text">
+              <strong>Job:</strong>{" "}
+              <a href={details.jobUrl} target="_blank" rel="noopener noreferrer">
+                {details.jobUrl}
+              </a>
+            </p>
+          ) : null}
+          {toggle}
+        </>
       ) : (
         <>
           <p className={clampClass ? `note-card__text ${clampClass}` : "note-card__text"} ref={longTextRef}>

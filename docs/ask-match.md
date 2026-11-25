@@ -17,11 +17,14 @@ A member types what they are trying to get done ("Need a referral for PM at Razo
 | Category | Qualifies ("can help") | Boost ("will help": open-to) |
 |---|---|---|
 | `referral` | Currently at the company (or holds the role now, if no company was named) | referrals, hiring |
+| `hiring` | Holds the role now, or works in its job function (`people.job_function`). The company named is the asker's own, so it never qualifies anyone. No role named → `needsDetail` | — (no Open-to option means "looking for a job") |
 | `interview_prep` | At the company now or before, and/or held the role | mentorship, coffee |
 | `career_switch` | Holds the target role now (bonus if they held the "from" role before) | mentorship, coffee |
 | `higher_studies` | Higher-education / research job (bonus for the named program) | mentorship, advising |
 | `founder_advice` | "Founded a venture" job type or a founder title | collaboration, advising |
 | *(no clear category)* | The most specific thing named: company, then role, then place, then study program | — |
+
+`hiring` (2026-11-25) is recognised from hire / hiring / recruit / "join my team" / "open position on my team" / "need a ‹role› for my team, startup or company". Job seekers' wording ("who is hiring", "is X hiring", "get hired", "hiring process", "hiring manager") is not hiring. The web shows a choice (share the role, find candidates, ask for recommendations — coming soon) instead of the list until one is picked.
 
 `relocation` ("Moving cities") was removed with Cities on 2026-11-25. A question about a move now has no category and qualifies on the place it names. Older rows in `match_queries` and `contact_requests` keep the value, and the database still allows it.
 

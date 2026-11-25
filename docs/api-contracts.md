@@ -158,6 +158,7 @@ Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migrati
   - Note form (every surface except Cities): `{ recipientPersonId, note, source?, sourceRank? }`. The server builds the readable `message` from `note` (so email, WhatsApp, reminders and Notifications are unchanged) and stores the fields in `contact_requests.details`; the category comes from the note (referral → `referral`; advice → its topic; `other` → none). `note` is one of:
     - `{ purpose: "referral", jobUrl, role, company, fit, resumeUrl? }`: `jobUrl` and `resumeUrl` are http(s) links with a dotted host (≤ 500 characters); `role` and `company` 1–120 characters (spaces tidied); `fit` 80–500 characters.
     - `{ purpose: "advice", topic, question }`: `topic` is `interview_prep`, `career_switch`, `higher_studies`, `founder_advice` or `other` (`relocation` was removed with Cities on 2026-11-25); `question` 80–1000 characters.
+    - `{ purpose: "hiring", role, company, message, jobUrl? }` (2026-11-25, a hirer writing to a possible candidate from Ask): `role` and `company` 1–120 characters; `message` 80–1000 characters; `jobUrl` optional http(s) link. Category `hiring` (migration 077). Errors: `CONTACT_REQUEST_ROLE_REQUIRED`, `CONTACT_REQUEST_COMPANY_REQUIRED`, `CONTACT_REQUEST_MESSAGE_LENGTH`, `CONTACT_REQUEST_JOB_LINK_INVALID`.
     - Errors (400): `CONTACT_REQUEST_PURPOSE_REQUIRED` (missing or unknown purpose, including a bare `message` outside Cities), `CONTACT_REQUEST_JOB_LINK_REQUIRED`, `CONTACT_REQUEST_ROLE_REQUIRED`, `CONTACT_REQUEST_COMPANY_REQUIRED`, `CONTACT_REQUEST_FIT_LENGTH`, `CONTACT_REQUEST_RESUME_LINK_INVALID`, `CONTACT_REQUEST_TOPIC_REQUIRED`, `CONTACT_REQUEST_QUESTION_LENGTH`. Each has a plain-language `message`.
   - Cities v1 (unchanged): `{ recipientPersonId, message, source: "cities", sourceCategory, cityHelpOfferId? }` - free-text `message` (min 10 characters), category one of `coffee`, `relocation`, `visiting`, `newcomer`; `cityHelpOfferId` only with `newcomer`. Coffee asks need a 40+ character reason; at most 3 relocation/visiting asks waiting at once.
   - Returns `409 CONTACT_REQUEST_DUPLICATE_PENDING` when a note to the same person is still pending; the existing per-sender window limit stays.
@@ -225,3 +226,8 @@ Admin routes require `admin` or `super_admin`; super-admin-only routes must also
 ## Health
 
 - `GET /healthz`: returns API and database health.
+
+
+## Brokered hiring asks from Ask (2026-11-25)
+
+`POST /v1/broker-requests` with `{ kind: "hiring", role: { jobFunction, experience, roleTitle?, company?, message } }` asks alumni with that function and experience privately, with no Wall post (`message` 10–1500 characters). Send either `role` or `intentcastId` (a hiring post of yours), not both (`400 BROKER_BAD_REQUEST`). No cap on open requests; a second open private ask for the same function and experience returns `409 BROKER_DUPLICATE_OPEN`; nobody matching returns `422 BROKER_NO_MATCHES`.
