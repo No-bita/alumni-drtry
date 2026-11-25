@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -90,7 +90,7 @@ describe("Browse row", () => {
 
 describe("The Wall", () => {
   const zero = { careers: 0, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 };
-  it("stays on Home when empty, with no 'quiet' message; the example card is the way to post", () => {
+  it("stays on Home when empty, with no 'quiet' message and no example post", () => {
     const onPost = vi.fn();
     wrap(
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}} categoryCounts={zero} onPost={onPost} />,
@@ -100,8 +100,8 @@ describe("The Wall", () => {
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Write your first post on The Wall" }));
-    expect(onPost).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Write your first post on The Wall" })).toBeNull();
+    expect(screen.getByText("No posts yet.")).toBeTruthy();
   });
 });
 
