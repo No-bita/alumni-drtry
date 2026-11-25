@@ -10,6 +10,11 @@ import { sessionSameSite } from "./sessionCookie.js";
  */
 export const VIEW_AS_COOKIE_NAME = "alumni_view_as";
 export const VIEW_AS_END_PATH = "/v1/admin/view-as/end";
+/**
+ * Switch straight to another member (ends the current view-as and starts the new one in one step).
+ * Like ending, it is allowed while view-as is active: it only changes whom the admin is looking at.
+ */
+export const VIEW_AS_SWITCH_PATH = "/v1/admin/view-as/switch";
 
 export const VIEW_AS_READ_ONLY_CODE = "VIEW_AS_READ_ONLY";
 export const VIEW_AS_READ_ONLY_MESSAGE =

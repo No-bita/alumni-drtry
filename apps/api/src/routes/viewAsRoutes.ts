@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
-import { VIEW_AS_COOKIE_NAME, VIEW_AS_END_PATH, clearViewAsCookie, setViewAsCookie } from "../lib/viewAs.js";
+import { VIEW_AS_COOKIE_NAME, VIEW_AS_END_PATH, VIEW_AS_SWITCH_PATH, clearViewAsCookie, setViewAsCookie } from "../lib/viewAs.js";
 
 const searchQuerySchema = z.object({
   q: z.string().trim().min(2).max(120)
@@ -54,6 +54,43 @@ export const viewAsRoutes: FastifyPluginAsync = async (app) => {
         }
       },
       "admin view-as started"
+    );
+    setViewAsCookie(reply, token, app.viewAsService.sessionTtlMinutes);
+    return reply.code(201).send({ viewAs: info });
+  });
+
+  /**
+   * Switch to another member: ends the current view-as session (if any) and starts one for this member,
+   * in one step. Allowed while view-as is active (the read-only guard lets it through), but only for an
+   * allowlisted admin, checked against the real admin, never the member being viewed.
+   */
+  app.post(VIEW_AS_SWITCH_PATH, viewAsAdmin, async (request, reply) => {
+    const parsed = startBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VIEW_AS_BAD_REQUEST", "Pick a member.");
+    }
+    const ip = request.ip ?? null;
+    const current = request.cookies[VIEW_AS_COOKIE_NAME];
+    const { token, info, endedSessionId } = await app.viewAsService.switchTo({
+      admin: request.actor,
+      currentToken: typeof current === "string" && current.length > 0 ? current : null,
+      targetPersonId: parsed.data.personId,
+      ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+    request.log.warn(
+      {
+        viewAs: {
+          event: "switch",
+          endedSessionId,
+          sessionId: info.sessionId,
+          adminPersonId: info.adminPersonId,
+          targetPersonId: info.targetPersonId,
+          expiresAt: info.expiresAt,
+          ip
+        }
+      },
+      "admin view-as switched"
     );
     setViewAsCookie(reply, token, app.viewAsService.sessionTtlMinutes);
     return reply.code(201).send({ viewAs: info });

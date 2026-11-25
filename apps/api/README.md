@@ -61,7 +61,7 @@ This service now covers Phase 1, Phase 2, and core Phase 3 features of the alumn
 - `DELETE /v1/admin/people/:id`
 - `GET /v1/admin/people/duplicates`
 - `GET /v1/admin/metrics`
-- `GET /v1/admin/view-as/people` / `POST /v1/admin/view-as` / `POST /v1/admin/view-as/end` (admin "view as member", read-only; off unless `VIEW_AS_ADMIN_EMAILS` is set — see `docs/api-contracts.md`)
+- `GET /v1/admin/view-as/people` / `POST /v1/admin/view-as` / `POST /v1/admin/view-as/switch` / `POST /v1/admin/view-as/end` (admin "view as member", read-only; off unless `VIEW_AS_ADMIN_EMAILS` is set — see `docs/api-contracts.md`)
 - `GET /healthz`
 
 ## Security Defaults

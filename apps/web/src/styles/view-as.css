@@ -120,3 +120,46 @@ html[data-view-as="on"] .nav-app-toolbar {
   display: block;
   font-weight: 600;
 }
+
+/* View-as card (analytics page and /admin/view-as): who you're viewing, search, View as / Switch to. */
+.va-card {
+  margin-top: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--palette-bg-cream, transparent);
+}
+
+.va-card__now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.va-card__now p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.va-result__current {
+  flex: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #b3261e;
+}
+
+.view-as-banner__switch {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.view-as-banner__switch:focus-visible {
+  outline: 3px solid #ffd54a;
+  outline-offset: 2px;
+}

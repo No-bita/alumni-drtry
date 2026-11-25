@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { AdminBrowsingLimits } from "../components/AdminBrowsingLimits";
+import { ViewAsCard } from "../components/ViewAsCard";
 import { WeeklyBars } from "../components/WeeklyBars";
 import { MetricInfoPill } from "../components/MetricInfoPill";
 import { METRIC_HELP } from "../lib/analyticsMetricHelp";
@@ -615,8 +616,10 @@ export function AdminAnalyticsPage() {
   const queryClient = useQueryClient();
   const [days, setDays] = useState<AnalyticsWindow>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const isAdmin = auth.status === "authenticated" && auth.person.role !== "alumni";
-  const displayName = auth.status === "authenticated" ? auth.myProfile?.fullName?.trim() || undefined : undefined;
+  // While viewing as a member, `person` is that member: analytics stays hidden (and unloaded) until Exit.
+  const viewing = auth.status === "authenticated" && Boolean(auth.viewAs);
+  const isAdmin = auth.status === "authenticated" && auth.person.role !== "alumni" && !viewing;
+  const displayName = auth.status === "authenticated" && !viewing ? auth.myProfile?.fullName?.trim() || undefined : undefined;
 
   const query = useQuery({
     queryKey: analyticsQueryKey(days),
@@ -708,7 +711,12 @@ export function AdminAnalyticsPage() {
         }
       />
       <main className="aa-page">
-        {!isAdmin ? (
+        <ViewAsCard id="view-as" />
+        {viewing ? (
+          <p className="aa-message" role="status">
+            Analytics is hidden while you&apos;re viewing as a member. Go back to your account to see it.
+          </p>
+        ) : !isAdmin ? (
           <p className="aa-message" role="alert">
             This page is for admins.
           </p>
@@ -742,11 +750,6 @@ export function AdminAnalyticsPage() {
                   <Link to="/admin/announcements" className="aa-link">
                     Announcements
                   </Link>
-                  {auth.status === "authenticated" && auth.canViewAs ? (
-                    <Link to="/admin/view-as" className="aa-link">
-                      View as member
-                    </Link>
-                  ) : null}
                 </div>
               </section>
             ) : null}

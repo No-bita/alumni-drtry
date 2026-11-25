@@ -18,8 +18,9 @@ const API_BASE = API_BASE_URL;
 
 export type ApiError = { code: string; message?: string };
 
-/** Admin "view as member": the one write allowed while viewing (ends it). */
+/** Admin "view as member": the only writes allowed while viewing end it or switch to another member. */
 export const VIEW_AS_END_API_PATH = "/v1/admin/view-as/end";
+export const VIEW_AS_SWITCH_API_PATH = "/v1/admin/view-as/switch";
 export const VIEW_AS_READ_ONLY_CODE = "VIEW_AS_READ_ONLY";
 export const VIEW_AS_READ_ONLY_MESSAGE = "You're viewing as a member (read-only). Exit view-as to make changes.";
 
@@ -27,7 +28,7 @@ let viewAsReadOnly = false;
 
 /**
  * Set from the session snapshot (GET /v1/me `viewAs`). While on, the browser does not send any write
- * (POST/PUT/PATCH/DELETE) except ending view-as: background beacons and "seen" markers stay quiet and
+ * (POST/PUT/PATCH/DELETE) except ending view-as or switching member: background beacons and "seen" markers stay quiet and
  * explicit actions get the same read-only error the API would return. The API enforces it regardless.
  */
 export function setViewAsReadOnly(on: boolean): void {
@@ -41,7 +42,8 @@ export function isViewAsReadOnly(): boolean {
 function blockedByViewAs(method: string | undefined, path: string): boolean {
   const m = (method ?? "GET").toUpperCase();
   if (!viewAsReadOnly || m === "GET" || m === "HEAD") return false;
-  return path.split("?")[0] !== VIEW_AS_END_API_PATH;
+  const p = path.split("?")[0];
+  return p !== VIEW_AS_END_API_PATH && !(m === "POST" && p === VIEW_AS_SWITCH_API_PATH);
 }
 
 const viewAsReadOnlyError = (): ApiError => ({ code: VIEW_AS_READ_ONLY_CODE, message: VIEW_AS_READ_ONLY_MESSAGE });

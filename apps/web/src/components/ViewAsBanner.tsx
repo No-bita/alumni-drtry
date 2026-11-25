@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { endViewAs, reloadAppAt, viewAsName, ViewAsError } from "../lib/viewAs";
 
@@ -62,6 +63,9 @@ export function ViewAsBanner() {
           {error}
         </p>
       ) : null}
+      <Link to="/admin/analytics#view-as" className="view-as-banner__switch">
+        Switch
+      </Link>
       <button type="button" className="view-as-banner__exit" disabled={busy} onClick={() => void exit()}>
         {busy ? "Exiting…" : "Exit"}
       </button>
