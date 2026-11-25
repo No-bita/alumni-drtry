@@ -37,6 +37,28 @@ const items: NotificationItem[] = [
     message: "Moving to Mumbai next month",
   },
   {
+    kind: "broker_ask_received",
+    id: "n1b",
+    occurredAt: new Date().toISOString(),
+    unseen: true,
+    askId: "a1",
+    requestKind: "referral",
+    askerPersonId: "p4",
+    askerFullName: "Kabir Anand",
+    company: "Zepto",
+    roleTitle: "Frontend Engineer",
+  },
+  {
+    kind: "broker_request_expired",
+    id: "n1c",
+    occurredAt: new Date().toISOString(),
+    unseen: true,
+    requestId: "rq1",
+    requestKind: "referral",
+    company: "Meesho",
+    askedCount: 3,
+  },
+  {
     kind: "contact_request_resolved",
     id: "n2",
     occurredAt: new Date().toISOString(),
@@ -104,7 +126,7 @@ describe("notification quick view (bottom sheet) activation", () => {
     const overlays = container.querySelectorAll(
       "li.notifications-page__item--activatable > button.notifications-page__item-activate",
     );
-    expect(overlays.length).toBe(3);
+    expect(overlays.length).toBe(5);
     for (const overlay of overlays) {
       expect(overlay.parentElement?.querySelector("time.notifications-page__item-time")).not.toBeNull();
     }
@@ -207,8 +229,9 @@ describe("incoming notes from the note form", () => {
 });
 
 describe("type tiles and unseen emphasis", () => {
-  it("non-request rows carry a kind tile; reachout requests show no tile", () => {
+  it("non-request rows carry a kind tile; reachout and broker rows show no tile", () => {
     const { container } = wrap(<NotificationsList items={items} />);
+    // Two tiles only (resolved + bulletin): reachout and broker rows carry none, the star is gone.
     expect(container.querySelectorAll(".notifications-page__kind-tile").length).toBe(2);
     expect(container.querySelectorAll(".notifications-page__kind-tile--request").length).toBe(0);
     expect(container.querySelectorAll(".notifications-page__kind-tile--resolved").length).toBe(1);
@@ -218,9 +241,9 @@ describe("type tiles and unseen emphasis", () => {
   it("unseen rows get the unseen class, seen rows do not", () => {
     const { container } = wrap(<NotificationsList items={items} />);
     const rows = container.querySelectorAll("li.notifications-page__item");
-    expect(rows.length).toBe(3);
-    expect(container.querySelectorAll("li.notifications-page__item--unseen").length).toBe(2);
-    expect(rows[2]!.classList.contains("notifications-page__item--unseen")).toBe(false);
+    expect(rows.length).toBe(5);
+    expect(container.querySelectorAll("li.notifications-page__item--unseen").length).toBe(4);
+    expect(rows[4]!.classList.contains("notifications-page__item--unseen")).toBe(false);
   });
 
   // Owner-approved 5 Nov 2026: "Mark all as seen" lives in the full inbox header too.
