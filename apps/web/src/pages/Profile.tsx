@@ -1,12 +1,14 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
+// Cities is out of the product: the "show as new in <city>" prompt is commented out (restore by uncommenting).
+// import { ArrivalOptInSheet } from "../components/cities/ArrivalOptInSheet";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import type { ArrivalPrompt } from "../lib/cities";
+// import type { ArrivalPrompt } from "../lib/cities"; - Cities out of the product
 import { Nav } from "../components/Nav";
 import { ProfilePageView } from "../components/profile/ProfilePageView";
 import { HeaderSheet } from "../components/profile/HeaderSheet";
+import { FunctionSheet } from "../components/profile/FunctionSheet";
 import { AreasSheet } from "../components/profile/AreasSheet";
 import { OpenToSheet } from "../components/profile/OpenToSheet";
 import { EntriesSheet } from "../components/profile/EntriesSheet";
@@ -23,8 +25,8 @@ import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPre
 import { browsingLimitFromError } from "../lib/browsingLimits";
 import { headlineInstituteLine, headlineRole, instituteEducation, type ProfileSection } from "../lib/profilePage";
 
-/** Deep links from other pages: ?edit=contact | open-to | city opens that section's sheet. */
-const EDIT_PARAM_SECTIONS: Record<string, ProfileSection> = { contact: "contact", "open-to": "openTo", city: "header" };
+/** Deep links from other pages: ?edit=contact | open-to | city | function opens that section's sheet. */
+const EDIT_PARAM_SECTIONS: Record<string, ProfileSection> = { contact: "contact", "open-to": "openTo", city: "header", function: "function" };
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +38,7 @@ export function Profile() {
   const [section, setSection] = useState<ProfileSection | null>(null);
   const [reachingOut, setReachingOut] = useState(false);
   /** Cities: after a city change into a v1 city, offer "New in [city]?" (screen 5). */
-  const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null);
+  // const [arrivalPrompt, setArrivalPrompt] = useState<ArrivalPrompt | null>(null); - Cities out of the product
   /** Cities' "Moved away? Update your city" opened the sheet (for the city-update count). */
   const [fromCities, setFromCities] = useState(false);
   /** Cities sent the member here at the 5-tag cap to make room for city help. */
@@ -213,6 +215,7 @@ export function Profile() {
           privateContact={isOwnProfile ? (me ?? undefined) : undefined}
           ownerNotice={ownerNotice}
           ownerExtras={null}
+          jobFunction={isOwnProfile && me && "jobFunction" in me ? (me.jobFunction ?? null) : undefined}
           onEdit={setSection}
           onReachOut={() => setReachingOut(true)}
           onSignOut={() => {
@@ -232,11 +235,21 @@ export function Profile() {
           country={profile.residenceCountry}
           focusCity={fromCities}
           onClose={closeSheet}
-          onSaved={({ arrivalPrompt: prompt, changedCity }) => {
+          onSaved={({ changedCity }) => {
             if (fromCities && changedCity) trackBetaUsageEvent("cities_city_updated");
             void auth.refetch();
             void savedAndClose();
-            if (prompt) setArrivalPrompt(prompt);
+            // if (prompt) setArrivalPrompt(prompt); - Cities out of the product
+          }}
+        />
+      ) : null}
+      {isOwnProfile && section === "function" ? (
+        <FunctionSheet
+          saved={me?.jobFunction ?? null}
+          onClose={closeSheet}
+          onSaved={() => {
+            void auth.refetch();
+            closeSheet();
           }}
         />
       ) : null}
@@ -332,6 +345,7 @@ export function Profile() {
         />
       ) : null}
 
+      {/* Cities out of the product (restore by uncommenting).
       {arrivalPrompt ? (
         <ArrivalOptInSheet
           placeId={arrivalPrompt.placeId}
@@ -339,7 +353,7 @@ export function Profile() {
           onClose={() => setArrivalPrompt(null)}
           onDone={() => navigate("/intent/location")}
         />
-      ) : null}
+      ) : null} */}
     </>
   );
 }

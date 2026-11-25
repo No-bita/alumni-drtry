@@ -29,41 +29,13 @@ body {
   flex-direction: column;
 }
 
-html[data-app-shell="sidebar"] #root {
-  padding-left: var(--nav-sidebar-width);
+/* Signed-in shell: content starts below the fixed top bar (no sidebar or bottom dock). */
+html[data-app-shell="topbar"] #root {
   padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   padding-right: env(safe-area-inset-right, 0px);
 }
 
 @media (max-width: 767px) {
-  html[data-app-shell="sidebar"] {
-    --nav-sidebar-width: 82px;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__logo {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-align: center;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__link-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  html[data-app-shell="sidebar"] .nav-sidebar__link {
-    justify-content: center;
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
   h2,
   .section-headline {
     font-size: clamp(1.5rem, 5.5vw, var(--text-section-headline));
@@ -75,19 +47,10 @@ html[data-app-shell="sidebar"] #root {
   :root {
     --page-x: var(--page-x-phone);
   }
-
-  html[data-app-shell="sidebar"] {
-    --nav-sidebar-width: 0px;
-  }
-
-  html[data-app-shell="sidebar"] #root {
-    padding-left: 0;
-    padding-bottom: calc(var(--nav-bottom-dock-height) + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 /* Display — Playfair */
-h1, h2, h3, h4, .headline, .section-headline, .card-headline, .subheadline {
+h1, h2, h3, h4, .headline, .section-headline {
   font-family: var(--font-display);
   font-weight: 400;
   color: var(--ink);
@@ -99,9 +62,7 @@ main h2,
 main h3,
 main h4,
 main .headline,
-main .section-headline,
-main .card-headline,
-main .subheadline {
+main .section-headline {
   font-family: var(--font-display);
 }
 
@@ -117,15 +78,10 @@ h2, .section-headline {
   margin: 0 0 var(--space-sm);
 }
 
-h3, .card-headline {
+h3 {
   font-size: var(--text-card-headline);
   line-height: var(--lh-card-headline);
   margin: 0 0 var(--space-xs);
-}
-
-.subheadline {
-  font-size: var(--text-subheadline);
-  line-height: var(--lh-subheadline);
 }
 
 .italic-accent {
@@ -155,30 +111,6 @@ p, .body-text {
   color: var(--ink-muted);
 }
 
-.ui-body {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--ink);
-}
-
-.small-note {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: 11px;
-  line-height: var(--lh-small);
-  color: var(--ink-faint);
-}
-
-.stat-number {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-stat);
-  line-height: 1;
-  color: var(--ink);
-}
-
 /* Eyebrow */
 .eyebrow {
   font-family: var(--font-body);
@@ -188,10 +120,6 @@ p, .body-text {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ochre);
-}
-
-.eyebrow-light {
-  color: var(--ink-faint);
 }
 
 /* Links */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { splitBulletinPostBody, stripBulletinUiCategory } from "../lib/bulletinPostCardUtils";
 import type { IntentcastFeedItem, ReceivedBulletinRepliesFeedResponse, ReceivedBulletinReplyFeedItem } from "../api/client";
@@ -15,13 +15,9 @@ import { normalizeOpportunityCard, type HomeOpportunityFeedLane } from "../lib/i
 import { mapIntentcastToRow } from "../lib/careerFeedRow";
 import { isFeedEmpty } from "../lib/emptyFeedDefense";
 import { IntentcastActivityRowsList, type CareerFeedRowModel } from "./CareerIntentFeedRows";
-import { WallEmptyPrompt } from "./WallEmptyPrompt";
 import { useWallShareTarget } from "../hooks/useWallShareTarget";
 import { LineIcon } from "./LineIcon";
 import "../styles/hub-cards.css";
-
-/** How long the rings around "Post to The Wall" play once the empty-Wall card settles. */
-const POST_RIPPLE_MS = 1300;
 
 export type HomeOpportunityCategory = HomeOpportunityFeedLane | "all" | "replies";
 import type { HomeOpportunityCategoryLegacy } from "../lib/homeOpportunityCategory";
@@ -59,8 +55,7 @@ type HomeOpportunityRailProps = {
   canManageWallPins?: boolean;
   bulletinRepliesFeed?: ReceivedBulletinRepliesFeedResponse;
   bulletinRepliesLoading?: boolean;
-  /** Opens the post composer; powers the "be the first to ask" button on an empty feed. */
-  /** Opens the post flow ("Post to The Wall"). */
+  /** Unused: the tiles start every post. Kept optional so callers need no change. */
   onPost?: () => void;
 };
 
@@ -130,7 +125,6 @@ export function HomeOpportunityRail({
   canManageWallPins = false,
   bulletinRepliesFeed,
   bulletinRepliesLoading = false,
-  onPost,
 }: HomeOpportunityRailProps) {
   const queryClient = useQueryClient();
   // Opened from a shared post link (#wall-<id>): find it, scroll to it, mark it "Shared with you".
@@ -213,14 +207,6 @@ export function HomeOpportunityRail({
     [queryClient]
   );
 
-  // Two soft rings around "Post to The Wall" once the empty-Wall card finishes typing.
-  const [rippling, setRippling] = useState(false);
-  useEffect(() => {
-    if (!rippling) return undefined;
-    const t = setTimeout(() => setRippling(false), POST_RIPPLE_MS);
-    return () => clearTimeout(t);
-  }, [rippling]);
-  const startRipple = useCallback(() => setRippling(true), []);
 
   const feedIsEmpty = !opportunitiesFeedLoading && !opportunitiesFeedError && isFeedEmpty(categoryCounts);
   // PARKED 2026-11-18: chip derivation for the parked topic chips.
@@ -231,23 +217,15 @@ export function HomeOpportunityRail({
     <section className="home-ideal__opportunities ds-surface-card" aria-labelledby="home-opportunities-heading">
       <header className="home-ideal__opportunities-header ds-section-head">
         <span className="hub-card__icon home-wall__icon" aria-hidden>
-          <LineIcon name="wall" />
+          <LineIcon name="bolt" />
         </span>
         <div className="home-ideal__opportunities-headcopy">
+          {/* The Wall, ranked for the viewer (GET /v1/intentcasts?scope=home_wall&sort=for_you). */}
           <h2 id="home-opportunities-heading" className="home-ideal__opportunities-title ds-title-lg">
-            The Wall
+            Opportunities for you
           </h2>
-          <p className="home-ideal__opportunities-sub">Curated opportunities for you</p>
+          <p className="home-ideal__opportunities-sub">Roles, collaborations and other relevant asks from alumni.</p>
         </div>
-        {onPost ? (
-          <button
-            type="button"
-            className={`btn btn--primary home-ideal__opportunities-post${rippling ? " home-ideal__opportunities-post--ripple" : ""}`}
-            onClick={onPost}
-          >
-            Post
-          </button>
-        ) : null}
       </header>
       {pinError ? <p role="alert" className="home-ideal__opportunity-rail-error">{pinError}</p> : null}
       {share.notice ? (
@@ -293,9 +271,11 @@ export function HomeOpportunityRail({
           <p>We couldn't load posts just now. Try again in a moment.</p>
         </div>
       ) : activityRows.length === 0 ? (
-        // Nothing posted yet: a blank card types example posts, then points at "Post to The Wall".
+        // Nothing posted yet: a plain note, no example post (the tiles start every post).
         feedIsEmpty ? (
-          onPost ? <WallEmptyPrompt onPost={onPost} onFinished={startRipple} /> : null
+          <div className="home-ideal__empty">
+            <p>No posts yet.</p>
+          </div>
         ) : (
           <div className="home-ideal__empty">
             <p>No posts in this category yet.</p>

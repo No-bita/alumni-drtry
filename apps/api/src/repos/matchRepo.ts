@@ -4,6 +4,8 @@ import { personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import type { MatchLexicon, MatchLexiconPlace, StudyProgram } from "../lib/matchIntent.js";
 import type { MatchCandidateSignals, OccupationSignal } from "../lib/matchScore.js";
 import { parseOpenToPreferences } from "../lib/openToPreferences.js";
+import type { JobFunction } from "../lib/jobFunctions.js";
+import { nameMentionConditionSql, nameNormalizeSql, namePrefixConditionSql } from "../lib/nameQuery.js";
 
 /** Structured search terms derived from a `MatchIntent` by `MatchService`. */
 export interface MatchCandidateQuery {
@@ -20,6 +22,8 @@ export interface MatchCandidateQuery {
   studyPrograms: StudyProgram[];
   wantStudy: boolean;
   wantFounder: boolean;
+  /** Hiring: the job function the role belongs to (people.job_function), or null. */
+  jobFunction: JobFunction | null;
   /** Display keyword + escaped pattern pairs. */
   keywords: { keyword: string; pattern: string }[];
   /** Max candidate rows to score in TS. */
@@ -31,7 +35,7 @@ export interface MatchCandidateQuery {
   requiredAnyOf: MatchGateSignal[];
 }
 
-export type MatchGateSignal = "cc" | "pc" | "cr" | "pr" | "sp" | "st" | "fd" | "city" | "country";
+export type MatchGateSignal = "cc" | "pc" | "cr" | "pr" | "sp" | "st" | "fd" | "fn" | "city" | "country";
 
 export const STUDY_OCCUPATION_TYPE_CODES = ["higher_education_non_research", "phd_research", "postdoctoral_research"] as const;
 
@@ -60,6 +64,7 @@ interface CandidateRow {
   completeness_score: number;
   city_match: boolean;
   country_match: boolean;
+  function_match: boolean;
   keyword_hits: string[] | null;
   [key: string]: unknown;
 }
@@ -87,8 +92,90 @@ function occupationFromRow(row: CandidateRow, alias: OccupationSignalAlias): Occ
   };
 }
 
+/** An alum whose name matches the question (see lib/nameQuery.ts). */
+export interface NameMatchRow {
+  id: string;
+  full_name: string;
+  batch_year: number | null;
+  department_code: string | null;
+  department_name: string | null;
+  headline_role_title: string | null;
+  headline_organization_name: string | null;
+  residence_city: string | null;
+  residence_country: string | null;
+  open_to_preferences: unknown;
+  [key: string]: unknown;
+}
+
 export class MatchRepo {
   constructor(private readonly db: PoolExecutor) {}
+
+  /**
+   * Alumni whose name matches: every word of a short question starts a word of their name
+   * (`prefixWords`, null to skip), or their full name appears in the question (`phrase`).
+   * An exact full name ranks first, then a name mentioned in the question, then prefix matches.
+   * Same visibility rules as Ask candidates.
+   */
+  async findByName(input: {
+    prefixWords: string[] | null;
+    phrase: string;
+    viewerPersonId: string;
+    viewerIsDemo: boolean;
+    limit: number;
+  }): Promise<NameMatchRow[]> {
+    if (!input.prefixWords && !input.phrase.includes(" ")) return [];
+    const params: unknown[] = [];
+    const bind = (value: unknown): string => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+    const viewerPh = bind(input.viewerPersonId);
+    const phrasePh = bind(input.phrase);
+    const nn = "n.nn";
+    const conds = [nameMentionConditionSql(nn, phrasePh)];
+    if (input.prefixWords) conds.push(namePrefixConditionSql(nn, bind(input.prefixWords)));
+    const limitPh = bind(input.limit);
+
+    const query = `
+      SELECT
+        p.id,
+        p.full_name,
+        p.batch_year,
+        CASE WHEN d.code = 'other' THEN NULL ELSE lower(COALESCE(d.code, p.department_code)) END AS department_code,
+        CASE WHEN d.code = 'other' THEN NULL ELSE COALESCE(d.name, p.department_name) END AS department_name,
+        head.role_title AS headline_role_title,
+        head.org_name AS headline_organization_name,
+        p.residence_city,
+        p.residence_country,
+        p.open_to_preferences
+      FROM people p
+      CROSS JOIN LATERAL (SELECT ${nameNormalizeSql("p.full_name")} AS nn) n
+      LEFT JOIN departments d ON d.id = p.department_id
+      LEFT JOIN LATERAL (
+        SELECT o.role_title, org.name::text AS org_name
+        FROM occupations o
+        LEFT JOIN organizations org ON org.id = o.organization_id
+        WHERE o.person_id = p.id
+        ORDER BY o.is_current DESC, o.start_date DESC NULLS LAST, o.created_at DESC
+        LIMIT 1
+      ) head ON TRUE
+      WHERE p.deleted_at IS NULL
+        AND p.suspended_at IS NULL
+        AND p.full_name IS NOT NULL
+        AND p.profile_completed_at IS NOT NULL
+        AND ${personIsDiscoverableForViewerSql("p", input.viewerIsDemo)}
+        AND p.id <> ${viewerPh}::uuid
+        AND (${conds.join(" OR ")})
+      ORDER BY
+        CASE WHEN ${nn} = ${phrasePh}::text THEN 0 WHEN ${conds[0]} THEN 1 ELSE 2 END,
+        (head.role_title IS NOT NULL) DESC,
+        p.full_name ASC,
+        p.id ASC
+      LIMIT ${limitPh}
+    `;
+    const result = await this.runWithTimeout<NameMatchRow>(query, params);
+    return result.rows;
+  }
 
   /**
    * Organization and place names that appear (as substrings) in the question. The parser
@@ -239,14 +326,19 @@ export class MatchRepo {
           })()
         : `ARRAY[]::text[]`;
 
+    const functionMatchSql = input.jobFunction ? `(p.job_function = ${bind(input.jobFunction)})` : "FALSE";
+
     // A row is a candidate only if it has one of the category's qualifying signals.
     const gate = input.requiredAnyOf
       .filter((g) => {
         if (g === "city") return input.cityNames.length > 0;
         if (g === "country") return input.countryNames.length > 0;
+        if (g === "fn") return input.jobFunction !== null;
         return Boolean(conds[g]);
       })
-      .map((g) => (g === "city" ? "city_match" : g === "country" ? "country_match" : `${g}_role IS NOT NULL`));
+      .map((g) =>
+        g === "city" ? "city_match" : g === "country" ? "country_match" : g === "fn" ? "function_match" : `${g}_role IS NOT NULL`
+      );
     if (gate.length === 0) return [];
 
     const roughScore = `(
@@ -255,6 +347,7 @@ export class MatchRepo {
       + (CASE WHEN city_match THEN 40 WHEN country_match THEN 20 ELSE 0 END)
       + (CASE WHEN sp_role IS NOT NULL THEN 35 WHEN st_role IS NOT NULL THEN 20 ELSE 0 END)
       + (CASE WHEN fd_role IS NOT NULL THEN 40 ELSE 0 END)
+      + (CASE WHEN function_match THEN 20 ELSE 0 END)
     )`;
 
     const limitPh = bind(input.candidateLimit);
@@ -280,6 +373,7 @@ export class MatchRepo {
           ${OCCUPATION_SIGNALS.map((a) => `${a}.role_title AS ${a}_role, ${a}.org_name AS ${a}_org, ${a}.is_current AS ${a}_current`).join(",\n          ")},
           ${cityMatchSql} AS city_match,
           ${countryMatchSql} AS country_match,
+          ${functionMatchSql} AS function_match,
           ${keywordSql} AS keyword_hits
         FROM people p
         LEFT JOIN departments d ON d.id = p.department_id
@@ -340,6 +434,7 @@ export class MatchRepo {
         studyProgramMatch: occupationFromRow(row, "sp"),
         studyTypeMatch: occupationFromRow(row, "st"),
         founderMatch: occupationFromRow(row, "fd"),
+        functionMatch: row.function_match === true,
         keywordHits: row.keyword_hits ?? [],
         openTo: parseOpenToPreferences(row.open_to_preferences)?.selected ?? [],
         completenessScore: row.completeness_score
@@ -382,7 +477,7 @@ export class MatchRepo {
     );
   }
 
-  private async runWithTimeout<T extends CandidateRow>(text: string, params: unknown[]): Promise<{ rows: T[] }> {
+  private async runWithTimeout<T extends { [key: string]: unknown }>(text: string, params: unknown[]): Promise<{ rows: T[] }> {
     const ms = env.DISCOVERY_SEARCH_STATEMENT_TIMEOUT_MS;
     if (ms === 0) return this.db.query<T>(text, params);
     const client = await this.db.connect();

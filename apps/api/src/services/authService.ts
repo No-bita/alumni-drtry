@@ -90,6 +90,11 @@ export interface SessionActor {
   departmentName: string | null;
   joiningYear: number | null;
   isDemo?: boolean;
+  /**
+   * Set only while an allowlisted admin is viewing as this member (read-only). Code that would record
+   * activity, analytics or counters for the member skips it when this is present.
+   */
+  viewAs?: { sessionId: string; adminPersonId: string };
 }
 
 /** Initial expiry: sliding window from login, capped at hard max since session creation. */

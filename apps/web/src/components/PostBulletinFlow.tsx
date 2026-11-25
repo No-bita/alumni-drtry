@@ -33,6 +33,47 @@ import { FormActions, FormField } from "./forms";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
 import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
 import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
+import { TapPills } from "./TapPills";
+import { HiringCompose } from "./broker/HiringCompose";
+import { HIRING_SHORT_MAX, emptyHiringDraft, hiringPayload, hiringProblems, type HiringDraft } from "../lib/hiringDraft";
+import { ReferralRequestFlow } from "./broker/ReferralRequestFlow";
+import { BrokerProgress } from "./broker/BrokerProgress";
+import { brokerKeys, type BrokerRequest } from "../lib/broker";
+
+/** First tap in the Wall composer (one category at a time is being redesigned; Careers first). */
+type TopCategory = "careers" | "relocation" | "startups" | "general";
+const TOP_CATEGORY_OPTIONS: ReadonlyArray<{ value: TopCategory; label: string }> = [
+  { value: "careers", label: "Careers" },
+  // { value: "relocation", label: "Relocation" }, - Cities is out of the product (old Relocation posts still edit)
+  { value: "startups", label: "Startups" },
+  { value: "general", label: "General" },
+];
+/** Careers → what you want the network to see. Referral is brokered (we ask for you), not a Wall post. */
+type CareersTrack = "hiring" | "referral" | "guidance";
+const CAREERS_TRACK_OPTIONS: ReadonlyArray<{ value: CareersTrack; label: string }> = [
+  { value: "hiring", label: "Hiring" },
+  { value: "referral", label: "Referral" },
+  { value: "guidance", label: "Guidance" },
+];
+/** Guidance posts have no heading: the card header is this line. */
+const GUIDANCE_HEADER = "Career guidance";
+
+function topCategoryFor(category: BulletinGeneralCategory | undefined): { top: TopCategory | null; track: CareersTrack | null } {
+  switch (category) {
+    case "hiring":
+      return { top: "careers", track: "hiring" };
+    case "guidance":
+      return { top: "careers", track: "guidance" };
+    case "careers":
+      return { top: "careers", track: null };
+    case "relocation":
+    case "startups":
+    case "general":
+      return { top: category, track: null };
+    default:
+      return { top: null, track: null };
+  }
+}
 
 /** Accepts absolute http(s) URLs or host/path — normalized for stored `Resume link:` lines. */
 function tryNormalizeExternalHttpUrl(raw: string): string | null {
@@ -182,6 +223,16 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<BulletinStep>("compose");
     const [category, setCategory] = useState<BulletinGeneralCategory>(INITIAL_CATEGORY);
+    /** General composer: the tapped category (nothing until the first tap) and, for Careers, the track. */
+    const [topCategory, setTopCategory] = useState<TopCategory | null>(null);
+    /** Opened already pointed at a category (a Home tile, Ask's "Post this"): the category row is not asked again. */
+    const [categoryFromCaller, setCategoryFromCaller] = useState(false);
+    const [careersTrack, setCareersTrack] = useState<CareersTrack | null>(null);
+    const [hiringDraft, setHiringDraft] = useState<HiringDraft>(emptyHiringDraft);
+    const [hiringAttempted, setHiringAttempted] = useState(false);
+    /** After a hiring post with "Also ask matching alumni privately": the request's progress (or why not). */
+    const [hiringDone, setHiringDone] = useState<{ request: BrokerRequest | null; note: string | null } | null>(null);
+    const [referralOpen, setReferralOpen] = useState(false);
     /** Ask / Offer / Invitation: the author states what their post is (approved 19:30). Required. */
     const [kind, setKind] = useState<"" | "ask" | "offer" | "invitation">("");
     const [headline, setHeadline] = useState("");
@@ -219,13 +270,17 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         if (detailsBlock) draftLines.push(detailsBlock);
         return draftLines.join("\n");
       }
+      if (careersPreset === null && topCategory === "careers" && careersTrack === "guidance") {
+        const b = body.trim();
+        return b ? `${GUIDANCE_HEADER}\n${b}` : "";
+      }
       const h = headline.trim();
       const b = body.trim();
       if (!h && !b) return "";
       if (!b) return h;
       if (!h) return b;
       return `${h}\n${b}`;
-    }, [body, careersPreset, headline, referralCompanyName, referralJobLink, referralResumeLink]);
+    }, [body, careersPreset, careersTrack, headline, referralCompanyName, referralJobLink, referralResumeLink, topCategory]);
 
     const previewSplit = useMemo(
       () => splitBulletinPostBody(composedContent || headline || "Preview headline"),
@@ -359,6 +414,11 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       setReferralResumeLink("");
       setError(null);
       setCareersPreset(null);
+      setTopCategory(null);
+      setCareersTrack(null);
+      setHiringDraft(emptyHiringDraft());
+      setHiringAttempted(false);
+      setHiringDone(null);
       setPlaceId(null);
       setHousingPhotoTip(false);
       setCityTarget(undefined);
@@ -382,6 +442,24 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
             ? "careers"
             : options?.category ?? INITIAL_CATEGORY
       );
+      const mapped = preset ? { top: null, track: null } : topCategoryFor(options?.category);
+      setCategoryFromCaller(mapped.top !== null);
+      setTopCategory(mapped.top);
+      setCareersTrack(mapped.track);
+      const hiringPrefill = options?.hiring;
+      setHiringDraft(
+        hiringPrefill
+          ? {
+              ...emptyHiringDraft(),
+              jobFunction: hiringPrefill.jobFunction ?? null,
+              roleTitle: (hiringPrefill.roleTitle ?? "").trim().slice(0, HIRING_SHORT_MAX),
+              company: (hiringPrefill.company ?? "").trim().slice(0, HIRING_SHORT_MAX),
+              companyTouched: Boolean(hiringPrefill.company?.trim()),
+            }
+          : emptyHiringDraft()
+      );
+      setHiringAttempted(false);
+      setHiringDone(null);
       setHeadline((options?.headline ?? "").trim().slice(0, BULLETIN_TITLE_MAX_CHARS));
       setBody((options?.body ?? "").trim().slice(0, BULLETIN_DESCRIPTION_MAX_CHARS));
       setReferralJobLink("");
@@ -458,6 +536,13 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         }
         return null;
       }
+      if (topCategory === "careers" && careersTrack === "guidance") {
+        const bt = body.trim();
+        if (bt.length < 10) return "Add a bit more detail (10 characters minimum)";
+        if (bt.length > BULLETIN_DESCRIPTION_MAX_CHARS) return `Details must be at most ${BULLETIN_DESCRIPTION_MAX_CHARS} characters.`;
+        return null;
+      }
+      if (!topCategory) return "Choose what this is about.";
       if (!headlineOk) return "Add a headline (at least 3 characters).";
       const ht = headline.trim();
       const bt = body.trim();
@@ -477,6 +562,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       headline,
       headlineOk,
       kind,
+      careersTrack,
+      topCategory,
       referralCompanyName,
       referralJobLink,
       referralResumeLink,
@@ -503,11 +590,13 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
         setError(err);
         return;
       }
-      const content = encodeBulletinContentWithUiCategory(composedContent.trim(), category);
+      const uiCategory: BulletinGeneralCategory =
+        careersPreset !== null ? category : topCategory === "careers" ? "guidance" : (topCategory ?? category);
+      const content = encodeBulletinContentWithUiCategory(composedContent.trim(), uiCategory);
       setError(null);
       setSubmitting(true);
       const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
-        category: bulletinUiCategoryToApiCategory(category),
+        category: bulletinUiCategoryToApiCategory(uiCategory),
         ...(careersPreset !== null ? { kind } : kind ? { kind } : {}),
         content,
         ...(placeId ? { placeId } : {}),
@@ -522,7 +611,49 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
       onPublishSuccess?.(data.intentcast);
       closeFlow();
-    }, [audience, audienceState.blocked, category, careersPreset, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, validateCompose]);
+    }, [audience, audienceState.blocked, category, careersPreset, closeFlow, composedContent, kind, onPublishSuccess, placeId, queryClient, topCategory, validateCompose]);
+
+    const myCity = auth.status === "authenticated" ? auth.myProfile?.residenceCity?.trim() || null : null;
+
+    /** Careers → Hiring: post the tapped answers (no heading), then optionally ask matching alumni privately. */
+    const publishHiring = useCallback(async () => {
+      setHiringAttempted(true);
+      if (hiringProblems(hiringDraft).length > 0) return;
+      if (audienceState.blocked) {
+        setError(AUDIENCE_BLOCKED_MESSAGE);
+        return;
+      }
+      setError(null);
+      setSubmitting(true);
+      const { data, error: apiErr } = await api.post<{ intentcast: IntentcastFeedItem }>("/v1/intentcasts", {
+        category: "hiring",
+        content: hiringDraft.body.trim(),
+        hiring: hiringPayload(hiringDraft, myCity),
+        ...(placeId ? { placeId } : {}),
+        ...(toApiAudience(audience) ? { audience: toApiAudience(audience) } : {}),
+      });
+      if (apiErr || !data?.intentcast) {
+        setSubmitting(false);
+        setError(apiErr?.message ?? apiErr?.code ?? "Couldn't publish. Try again.");
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.feedQueries() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.intentcasts.detail(data.intentcast.id) });
+      onPublishSuccess?.(data.intentcast);
+      if (!hiringDraft.askPrivately) {
+        setSubmitting(false);
+        closeFlow();
+        return;
+      }
+      const asked = await api.post<{ request: BrokerRequest }>("/v1/broker-requests", { kind: "hiring", intentcastId: data.intentcast.id });
+      setSubmitting(false);
+      void queryClient.invalidateQueries({ queryKey: brokerKeys.all });
+      setHiringDone(
+        asked.data?.request
+          ? { request: asked.data.request, note: null }
+          : { request: null, note: asked.error?.message ?? "Your post is on the Wall, but we couldn't ask alumni privately. Try again later." }
+      );
+    }, [audience, audienceState.blocked, closeFlow, hiringDraft, myCity, onPublishSuccess, placeId, queryClient]);
 
     const errorField = composeErrorField(error);
 
@@ -599,7 +730,15 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       return () => window.cancelAnimationFrame(id);
     }, [open, step]);
 
+    if (referralOpen) return <ReferralRequestFlow onClose={() => setReferralOpen(false)} />;
     if (!open || !viewer) return null;
+
+    const generalFlow = !careersHubFlow;
+    const hiringTrack = generalFlow && topCategory === "careers" && careersTrack === "hiring";
+    const guidanceTrack = generalFlow && topCategory === "careers" && careersTrack === "guidance";
+    /** Headline + details (the categories not redesigned yet, and the Careers hub presets). */
+    const classicFields = careersHubFlow || (topCategory !== null && topCategory !== "careers");
+    const awaitingTap = generalFlow && (topCategory === null || (topCategory === "careers" && careersTrack === null));
 
     return (
       <CareerIntentFlowChrome
@@ -615,7 +754,24 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
       >
         <div className="career-hiring-flow__layout career-hiring-flow__layout--review">
           <div className="career-hiring-flow__main ds-surface-card">
-            {step === "compose" ? (
+            {hiringDone ? (
+              <div className="career-hiring-flow__preview-stack" role="status">
+                <p className="career-hiring-flow__eyebrow">Posted</p>
+                {hiringDone.request ? (
+                  <>
+                    <p className="broker-note">
+                      Your role is on the Wall, and we&apos;ve privately asked {hiringDone.request.askedCount} matching{" "}
+                      {hiringDone.request.askedCount === 1 ? "alum" : "alumni"}.
+                    </p>
+                    <BrokerProgress request={hiringDone.request} />
+                  </>
+                ) : (
+                  <p className="broker-note broker-note--warn">{hiringDone.note}</p>
+                )}
+                <FormActions primary={{ label: "Done", onClick: closeFlow }} />
+              </div>
+            ) : null}
+            {step === "compose" && !hiringDone ? (
               <>
                 <div className="career-hiring-flow__grid">
                   {careersHubFlow ? (
@@ -639,22 +795,67 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       </select>
                     </FormField>
                   ) : null}
-                  {careersHubFlow ? null : (
-                    <FormField label="Category" required className="career-hiring-flow__field--wide">
-                      <select
-                        className="input"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value as BulletinGeneralCategory)}
-                      >
-                        <option value="careers">Careers</option>
-                        <option value="hiring">Hiring</option>
-                        <option value="relocation">Relocation</option>
-                        <option value="startups">Startups</option>
-                        <option value="guidance">Guidance</option>
-                        <option value="general">General</option>
-                      </select>
-                    </FormField>
-                  )}
+                  {generalFlow && !categoryFromCaller ? (
+                    <div className="career-hiring-flow__field--wide">
+                      <TapPills
+                        label="What's this about?"
+                        options={TOP_CATEGORY_OPTIONS}
+                        value={topCategory}
+                        onChange={(top) => {
+                          setTopCategory(top);
+                          setCareersTrack(null);
+                          setError(null);
+                          if (top !== "careers") setCategory(top);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {generalFlow && topCategory === "careers" ? (
+                    <div className="career-hiring-flow__field--wide broker-step-in">
+                      <TapPills
+                        label="What do you need?"
+                        hint={careersTrack === null ? "Referral: we ask alumni at the company for you and connect you with whoever says yes." : undefined}
+                        options={CAREERS_TRACK_OPTIONS}
+                        value={careersTrack}
+                        onChange={(track) => {
+                          setError(null);
+                          if (track === "referral") {
+                            closeFlow();
+                            setReferralOpen(true);
+                            return;
+                          }
+                          setCareersTrack(track);
+                          setCategory(track === "hiring" ? "hiring" : "guidance");
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {hiringTrack ? (
+                    <div className="career-hiring-flow__field--wide broker-step-in">
+                      <HiringCompose draft={hiringDraft} onChange={setHiringDraft} myCity={myCity} attempted={hiringAttempted} />
+                    </div>
+                  ) : null}
+                  {guidanceTrack ? (
+                    <div className="career-hiring-flow__field--wide broker-step-in">
+                      <FormField label="Details" required error={errorField === "details" ? error : undefined} controlId="post-bulletin-guidance">
+                        <div className="career-hiring-flow__textarea-wrap">
+                          <textarea
+                            id="post-bulletin-guidance"
+                            className="input input--textarea"
+                            rows={5}
+                            value={body}
+                            onChange={(e) => setBody(e.target.value)}
+                            placeholder="Give context (current role, years of experience, the exact dilemma) so alumni can give sharp advice."
+                            maxLength={BULLETIN_DESCRIPTION_MAX_CHARS}
+                          />
+                          <p className="career-hiring-flow__counter career-hiring-flow__counter--inside" aria-live="polite">
+                            {body.length} / {BULLETIN_DESCRIPTION_MAX_CHARS}
+                          </p>
+                        </div>
+                      </FormField>
+                    </div>
+                  ) : null}
+                  {classicFields ? (<>
                   {careersPreset === "referralSeeking" ? (
                     <FormField
                       label="Job link"
@@ -765,6 +966,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       />
                     </FormField>
                   ) : null}
+                  </>) : null}
                 </div>
                 {housingPhotoTip && !careersHubFlow ? (
                   <p className="career-hiring-flow__photo-tip">
@@ -772,9 +974,22 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                     Upload photos to a Google Drive folder. Set &quot;Anyone with the link&quot; to Viewer and paste the link in Details. Anyone with that link can view the photos.
                   </p>
                 ) : null}
-                <PostAudienceField cityTarget={cityTarget} value={audience} onChange={setAudience} onStateChange={setAudienceState} />
+                {awaitingTap ? null : (
+                  <PostAudienceField cityTarget={cityTarget} value={audience} onChange={setAudience} onStateChange={setAudienceState} />
+                )}
                 {careersHubFlow ? (
                   <FormActions primary={{ label: "Preview", onClick: goToPreview }} />
+                ) : hiringTrack ? (
+                  <FormActions
+                    secondary={{ label: "Cancel", onClick: closeFlow }}
+                    primary={{
+                      label: submitting ? "Posting…" : hiringDraft.askPrivately ? "Post and ask alumni" : "Post",
+                      disabled: submitting,
+                      onClick: () => void publishHiring(),
+                    }}
+                  />
+                ) : awaitingTap ? (
+                  <FormActions secondary={{ label: "Cancel", onClick: closeFlow }} primary={{ label: "Next", disabled: true, onClick: () => undefined }} />
                 ) : (
                   <FormActions
                     secondary={{ label: "Cancel", onClick: closeFlow }}

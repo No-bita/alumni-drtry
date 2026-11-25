@@ -2,7 +2,7 @@ import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import "../styles/careers.css";
-import { ReferralDiscoveryDialog } from "../components/ReferralDiscoveryDialog";
+import { ReferralRequestFlow } from "../components/broker/ReferralRequestFlow";
 import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { DeptBatchMeta } from "../components/DeptBatchMeta";
@@ -25,7 +25,7 @@ import {
   fetchReferralCompanies,
   fetchMyCompanyDemand,
 } from "../lib/careers";
-import { buildMatchSearch, MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
+import { MATCH_QUESTION_MAX, MATCH_QUESTION_MIN } from "../lib/matchApi";
 import { SENT_NOTES_QUERY_KEY, fetchSentNotes } from "../lib/sentNotes";
 import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
@@ -102,17 +102,7 @@ export function CareerPage() {
 
   return (
     <div className="intent-page-shell career-page-shell">
-      {referralOpen ? <ReferralDiscoveryDialog
-        companies={companyList}
-        companiesLoading={companies.isPending}
-        companiesError={companies.isError}
-        onRetry={() => { void companies.refetch(); }}
-        onClose={() => setReferralOpen(false)}
-        onFind={(role, company) => {
-          setReferralOpen(false);
-          navigate(`/match${buildMatchSearch({ question: `Referral for ${role} at ${company}`, overrides: { category: "referral", company, role } })}`);
-        }}
-      /> : null}
+      {referralOpen ? <ReferralRequestFlow onClose={() => setReferralOpen(false)} /> : null}
       <Nav variant="home" avatarName={displayName} />
       <main className="careers careers--hub">
         {notice ? (

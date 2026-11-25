@@ -7,6 +7,7 @@ import { buildGoogleAuthorizationUrl } from "../lib/googleOAuth.js";
 import { AppError, isAppError } from "../lib/errors.js";
 import { assertSameSiteAuthRequest } from "../lib/csrfProtection.js";
 import { assertIpAllowed } from "../lib/directoryAbuseLimiter.js";
+import { clearViewAsCookie } from "../lib/viewAs.js";
 
 import {
   setSessionCookie,
@@ -376,6 +377,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     clearSessionCookie(reply);
+    // Reached only when no view-as session is active (the read-only guard refuses it otherwise):
+    // drop any leftover view-as cookie with the session.
+    clearViewAsCookie(reply);
     return reply.code(204).send();
   });
 };

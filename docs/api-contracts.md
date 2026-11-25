@@ -31,7 +31,7 @@ Error responses use:
 - `GET /v1/auth/google/config`: returns whether Google auth is enabled.
 - `GET /v1/auth/google/start`: starts Google OAuth.
 - `GET /v1/auth/google/callback`: completes Google OAuth.
-- `GET /v1/me`: returns `{ person }` for the current session.
+- `GET /v1/me`: returns `{ person, viewAs, canViewAs }` for the current session. `viewAs` is `null` unless an admin is viewing as a member (then `person` is that member; see "Admin view as member" below). `canViewAs` is true only for an admin on `VIEW_AS_ADMIN_EMAILS`.
 - `GET /v1/me/profile`: returns `{ profile }` for the current user.
 
 The browser treats `/v1/me` plus `/v1/me/profile` as the session snapshot.
@@ -59,7 +59,7 @@ Search responses exclude the current viewer and include stable `matchReasons` ke
 
 ## Ask → Match
 
-- `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
+- `POST /v1/match`: body `{ question, overrides? }` (question 3–500 chars; `overrides` may set `category`, `company`, `role`, `city`, `country`, where `null` clears a parsed value). Returns `{ intent, needsDetail, results, people, fallback }`: up to 5 alumni, each with `reasons[]` and a `whyThem` string built only from matched profile fields. `people` (up to 5, same card shape with empty `reasons` and `whyThem`) lists alumni whose name matches: every word of a short question (1–4 words, one at least 3 letters) starts a word of their name, or their full name appears in the question. It never repeats someone in `results`, and `fallback` is `null` when it is non-empty. Uses the directory read rate limit. See [ask-match.md](./ask-match.md).
 
 ## Intentcasts And Bulletin
 
@@ -157,7 +157,8 @@ Full wire contract: [docs/cities-v1-contract.md](cities-v1-contract.md). Migrati
 - `POST /v1/contact-requests` (migration 055): two shapes, by surface.
   - Note form (every surface except Cities): `{ recipientPersonId, note, source?, sourceRank? }`. The server builds the readable `message` from `note` (so email, WhatsApp, reminders and Notifications are unchanged) and stores the fields in `contact_requests.details`; the category comes from the note (referral → `referral`; advice → its topic; `other` → none). `note` is one of:
     - `{ purpose: "referral", jobUrl, role, company, fit, resumeUrl? }`: `jobUrl` and `resumeUrl` are http(s) links with a dotted host (≤ 500 characters); `role` and `company` 1–120 characters (spaces tidied); `fit` 80–500 characters.
-    - `{ purpose: "advice", topic, question }`: `topic` is `interview_prep`, `career_switch`, `higher_studies`, `relocation`, `founder_advice` or `other`; `question` 80–1000 characters.
+    - `{ purpose: "advice", topic, question }`: `topic` is `interview_prep`, `career_switch`, `higher_studies`, `founder_advice` or `other` (`relocation` was removed with Cities on 2026-11-25); `question` 80–1000 characters.
+    - `{ purpose: "hiring", role, company, message, jobUrl? }` (2026-11-25, a hirer writing to a possible candidate from Ask): `role` and `company` 1–120 characters; `message` 80–1000 characters; `jobUrl` optional http(s) link. Category `hiring` (migration 077). Errors: `CONTACT_REQUEST_ROLE_REQUIRED`, `CONTACT_REQUEST_COMPANY_REQUIRED`, `CONTACT_REQUEST_MESSAGE_LENGTH`, `CONTACT_REQUEST_JOB_LINK_INVALID`.
     - Errors (400): `CONTACT_REQUEST_PURPOSE_REQUIRED` (missing or unknown purpose, including a bare `message` outside Cities), `CONTACT_REQUEST_JOB_LINK_REQUIRED`, `CONTACT_REQUEST_ROLE_REQUIRED`, `CONTACT_REQUEST_COMPANY_REQUIRED`, `CONTACT_REQUEST_FIT_LENGTH`, `CONTACT_REQUEST_RESUME_LINK_INVALID`, `CONTACT_REQUEST_TOPIC_REQUIRED`, `CONTACT_REQUEST_QUESTION_LENGTH`. Each has a plain-language `message`.
   - Cities v1 (unchanged): `{ recipientPersonId, message, source: "cities", sourceCategory, cityHelpOfferId? }` - free-text `message` (min 10 characters), category one of `coffee`, `relocation`, `visiting`, `newcomer`; `cityHelpOfferId` only with `newcomer`. Coffee asks need a 40+ character reason; at most 3 relocation/visiting asks waiting at once.
   - Returns `409 CONTACT_REQUEST_DUPLICATE_PENDING` when a note to the same person is still pending; the existing per-sender window limit stays.
@@ -217,6 +218,18 @@ Unsubscribe (no sign-in; a signed token `<personId>.<hmac>` is the proof; tokens
 
 Admin routes require `admin` or `super_admin`; super-admin-only routes must also use `requireSuperAdmin`.
 
+### Admin view as member (testing only; off unless `VIEW_AS_ADMIN_EMAILS` is set)
+
+Lets an allowlisted admin open any member's account **read-only**, for testing. Access needs both: the account is an admin by the normal role check, **and** its sign-in email (`people.institutional_email`) is in `VIEW_AS_ADMIN_EMAILS` (comma-separated; empty = off for everyone). Checked again on every request, so removing an email stops an active view-as at once.
+
+- `GET /v1/admin/view-as/people?q=` (2–120 characters): `{ people: [{ personId, fullName, institutionalEmail, batchYear, departmentCode, role, suspended }] }`, name or email contains `q`, deleted accounts and yourself left out, at most 20.
+- `POST /v1/admin/view-as` body `{ personId }`: starts a view-as session. `201 { viewAs: { sessionId, adminPersonId, targetPersonId, targetName, targetEmail, expiresAt, readOnly: true } }` and sets the httpOnly `alumni_view_as` cookie. The admin's own session cookie is untouched. Lasts `VIEW_AS_TTL_MINUTES` (default 30, 30–60). Errors: `403 AUTH_FORBIDDEN` (not an admin), `403 VIEW_AS_FORBIDDEN` (admin not on the allowlist, or feature off), `400 VIEW_AS_SELF`, `404 VIEW_AS_TARGET_NOT_FOUND`, `403 VIEW_AS_READ_ONLY` (another view-as is already active: end it first).
+- `POST /v1/admin/view-as/switch`: body `{ personId }`. Ends the admin's current view-as session (if their cookie holds an open one) and starts one for this member, in one transaction with an `end` and a `start` audit row; `201 { viewAs }` and a new cookie. Allowed while view-as is active (that is its purpose); checked against the real admin (admin role and allowlist), never the member being viewed. Without an active session it simply starts one. `400 VIEW_AS_SELF` for yourself (use end), `404` for a missing member.
+- `POST /v1/admin/view-as/end`: ends the session behind the cookie (if still open) and clears the cookie. `200 { ended }`. Needs only the cookie, so it works even if access was removed meanwhile.
+- While active (the admin's own session plus their valid view-as cookie): every signed-in route answers as the member for reads (`GET`). **Every** `POST`/`PUT`/`PATCH`/`DELETE`, on any route, signed-in or not, is refused with `403 VIEW_AS_READ_ONLY` except `POST /v1/admin/view-as/end` and `POST /v1/admin/view-as/switch` (sign out included: end view-as first; starting with `POST /v1/admin/view-as` is refused too: switch instead). The member's role is used, capped at the admin's own.
+- No member side effects from reads: discovery read counters, usage events (`beta_usage_events`), Careers/Cities demand rows and the brokered-request expiry run (which closes requests and emails askers; the hourly job still runs it) are skipped. Code deep in services checks `isViewAsRequest()` (`src/lib/viewAsContext.ts`, a per-request flag set by `authenticate`). Seen markers (`/v1/notifications/mark-all-seen`, `/v1/broker-asks/:id/seen`, `/v1/cities/offers/seen`) are POSTs, so they're refused. The admin's own session is touched as usual; the member's sessions and last-active days (`member_activity_days`) are not. A GET route that writes must check `isViewAsRequest()` (or `request.viewAs`) and skip the write.
+- Audit: every start and end is a row in `admin_view_as_audit` (admin, member, time, IP, user agent; migration 078) and a server log line (`admin view-as started` / `ended`). Sessions are in `admin_view_as_sessions` (token stored hashed).
+
 ## Campus Monthly
 
 - `GET /v1/campus-monthly/current`: returns the current issue.
@@ -225,3 +238,19 @@ Admin routes require `admin` or `super_admin`; super-admin-only routes must also
 ## Health
 
 - `GET /healthz`: returns API and database health.
+
+
+## Brokered hiring asks from Ask (2026-11-25)
+
+`POST /v1/broker-requests` with `{ kind: "hiring", role: { jobFunction, experience, roleTitle?, company?, message } }` asks alumni with that function and experience privately, with no Wall post (`message` 10–1500 characters). Send either `role` or `intentcastId` (a hiring post of yours), not both (`400 BROKER_BAD_REQUEST`). No cap on open requests; a second open private ask for the same function and experience returns `409 BROKER_DUPLICATE_OPEN`; nobody matching returns `422 BROKER_NO_MATCHES`.
+
+## Brokered conversations (2026-11-25, migration 079)
+
+A brokered yes shares no contact. The asker and the helper who said yes get one private conversation tied to the request (a `connection_threads` row of kind `broker`; the general `/v1/connection-threads` endpoints never return it). Only those two can use these endpoints; anyone else gets `404 BROKER_CONVERSATION_NOT_FOUND`.
+
+- `GET /v1/broker-requests/:id/conversation` → `{ conversation: { requestId, role: "asker"|"helper", counterpart: { personId, fullName, departmentCode, batchYear }, request: { kind, company, jobFunction, experienceBand, roleTitle, jobUrl, message, details }, state: "open"|"read_only", readOnlyReason: null|"closed_by_you"|"closed_by_them"|"inactive"|"limit"|"unavailable", readOnlyAt, canSend, unreadCount, messageCount, lastMessageAt, limits: { maxChars, maxUnanswered, inactiveDays, maxMessages }, messages: [{ id, mine, body, createdAt }] } }`.
+- `POST /v1/broker-requests/:id/conversation/messages` with `{ body }` (text only; any other field is `400`) → `201 { message }`. Errors: `400 BROKER_MESSAGE_EMPTY` / `BROKER_MESSAGE_TOO_LONG` (over 1000 characters), `409 BROKER_CONVERSATION_READ_ONLY`, `429 BROKER_MESSAGE_WAIT_FOR_REPLY` (5 in a row without a reply), `429 BROKER_MESSAGE_RATE_LIMITED` (10 per sender per 10 minutes, with `Retry-After`).
+- `POST /v1/broker-requests/:id/conversation/read` → `204` (clears the unread count and the message notification).
+- `POST /v1/broker-requests/:id/conversation/close` → `204`; either person can close; `409 BROKER_CONVERSATION_CLOSED` if already closed. Conversations also go read-only after 14 days without a message or at 200 messages.
+
+Changed: `GET /v1/broker-requests` items drop `connection.contactShared` and gain `conversation` (`{ state, readOnlyReason, unreadCount, messageCount, lastMessageAt }` once connected, else `null`); `GET /v1/broker-asks` items drop `askerContact` and gain `conversation`; `POST /v1/broker-asks/:id/respond` returns `{ status, requestId, askerName }` (no `askerContact`); `GET /v1/contact-requests/sent` items gain `brokerRequestId` and never carry a contact for a brokered yes. Notifications gain `broker_request_connected` (replacing the brokered `contact_request_resolved`) and `broker_message_received` (`{ requestId, requestKind, company, counterpartPersonId, counterpartFullName, lastMessagePreview, unreadCount }`, unseen until read). Due requests are closed before notifications are read, so `broker_request_expired` shows without waiting for the hourly tick.

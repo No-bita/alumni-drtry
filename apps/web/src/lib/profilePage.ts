@@ -70,18 +70,23 @@ export function displayLinkText(url: string): string {
     .replace(/\/+$/, "");
 }
 
-export type ProfileSection = "header" | "areas" | "openTo" | "career" | "education" | "links" | "contact";
+export type ProfileSection = "header" | "areas" | "openTo" | "career" | "education" | "links" | "contact" | "function";
 
-export type SetupStep = { key: "role" | "areas" | "openTo"; label: string; done: boolean; section: ProfileSection };
+export type SetupStep = { key: "role" | "function" | "areas" | "openTo"; label: string; done: boolean; section: ProfileSection };
 
 /** The owner's "Finish your profile" list. Hidden once every step is done. */
 export function setupSteps(input: {
   occupations: OccupationView[];
   areas: string[];
   openTo: OpenToPreferences | null;
+  /** Only passed for the owner; undefined (older API) leaves the step out. */
+  jobFunction?: string | null;
 }): SetupStep[] {
   return [
     { key: "role", label: "Your current role", done: headlineRole(input.occupations) != null, section: "career" },
+    ...(input.jobFunction !== undefined
+      ? [{ key: "function" as const, label: "Your function, so hiring requests reach you", done: Boolean(input.jobFunction), section: "function" as const }]
+      : []),
     { key: "areas", label: "Areas of experience", done: input.areas.length > 0, section: "areas" },
     { key: "openTo", label: "What you're open to helping with", done: (input.openTo?.selected.length ?? 0) > 0, section: "openTo" },
   ];

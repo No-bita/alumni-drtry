@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { EXPERIENCE_BANDS, JOB_FUNCTIONS } from "../lib/jobFunctions.js";
 import { BULLETIN_CONTENT_MAX_LENGTH, BULLETIN_RESPONSE_MESSAGE_MAX_LENGTH } from "../constants/bulletin.js";
 import { AppError } from "../lib/errors.js";
 import { isAdminRole } from "../lib/postAudience.js";
@@ -31,7 +32,20 @@ const createIntentcastSchema = z.object({
   /** Cities v1: tag the post with a city (canonical place id), e.g. "Post a meetup idea". */
   placeId: z.string().uuid().nullable().optional(),
   /** Missing or null = Everyone. Fixed once posted (PATCH never takes it). */
-  audience: audienceSchema.nullable().optional()
+  audience: audienceSchema.nullable().optional(),
+  /** Hiring posts from the Wall composer: the tapped answers (the card header is built from them). */
+  hiring: z
+    .object({
+      jobFunction: z.enum(JOB_FUNCTIONS),
+      roleTitle: z.string().max(200).nullable().optional(),
+      experience: z.enum(EXPERIENCE_BANDS),
+      location: z.string().max(200).nullable().optional(),
+      company: z.string().max(200).nullable().optional(),
+      respondVia: z.enum(["reachout", "link"]),
+      applyUrl: z.string().max(2000).nullable().optional()
+    })
+    .nullable()
+    .optional()
 });
 
 const audiencePreviewSchema = z.object({ audience: audienceSchema.nullable() });
@@ -59,6 +73,8 @@ export const FEED_PAGE_MAX = 48;
 
 const feedQuerySchema = z.object({
   scope: z.literal("home_wall").optional(),
+  /** With scope=home_wall: "Opportunities for you" (ranked for the viewer, own posts left out). */
+  sort: z.literal("for_you").optional(),
   // Anti-scraping: clamped to FEED_PAGE_MAX (the web asks for 48 at most).
   limit: z.coerce.number().int().min(1).max(100).default(20).transform((v) => Math.min(v, FEED_PAGE_MAX)),
   offset: z.coerce.number().int().min(0).default(0),
@@ -167,6 +183,10 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       throw new AppError(400, "INTENTCAST_BAD_REQUEST", "Home Wall scope requires the open shared feed.");
     }
 
+    if (parsed.data.sort && !parsed.data.scope) {
+      throw new AppError(400, "INTENTCAST_BAD_REQUEST", "sort=for_you requires scope=home_wall.");
+    }
+
     if (parsed.data.authorHistory && !parsed.data.mine) {
       throw new AppError(
         400,
@@ -186,6 +206,7 @@ export const intentcastRoutes: FastifyPluginAsync = async (app) => {
       parsed.data.offset,
       {
         homeWall: parsed.data.scope === "home_wall",
+        forYou: parsed.data.sort === "for_you",
         category: parsed.data.category,
         status: parsed.data.status,
         mine: parsed.data.mine,

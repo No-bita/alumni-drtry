@@ -391,10 +391,10 @@ export function AdminAnnouncementsPage() {
                   className="cr-search"
                   value={link}
                   maxLength={300}
-                  placeholder="/intent/career"
+                  placeholder="/notifications"
                   onChange={(e) => edit(setLink)(e.target.value)}
                 />
-                <p className="cr-panel__note">A page inside the app, e.g. /intent/career. Shown as an &ldquo;Open&rdquo; link.</p>
+                <p className="cr-panel__note">A page inside the app, e.g. /notifications. Shown as an &ldquo;Open&rdquo; link.</p>
               </div>
               <fieldset className="an-field an-fieldset">
                 <legend className="cr-panel__label">Send by</legend>

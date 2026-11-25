@@ -4,6 +4,18 @@ import { assertApiGet } from "./assertApiGet";
 import { invalidateNotificationRelatedQueries } from "./invalidateAppQueries";
 import { queryKeys } from "./queryKeys";
 
+type NotificationItem = NotificationsResponse["items"][number];
+
+/**
+ * Notifications the app shows (display-only; the API still returns everything and no data is touched):
+ * - message replies stay hidden while messaging is paused;
+ * - "a local offered to help" (Cities newcomer notes) stays hidden while Cities is out of the product.
+ * Used by the bell badge, the quick view and the inbox so they always agree.
+ */
+export function isShownNotification(item: NotificationItem): boolean {
+  return item.kind !== "connection_thread_reply" && item.kind !== "city_help_offer_received";
+}
+
 /** Poll for new messages and other activity while the user is signed in. */
 export const NOTIFICATIONS_POLL_MS = 30_000;
 

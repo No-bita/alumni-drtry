@@ -61,6 +61,7 @@ This service now covers Phase 1, Phase 2, and core Phase 3 features of the alumn
 - `DELETE /v1/admin/people/:id`
 - `GET /v1/admin/people/duplicates`
 - `GET /v1/admin/metrics`
+- `GET /v1/admin/view-as/people` / `POST /v1/admin/view-as` / `POST /v1/admin/view-as/switch` / `POST /v1/admin/view-as/end` (admin "view as member", read-only; off unless `VIEW_AS_ADMIN_EMAILS` is set — see `docs/api-contracts.md`)
 - `GET /healthz`
 
 ## Security Defaults
@@ -73,6 +74,7 @@ This service now covers Phase 1, Phase 2, and core Phase 3 features of the alumn
 - `POST /v1/contact-requests` is capped per sender over a rolling DB window (`CONTACT_REQUEST_*` env).
 - Directory reads (`GET /v1/search`, `GET /v1/profiles/:id`) share an in-memory per-user (and optional per-IP) cap (`DISCOVERY_READ_*` env); use Redis or similar if you run many API replicas.
 - If email delivery fails, the auth challenge is deleted and `503 AUTH_DELIVERY_FAILED` is returned.
+- Admin "view as member" (testing only) is off unless `VIEW_AS_ADMIN_EMAILS` lists the sign-in email (`people.institutional_email`) of an account that is also an admin. It uses a separate short-lived cookie (`VIEW_AS_TTL_MINUTES`, 30–60, default 30), is read-only (every POST/PUT/PATCH/DELETE answers `403 VIEW_AS_READ_ONLY` except ending it), and every start and end is written to `admin_view_as_audit` and the server log.
 
 ## Profile Update (Phase 2)
 

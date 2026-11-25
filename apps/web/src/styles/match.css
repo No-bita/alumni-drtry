@@ -7,22 +7,12 @@
   width: 100%;
 }
 
-.home-ask__label {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-}
-
-.home-ask__row,
 .match-page__ask-row {
   display: flex;
   gap: var(--space-sm);
   align-items: stretch;
 }
 
-.home-ask__input,
 .match-page__ask-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -37,17 +27,12 @@
 }
 
 /* Same focus treatment as the app's `.input:focus`. */
-.home-ask__input:focus-visible,
 .match-page__ask-input:focus-visible,
 .match-chip__input:focus-visible,
 .match-dialog__textarea:focus-visible {
   outline: none;
   border-color: rgba(139, 58, 42, 0.45);
   box-shadow: 0 0 0 3px rgba(139, 58, 42, 0.12);
-}
-
-.home-ask__submit {
-  flex: 0 0 auto;
 }
 
 .home-ask__error {
@@ -198,8 +183,18 @@
   gap: var(--space-md-lg);
 }
 
-.match-page__inline-link,
-.match-page__back {
+/* Ask results use the directory card: two columns from 622px, like the directory grid. */
+.match-page__results--cards > li {
+  min-width: 0;
+}
+
+@media (min-width: 622px) {
+  .match-page__results--cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.match-page__inline-link {
   padding: 0;
   border: 0;
   background: none;
@@ -208,12 +203,6 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
-}
-
-.match-page__back {
-  justify-self: start;
-  font-size: 14px;
-  text-decoration: none;
 }
 
 /* ---------- Intent chips ---------- */
@@ -373,23 +362,6 @@
   color: var(--ink);
 }
 
-.match-card__tags {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.match-card__tag {
-  padding: 3px 10px;
-  border-radius: var(--radius-chip);
-  border: 1px solid var(--rule);
-  font-size: 12px;
-  color: var(--ink-muted);
-}
-
 .match-card__tag--relevant {
   border-color: transparent;
   background: var(--badge-open-bg);
@@ -502,12 +474,6 @@
   color: var(--brick);
 }
 
-.match-dialog__label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
 .match-dialog__input {
   width: 100%;
   min-height: 44px;
@@ -523,11 +489,6 @@
 
 .match-dialog__input[aria-invalid="true"] {
   border-color: var(--brick);
-}
-
-.match-dialog__optional {
-  font-weight: 400;
-  color: var(--ink-muted);
 }
 
 .match-dialog__link {
@@ -563,43 +524,6 @@
   min-width: 0;
 }
 
-.match-dialog__step {
-  margin: 0;
-  font-size: 13px;
-  color: var(--ink-muted);
-}
-
-.match-dialog__choices {
-  display: grid;
-  gap: var(--space-sm);
-}
-
-.match-dialog__choice {
-  display: grid;
-  gap: 4px;
-  min-height: 44px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-input);
-  background: var(--surface);
-  font: inherit;
-  text-align: left;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.match-dialog__choice:hover,
-.match-dialog__choice:focus-visible {
-  border-color: var(--brick);
-}
-
-.match-dialog__choice-title {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.match-dialog__choice-copy,
-.match-dialog__hint,
 .match-dialog__counter {
   margin: 0;
   font-size: 13px;
@@ -647,20 +571,6 @@
   text-align: right;
 }
 
-.match-dialog__textlink {
-  justify-self: start;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brick);
-  text-align: left;
-  cursor: pointer;
-}
-
 .match-dialog__pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -673,40 +583,6 @@
   min-width: 0;
 }
 
-.match-dialog__fieldset {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.match-dialog__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.match-dialog__chip {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--border-muted);
-  border-radius: 999px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.match-dialog__chip[aria-pressed="true"] {
-  border-color: var(--brick);
-  background: var(--brick);
-  color: var(--cream);
-}
-
 @media (max-width: 420px) {
   .match-dialog__pair {
     grid-template-columns: minmax(0, 1fr);
@@ -714,12 +590,10 @@
 }
 
 @media (max-width: 639px) {
-  /* Keep the last card's actions clear of the floating bottom dock. */
   .match-page {
-    padding-bottom: calc(var(--nav-bottom-dock-height) + var(--space-lg));
+    padding-bottom: var(--space-lg);
   }
 
-  .home-ask__row,
   .match-page__ask-row {
     flex-direction: column;
   }
@@ -736,4 +610,104 @@
   .match-card__actions .btn {
     flex: 1 1 auto;
   }
+}
+
+/* Ask recognised hiring: pick what to do instead of a people list. */
+.ask-hiring {
+  display: grid;
+  gap: 14px;
+}
+
+.ask-hiring__options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .ask-hiring__options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ask-hiring__option {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ask-hiring__option:hover:not(:disabled) {
+  border-color: var(--brick);
+}
+
+.ask-hiring__option:focus-visible {
+  outline: 2px solid var(--brick);
+  outline-offset: 2px;
+}
+
+.ask-hiring__option--soon {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ask-hiring__icon {
+  display: inline-flex;
+  color: var(--brick);
+}
+
+.ask-hiring__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.ask-hiring__line {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.ask-hiring__private {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fbf3e8;
+}
+
+.ask-hiring__private p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.ask-hiring__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.ask-hiring__question {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.15rem, 2vw, 1.35rem);
+  line-height: 1.25;
+  color: var(--ink);
 }

@@ -1,16 +1,15 @@
-import { useRef, useState } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import "../styles/careers.css";
 import { CareersFeedback } from "../components/CareersFeedback";
 import { Nav } from "../components/Nav";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
-import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
+import { ReferralRequestFlow } from "../components/broker/ReferralRequestFlow";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { careersKeys, fetchCareersCompany, type CareersPerson } from "../lib/careers";
-import { queryKeys } from "../lib/queryKeys";
 import { browsingLimitFromError } from "../lib/browsingLimits";
 
 const yy = (y: number | null) => (y ? ` · Batch '${String(y).slice(-2)}` : "");
@@ -50,13 +49,11 @@ function PersonCard({ person, line, action, onAsk }: { person: CareersPerson; li
 /** /intent/career/company?name=…&role=… — who is at a company now and before, and asking them. */
 export function CareerCompanyPage() {
   const auth = useAuth();
-  const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const name = (params.get("name") ?? "").trim();
   const role = (params.get("role") ?? "").trim() || null;
   const [ask, setAsk] = useState<Ask | null>(null);
-  const wallRef = useRef<PostBulletinFlowHandle>(null);
-  const [posted, setPosted] = useState(false);
+  const [referralOpen, setReferralOpen] = useState(false);
   const signedIn = auth.status === "authenticated";
 
   const query = useInfiniteQuery({
@@ -82,27 +79,16 @@ export function CareerCompanyPage() {
   // Advice starts with where they're applying; they add their own question (80+ characters in all).
   const applying = role ? `I'm applying for the ${role} role at ${companyName}. ` : `I'm applying to ${companyName}. `;
 
-  const wallFallback = (
+  // Referrals are brokered: Alma Mater asks everyone at the company for you (nothing to ask when no one is there).
+  const wallFallback = nobodyNow ? null : (
     <section className="careers__section careers__wall" aria-labelledby="careers-wall-title">
       <h2 id="careers-wall-title" className="careers__h2">
-        {nobodyNow ? "Ask everyone instead" : "Not the right people?"}
+        Not the right people?
       </h2>
-      {posted ? (
-        <p className="careers__note" role="status">
-          Posted. It&apos;s on the <Link to="/home">Wall</Link>.
-        </p>
-      ) : (
-        <>
-          <p className="careers__note">Post your referral ask on the Wall. Any alum who knows someone at {companyName} can reply.</p>
-          <button
-            type="button"
-            className={nobodyNow ? "careers__primary" : "careers__ghost"}
-            onClick={() => wallRef.current?.open({ careersPreset: "referralSeeking", referralCompanyName: companyName, headline: role ?? undefined })}
-          >
-            Post it on the Wall
-          </button>
-        </>
-      )}
+      <p className="careers__note">Let Alma Mater ask everyone at {companyName} for you. You&apos;re connected with the first who says yes.</p>
+      <button type="button" className="careers__ghost" onClick={() => setReferralOpen(true)}>
+        Ask everyone at {companyName} for me
+      </button>
     </section>
   );
 
@@ -241,14 +227,7 @@ export function CareerCompanyPage() {
           onClose={() => setAsk(null)}
         />
       ) : null}
-      <PostBulletinFlow
-        ref={wallRef}
-        onPublishSuccess={() => {
-          setPosted(true);
-          void queryClient.invalidateQueries({ queryKey: queryKeys.career.intentFeed() });
-          void queryClient.invalidateQueries({ queryKey: ["home", "opportunity-rail"] });
-        }}
-      />
+      {referralOpen ? <ReferralRequestFlow initialCompany={companyName} onClose={() => setReferralOpen(false)} /> : null}
     </div>
   );
             }

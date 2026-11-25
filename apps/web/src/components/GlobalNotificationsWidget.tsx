@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { trackBetaUsageEvent } from "../lib/betaAnalytics";
-import { useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
+import { isShownNotification, useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "./NotificationsList";
 
 export function GlobalNotificationsWidget() {
@@ -28,9 +28,8 @@ export function GlobalNotificationsWidget() {
 
   const authenticated = auth.status === "authenticated";
   const listQuery = useNotificationsList(authenticated && isOpen && !hiddenOnRoutes);
-  // Messaging paused: message reply notifications are hidden from the panel for now (display-only;
-  // the backend list still returns them and no data is touched). Original: const items = listQuery.data?.items ?? [];
-  const items = (listQuery.data?.items ?? []).filter((item) => item.kind !== "connection_thread_reply");
+  // Paused kinds (messages, Cities notes) stay hidden: see isShownNotification.
+  const items = (listQuery.data?.items ?? []).filter(isShownNotification);
 
   useEffect(() => {
     function onOpen(event: Event) {

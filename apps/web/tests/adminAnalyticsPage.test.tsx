@@ -136,6 +136,41 @@ describe("Admin analytics screen", () => {
     expect(card.compareDocumentPosition(screen.getByRole("group", { name: "Time range" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the View as member card first, only to admins the API allowlists", async () => {
+    mount();
+    await screen.findByRole("heading", { level: 2, name: "Company review" });
+    expect(screen.queryByRole("heading", { level: 2, name: "View as member" })).toBeNull();
+    cleanup();
+    authState.value = { status: "authenticated", person: { personId: "a1", role: "admin" }, myProfile: { fullName: "Admin" }, canViewAs: true };
+    mount();
+    const review = await screen.findByRole("heading", { level: 2, name: "Company review" });
+    const card = screen.getByRole("heading", { level: 2, name: "View as member" }).closest("section") as HTMLElement;
+    expect(card.id).toBe("view-as");
+    expect(within(card).getByText("You're on your own account.")).toBeTruthy();
+    expect(within(card).getByLabelText("Name or email")).toBeTruthy();
+    expect(card.compareDocumentPosition(review) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("while viewing as a member: keeps the card to switch or exit, and hides (and loads no) analytics", () => {
+    authState.value = {
+      status: "authenticated",
+      person: { personId: "m1", role: "alumni" },
+      myProfile: { fullName: "Member" },
+      canViewAs: true,
+      viewAs: {
+        sessionId: "s1", adminPersonId: "a1", targetPersonId: "m1", targetName: "Priya Sharma",
+        targetEmail: "priya@iitbhu.ac.in", expiresAt: new Date(Date.now() + 600_000).toISOString(), readOnly: true,
+      },
+    };
+    mount();
+    const card = screen.getByRole("heading", { level: 2, name: "View as member" }).closest("section") as HTMLElement;
+    expect(within(card).getByRole("button", { name: "Back to my account" })).toBeTruthy();
+    expect(within(card).getByLabelText("Switch to another member")).toBeTruthy();
+    expect(screen.getByText(/Analytics is hidden while you're viewing as a member/)).toBeTruthy();
+    expect(screen.queryByText("This page is for admins.")).toBeNull();
+    expect(apiGet).not.toHaveBeenCalled();
+  });
+
   it("keeps the Company review card when nothing is waiting, and uses the singular for one", async () => {
     const withCount = (n: number) =>
       apiGet.mockImplementation(async () => {

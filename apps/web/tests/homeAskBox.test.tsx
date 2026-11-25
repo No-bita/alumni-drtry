@@ -47,7 +47,13 @@ describe("HomeAskBox", () => {
 
   it("example questions submit directly", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Moving to Bengaluru next month" }));
-    expect(screen.getByTestId("where").textContent).toBe("/match?q=Moving+to+Bengaluru+next+month");
+    fireEvent.click(screen.getByRole("button", { name: "Breaking into product management" }));
+    expect(screen.getByTestId("where").textContent).toBe("/match?q=Breaking+into+product+management");
+  });
+
+  it("the phone chip shows a short label and asks the full question", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Breaking into PM" }));
+    expect(screen.getByTestId("where").textContent).toBe("/match?q=Breaking+into+product+management");
   });
 });

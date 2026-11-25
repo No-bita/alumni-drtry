@@ -64,9 +64,9 @@ describe("qualifies", () => {
     expect(intentNeedsDetail(vague)).toBe(true);
   });
 
-  it("relocation without a place needs detail", () => {
+  it("a move without a place names nothing to search on and needs detail", () => {
     const i = parseMatchQuestion("Moving to a new city alone", lexicon);
-    expect(i.category).toBe("relocation");
+    expect(i.category).toBeNull();
     expect(intentNeedsDetail(i)).toBe(true);
   });
 });
@@ -115,10 +115,10 @@ describe("buildMatchReasons", () => {
     expect(buildMatchReasons(i, onlyPm)[0]!.text).toBe("Currently Product Manager at Swiggy");
   });
 
-  it("relocation reason uses the alum's own residence values", () => {
+  it("a move's reason uses the alum's own residence values", () => {
     const i = parseMatchQuestion("Relocating to Berlin", { organizations: [], places: [] });
     const c = candidate({ personId: "r", cityMatch: true, residenceCity: "Berlin", residenceCountry: "Germany", openTo: ["coffee"] });
-    expect(rankMatches(i, [c])[0]!.whyThem).toBe("Lives in Berlin, Germany · Open to coffee chats");
+    expect(rankMatches(i, [c])[0]!.whyThem).toBe("Lives in Berlin, Germany");
   });
 
   it("does not repeat the same occupation twice", () => {
@@ -165,12 +165,12 @@ describe("vague questions qualify on the most specific entity", () => {
 });
 
 describe("answer-key tags", () => {
-  it("relocation prefers city_help and lists it first", () => {
+  it("a move (no kind of help since Moving cities left) qualifies on the place and lists no help tags", () => {
     const i = parseMatchQuestion("Relocating to Berlin", { organizations: [], places: [] });
     const c = candidate({ personId: "h", cityMatch: true, residenceCity: "Berlin", residenceCountry: "Germany", openTo: ["coffee", "city_help"] });
     const [m] = rankMatches(i, [c]);
-    expect(m!.relevantOpenTo).toEqual(["city_help", "coffee"]);
-    expect(m!.whyThem).toBe("Lives in Berlin, Germany · Open to helping newcomers settle in & coffee chats");
+    expect(m!.relevantOpenTo).toEqual([]);
+    expect(m!.whyThem).toBe("Lives in Berlin, Germany");
   });
 
   it("higher studies counts study_advice as will-help", () => {

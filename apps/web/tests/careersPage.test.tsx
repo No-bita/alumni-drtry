@@ -7,6 +7,11 @@ import type { IntentcastFeedItem } from "../src/api/client";
 const flows = vi.hoisted(() => ({ hiring: vi.fn() }));
 const apiGet = vi.hoisted(() => vi.fn());
 const authState = vi.hoisted(() => ({ value: null as unknown }));
+const eligibleCount = vi.hoisted(() => ({ value: 0 }));
+vi.mock("../src/lib/broker", async (orig) => ({
+  ...(await orig<typeof import("../src/lib/broker")>()),
+  referralEligible: async (company: string) => ({ data: { company: company.trim(), count: eligibleCount.value } }),
+}));
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => authState.value }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: apiGet }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
@@ -41,6 +46,7 @@ function world(w: World = {}) {
   };
   apiGet.mockImplementation(async (path: string) => {
     if (path === "/v1/careers/referral-companies") return { companies: w.companies ?? [] };
+    if (path === "/v1/broker-requests/referral-companies") return { companies: w.companies ?? [] };
     if (path === "/v1/contact-requests/sent") return { requests: (w.sent ?? []).map((n) => ({ recipientPersonId: "r", message: "m", recipientContactShared: null, respondedAt: null, ...n })) };
     if (path === "/v1/contact-requests/inbox") return { requests: Array.from({ length: w.inbox ?? 0 }, (_, i) => ({ id: `i${i}` })) };
     if (path === "/v1/careers/my-company-demand") return { demand: w.demand ?? null };
@@ -117,23 +123,20 @@ describe("Careers page", () => {
     expect(screen.queryByRole("link", { name: "Moving cities" })).toBeNull();
   });
 
-  it("referral opens a blank modal and searches only on submit with structured overrides", async () => {
-    world({ companies: [{ company: "Razorpay", alumni: 2 }] }); mount();
+  it("Get a referral opens the brokered request: company first, then the count, then the next answers", async () => {
+    world({ companies: [{ company: "Razorpay", alumni: 2 }] });
+    eligibleCount.value = 4;
+    mount();
     fireEvent.click(screen.getByRole("button", { name: "Get a referral" }));
     expect(screen.getByRole("dialog", { name: "Get a referral" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
-    expect(screen.getByText("Choose a role")).toBeTruthy();
-    expect(screen.getByText("Choose a company")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText(/^Role/), { target: { value: "  R&D 東京  " } });
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "  A & B  " } });
-    fireEvent.click(screen.getByRole("button", { name: "Find alumni" }));
-    const where = await screen.findByTestId("where");
-    const url = new URL(where.textContent!, "https://example.test");
-    expect(url.pathname).toBe("/match");
-    expect(url.searchParams.get("q")).toBe("Referral for R&D 東京 at A & B");
-    expect(url.searchParams.get("cat")).toBe("referral");
-    expect(url.searchParams.get("company")).toBe("A & B");
-    expect(url.searchParams.get("role")).toBe("R&D 東京");
+    expect(screen.queryByRole("radiogroup", { name: "Which function?" })).toBeNull();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Razorpay" } });
+    expect(await screen.findByText("We'll ask 4 alumni at Razorpay.")).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: "Which function?" })).toBeTruthy();
+    expect(screen.queryByLabelText(/^Role/)).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "Product" }));
+    expect(screen.getByLabelText(/^Role/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Job link/)).toBeTruthy();
   });
 
   it("company keyboard selection does not submit; Escape dismisses list before modal", async () => {
@@ -141,7 +144,7 @@ describe("Careers page", () => {
     const chip = screen.getByRole("button", { name: "Get a referral" }); chip.focus(); fireEvent.click(chip);
     const company = screen.getByRole("combobox");
     fireEvent.focus(company);
-    await screen.findByRole("option", { name: "Razorpay" });
+    await screen.findByRole("option", { name: "Razorpay · 2 alumni" });
     fireEvent.keyDown(company, { key: "ArrowDown" });
     fireEvent.keyDown(company, { key: "Enter" });
     expect((company as HTMLInputElement).value).toBe("Razorpay");

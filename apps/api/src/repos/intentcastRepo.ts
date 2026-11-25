@@ -1,4 +1,5 @@
 import type { DbExecutor } from "../db/types.js";
+import { experienceBandSql, isExperienceBand, isJobFunction, type ExperienceBand, type JobFunction } from "../lib/jobFunctions.js";
 import { personIsDemoSql, personIsDiscoverableForViewerSql } from "../lib/demoPersonSql.js";
 import { DOMAIN_DIRECTORY } from "../lib/domainAllowlist.js";
 import {
@@ -23,6 +24,13 @@ export type IntentcastCategory = "hiring" | "mentorship" | "collaboration" | "gu
 export type IntentcastKind = "ask" | "offer" | "invitation";
 
 interface IntentcastFeedRow {
+  hiring_function?: string | null;
+  hiring_role_title?: string | null;
+  hiring_experience?: string | null;
+  hiring_location?: string | null;
+  hiring_company?: string | null;
+  hiring_respond_via?: string | null;
+  hiring_apply_url?: string | null;
   wall_pinned_at?: Date | null;
   id: string;
   author_person_id: string;
@@ -97,6 +105,8 @@ export interface IntentcastFeedView {
   authorIsDemo: boolean;
   /** Null = Everyone. Fixed at posting. */
   audience: IntentcastAudienceView | null;
+  /** Structured hiring posts only (null on older posts and other categories). */
+  hiring: HiringFieldsView | null;
 }
 
 export interface IntentcastFeedResult {
@@ -121,6 +131,39 @@ interface IntentcastRow {
   updated_at: Date;
   author_soft_deleted_at: Date | null;
   author_delete_purge_at: Date | null;
+  hiring_function?: string | null;
+  hiring_role_title?: string | null;
+  hiring_experience?: string | null;
+  hiring_location?: string | null;
+  hiring_company?: string | null;
+  hiring_respond_via?: string | null;
+  hiring_apply_url?: string | null;
+}
+
+/** A hiring post's answers (no heading: the card header is built from these). */
+export interface HiringFieldsView {
+  jobFunction: JobFunction;
+  roleTitle: string | null;
+  experience: ExperienceBand;
+  location: string | null;
+  company: string | null;
+  respondVia: "reachout" | "link";
+  applyUrl: string | null;
+}
+
+export type HiringFieldsInput = HiringFieldsView;
+
+function mapHiring(row: Pick<IntentcastRow, "hiring_function" | "hiring_role_title" | "hiring_experience" | "hiring_location" | "hiring_company" | "hiring_respond_via" | "hiring_apply_url">): HiringFieldsView | null {
+  if (!isJobFunction(row.hiring_function) || !isExperienceBand(row.hiring_experience)) return null;
+  return {
+    jobFunction: row.hiring_function,
+    roleTitle: row.hiring_role_title ?? null,
+    experience: row.hiring_experience,
+    location: row.hiring_location ?? null,
+    company: row.hiring_company ?? null,
+    respondVia: row.hiring_respond_via === "link" ? "link" : "reachout",
+    applyUrl: row.hiring_apply_url ?? null
+  };
 }
 
 interface IntentcastResponseRow {
@@ -161,10 +204,17 @@ export interface CreateIntentcastInput {
   placeId?: string | null;
   /** Who can see it (copied from the author at posting). Missing = Everyone. */
   audience?: AudienceSnapshot | null;
+  /** Structured hiring post answers. */
+  hiring?: HiringFieldsInput | null;
 }
 
 export interface FeedInput {
   homeWall?: boolean;
+  /**
+   * Home Wall only: "Opportunities for you". Leaves out the viewer's own posts and ranks the rest
+   * in tiers for the viewer (see docs/bulletin-feed-ranking.md).
+   */
+  forYou?: boolean;
   viewerPersonId: string;
   limit: number;
   offset: number;
@@ -275,7 +325,8 @@ function mapFeedRow(row: IntentcastFeedRow): IntentcastFeedView {
     responseCount: Number(row.response_count),
     viewerHasResponded: Boolean(row.viewer_has_responded),
     authorIsDemo: Boolean(row.author_is_demo),
-    audience: mapAudience(row)
+    audience: mapAudience(row),
+    hiring: mapHiring(row)
   };
 }
 
@@ -313,7 +364,14 @@ const AUDIENCE_SELECT = `
         i.audience_department_code,
         i.audience_department_name,
         i.audience_place_id,
-        aud_place.city_label AS audience_place_name`;
+        aud_place.city_label AS audience_place_name,
+        i.hiring_function,
+        i.hiring_role_title,
+        i.hiring_experience,
+        i.hiring_location,
+        i.hiring_company,
+        i.hiring_respond_via,
+        i.hiring_apply_url`;
 const AUDIENCE_PLACE_JOIN = `LEFT JOIN canonical_places aud_place ON aud_place.id = i.audience_place_id`;
 
 function mapResponseRow(row: IntentcastResponseViewRow): IntentcastResponseView {
@@ -330,6 +388,71 @@ function mapResponseRow(row: IntentcastResponseViewRow): IntentcastResponseView 
   };
 }
 
+/** The Wall lane a post shows in: its `[[cat:…]]` prefix, else the stored category (mirrors the web card). */
+const WALL_LANE_SQL = `COALESCE(
+  lower(substring(i.content from '^\\s*\\[\\[cat:([A-Za-z]+)\\]\\]')),
+  CASE i.category WHEN 'hiring' THEN 'hiring' WHEN 'guidance' THEN 'guidance' WHEN 'mentorship' THEN 'careers' ELSE 'startups' END
+)`;
+
+/** Company in a Wall referral ask's first line: "Looking for referral for {role} at {company}". */
+const REFERRAL_ASK_COMPANY_SQL = `lower(btrim(substring(
+  split_part(regexp_replace(i.content, '^\\s*\\[\\[cat:[A-Za-z]+\\]\\]\\s*', ''), E'\\n', 1)
+  from '(?i)^\\s*looking for referral for .* at (.+)$'
+)))`;
+
+/** The viewer's current company (canonical name when merged), for the referral match. */
+export const FOR_YOU_VIEWER_COMPANY_JOIN = `
+      LEFT JOIN LATERAL (
+        SELECT lower(COALESCE(vcanon.name, vorg.name)::text) AS company
+        FROM occupations vo
+        JOIN organizations vorg ON vorg.id = vo.organization_id
+        LEFT JOIN organizations vcanon ON vcanon.id = vorg.canonical_organization_id
+        WHERE vo.person_id = vp.id
+          AND vo.is_current = TRUE
+        ORDER BY vo.start_date DESC NULLS LAST, vo.created_at DESC
+        LIMIT 1
+      ) v_co ON TRUE`;
+
+/** Viewer's Open to includes any of these option ids. */
+function viewerOpenToSql(ids: readonly string[]): string {
+  return `(COALESCE(vp.open_to_preferences -> 'selected', '[]'::jsonb) ?| ARRAY[${ids.map((id) => `'${id}'`).join(", ")}]::text[])`;
+}
+
+/**
+ * "Opportunities for you" tiers, after pins (docs/bulletin-feed-ranking.md):
+ * 0. demo viewer + demo author (seeded demo posts stay visible to demo accounts, as in the default order);
+ * 1. hiring posts matching the viewer's job function and experience band;
+ * 2. asks the viewer can help with: a referral ask at their current company, a lane matching their
+ *    Open to (Guidance = Mentorship or Advising; Startups = Advising or Collaboration), or one of their
+ *    areas appearing in the post as a whole term (not inside a longer word);
+ * 3. everything else. Newest first within each tier.
+ */
+export function forYouOrderSql(): string {
+  const tier1 = `(
+    i.category = 'hiring'
+    AND i.hiring_function IS NOT NULL
+    AND i.hiring_function = vp.job_function
+    AND i.hiring_experience = ${experienceBandSql("vp.batch_year")}
+  )`;
+  const tier2 = `(
+    (v_co.company IS NOT NULL AND ${REFERRAL_ASK_COMPANY_SQL} = v_co.company)
+    OR (${WALL_LANE_SQL} = 'guidance' AND ${viewerOpenToSql(["mentorship", "advising"])})
+    OR (${WALL_LANE_SQL} = 'startups' AND ${viewerOpenToSql(["advising", "collaboration"])})
+    OR EXISTS (
+      SELECT 1
+      FROM person_areas pa
+      WHERE pa.person_id = vp.id
+        AND i.content ~* ('(^|[^[:alnum:]_])' || regexp_replace(pa.label, '([.^$*+?()\\[\\]{}|\\\\-])', '\\\\\\1', 'g') || '([^[:alnum:]_]|$)')
+    )
+  )`;
+  return `CASE
+          WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
+          WHEN ${tier1} THEN 1
+          WHEN ${tier2} THEN 2
+          ELSE 3
+        END ASC,`;
+}
+
 export class IntentcastRepo {
   constructor(private readonly db: DbExecutor) {}
 
@@ -339,9 +462,12 @@ export class IntentcastRepo {
       INSERT INTO intentcasts (
         author_person_id, content, category, kind, expires_at, editable_until, place_id,
         audience_email_domains, audience_institution_name, audience_batch_year,
-        audience_department_code, audience_department_name, audience_place_id
+        audience_department_code, audience_department_name, audience_place_id,
+        hiring_function, hiring_role_title, hiring_experience, hiring_location, hiring_company,
+        hiring_respond_via, hiring_apply_url
       )
-      VALUES ($1, $2, $3, $4, $5, now() + interval '5 minutes', $6::uuid, $7::text[], $8, $9, $10, $11, $12::uuid)
+      VALUES ($1, $2, $3, $4, $5, now() + interval '5 minutes', $6::uuid, $7::text[], $8, $9, $10, $11, $12::uuid,
+        $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
       `,
       [
@@ -356,7 +482,14 @@ export class IntentcastRepo {
         input.audience?.batchYear ?? null,
         input.audience?.departmentCode ?? null,
         input.audience?.departmentName ?? null,
-        input.audience?.placeId ?? null
+        input.audience?.placeId ?? null,
+        input.hiring?.jobFunction ?? null,
+        input.hiring?.roleTitle ?? null,
+        input.hiring?.experience ?? null,
+        input.hiring?.location ?? null,
+        input.hiring?.company ?? null,
+        input.hiring?.respondVia ?? null,
+        input.hiring?.applyUrl ?? null
       ]
     );
     return result.rows[0]!;
@@ -446,6 +579,10 @@ export class IntentcastRepo {
     }
 
     const viewerPh = bind(input.viewerPersonId);
+    const forYou = Boolean(input.forYou && input.homeWall && !input.mine && !input.authorHistory);
+    if (forYou) {
+      where.push(`i.author_person_id <> ${viewerPh}::uuid`);
+    }
     if (input.excludeAuthorSoftDeleted) {
       where.push("i.author_soft_deleted_at IS NULL");
     } else {
@@ -518,18 +655,19 @@ export class IntentcastRepo {
         ORDER BY o.start_date DESC NULLS LAST, o.created_at DESC
         LIMIT 1
       ) cur_occ ON TRUE
+      ${forYou ? FOR_YOU_VIEWER_COMPANY_JOIN : ""}
       WHERE ${where.join("\n  AND ")}
       /* Bulletin feed ordering — document in docs/bulletin-feed-ranking.md; update when this changes. */
       ORDER BY
         ${input.homeWall && !input.mine && !input.authorHistory ? 'wall_pinned_at DESC NULLS LAST,' : ''}
-        CASE
+        ${forYou ? forYouOrderSql() : `CASE
           WHEN (${personIsDemoSql("vp")}) AND (${personIsDemoSql("p")}) THEN 0
           WHEN (
             (SELECT COUNT(*)::int FROM intentcast_responses r WHERE r.intentcast_id = i.id) = 0
             AND i.created_at >= (now() - interval '48 hours')
           ) THEN 1
           ELSE 2
-        END ASC,
+        END ASC,`}
         i.created_at DESC,
         i.id DESC
       LIMIT ${limitPh}

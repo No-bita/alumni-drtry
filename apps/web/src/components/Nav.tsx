@@ -1,25 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { WhatsAppFloatingButton } from "./WhatsAppFloatingButton";
-import { useNotificationsList } from "../lib/notificationsQueries";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { isShownNotification, useNotificationsList } from "../lib/notificationsQueries";
+import { Link, useNavigate } from "react-router-dom";
 import { canResumeOnboarding } from "../lib/onboardingEligibility";
 import { useAuth } from "../contexts/AuthContext";
-import { CAREER_INTENT_DEFAULT_PATH } from "../constants/careerTabs";
-import { NAV_INTENT_LABELS, NAV_INTENT_SLUGS, type NavIntentSlug } from "../constants/intents";
-import { isBuildIntentPageEnabled } from "../lib/buildIntentPage";
-import { isDevHubPagesEnabled } from "../lib/devHubPages";
-import { AppToolbarGlobalSearch } from "./AppToolbarGlobalSearch";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { Avatar } from "./Avatar";
 import { avatarLabelFromEmail } from "../lib/emailDisplayName";
-import {
-  IconBell,
-  IconBriefcase,
-  IconCity,
-  IconHammer,
-  IconHome,
-} from "./HomeIcons";
-import { IconCalendar } from "./LocationPageIcons";
+import { IconBell } from "./HomeIcons";
 
 function formatNotificationBadgeCount(count: number): string {
   if (count > 99) return "99+";
@@ -35,113 +23,10 @@ function openNotificationsPanel(anchorRect?: DOMRect) {
   window.dispatchEvent(new CustomEvent("notifications:open", { detail }));
 }
 
-function intentSidebarActive(slug: NavIntentSlug, pathname: string): boolean {
-  switch (slug) {
-    case "career":
-      return pathname.startsWith("/intent/career");
-    case "location":
-      return pathname.startsWith("/intent/location");
-    case "business":
-      return pathname.startsWith("/intent/business");
-    case "events":
-      return pathname === "/events";
-    default: {
-      const _exhaustive: never = slug;
-      return _exhaustive;
-    }
-  }
-}
-
-function BottomDockIntentIcon({ slug }: { slug: NavIntentSlug }) {
-  const cls = "nav-bottom-dock__icon";
-  switch (slug) {
-    case "career":
-      return <IconBriefcase className={cls} />;
-    case "location":
-      return <IconCity className={cls} />;
-    case "business":
-      return <IconHammer className={cls} />;
-    case "events":
-      return <IconCalendar className={cls} />;
-    default: {
-      const _exhaustive: never = slug;
-      return _exhaustive;
-    }
-  }
-}
-
-function SidebarIntentIcon({ slug }: { slug: NavIntentSlug }) {
-  const cls = "nav-sidebar__icon";
-  switch (slug) {
-    case "career":
-      return <IconBriefcase className={cls} />;
-    case "location":
-      return <IconCity className={cls} />;
-    case "business":
-      return <IconHammer className={cls} />;
-    case "events":
-      return <IconCalendar className={cls} />;
-    default: {
-      const _exhaustive: never = slug;
-      return _exhaustive;
-    }
-  }
-}
-
-function IconYou({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M5 19.5c1-3.3 3.8-5 7-5s6 1.7 7 5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function IconFeedback({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4.5 6.5c0-1.1.9-2 2-2h11c1.1 0 2 .9 2 2v7c0 1.1-.9 2-2 2H9l-4.5 3.5V6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconAnalytics({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 19.5h16M7 16v-5m5 5V6m5 10v-8"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 type NavProps = {
   right?: React.ReactNode;
-  /**
-   * Intent sidebar shell: left column inside the fixed top toolbar (e.g. welcome copy on `/home`).
-   */
+  /** Signed-in top bar: page title shown after the logo (e.g. "Alumni directory"). */
   appToolbarLead?: React.ReactNode;
-  /**
-   * Intent sidebar shell: toolbar search slot.
-   * - Omit (`undefined`): default global quick search (`AppToolbarGlobalSearch`).
-   * - Pass `null`: hide the slot entirely (e.g. alumni directory moves search into the page body).
-   * - Pass a node: render it inside the toolbar search area (legacy pattern).
-   */
-  appToolbarSearch?: React.ReactNode;
   /** Extra content after the user menu when signed in (e.g. onboarding context). */
   extraRight?: React.ReactNode;
   /** Hide the default “Sign in” link when unauthenticated (e.g. on /login). */
@@ -152,13 +37,9 @@ type NavProps = {
   variant?: "default" | "home" | "onboarding";
   /** Avatar initials label; defaults to first name from institutional email. */
   avatarName?: string;
-  /** Hide Career / Location / Build / Events (e.g. onboarding). */
+  /** Use the plain bar instead of the signed-in top bar (e.g. onboarding). */
   hideIntentNav?: boolean;
-  /** Sidebar shell: omit toolbar bottom rule (e.g. Careers page). */
-  appToolbarNoBorder?: boolean;
-  /** Home-only: search bar leads from the left edge, bell without circle chrome. */
-  toolbarSearchLead?: boolean;
-  /** Hide the toolbar notifications bell on this page (e.g. Cities). The bell stays on other pages. */
+  /** Hide the toolbar notifications bell on this page. The bell stays on other pages. */
   hideNotificationsBell?: boolean;
 };
 
@@ -171,6 +52,10 @@ type NavUserMenuProps = {
   onboardingCompleted: boolean;
   /** Show “Finish your profile” only when `/onboarding` will accept this member. */
   canResumeOnboarding: boolean;
+  /** Opens the in-app feedback form; omit to hide Feedback (e.g. the plain bar). */
+  onFeedback?: () => void;
+  /** Admins: link to Analytics. */
+  analyticsHref?: string;
   onSignOut: () => void | Promise<void>;
 };
 
@@ -180,6 +65,8 @@ function NavUserMenu({
   profileId,
   onboardingCompleted,
   canResumeOnboarding: showResumeOnboarding,
+  onFeedback,
+  analyticsHref,
   onSignOut,
 }: NavUserMenuProps) {
   const isHome = variant === "home";
@@ -233,7 +120,24 @@ function NavUserMenu({
             className="nav__user-menu-link nav__user-menu-link--primary"
             onClick={closeMenu}
           >
-            Complete Profile
+            Profile
+          </Link>
+        ) : null}
+        {onFeedback ? (
+          <button
+            type="button"
+            className="nav__user-menu-link"
+            onClick={() => {
+              closeMenu();
+              onFeedback();
+            }}
+          >
+            Feedback
+          </button>
+        ) : null}
+        {analyticsHref ? (
+          <Link to={analyticsHref} className="nav__user-menu-link" onClick={closeMenu}>
+            Analytics
           </Link>
         ) : null}
         <button
@@ -254,20 +158,16 @@ function NavUserMenu({
 export function Nav({
   right,
   appToolbarLead,
-  appToolbarSearch,
   extraRight,
   hideSignInLink,
   hideSignOut,
   variant = "default",
   avatarName,
   hideIntentNav = false,
-  appToolbarNoBorder = false,
   hideNotificationsBell = false,
-  toolbarSearchLead = false,
 }: NavProps) {
   const auth = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const isHomeNav = variant === "home" && auth.status === "authenticated";
   const isOnboardingNav = variant === "onboarding";
 
@@ -278,7 +178,7 @@ export function Nav({
   const notificationsList = useNotificationsList(auth.status === "authenticated");
   // The badge counts unseen items only; the full list (seen history) stays in the panel and inbox.
   const notificationCount = (notificationsList.data?.items ?? []).filter(
-    (item) => item.unseen && item.kind !== "connection_thread_reply"
+    (item) => item.unseen && isShownNotification(item)
   ).length;
 
   // In-app feedback form (replaced the WhatsApp feedback link).
@@ -306,33 +206,25 @@ export function Nav({
   const onboardingCompleted =
     auth.status === "authenticated" ? Boolean(auth.myProfile?.onboardingCompletedAt) : false;
   const isAdminUser = auth.status === "authenticated" && auth.person.role !== "alumni";
-  const analyticsHref = "/admin/analytics";
-  const analyticsActive = location.pathname === analyticsHref;
-  const youActive = myProfileId != null && location.pathname === `/profiles/${myProfileId}`;
 
   const navClassName = isHomeNav ? "nav nav--home" : isOnboardingNav ? "nav nav--onboarding" : "nav";
 
-  const showIntentNav =
-    auth.status === "authenticated" && !hideSignOut && !hideIntentNav;
-
-  const intentNavSlugs = NAV_INTENT_SLUGS.filter((slug) => {
-    if (slug === "events") return isDevHubPagesEnabled;
-    if (slug === "business") return isBuildIntentPageEnabled;
-    return true;
-  });
+  // Signed-in shell: one top bar (logo, page title, bell, account menu). No sidebar or bottom dock
+  // since the Home redesign (2026-11-25): Home's tiles lead to everything else.
+  const showTopBar = auth.status === "authenticated" && !hideSignOut && !hideIntentNav;
 
   useEffect(() => {
-    if (!showIntentNav) {
+    if (!showTopBar) {
       delete document.documentElement.dataset.appShell;
       return undefined;
     }
-    document.documentElement.dataset.appShell = "sidebar";
+    document.documentElement.dataset.appShell = "topbar";
     return () => {
       delete document.documentElement.dataset.appShell;
     };
-  }, [showIntentNav]);
+  }, [showTopBar]);
 
-  const navUserMenuVariant = showIntentNav || variant === "home" ? "home" : "default";
+  const navUserMenuVariant = showTopBar || variant === "home" ? "home" : "default";
 
   const toolbarActionsAuthenticated =
     auth.status === "authenticated" && !hideSignOut ? (
@@ -364,216 +256,24 @@ export function Nav({
               ? canResumeOnboarding(auth.myProfile)
               : false
           }
+          onFeedback={showTopBar ? () => setFeedbackOpen(true) : undefined}
+          analyticsHref={showTopBar && isAdminUser && myProfileId ? "/admin/analytics" : undefined}
           onSignOut={handleSignOut}
         />
         {extraRight}
       </>
     ) : null;
 
-  if (showIntentNav) {
+  if (showTopBar) {
     return (
       <>
-        <aside className="nav-sidebar" aria-label="Primary navigation">
-          <div className="nav-sidebar__brand">
-            <Link to="/home" className="nav-sidebar__logo">
-              Alma <span>Mater</span>
-            </Link>
-            <span className="nav-app-beta-pill" title="This app is in beta" aria-label="This app is in beta">
-              Beta
-            </span>
-          </div>
-          <nav className="nav-sidebar__nav" aria-label="What are you looking for">
-            <ul className="nav-sidebar__list">
-              <li>
-                <NavLink
-                  to="/home"
-                  end
-                  className={({ isActive }) =>
-                    `nav-sidebar__link${isActive ? " nav-sidebar__link--active" : ""}`.trim()
-                  }
-                >
-                  <IconHome className="nav-sidebar__icon" />
-                  <span className="nav-sidebar__link-label">Home</span>
-                </NavLink>
-              </li>
-              {intentNavSlugs.map((slug) => {
-                const labelClass = "nav-sidebar__link-label";
-                if (slug === "career") {
-                  const active = intentSidebarActive("career", location.pathname);
-                  return (
-                    <li key={slug}>
-                      <Link
-                        to={CAREER_INTENT_DEFAULT_PATH}
-                        className={`nav-sidebar__link${active ? " nav-sidebar__link--active" : ""}`.trim()}
-                      >
-                        <SidebarIntentIcon slug="career" />
-                        <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                      </Link>
-                    </li>
-                  );
-                }
-                if (slug === "events") {
-                  const active = intentSidebarActive("events", location.pathname);
-                  return (
-                    <li key={slug}>
-                      <Link
-                        to="/events"
-                        className={`nav-sidebar__link${active ? " nav-sidebar__link--active" : ""}`.trim()}
-                      >
-                        <SidebarIntentIcon slug="events" />
-                        <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                      </Link>
-                    </li>
-                  );
-                }
-                return (
-                  <li key={slug}>
-                    <NavLink
-                      to={`/intent/${slug}`}
-                      className={({ isActive }) =>
-                        `nav-sidebar__link${isActive ? " nav-sidebar__link--active" : ""}`.trim()
-                      }
-                    >
-                      <SidebarIntentIcon slug={slug} />
-                      <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                    </NavLink>
-                  </li>
-                );
-              })}
-              {isAdminUser && myProfileId ? (
-                <li>
-                  <Link
-                    to={analyticsHref}
-                    className={`nav-sidebar__link${analyticsActive ? " nav-sidebar__link--active" : ""}`.trim()}
-                  >
-                    <IconAnalytics className="nav-sidebar__icon" />
-                    <span className="nav-sidebar__link-label">Analytics</span>
-                  </Link>
-                </li>
-              ) : null}
-              <li>
-                <button
-                  type="button"
-                  className="nav-sidebar__link"
-                  onClick={() => setFeedbackOpen(true)}
-                >
-                  <IconFeedback className="nav-sidebar__icon" />
-                  <span className="nav-sidebar__link-label">Feedback</span>
-                </button>
-              </li>
-            </ul>
-          </nav>
-        </aside>
-        <header
-          className={`nav-app-toolbar${appToolbarLead ? " nav-app-toolbar--with-lead" : ""}${appToolbarNoBorder ? " nav-app-toolbar--flat" : ""}${toolbarSearchLead ? " nav-app-toolbar--search-lead" : ""}`.trim()}
-        >
-          {appToolbarLead ? (
-            <div className="nav-app-toolbar__lead">{appToolbarLead}</div>
-          ) : null}
-          {toolbarActionsAuthenticated ? (
-            <div className="nav-app-toolbar__right">
-              {appToolbarSearch !== null ? (
-                <div className="nav-app-toolbar__search-wrap">
-                  {appToolbarSearch === undefined ? <AppToolbarGlobalSearch /> : appToolbarSearch}
-                </div>
-              ) : null}
-              {toolbarActionsAuthenticated}
-            </div>
-          ) : null}
+        <header className={`nav-app-toolbar${appToolbarLead ? " nav-app-toolbar--with-lead" : ""}`}>
+          <Link to="/home" className="nav-app-toolbar__brand">
+            Alma <span>Mater</span>
+          </Link>
+          {appToolbarLead ? <div className="nav-app-toolbar__lead">{appToolbarLead}</div> : null}
+          {toolbarActionsAuthenticated ? <div className="nav-app-toolbar__right">{toolbarActionsAuthenticated}</div> : null}
         </header>
-        <nav className={`nav-bottom-dock${isAdminUser && myProfileId ? " nav-bottom-dock--compact" : ""}`} aria-label="Primary navigation">
-          <ul className="nav-bottom-dock__list">
-            <li className="nav-bottom-dock__item">
-              <NavLink
-                to="/home"
-                end
-                className={({ isActive }) =>
-                  `nav-bottom-dock__link${isActive ? " nav-bottom-dock__link--active" : ""}`.trim()
-                }
-              >
-                <IconHome className="nav-bottom-dock__icon" />
-                <span className="nav-bottom-dock__label">Home</span>
-              </NavLink>
-            </li>
-            {intentNavSlugs.map((slug) => {
-              const labelClass = "nav-bottom-dock__label";
-              if (slug === "career") {
-                const active = intentSidebarActive("career", location.pathname);
-                return (
-                  <li key={slug} className="nav-bottom-dock__item">
-                    <Link
-                      to={CAREER_INTENT_DEFAULT_PATH}
-                      className={`nav-bottom-dock__link${active ? " nav-bottom-dock__link--active" : ""}`.trim()}
-                    >
-                      <BottomDockIntentIcon slug="career" />
-                      <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                    </Link>
-                  </li>
-                );
-              }
-              if (slug === "events") {
-                const active = intentSidebarActive("events", location.pathname);
-                return (
-                  <li key={slug} className="nav-bottom-dock__item">
-                    <Link
-                      to="/events"
-                      className={`nav-bottom-dock__link${active ? " nav-bottom-dock__link--active" : ""}`.trim()}
-                    >
-                      <BottomDockIntentIcon slug="events" />
-                      <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                    </Link>
-                  </li>
-                );
-              }
-              return (
-                <li key={slug} className="nav-bottom-dock__item">
-                  <NavLink
-                    to={`/intent/${slug}`}
-                    className={({ isActive }) =>
-                      `nav-bottom-dock__link${isActive ? " nav-bottom-dock__link--active" : ""}`.trim()
-                    }
-                  >
-                    <BottomDockIntentIcon slug={slug} />
-                    <span className={labelClass}>{NAV_INTENT_LABELS[slug]}</span>
-                  </NavLink>
-                </li>
-              );
-            })}
-            {isAdminUser && myProfileId ? (
-              <li className="nav-bottom-dock__item">
-                <Link
-                  to={analyticsHref}
-                  className={`nav-bottom-dock__link${analyticsActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
-                >
-                  <IconAnalytics className="nav-bottom-dock__icon" />
-                  <span className="nav-bottom-dock__label">Analytics</span>
-                </Link>
-              </li>
-            ) : null}
-            <li className="nav-bottom-dock__item">
-              <button
-                type="button"
-                className="nav-bottom-dock__link"
-                onClick={() => setFeedbackOpen(true)}
-              >
-                <IconFeedback className="nav-bottom-dock__icon" />
-                <span className="nav-bottom-dock__label">Feedback</span>
-              </button>
-            </li>
-            <li className="nav-bottom-dock__item">
-              {myProfileId ? (
-                <Link
-                  to={`/profiles/${myProfileId}`}
-                  className={`nav-bottom-dock__link${youActive ? " nav-bottom-dock__link--active" : ""}`.trim()}
-                  aria-current={youActive ? "page" : undefined}
-                >
-                  <IconYou className="nav-bottom-dock__icon" />
-                  <span className="nav-bottom-dock__label">You</span>
-                </Link>
-              ) : null}
-            </li>
-          </ul>
-        </nav>
         <WhatsAppFloatingButton />
         {feedbackOpen ? <FeedbackDialog onClose={() => setFeedbackOpen(false)} /> : null}
       </>

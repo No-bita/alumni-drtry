@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { isViewAsRequest } from "../lib/viewAsContext.js";
 import type { AdminMetrics } from "../repos/adminMetricsRepo.js";
 import { AdminMetricsRepo } from "../repos/adminMetricsRepo.js";
 import { AskMatchMetricsRepo, type AskMatchMetrics } from "../repos/askMatchMetricsRepo.js";
@@ -58,6 +59,7 @@ export class AdminMetricsService {
   /**
    * Usage events for the analytics screen: only approved event types are stored, metadata is cut
    * down to short known keys, demo accounts are skipped, and each person is capped per minute.
+   * Nothing is recorded while an admin is viewing as the member (`viewAs`).
    * Returns whether the event was stored.
    */
   async logBetaUsageEvent(input: {
@@ -66,8 +68,11 @@ export class AdminMetricsService {
     route: string;
     metadata?: Record<string, unknown>;
     isDemo?: boolean;
+    viewAs?: unknown;
   }): Promise<boolean> {
-    if (!RECORDED_EVENT_TYPES.has(input.eventType) || input.isDemo || !input.personId) return false;
+    if (!RECORDED_EVENT_TYPES.has(input.eventType) || input.isDemo || input.viewAs || isViewAsRequest() || !input.personId) {
+      return false;
+    }
     if (!this.usageLimiter.allow(input.personId)) return false;
     await this.repo.logBetaUsageEvent({
       eventType: input.eventType,

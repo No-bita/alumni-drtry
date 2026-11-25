@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { OnboardingAnswerKey } from "../src/components/onboarding/OnboardingAnswerKey";
 import {
@@ -27,26 +27,13 @@ function Harness({ start, onValue }: { start: OpenToPreferences; onValue: (v: Op
 }
 
 describe("Coffee weekly limit (screen 4)", () => {
-  it("turning coffee on asks for a limit (default 2) and saves it with the tag", () => {
-    let last: OpenToPreferences | null = null;
-    render(<Harness start={{ selected: [] }} onValue={(v) => (last = v)} />);
-    fireEvent.click(screen.getByRole("button", { name: /Coffee chats/ }));
-    const dialog = screen.getByRole("dialog", { name: "Open to coffee" });
-    expect(within(dialog).getByRole("radio", { name: "2" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "3" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on coffee · 3 a week" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(last!.selected).toEqual(["coffee"]);
-    expect(last!.limits).toEqual({ coffee: 3 });
-  });
-
-  it("Not now leaves coffee off", () => {
-    let last: OpenToPreferences | null = null;
-    render(<Harness start={{ selected: [] }} onValue={(v) => (last = v)} />);
-    fireEvent.click(screen.getByRole("button", { name: /Coffee chats/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
-    expect(last).toBeNull();
-    expect(screen.getByRole("button", { name: /Coffee chats/ }).getAttribute("aria-pressed")).toBe("false");
+  // Coffee came with Cities, which is out of the product: onboarding no longer offers it (the limit
+  // sheet tests return with Cities). Saved coffee limits still parse below.
+  it("onboarding no longer offers coffee or city help", () => {
+    render(<Harness start={{ selected: [] }} onValue={() => {}} />);
+    expect(screen.queryByRole("button", { name: /Coffee chats/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Settling into my city/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Referrals/ })).toBeTruthy();
   });
 
   it("limits survive parse/normalize, go when coffee goes, and legacy coffee reads as 2", () => {

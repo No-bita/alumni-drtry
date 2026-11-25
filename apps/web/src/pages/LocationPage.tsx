@@ -11,6 +11,7 @@ import { NoCityPrompt, SavedCityCard } from "../components/cities/NoCityPrompt";
 import { ReachoutsWaitingCard } from "../components/ReachoutsWaitingCard";
 import { YourReachoutsCard } from "../components/YourReachoutsCard";
 import { useAuth } from "../contexts/AuthContext";
+import { useHasReachouts } from "../hooks/useHasReachouts";
 import {
   CITIES_KEY,
   citiesKeys,
@@ -43,6 +44,10 @@ export function LocationPage() {
   const [editingCity, setEditingCity] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const signedIn = auth.status === "authenticated";
+  // Phone only: when there are no reachouts at all, the city community feed leads and the
+  // reachout cards sit below it.
+  const reachouts = useHasReachouts(signedIn);
+  const sideAfterCommunity = reachouts.settled && !reachouts.hasAny;
 
   const list = useQuery({ queryKey: citiesKeys.list(), queryFn: ({ signal }) => fetchCities(signal), enabled: signedIn });
   const target = citySlug ? findCityBySlug(list.data, citySlug) : (list.data?.viewerCity ?? null);
@@ -166,6 +171,7 @@ export function LocationPage() {
         onNotice={setNotice}
         onChangeCity={() => setSwitcherOpen(true)}
         switcherOpen={switcherOpen}
+        sideAfterCommunity={sideAfterCommunity}
         side={
           <>
             <ReachoutsWaitingCard />

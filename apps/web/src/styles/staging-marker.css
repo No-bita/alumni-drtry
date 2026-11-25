@@ -7,11 +7,10 @@ html[data-alma-environment="staging"] #root {
   padding-top: var(--staging-marker-height);
 }
 
-html[data-alma-environment="staging"][data-app-shell="sidebar"] #root {
+html[data-alma-environment="staging"][data-app-shell="topbar"] #root {
   padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + var(--staging-marker-height));
 }
 
-html[data-alma-environment="staging"] .nav-sidebar,
 html[data-alma-environment="staging"] .nav-app-toolbar {
   top: var(--staging-marker-height);
 }
