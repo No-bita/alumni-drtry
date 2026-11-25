@@ -9,7 +9,7 @@
 .referral-discovery__options { list-style:none; padding:4px; margin:6px 0 0; max-height:176px; overflow-y:auto; border:1px solid var(--border-muted); border-radius:12px; background:var(--surface); }
 .referral-discovery__options li { padding:12px; min-height:44px; box-sizing:border-box; cursor:pointer; overflow-wrap:anywhere; }
 .referral-discovery__options li[aria-selected="true"], .referral-discovery__options li:hover { background:var(--cream); }
-.referral-discovery__suggestion-state { color:var(--ink-muted); font-size:13px; line-height:1.5; }
+.referral-discovery__suggestion-state { color:var(--ink-muted); font-size:14px; line-height:1.5; }
 .referral-discovery__suggestion-state:empty { display:none; }
 .referral-discovery__suggestion-state button { min-height:44px; border:0; background:none; text-decoration:underline; color:var(--brick); font:inherit; }
 .referral-discovery .form-actions { margin-top:8px; }

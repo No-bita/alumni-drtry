@@ -11,7 +11,7 @@
   font-weight: 600;
   color: #695d52;
   letter-spacing: 0.03em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .post-audience__summary {
@@ -46,7 +46,7 @@
 }
 
 .post-audience__summary-label {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -80,7 +80,7 @@
 }
 
 .post-audience__field > span {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -97,7 +97,7 @@
 .post-audience__checks legend {
   padding: 0;
   margin-bottom: 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -135,7 +135,7 @@
 }
 
 .post-audience__check-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -145,7 +145,7 @@
 }
 
 .post-audience__check-value {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-muted);
   overflow-wrap: anywhere;
 }
@@ -164,7 +164,7 @@
 }
 
 .post-audience__size {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--ink);
   padding: 10px 12px;
@@ -218,14 +218,14 @@
 
 .post-unavailable__title {
   margin: 0 0 4px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--ink);
 }
 
 .post-unavailable__body {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--ink-muted);
 }

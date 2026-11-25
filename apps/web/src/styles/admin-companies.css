@@ -11,7 +11,7 @@
 
 .cr-head__lede {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--ink);
 }
@@ -21,7 +21,7 @@
   border: 0;
   background: none;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 14px;
   color: var(--brick);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -35,7 +35,7 @@
   border-radius: 12px;
   background: var(--palette-bg-cream);
   border: 1px solid var(--rule);
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .cr-list {
@@ -62,14 +62,14 @@
 
 .cr-card__name {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .cr-card__meta {
   margin: -6px 0 0;
-  font-size: 0.82rem;
+  font-size: 14px;
   color: var(--ink-muted);
   overflow-wrap: anywhere;
 }
@@ -87,7 +87,7 @@
   border-radius: 999px;
   background: transparent;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink);
   cursor: pointer;
 }
@@ -116,7 +116,7 @@
 .cr-panel__text,
 .cr-panel__note {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -126,13 +126,13 @@
 }
 
 .cr-panel__label {
-  font-size: 0.85rem;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .cr-panel__error {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 14px;
   color: var(--brick);
 }
 
@@ -144,7 +144,7 @@
   border-radius: 10px;
   background: var(--surface);
   font: inherit;
-  font-size: 1rem;
+  font-size: 16px;
   color: var(--ink);
   box-sizing: border-box;
 }
@@ -165,7 +165,7 @@
   border-radius: 10px;
   background: var(--surface);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 14px;
   text-align: left;
   color: var(--ink);
   cursor: pointer;
@@ -189,7 +189,7 @@
 
 .cr-section__title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 18px;
   font-weight: 700;
 }
 

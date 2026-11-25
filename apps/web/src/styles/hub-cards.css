@@ -50,7 +50,7 @@
 .hub-card__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
@@ -115,7 +115,7 @@
 }
 
 .hub-card__item-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
   overflow-wrap: anywhere;
@@ -148,7 +148,7 @@
 }
 
 .hub-card__meta {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-muted);
   overflow-wrap: anywhere;
 }
@@ -195,7 +195,7 @@
   border-radius: 999px;
   background: var(--brick);
   color: var(--cream);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -225,7 +225,7 @@
   border-bottom: 2px solid transparent;
   background: none;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink-muted);
   cursor: pointer;

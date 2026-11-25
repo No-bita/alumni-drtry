@@ -41,8 +41,8 @@ html[data-app-shell="sidebar"] #root {
   }
 
   html[data-app-shell="sidebar"] .nav-sidebar__logo {
-    font-size: 11px;
-    letter-spacing: 0.06em;
+    font-size: 12px;
+    letter-spacing: 0.02em;
     text-align: center;
   }
 
@@ -141,10 +141,10 @@ p, .body-text {
 .ui-label {
   font-family: var(--font-body);
   font-weight: 500;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--ink-muted);
 }
 
@@ -152,10 +152,10 @@ p, .body-text {
 .eyebrow {
   font-family: var(--font-body);
   font-weight: 500;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--ochre);
 }
 
@@ -167,7 +167,7 @@ a {
 }
 
 a:hover {
-  color: var(--brick-light);
+  color: var(--accent-text);
 }
 
 /* Focus — no box shadow, border only */

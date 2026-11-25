@@ -36,7 +36,7 @@
   border-radius: 999px;
   background: transparent;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink-muted);
   cursor: pointer;
 }
@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -62,7 +62,7 @@
   border-radius: 10px;
   background: var(--surface);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--ink);
   cursor: pointer;
 }
@@ -71,7 +71,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
-  font-size: 0.85rem;
+  font-size: 14px;
 }
 
 .aa-index a {
@@ -101,14 +101,14 @@
 
 .aa-section__title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .aa-section__note,
 .aa-footnote {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -128,7 +128,7 @@
 
 .aa-tile__label {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--ink-muted);
   display: flex;
   align-items: center;
@@ -151,7 +151,7 @@
 
 .aa-tile__hint {
   margin: 4px 0 0;
-  font-size: 0.78rem;
+  font-size: 12px;
   line-height: 1.35;
   color: var(--ink-muted);
 }
@@ -172,13 +172,13 @@
 .aa-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 14px;
 }
 
 .aa-table caption {
   text-align: left;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 14px;
   padding-bottom: 6px;
   color: var(--ink);
 }
@@ -220,7 +220,7 @@
 
 .weekly-bars__title {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 14px;
   margin-bottom: 6px;
   font-family: var(--font-display);
 }
@@ -261,7 +261,7 @@
 }
 
 .weekly-bars__label {
-  font-size: 11px;
+  font-size: 12px;
   fill: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -274,7 +274,7 @@
   border-radius: 8px;
   background: var(--ink);
   color: var(--cream);
-  font-size: 0.78rem;
+  font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 2;
@@ -283,7 +283,7 @@
 .weekly-bars__ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  font-size: 12px;
   color: var(--ink-muted);
   margin-top: 4px;
 }
@@ -315,7 +315,7 @@
   border-radius: 10px;
   border: 1px solid var(--rule);
   background: var(--palette-bg-cream);
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .aa-verdict--passes {
@@ -343,14 +343,14 @@
 
 .aa-review__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .aa-review__count {
   margin: 4px 0 0;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -362,7 +362,7 @@
   padding: 0 16px;
   border: 1px solid var(--rule);
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink);
   text-decoration: none;
 }
@@ -392,7 +392,7 @@
   color: var(--ink-muted);
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   opacity: 0.8;
@@ -419,7 +419,7 @@
   border-radius: 12px;
   background: var(--surface);
   box-shadow: 0 8px 24px rgba(64, 43, 32, 0.18);
-  font-size: 0.82rem;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
   color: var(--ink);
@@ -499,7 +499,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink);
 }
 
@@ -508,7 +508,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 14px;
   font-weight: 600;
   color: var(--brick);
   text-decoration: underline;
@@ -523,12 +523,12 @@
 
 .aa-admin-emails__error {
   margin: 10px 0 0;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--brick);
 }
 
 .aa-admin-emails__muted {
   margin: 10px 0 0;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }

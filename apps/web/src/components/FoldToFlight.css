@@ -15,9 +15,9 @@
 .fold-flight__brand { font-family: var(--font-display, Georgia, serif); font-size: 23px; text-align: center; }
 .fold-flight__play { width: 100%; max-width: 440px; flex: 1; display: flex; align-items: center; flex-direction: column; justify-content: center; padding: 28px 0 40px; }
 .fold-flight__status { width: 100%; max-width: 440px; border-top: 1px solid #dccab0; padding-top: 20px; }
-.fold-flight__status > p:first-child { font-size: 15px; margin: 0 0 14px; }
-.fold-flight__detail { font-size: 13px; color: var(--ink-muted, #796553); margin: 0; }
-.fold-flight__again { background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; color: #5f2614; min-height: 44px; padding: 10px 8px; font: inherit; font-size: 13px; cursor: pointer; }
+.fold-flight__status > p:first-child { font-size: 16px; margin: 0 0 14px; }
+.fold-flight__detail { font-size: 14px; color: var(--ink-muted, #796553); margin: 0; }
+.fold-flight__again { background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; color: #5f2614; min-height: 44px; padding: 10px 8px; font: inherit; font-size: 14px; cursor: pointer; }
 .fold-flight button:focus-visible { outline: 3px solid #8d5638; outline-offset: 5px; border-radius: 12px; }
 /* Dots vs Bars #4, https://css-loaders.com/dots-bars/ . Original black, size and timing retained. */
 .fold-flight__dots {
