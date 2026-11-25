@@ -141,8 +141,13 @@ const uuidParamSchema = z.object({
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
   app.get("/v1/me", { preHandler: app.authenticate }, async (request, reply) => {
+    // While an admin views as a member, `person` is that member and `viewAs` says so (read-only).
+    const { viewAs: _viewAsMarker, ...person } = request.actor;
     return reply.code(200).send({
-      person: request.actor
+      person,
+      viewAs: request.viewAs ?? null,
+      // Whether the signed-in admin (themselves) may use "view as member": admin AND on the allowlist.
+      canViewAs: request.viewAs ? true : app.viewAsService.canUse(request.actor)
     });
   });
 

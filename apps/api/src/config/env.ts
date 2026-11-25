@@ -214,7 +214,15 @@ const envSchema = z.object({
   DEMO_AUTH_PASSWORD_HASH: optionalStringSchema,
   DEMO_AUTH_MAX_PER_IP_WINDOW: z.coerce.number().int().min(1).max(500).default(30),
   DEMO_AUTH_MAX_PER_ACCOUNT_WINDOW: z.coerce.number().int().min(1).max(500).default(60),
-  DEMO_AUTH_WINDOW_MINUTES: z.coerce.number().int().min(1).max(120).default(15)
+  DEMO_AUTH_WINDOW_MINUTES: z.coerce.number().int().min(1).max(120).default(15),
+  /**
+   * Admin "view as member" (testing only): comma-separated sign-in emails (people.institutional_email)
+   * of the admins allowed to open a member's account read-only. The account must also be an admin.
+   * Empty (default) = feature off for everyone.
+   */
+  VIEW_AS_ADMIN_EMAILS: z.string().default(""),
+  /** How long one view-as session lasts before it ends by itself (minutes). */
+  VIEW_AS_TTL_MINUTES: z.coerce.number().int().min(30).max(60).default(30)
 });
 
 const parsed = envSchema.safeParse(process.env);
