@@ -119,3 +119,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_by UUID REFERENCES people(id) ON DELETE SET NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 6. Row-level security on the new tables (the app connects as the owner, so it is unaffected).
+ALTER TABLE broker_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE broker_asks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
