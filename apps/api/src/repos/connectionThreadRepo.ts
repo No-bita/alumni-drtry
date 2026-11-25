@@ -179,6 +179,7 @@ export class ConnectionThreadRepo {
       SELECT id, initiator_person_id, recipient_person_id, status, kind, created_at, updated_at
       FROM connection_threads
       WHERE initiator_person_id = $1 AND recipient_person_id = $2 AND status = 'open'
+        AND kind <> 'broker'
       LIMIT 1
       `,
       [initiatorId, recipientId]
@@ -206,6 +207,8 @@ export class ConnectionThreadRepo {
       FROM connection_threads
       WHERE id = $1
         AND (initiator_person_id = $2 OR recipient_person_id = $2)
+        -- Brokered conversations have their own endpoints and limits (brokerConversationService).
+        AND kind <> 'broker'
       LIMIT 1
       `,
       [threadId, personId]
@@ -541,7 +544,8 @@ export class ConnectionThreadRepo {
         END
       )
       LEFT JOIN departments dept ON dept.id = cp.department_id
-      WHERE t.initiator_person_id = $1 OR t.recipient_person_id = $1
+      WHERE (t.initiator_person_id = $1 OR t.recipient_person_id = $1)
+        AND t.kind <> 'broker'
       ORDER BY t.updated_at DESC
       LIMIT $2
       `,
@@ -579,6 +583,7 @@ export class ConnectionThreadRepo {
       FROM connection_threads t
       JOIN last_msg lm ON lm.thread_id = t.id
       WHERE (t.initiator_person_id = $1 OR t.recipient_person_id = $1)
+        AND t.kind <> 'broker'
         AND t.status = 'open'
         AND lm.author_person_id <> $1
       `,

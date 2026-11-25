@@ -61,7 +61,8 @@ export interface AskerRequestView {
   connectedAt: Date | null;
   expiredAt: Date | null;
   intentcastId: string | null;
-  connection: { personId: string; fullName: string | null; contactShared: string | null } | null;
+  /** Who said yes (name and profile link only: no contact is shared; they talk in the conversation). */
+  connection: { personId: string; fullName: string | null } | null;
 }
 
 export interface HelperAskView {
@@ -87,8 +88,6 @@ export interface HelperAskView {
     batchYear: number | null;
     departmentCode: string | null;
   };
-  /** Only once this helper said yes: how to reach the asker. */
-  askerContact: string | null;
 }
 
 export interface AskForResponseRow {
@@ -112,7 +111,6 @@ function mapRequestView(r: BrokerRequestRow & {
   seen_count: string | number;
   connection_person_id: string | null;
   connection_full_name: string | null;
-  connection_contact: string | null;
 }): AskerRequestView {
   return {
     id: r.id,
@@ -132,7 +130,7 @@ function mapRequestView(r: BrokerRequestRow & {
     expiredAt: r.expired_at,
     intentcastId: r.intentcast_id,
     connection: r.connection_person_id
-      ? { personId: r.connection_person_id, fullName: r.connection_full_name, contactShared: r.connection_contact }
+      ? { personId: r.connection_person_id, fullName: r.connection_full_name }
       : null
   };
 }
@@ -303,14 +301,12 @@ export class BrokerRepo {
       seen_count: string;
       connection_person_id: string | null;
       connection_full_name: string | null;
-      connection_contact: string | null;
     }>(
       `
       SELECT br.*,
         (SELECT COUNT(*) FROM broker_asks ba WHERE ba.request_id = br.id AND ba.seen_at IS NOT NULL)::text AS seen_count,
         cr.recipient_person_id AS connection_person_id,
-        hp.full_name AS connection_full_name,
-        cr.recipient_contact_shared::text AS connection_contact
+        hp.full_name AS connection_full_name
       FROM broker_requests br
       LEFT JOIN contact_requests cr ON cr.id = br.contact_request_id
       LEFT JOIN people hp ON hp.id = cr.recipient_person_id
@@ -324,8 +320,8 @@ export class BrokerRepo {
   }
 
   /**
-   * The helper's asks: still-open ones waiting for an answer, plus the ones they said yes to
-   * (with the asker's contact). Declined and withdrawn asks drop off.
+   * The helper's asks: still-open ones waiting for an answer, plus the ones they said yes to (their
+   * conversation is attached by the route; no contact). Declined and withdrawn asks drop off.
    */
   async listForHelper(helperPersonId: string, limit: number): Promise<HelperAskView[]> {
     const r = await this.db.query<{
@@ -349,7 +345,6 @@ export class BrokerRepo {
       asker_email_domain: string | null;
       asker_batch_year: number | null;
       asker_department_code: string | null;
-      asker_contact: string | null;
     }>(
       `
       SELECT ba.id AS ask_id, br.id AS request_id, br.kind, ba.status AS ask_status, br.status AS request_status,
@@ -357,8 +352,7 @@ export class BrokerRepo {
         br.role_title, br.job_url, br.message, br.details,
         a.id AS asker_id, a.full_name AS asker_full_name,
         split_part(lower(a.institutional_email::text), '@', 2) AS asker_email_domain,
-        a.batch_year AS asker_batch_year, d.code AS asker_department_code,
-        CASE WHEN ba.status = 'accepted' THEN COALESCE(a.personal_email, a.institutional_email)::text END AS asker_contact
+        a.batch_year AS asker_batch_year, d.code AS asker_department_code
       FROM broker_asks ba
       JOIN broker_requests br ON br.id = ba.request_id
       JOIN people a ON a.id = br.asker_person_id
@@ -395,8 +389,7 @@ export class BrokerRepo {
         institutionName: row.asker_email_domain ? (DOMAIN_DIRECTORY[row.asker_email_domain]?.institution ?? null) : null,
         batchYear: row.asker_batch_year,
         departmentCode: row.asker_department_code
-      },
-      askerContact: row.asker_contact
+      }
     }));
   }
 
@@ -458,7 +451,10 @@ export class BrokerRepo {
     return r.rows.map((row) => row.helper_person_id);
   }
 
-  /** The connection: an accepted reachout from the asker to the helper, created already accepted. */
+  /**
+   * The connection: an accepted reachout from the asker to the helper, created already accepted. It
+   * carries no contact (migration 079): the two of them talk in the request's conversation.
+   */
   async insertAcceptedReachout(input: {
     askerPersonId: string;
     helperPersonId: string;
@@ -467,13 +463,12 @@ export class BrokerRepo {
     details: NoteDetails | null;
     source: "referral_request" | "hiring_request";
     sourceCategory: string | null;
-    contactShared: string;
   }): Promise<string> {
     const r = await this.db.query<{ id: string }>(
       `
       INSERT INTO contact_requests (sender_person_id, recipient_person_id, message, details, status,
         recipient_contact_shared, forwarded_to_institutional_email, responded_at, source, source_category)
-      VALUES ($1, $2, $3, $4::jsonb, 'accepted', $5, $6, now(), $7, $8)
+      VALUES ($1, $2, $3, $4::jsonb, 'accepted', NULL, $5, now(), $6, $7)
       RETURNING id
       `,
       [
@@ -481,7 +476,6 @@ export class BrokerRepo {
         input.helperPersonId,
         input.message,
         input.details ? JSON.stringify(input.details) : null,
-        input.contactShared,
         input.helperInstitutionalEmail,
         input.source,
         input.sourceCategory

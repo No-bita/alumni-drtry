@@ -79,6 +79,8 @@ export const contactRequestRoutes: FastifyPluginAsync = async (app) => {
         details: r.details,
         status: r.status,
         recipientContactShared: r.status === "accepted" ? r.recipientContactShared : null,
+        // A brokered yes: no contact; the note opens that request's conversation instead.
+        brokerRequestId: r.brokerRequestId,
         createdAt: r.createdAt.toISOString(),
         respondedAt: r.respondedAt ? r.respondedAt.toISOString() : null
       }))

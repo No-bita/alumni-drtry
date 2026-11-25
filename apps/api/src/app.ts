@@ -18,7 +18,9 @@ import { authRoutes } from "./routes/authRoutes.js";
 import { connectionThreadRoutes } from "./routes/connectionThreadRoutes.js";
 import { contactRequestRoutes } from "./routes/contactRequestRoutes.js";
 import { brokerRoutes } from "./routes/brokerRoutes.js";
+import { brokerConversationRoutes } from "./routes/brokerConversationRoutes.js";
 import { BrokerService } from "./services/brokerService.js";
+import { BrokerConversationService } from "./services/brokerConversationService.js";
 import { feedbackRoutes } from "./routes/feedbackRoutes.js";
 import { discoveryRoutes } from "./routes/discoveryRoutes.js";
 import { intentcastRoutes } from "./routes/intentcastRoutes.js";
@@ -162,7 +164,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   profileService.setOnboardedListener((personId) => whatsappService.notifyOnboarded(personId));
   const connectionThreadService = new ConnectionThreadService(pool, emailSender);
   const announcementService = new AnnouncementService(pool, emailSender);
+  const brokerConversationService = new BrokerConversationService(pool, emailSender);
   const notificationService = new NotificationService(pool, announcementService);
+  // Due brokered requests close before notifications are read, so "no one was available" shows promptly.
+  notificationService.setBeforeRead(() => brokerService.expireDue());
   const adminPeopleService = new AdminPeopleService(pool);
   const adminMetricsService = new AdminMetricsService(pool);
   const campusMonthlyService = new CampusMonthlyService(pool);
@@ -186,6 +191,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("intentcastService", intentcastService);
   app.decorate("contactRequestService", contactRequestService);
   app.decorate("brokerService", brokerService);
+  app.decorate("brokerConversationService", brokerConversationService);
   app.decorate("connectionThreadService", connectionThreadService);
   app.decorate("notificationService", notificationService);
   app.decorate("departmentOtherReview", new DepartmentOtherReviewRepo(pool));
@@ -299,6 +305,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(intentcastRoutes);
   await app.register(contactRequestRoutes);
   await app.register(brokerRoutes);
+  await app.register(brokerConversationRoutes);
   await app.register(connectionThreadRoutes);
   await app.register(notificationRoutes);
   await app.register(orgRoutes);
