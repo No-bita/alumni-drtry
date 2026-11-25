@@ -27,6 +27,7 @@ import type { OccupationService } from "../services/occupationService.js";
 import type { OrganizationService } from "../services/organizationService.js";
 import type { ProfileService } from "../services/profileService.js";
 import type { DiscoveryReadLimiter } from "../lib/directoryAbuseLimiter.js";
+import type { ViewAsInfo, ViewAsService } from "../services/viewAsService.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -62,9 +63,14 @@ declare module "fastify" {
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireSuperAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireNonDemoMutation: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    /** Signed-in admin on the VIEW_AS_ADMIN_EMAILS allowlist, as themselves (never the viewed member). */
+    requireViewAsAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    viewAsService: ViewAsService;
   }
 
   interface FastifyRequest {
     actor: SessionActor;
+    /** Active admin view-as session for this request (actor is then the viewed member), else unset. */
+    viewAs?: ViewAsInfo;
   }
 }

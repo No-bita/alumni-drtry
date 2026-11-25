@@ -34,7 +34,7 @@ import { meRoutes } from "./routes/meRoutes.js";
 import { areaRoutes } from "./routes/areaRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { orgRoutes } from "./routes/orgRoutes.js";
-import { AuthService } from "./services/authService.js";
+import { AuthService, type SessionActor } from "./services/authService.js";
 import { ConnectionThreadService } from "./services/connectionThreadService.js";
 import { ContactRequestService } from "./services/contactRequestService.js";
 import { DiscoveryService } from "./services/discoveryService.js";
@@ -61,7 +61,16 @@ import { whatsappRoutes } from "./whatsapp/routes.js";
 import { LocationCleanupService } from "./services/locationCleanupService.js";
 import { OrganizationService } from "./services/organizationService.js";
 import { ProfileService } from "./services/profileService.js";
-import { verifyCsrfOrigin } from "./lib/csrfProtection.js";
+import { STATE_CHANGING_METHODS, verifyCsrfOrigin } from "./lib/csrfProtection.js";
+import {
+  VIEW_AS_COOKIE_NAME,
+  VIEW_AS_END_PATH,
+  VIEW_AS_READ_ONLY_CODE,
+  VIEW_AS_READ_ONLY_MESSAGE
+} from "./lib/viewAs.js";
+import { markViewAsRequest, runRequestContext } from "./lib/viewAsContext.js";
+import { ViewAsService } from "./services/viewAsService.js";
+import { viewAsRoutes } from "./routes/viewAsRoutes.js";
 import { DiscoveryReadLimiter, type DiscoveryLimits } from "./lib/directoryAbuseLimiter.js";
 import {
   LOG_REDACT_PATHS,
@@ -97,6 +106,8 @@ export type CreateAppOptions = {
   trustProxy?: TrustProxySetting;
   /** Tests: capture log lines. */
   logStream?: { write: (line: string) => void };
+  /** Tests: override VIEW_AS_ADMIN_EMAILS / VIEW_AS_TTL_MINUTES. */
+  viewAs?: { adminEmails?: string; ttlMinutes?: number };
 };
 
 export async function createApp(options: CreateAppOptions = {}) {
@@ -205,13 +216,19 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.decorate("whatsappService", whatsappService);
   app.decorate("discoveryLimiter", new DiscoveryReadLimiter(pool, options.discoveryLimits));
 
-  app.decorate("authenticate", async (request, _reply) => {
+  const viewAsService = new ViewAsService(pool, {
+    adminEmails: options.viewAs?.adminEmails ?? env.VIEW_AS_ADMIN_EMAILS,
+    ttlMinutes: options.viewAs?.ttlMinutes ?? env.VIEW_AS_TTL_MINUTES
+  });
+  app.decorate("viewAsService", viewAsService);
+
+  /** The signed-in person themselves (session cookie, or a dev-only bypass). Never a viewed member. */
+  const resolveRealActor = async (request: FastifyRequest): Promise<SessionActor | null> => {
     const token = request.cookies[env.SESSION_COOKIE_NAME];
     if (typeof token === "string" && token.length > 0) {
       const actor = await app.authService.getActorFromSessionToken(token);
       if (actor) {
-        request.actor = actor;
-        return;
+        return actor;
       }
     }
 
@@ -222,20 +239,84 @@ export async function createApp(options: CreateAppOptions = {}) {
     ) {
       const actor = await app.authService.getActorByInstitutionalEmail(env.AUTH_BYPASS_SUPER_ADMIN_EMAIL);
       if (actor && actor.role === "super_admin") {
-        request.actor = actor;
-        return;
+        return actor;
       }
     }
 
     if (env.AUTH_BYPASS && env.AUTH_BYPASS_EMAIL && env.NODE_ENV !== "production") {
       const actor = await app.authService.getActorByInstitutionalEmail(env.AUTH_BYPASS_EMAIL);
       if (actor) {
-        request.actor = actor;
-        return;
+        return actor;
       }
     }
 
-    throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
+    return null;
+  };
+
+  /** Admin view-as in force for this request: the real admin plus their own valid view-as cookie. */
+  const resolveViewAs = async (request: FastifyRequest, real: SessionActor) => {
+    const token = request.cookies[VIEW_AS_COOKIE_NAME];
+    if (typeof token !== "string" || token.length === 0) return null;
+    return viewAsService.resolve(token, real);
+  };
+
+  const isViewAsEndRequest = (request: FastifyRequest) =>
+    pathOnly(request.routeOptions?.url ?? request.url) === VIEW_AS_END_PATH;
+
+  // Each request gets its own context so code deep in services can tell a view-as request apart
+  // (isViewAsRequest) and skip member side effects. Callback style so the rest of the request runs inside it.
+  app.addHook("onRequest", (_request, _reply, done) => {
+    runRequestContext(done);
+  });
+
+  // View-as is read-only. Runs before every route (whatever its own auth): a state-changing request made
+  // while a view-as session is active is refused, except ending it. Only requests carrying the view-as
+  // cookie pay for the lookup; a stale or someone else's cookie is ignored.
+  app.addHook("onRequest", async (request) => {
+    if (!STATE_CHANGING_METHODS.has(request.method)) return;
+    const token = request.cookies?.[VIEW_AS_COOKIE_NAME];
+    if (typeof token !== "string" || token.length === 0) return;
+    if (isViewAsEndRequest(request)) return;
+    const real = await resolveRealActor(request);
+    if (!real) return;
+    const viewAs = await resolveViewAs(request, real);
+    if (!viewAs) return;
+    request.log.warn(
+      { viewAs: { adminPersonId: viewAs.info.adminPersonId, targetPersonId: viewAs.info.targetPersonId } },
+      "view-as: write refused (read-only)"
+    );
+    throw new AppError(403, VIEW_AS_READ_ONLY_CODE, VIEW_AS_READ_ONLY_MESSAGE);
+  });
+
+  app.decorate("authenticate", async (request, _reply) => {
+    const real = await resolveRealActor(request);
+    if (!real) {
+      throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
+    }
+    const viewAs = await resolveViewAs(request, real);
+    if (viewAs) {
+      // Second line of defence behind the onRequest guard above.
+      if (STATE_CHANGING_METHODS.has(request.method) && !isViewAsEndRequest(request)) {
+        throw new AppError(403, VIEW_AS_READ_ONLY_CODE, VIEW_AS_READ_ONLY_MESSAGE);
+      }
+      request.actor = viewAs.actor;
+      request.viewAs = viewAs.info;
+      markViewAsRequest();
+      return;
+    }
+    request.actor = real;
+  });
+
+  /** View-as admin routes act as the admin themselves, never as the member being viewed. */
+  app.decorate("requireViewAsAdmin", async (request, _reply) => {
+    const real = await resolveRealActor(request);
+    if (!real) {
+      throw new AppError(401, "AUTH_UNAUTHORIZED", "Authentication required.");
+    }
+    viewAsService.assertCanUse(real);
+    request.actor = real;
+    const viewAs = await resolveViewAs(request, real);
+    if (viewAs) request.viewAs = viewAs.info;
   });
 
   app.decorate("requireAdmin", async (request, _reply) => {
@@ -311,6 +392,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   await app.register(orgRoutes);
   await app.register(adminOrgRoutes);
   await app.register(adminPeopleRoutes);
+  await app.register(viewAsRoutes);
   await app.register(adminPlacesRoutes);
   await app.register(adminLocationCleanupRoutes);
   await app.register(adminCityReviewRoutes);

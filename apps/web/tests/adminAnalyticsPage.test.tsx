@@ -136,6 +136,17 @@ describe("Admin analytics screen", () => {
     expect(card.compareDocumentPosition(screen.getByRole("group", { name: "Time range" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the View as member link only to admins the API allowlists", async () => {
+    mount();
+    const card = (await screen.findByRole("heading", { level: 2, name: "Company review" })).closest("section") as HTMLElement;
+    expect(within(card).queryByRole("link", { name: "View as member" })).toBeNull();
+    cleanup();
+    authState.value = { status: "authenticated", person: { personId: "a1", role: "admin" }, myProfile: { fullName: "Admin" }, canViewAs: true };
+    mount();
+    const card2 = (await screen.findByRole("heading", { level: 2, name: "Company review" })).closest("section") as HTMLElement;
+    expect(within(card2).getByRole("link", { name: "View as member" }).getAttribute("href")).toBe("/admin/view-as");
+  });
+
   it("keeps the Company review card when nothing is waiting, and uses the singular for one", async () => {
     const withCount = (n: number) =>
       apiGet.mockImplementation(async () => {

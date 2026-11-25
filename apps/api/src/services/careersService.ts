@@ -51,6 +51,8 @@ export class CareersService {
     role: string | null;
     viewerPersonId: string;
     viewerIsDemo: boolean;
+    /** True while an admin views as this member: the lookup is not recorded as demand. */
+    skipDemandLog?: boolean;
     /** "Load more": rows to skip (the previous page's nextCursor as a number). */
     offset: number;
   }): Promise<CareersCompanyResult> {
@@ -82,7 +84,7 @@ export class CareersService {
     // A company looked up here counts as demand, like an Ask referral question (marked "careers").
     // Paging through more people is the same lookup, so only the first page is counted.
     // The demo account's lookups are left out of the numbers.
-    if (!input.viewerIsDemo && input.offset === 0) {
+    if (!input.viewerIsDemo && !input.skipDemandLog && input.offset === 0) {
       await this.matchRepo
         .logQuery({
           category: "referral",

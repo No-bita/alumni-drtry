@@ -31,7 +31,7 @@ Error responses use:
 - `GET /v1/auth/google/config`: returns whether Google auth is enabled.
 - `GET /v1/auth/google/start`: starts Google OAuth.
 - `GET /v1/auth/google/callback`: completes Google OAuth.
-- `GET /v1/me`: returns `{ person }` for the current session.
+- `GET /v1/me`: returns `{ person, viewAs, canViewAs }` for the current session. `viewAs` is `null` unless an admin is viewing as a member (then `person` is that member; see "Admin view as member" below). `canViewAs` is true only for an admin on `VIEW_AS_ADMIN_EMAILS`.
 - `GET /v1/me/profile`: returns `{ profile }` for the current user.
 
 The browser treats `/v1/me` plus `/v1/me/profile` as the session snapshot.
@@ -217,6 +217,17 @@ Unsubscribe (no sign-in; a signed token `<personId>.<hmac>` is the proof; tokens
 - `GET /v1/admin/metrics`: returns platform metrics.
 
 Admin routes require `admin` or `super_admin`; super-admin-only routes must also use `requireSuperAdmin`.
+
+### Admin view as member (testing only; off unless `VIEW_AS_ADMIN_EMAILS` is set)
+
+Lets an allowlisted admin open any member's account **read-only**, for testing. Access needs both: the account is an admin by the normal role check, **and** its sign-in email (`people.institutional_email`) is in `VIEW_AS_ADMIN_EMAILS` (comma-separated; empty = off for everyone). Checked again on every request, so removing an email stops an active view-as at once.
+
+- `GET /v1/admin/view-as/people?q=` (2–120 characters): `{ people: [{ personId, fullName, institutionalEmail, batchYear, departmentCode, role, suspended }] }`, name or email contains `q`, deleted accounts and yourself left out, at most 20.
+- `POST /v1/admin/view-as` body `{ personId }`: starts a view-as session. `201 { viewAs: { sessionId, adminPersonId, targetPersonId, targetName, targetEmail, expiresAt, readOnly: true } }` and sets the httpOnly `alumni_view_as` cookie. The admin's own session cookie is untouched. Lasts `VIEW_AS_TTL_MINUTES` (default 30, 30–60). Errors: `403 AUTH_FORBIDDEN` (not an admin), `403 VIEW_AS_FORBIDDEN` (admin not on the allowlist, or feature off), `400 VIEW_AS_SELF`, `404 VIEW_AS_TARGET_NOT_FOUND`, `403 VIEW_AS_READ_ONLY` (another view-as is already active: end it first).
+- `POST /v1/admin/view-as/end`: ends the session behind the cookie (if still open) and clears the cookie. `200 { ended }`. Needs only the cookie, so it works even if access was removed meanwhile.
+- While active (the admin's own session plus their valid view-as cookie): every signed-in route answers as the member for reads (`GET`). **Every** `POST`/`PUT`/`PATCH`/`DELETE`, on any route, signed-in or not, is refused with `403 VIEW_AS_READ_ONLY` except `POST /v1/admin/view-as/end` (sign out included: end view-as first). The member's role is used, capped at the admin's own.
+- No member side effects from reads: discovery read counters, usage events (`beta_usage_events`), Careers/Cities demand rows and the brokered-request expiry run (which closes requests and emails askers; the hourly job still runs it) are skipped. Code deep in services checks `isViewAsRequest()` (`src/lib/viewAsContext.ts`, a per-request flag set by `authenticate`). Seen markers (`/v1/notifications/mark-all-seen`, `/v1/broker-asks/:id/seen`, `/v1/cities/offers/seen`) are POSTs, so they're refused. The admin's own session is touched as usual; the member's sessions and last-active days (`member_activity_days`) are not. A GET route that writes must check `isViewAsRequest()` (or `request.viewAs`) and skip the write.
+- Audit: every start and end is a row in `admin_view_as_audit` (admin, member, time, IP, user agent; migration 078) and a server log line (`admin view-as started` / `ended`). Sessions are in `admin_view_as_sessions` (token stored hashed).
 
 ## Campus Monthly
 

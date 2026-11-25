@@ -18,11 +18,42 @@ const API_BASE = API_BASE_URL;
 
 export type ApiError = { code: string; message?: string };
 
+/** Admin "view as member": the one write allowed while viewing (ends it). */
+export const VIEW_AS_END_API_PATH = "/v1/admin/view-as/end";
+export const VIEW_AS_READ_ONLY_CODE = "VIEW_AS_READ_ONLY";
+export const VIEW_AS_READ_ONLY_MESSAGE = "You're viewing as a member (read-only). Exit view-as to make changes.";
+
+let viewAsReadOnly = false;
+
+/**
+ * Set from the session snapshot (GET /v1/me `viewAs`). While on, the browser does not send any write
+ * (POST/PUT/PATCH/DELETE) except ending view-as: background beacons and "seen" markers stay quiet and
+ * explicit actions get the same read-only error the API would return. The API enforces it regardless.
+ */
+export function setViewAsReadOnly(on: boolean): void {
+  viewAsReadOnly = on;
+}
+
+export function isViewAsReadOnly(): boolean {
+  return viewAsReadOnly;
+}
+
+function blockedByViewAs(method: string | undefined, path: string): boolean {
+  const m = (method ?? "GET").toUpperCase();
+  if (!viewAsReadOnly || m === "GET" || m === "HEAD") return false;
+  return path.split("?")[0] !== VIEW_AS_END_API_PATH;
+}
+
+const viewAsReadOnlyError = (): ApiError => ({ code: VIEW_AS_READ_ONLY_CODE, message: VIEW_AS_READ_ONLY_MESSAGE });
+
 async function request<T>(
   path: string,
   options: RequestInit & { manualRetry?: boolean } = {}
 ): Promise<{ data?: T; error?: ApiError; retryAfterSeconds?: number; aborted?: boolean; status?: number }> {
   const url = `${API_BASE}${path}`;
+  if (blockedByViewAs(options.method, path)) {
+    return { error: viewAsReadOnlyError(), status: 403 };
+  }
   const { signal, headers: optHeaders, manualRetry, ...rest } = options;
   const headers: Record<string, string> = { ...(optHeaders as Record<string, string>) };
   // Fastify rejects `Content-Type: application/json` when there is no JSON body (e.g. GET).
@@ -86,6 +117,9 @@ export const api = {
 /** Multipart POST (e.g. PDF upload). Sends cookies; response body must be JSON. */
 export async function apiPostForm<T>(path: string, form: FormData): Promise<{ data?: T; error?: ApiError }> {
   const url = `${API_BASE}${path}`;
+  if (blockedByViewAs("POST", path)) {
+    return { error: viewAsReadOnlyError() };
+  }
   let res: Response;
   try {
     res = await rateLimitedFetch(url, { method: "POST", body: form, credentials: "include" });
@@ -129,7 +163,19 @@ export function isSuperAdmin(person: Pick<MePerson, "role"> | undefined | null):
   return person?.role === "super_admin";
 }
 
-export type Me = { person: MePerson };
+/** Active admin view-as session (GET /v1/me `viewAs`): `person` is then the member being viewed. */
+export type ViewAsInfo = {
+  sessionId: string;
+  adminPersonId: string;
+  targetPersonId: string;
+  targetName: string | null;
+  targetEmail: string;
+  expiresAt: string;
+  readOnly: true;
+};
+
+/** `canViewAs`: the signed-in admin themselves may use "view as member" (admin and on the server allowlist). */
+export type Me = { person: MePerson; viewAs?: ViewAsInfo | null; canViewAs?: boolean };
 
 /** GET /v1/me/profile returns { profile } */
 export type MyProfileView = {

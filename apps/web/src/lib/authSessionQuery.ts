@@ -1,6 +1,14 @@
 import { getApiRateLimit } from "./apiRateLimit";
 export class AuthRateLimitPause extends Error {}
-import { api, type Me, type MePerson, type MeProfileResponse, type MyProfileView } from "../api/client";
+import {
+  api,
+  setViewAsReadOnly,
+  type Me,
+  type MePerson,
+  type MeProfileResponse,
+  type MyProfileView,
+  type ViewAsInfo,
+} from "../api/client";
 
 /** Single cache key for `/v1/me` + `/v1/me/profile` (see `AuthProvider`). */
 export const AUTH_SESSION_QUERY_KEY = ["auth", "session"] as const;
@@ -12,6 +20,10 @@ export type AuthSessionData =
       person: MePerson;
       myProfile: MyProfileView | null;
       myProfileError: boolean;
+      /** Admin "view as member" in progress (read-only); `person` is the member. */
+      viewAs: ViewAsInfo | null;
+      /** The signed-in admin may use "view as member". */
+      canViewAs: boolean;
     };
 
 export async function fetchAuthSession(signal: AbortSignal): Promise<AuthSessionData> {
@@ -25,10 +37,13 @@ export async function fetchAuthSession(signal: AbortSignal): Promise<AuthSession
   }
 
   if (meRes.error || !meRes.data?.person) {
+    setViewAsReadOnly(false);
     return { kind: "unauthenticated" };
   }
 
   const person = meRes.data.person;
+  const viewAs = meRes.data.viewAs ?? null;
+  setViewAsReadOnly(Boolean(viewAs));
   const profile = profileRes.data?.profile;
   const profileFailed = Boolean(profileRes.error || !profile);
 
@@ -37,5 +52,7 @@ export async function fetchAuthSession(signal: AbortSignal): Promise<AuthSession
     person,
     myProfile: profileFailed ? null : profile!,
     myProfileError: profileFailed,
+    viewAs,
+    canViewAs: Boolean(meRes.data.canViewAs),
   };
 }
