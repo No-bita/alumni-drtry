@@ -33,7 +33,7 @@
 }
 
 .onboarding-answer-key__example {
-  font-size: 0.88rem;
+  font-size: 14px;
   color: rgba(252, 248, 240, 0.7);
 }
 
@@ -53,8 +53,8 @@
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: rgba(252, 248, 240, 0.6);
 }
 
@@ -66,7 +66,7 @@
 
 .onboarding-past-roles__label {
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   color: rgba(252, 248, 240, 0.72);
 }
 

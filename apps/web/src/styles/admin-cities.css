@@ -11,7 +11,7 @@
   border-radius: 999px;
   background: transparent;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 14px;
   color: var(--ink);
   cursor: pointer;
 }
@@ -40,12 +40,12 @@
 .ct-history li {
   display: grid;
   gap: 2px;
-  font-size: 0.9rem;
+  font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .ct-history__meta {
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--ink-muted);
 }

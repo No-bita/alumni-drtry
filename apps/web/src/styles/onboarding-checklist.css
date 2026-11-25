@@ -36,7 +36,7 @@
 .onboarding-checklist__line {
   flex: 1 1 280px;
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -46,7 +46,7 @@
 
 .onboarding-checklist__cta {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 16px;
   color: var(--brick);
 }
 

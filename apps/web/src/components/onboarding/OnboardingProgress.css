@@ -7,9 +7,9 @@
 
 .onboarding-progress__label {
   margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: rgba(252, 248, 240, 0.7);
 }
 

@@ -37,7 +37,7 @@
 
 .home-ask__error {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--brick);
 }
 
@@ -52,7 +52,7 @@
 
 .home-ask__examples-label {
   grid-column: 1 / -1;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .home-ask__example {
@@ -121,10 +121,10 @@
 .match-page__section-title {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--ink-muted);
 }
 
@@ -141,7 +141,7 @@
 .match-page__updating,
 .match-page__footnote {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -216,10 +216,10 @@
 }
 
 .match-chip__label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--ink-muted);
 }
 
@@ -335,10 +335,10 @@
 
 .match-card__why-label {
   margin: 0 0 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--brick);
 }
 
@@ -347,7 +347,7 @@
   padding-left: 1.1em;
   display: grid;
   gap: 4px;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--ink);
 }
 
@@ -367,7 +367,7 @@
 
 .match-card__reply-stats {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -472,7 +472,7 @@
   border-radius: var(--radius-input);
   background: var(--cream);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--ink);
 }
 
@@ -494,7 +494,7 @@
   border-radius: var(--radius-input);
   background: var(--cream);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   color: var(--ink);
   resize: vertical;
@@ -515,7 +515,7 @@
 
 .match-dialog__counter {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--ink-muted);
 }
@@ -530,8 +530,8 @@
   margin: 0;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--ink-muted);
 }
 

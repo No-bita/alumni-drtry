@@ -26,6 +26,8 @@
   /* Colors — app tokens (map to palette; keeps legacy names working across the repo) */
   --brick: var(--palette-primary);
   --brick-light: var(--palette-accent);
+  /* Rust for text on cream: 5.3:1 (palette-accent is 3.9:1, fill/large only) */
+  --accent-text: #a8481f;
   --ochre: var(--palette-gold);
   --ochre-light: #e4bc78;
   --cream: var(--palette-bg-cream);
@@ -38,9 +40,9 @@
   --home-sidebar-shell-top: var(--palette-card);
   --home-sidebar-shell-bottom: var(--palette-muted);
   --ink: var(--palette-ink);
-  --ink-muted: rgba(58, 42, 30, 0.62);
-  --ink-faint: rgba(58, 42, 30, 0.42);
-  --ink-soft: rgba(58, 42, 30, 0.55);
+  --ink-muted: #6a5646;
+  --ink-faint: #6a5646;
+  --ink-soft: #6a5646;
   --surface: var(--palette-card);
   --rule: rgba(58, 42, 30, 0.11);
   --border-muted: var(--palette-border);
@@ -79,9 +81,9 @@
   --text-section-headline: 36px;
   --text-card-headline: 28px;
   --text-subheadline: 20px;
-  --text-body: 15px;
-  --text-ui-body: 13px;
-  --text-small-note: 11px;
+  --text-body: 16px;
+  --text-ui-body: 14px;
+  --text-small-note: 12px;
   --text-stat: 26px;
   --lh-page-headline: 1.05;
   --lh-section-headline: 1.1;

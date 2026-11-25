@@ -24,6 +24,6 @@
 
 .signed-out__status {
   color: var(--cream, #f8f2e7);
-  font-size: 1.125rem;
+  font-size: 18px;
   margin: 0;
 }

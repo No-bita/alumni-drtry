@@ -10,13 +10,13 @@
 
 .wa-card__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .wa-card__text {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -27,7 +27,7 @@
 
 .wa-card__error {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--brick);
 }
 
@@ -37,7 +37,7 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  font-size: 0.95rem;
+  font-size: 16px;
   cursor: pointer;
 }
 

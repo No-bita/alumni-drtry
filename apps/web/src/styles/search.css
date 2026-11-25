@@ -30,12 +30,12 @@
 .search-page__pending--under-bar {
   margin: var(--space-sm) 0 0;
   max-width: 42rem;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .search-page__hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-faint);
   margin: 6px 0 var(--space-lg);
   line-height: 1.4;
@@ -64,7 +64,7 @@
 .search-page__notice-text {
   margin: 0;
   max-width: 48rem;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--ink-muted);
 }
@@ -362,7 +362,7 @@
   align-items: center;
   gap: 4px 6px;
   font-family: var(--font-display);
-  font-size: 13.5px;
+  font-size: 14px;
   color: #8a6a55;
 }
 
@@ -373,7 +373,7 @@
 .search-card__role {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 14.5px;
+  font-size: 14px;
   color: #6f5442;
   overflow-wrap: anywhere;
 }
@@ -392,7 +392,7 @@
   border: 1px solid #ead9c6;
   border-radius: 999px;
   background: #fdf6ee;
-  font-size: 13px;
+  font-size: 14px;
   color: #3d2416;
 }
 
@@ -435,7 +435,7 @@
 
 .search-card__view {
   font-family: var(--font-display);
-  font-size: 14.5px;
+  font-size: 14px;
   color: #3d2416;
   text-decoration: none;
 }
@@ -447,7 +447,7 @@
 
 .search-card__status {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.4;
   color: #8a6a55;
 }
@@ -460,7 +460,7 @@
 .search-card__error {
   flex-basis: 100%;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #8f2614;
 }
 

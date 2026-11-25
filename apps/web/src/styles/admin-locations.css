@@ -67,14 +67,14 @@
 }
 
 .lc-row__title {
-  font-size: 0.95rem;
+  font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .lc-row__meta {
   flex: none;
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--ink-muted);
 }
 
@@ -91,6 +91,6 @@
   padding: 4px 10px;
   border: 1px solid var(--rule);
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
