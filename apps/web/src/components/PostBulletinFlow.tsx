@@ -35,7 +35,7 @@ import { PostAudienceField, PostAudienceLabel } from "./PostAudienceField";
 import { freshAudienceChoice, toApiAudience, type AudienceChoice } from "../lib/postAudience";
 import { TapPills } from "./TapPills";
 import { HiringCompose } from "./broker/HiringCompose";
-import { emptyHiringDraft, hiringPayload, hiringProblems, type HiringDraft } from "../lib/hiringDraft";
+import { HIRING_SHORT_MAX, emptyHiringDraft, hiringPayload, hiringProblems, type HiringDraft } from "../lib/hiringDraft";
 import { ReferralRequestFlow } from "./broker/ReferralRequestFlow";
 import { BrokerProgress } from "./broker/BrokerProgress";
 import { brokerKeys, type BrokerRequest } from "../lib/broker";
@@ -225,6 +225,8 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
     const [category, setCategory] = useState<BulletinGeneralCategory>(INITIAL_CATEGORY);
     /** General composer: the tapped category (nothing until the first tap) and, for Careers, the track. */
     const [topCategory, setTopCategory] = useState<TopCategory | null>(null);
+    /** Opened already pointed at a category (a Home tile, Ask's "Post this"): the category row is not asked again. */
+    const [categoryFromCaller, setCategoryFromCaller] = useState(false);
     const [careersTrack, setCareersTrack] = useState<CareersTrack | null>(null);
     const [hiringDraft, setHiringDraft] = useState<HiringDraft>(emptyHiringDraft);
     const [hiringAttempted, setHiringAttempted] = useState(false);
@@ -441,9 +443,21 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
             : options?.category ?? INITIAL_CATEGORY
       );
       const mapped = preset ? { top: null, track: null } : topCategoryFor(options?.category);
+      setCategoryFromCaller(mapped.top !== null);
       setTopCategory(mapped.top);
       setCareersTrack(mapped.track);
-      setHiringDraft(emptyHiringDraft());
+      const hiringPrefill = options?.hiring;
+      setHiringDraft(
+        hiringPrefill
+          ? {
+              ...emptyHiringDraft(),
+              jobFunction: hiringPrefill.jobFunction ?? null,
+              roleTitle: (hiringPrefill.roleTitle ?? "").trim().slice(0, HIRING_SHORT_MAX),
+              company: (hiringPrefill.company ?? "").trim().slice(0, HIRING_SHORT_MAX),
+              companyTouched: Boolean(hiringPrefill.company?.trim()),
+            }
+          : emptyHiringDraft()
+      );
       setHiringAttempted(false);
       setHiringDone(null);
       setHeadline((options?.headline ?? "").trim().slice(0, BULLETIN_TITLE_MAX_CHARS));
@@ -781,7 +795,7 @@ export const PostBulletinFlow = forwardRef<PostBulletinFlowHandle, PostBulletinF
                       </select>
                     </FormField>
                   ) : null}
-                  {generalFlow ? (
+                  {generalFlow && !categoryFromCaller ? (
                     <div className="career-hiring-flow__field--wide">
                       <TapPills
                         label="What's this about?"

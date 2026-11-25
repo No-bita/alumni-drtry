@@ -135,18 +135,17 @@ describe("The Wall on Home", () => {
       />,
     );
 
-  it("has an icon header and a short 'Post' button", () => {
+  it("has an icon header and no Post button (the tiles start posts)", () => {
     const { container } = rail(3);
     expect(screen.getByRole("heading", { name: "Opportunities for you" })).toBeTruthy();
     expect(screen.getByText("Roles, collaborations and other relevant asks from alumni.")).toBeTruthy();
     expect(container.querySelector(".home-ideal__opportunities-header .hub-card__icon svg")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Post", exact: true })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
   });
 
-  it("keeps only the header post button with 1-2 posts", () => {
+  it("no invite line with 1-2 posts", () => {
     rail(2);
     expect(screen.queryByText(/Every alum here can see it/)).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Post", exact: true })).toHaveLength(1);
   });
 
   it("no invite with 3 or more posts, or on an empty Wall (it has its own prompt)", () => {

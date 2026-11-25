@@ -161,35 +161,9 @@
   color: var(--ink-muted);
 }
 
-/* The Wall posting action uses the filled primary treatment. */
-.home-dashboard--ideal .home-ideal__opportunities-post.btn {
-  flex: 0 0 auto;
-  min-height: 44px;
-  padding: 0 20px;
-  border-radius: var(--radius-button);
-  border: 1px solid var(--brick);
-  background: var(--brick);
-  color: var(--cream);
-  box-shadow: none;
-}
-
-.home-dashboard--ideal .home-ideal__opportunities-post.btn:hover,
-.home-dashboard--ideal .home-ideal__opportunities-post.btn:focus-visible {
-  border-color: var(--brick);
-  background: var(--brick);
-  color: var(--cream);
-}
-
 @media (max-width: 560px) {
   .home-dashboard--ideal .home-ideal__opportunities-header {
     flex-wrap: wrap;
-  }
-
-  /* Compact phone CTA: inline width and tighter padding; the 44px min-height stays for an easy tap target. Desktop unchanged. */
-  .home-dashboard--ideal .home-ideal__opportunities-post.btn {
-    width: auto;
-    padding: 0 22px;
-    font-size: 11px;
   }
 
   /* Keep the subtitle visible below the heading and CTA on phones too. */
@@ -466,60 +440,24 @@
   }
 }
 
-/* Two soft rings around the button, once. Box-shadow only: no layout shift, no overflow, no clicks blocked. */
-.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn {
-  position: relative;
-}
-
-.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::before,
-.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  pointer-events: none;
-  animation: wall-post-ripple 900ms ease-out forwards;
-}
-
-.home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
-  animation-delay: 300ms;
-  box-shadow: 0 0 0 0 transparent;
-}
-
-@keyframes wall-post-ripple {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brick) 38%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 14px color-mix(in srgb, var(--brick) 0%, transparent);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .wall-empty-card__caret {
     animation: none;
   }
-
-  .home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::before,
-  .home-dashboard--ideal .home-ideal__opportunities-post--ripple.btn::after {
-    animation: none;
-  }
 }
 
-/* Keep the Wall title and posting action together at every width. */
+/* Wall title row: icon, heading, subtitle below. */
 .home-dashboard--ideal .home-ideal__opportunities-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   column-gap: 10px;
   row-gap: 8px;
 }
 .home-dashboard--ideal .home-ideal__opportunities-header > .home-ideal__opportunities-headcopy { display: contents; }
 .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-title { grid-column: 2; grid-row: 1; }
-.home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-post { grid-column: 3; grid-row: 1; white-space: nowrap; }
 .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-sub { grid-column: 1 / -1; grid-row: 2; }
 @media (max-width: 560px) {
   .home-dashboard--ideal .home-ideal__opportunities-header .home-wall__icon { width: 32px; height: 32px; }
   .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-title { font-size: 24px; }
-  .home-dashboard--ideal .home-ideal__opportunities-header .home-ideal__opportunities-post.btn { padding: 0 22px; font-size: 11px; }
 }

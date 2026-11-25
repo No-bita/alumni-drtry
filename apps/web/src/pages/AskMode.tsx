@@ -6,6 +6,9 @@ import { MatchIntentChips } from "../components/MatchIntentChips";
 import { MatchReachOutDialog } from "../components/MatchReachOutDialog";
 import { SearchResultRow } from "../components/SearchResultRow";
 import { PostBulletinFlow, type PostBulletinFlowHandle } from "../components/PostBulletinFlow";
+import { AskHiringChoice, type AskHiringAction } from "../components/AskHiringChoice";
+import { HiringPrivateAsk } from "../components/broker/HiringPrivateAsk";
+import { functionForRoleLabel } from "../lib/jobFunctions";
 import { useAuth } from "../contexts/AuthContext";
 import {
   MATCH_QUESTION_MAX,
@@ -65,6 +68,9 @@ export function AskMode() {
   const viaWhatsApp = rawParams.get("via") === "whatsapp";
   const [autoDismissed, setAutoDismissed] = useState(false);
   const bulletinFlowRef = useRef<PostBulletinFlowHandle>(null);
+  // Hiring: which choice the hirer made for this exact search ("find" shows the candidates).
+  const [hiringPick, setHiringPick] = useState<{ key: string; action: AskHiringAction } | null>(null);
+  const [privateAskOpen, setPrivateAskOpen] = useState(false);
 
   const matchQuery = useQuery({
     queryKey: queryKeys.match.results(searchKey),
@@ -125,6 +131,18 @@ export function AskMode() {
     },
     [setSearchParams, state]
   );
+
+  const isHiring = data?.intent.category === "hiring" && !data.needsDetail && Boolean(data.intent.role);
+  const hiringRole = data?.intent.role ?? "";
+  const hiringPrefill = { jobFunction: functionForRoleLabel(hiringRole), roleTitle: hiringRole || null, company: data?.intent.company ?? null };
+  const showingCandidates = isHiring && hiringPick?.key === searchKey && hiringPick.action === "find";
+  const onHiringPick = (action: AskHiringAction) => {
+    if (action === "share") {
+      bulletinFlowRef.current?.open({ category: "hiring", hiring: hiringPrefill });
+      return;
+    }
+    if (action === "find") setHiringPick({ key: searchKey, action });
+  };
 
   const postAsBulletin = () => {
     bulletinFlowRef.current?.open({
@@ -208,6 +226,21 @@ export function AskMode() {
               <div className="match-page__state">
                 <p className="match-page__state-title">{detail?.title}</p>
               </div>
+            ) : isHiring && !showingCandidates ? (
+              <AskHiringChoice role={hiringRole} onPick={onHiringPick} />
+            ) : isHiring && data.results.length === 0 ? (
+              <div className="match-page__state">
+                <p className="match-page__state-title">No alum on Alma Mater does this role yet.</p>
+                <p className="match-page__state-copy">Ask matching alumni privately, or share the role on the Wall.</p>
+                <div className="ask-hiring__actions">
+                  <button type="button" className="btn btn--primary" onClick={() => setPrivateAskOpen(true)}>
+                    Ask alumni privately
+                  </button>
+                  <button type="button" className="btn btn--secondary" onClick={() => onHiringPick("share")}>
+                    Share the role
+                  </button>
+                </div>
+              </div>
             ) : data.results.length === 0 ? (
               <div className="match-page__state">
                 <p className="match-page__state-title">No alum on Alma Mater matches this yet.</p>
@@ -221,8 +254,22 @@ export function AskMode() {
             ) : (
               <section aria-labelledby="match-results-title">
                 <h2 id="match-results-title" className="match-page__section-title">
-                  {data.results.length === 1 ? "1 alum who can help" : `${data.results.length} alumni who can help`}
+                  {isHiring
+                    ? data.results.length === 1
+                      ? "1 alum who does this role"
+                      : `${data.results.length} alumni who do this role`
+                    : data.results.length === 1
+                      ? "1 alum who can help"
+                      : `${data.results.length} alumni who can help`}
                 </h2>
+                {isHiring ? (
+                  <div className="ask-hiring__private">
+                    <p>Not sure who&apos;s looking? We can ask alumni with this function and experience for you, privately.</p>
+                    <button type="button" className="btn btn--secondary" onClick={() => setPrivateAskOpen(true)}>
+                      Ask them privately if they&apos;re interested
+                    </button>
+                  </div>
+                ) : null}
                 <ul className="match-page__results match-page__results--cards">
                   {data.results.map((r, i) => (
                     <li key={r.id}>
@@ -240,9 +287,15 @@ export function AskMode() {
                 </ul>
                 <p className="match-page__footnote">
                   Matches use only what alumni have added to their profiles.{" "}
-                  <button type="button" className="match-page__inline-link" onClick={postAsBulletin}>
-                    Not quite right? Post this as a bulletin.
-                  </button>
+                  {isHiring ? (
+                    <button type="button" className="match-page__inline-link" onClick={() => onHiringPick("share")}>
+                      Share the role on the Wall instead.
+                    </button>
+                  ) : (
+                    <button type="button" className="match-page__inline-link" onClick={postAsBulletin}>
+                      Not quite right? Post this as a bulletin.
+                    </button>
+                  )}
                 </p>
                 <p className="match-page__footnote">
                   Want to browse everyone instead? <Link to="/search">Open the alumni directory</Link>.
@@ -272,15 +325,17 @@ export function AskMode() {
           recipient={{ id: dialogFor.result.id, fullName: dialogFor.result.fullName }}
           rank={dialogFor.rank}
           source={viaWhatsApp ? "whatsapp" : "match"}
-          purpose={noteSetup.purpose}
+          purpose={isHiring ? "hiring" : noteSetup.purpose}
           referral={noteSetup.referral}
           advice={noteSetup.advice}
+          hiring={{ role: hiringRole || null, company: data?.intent.company ?? null }}
           onClose={() => {
             setReachOutTo(null);
             setAutoDismissed(true);
           }}
         />
       ) : null}
+      {privateAskOpen ? <HiringPrivateAsk prefill={hiringPrefill} onClose={() => setPrivateAskOpen(false)} /> : null}
       <PostBulletinFlow ref={bulletinFlowRef} />
     </div>
   );

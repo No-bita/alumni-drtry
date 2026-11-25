@@ -46,7 +46,8 @@ function renderRail(props: { intentcasts?: IntentcastFeedItem[]; counts?: typeof
 }
 
 const typed = () => screen.queryByTestId("wall-empty-typed")?.textContent ?? null;
-const postButton = () => screen.getByRole("button", { name: "Post", exact: true });
+// The Wall header has no Post button since the Home redesign (the tiles start posts), so no ripple either.
+const noPostButton = () => expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
 const totalScriptMs = () => buildWallEmptyScript().reduce((sum, s) => sum + s.delay, 0) + 2000;
 
 function setReducedMotion(reduce: boolean) {
@@ -107,21 +108,18 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
     }
     expect(sawFirstFull && sawSecond && sawThird).toBe(true);
 
-    // The loop stops the moment the card settles, so the ripple is still playing.
+    // The card settles on the final text.
     expect(typed()).toBeNull();
     expect(card.textContent).toContain(WALL_EMPTY_FINAL_TEXT);
     expect(card.textContent).not.toContain("Example");
-    expect(postButton().className).toContain("home-ideal__opportunities-post--ripple");
-
-    act(() => void vi.advanceTimersByTime(1400));
-    expect(postButton().className).not.toContain("--ripple");
+    noPostButton();
 
     // It stops for good: nothing more is scheduled.
     act(() => void vi.advanceTimersByTime(60_000));
     expect(card.textContent).toContain(WALL_EMPTY_FINAL_TEXT);
   });
 
-  it("plays once per browser session: later views show the final card straight away, with no ripple", () => {
+  it("plays once per browser session: later views show the final card straight away, with no Post button", () => {
     const first = renderRail();
     act(() => void vi.advanceTimersByTime(500));
     expect(window.sessionStorage.getItem(WALL_EMPTY_SESSION_KEY)).toBe("1");
@@ -132,16 +130,16 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
     expect(card.textContent).toContain(WALL_EMPTY_FINAL_TEXT);
     expect(typed()).toBeNull();
     act(() => void vi.advanceTimersByTime(totalScriptMs()));
-    expect(postButton().className).not.toContain("--ripple");
+    noPostButton();
   });
 
-  it("with reduced motion shows the final card at once, with no typing and no ripple", () => {
+  it("with reduced motion shows the final card at once, with no typing", () => {
     setReducedMotion(true);
     renderRail();
     expect(screen.getByRole("button", { name: "Write your first post on The Wall" }).textContent).toContain(WALL_EMPTY_FINAL_TEXT);
     expect(typed()).toBeNull();
     act(() => void vi.advanceTimersByTime(totalScriptMs()));
-    expect(postButton().className).not.toContain("--ripple");
+    noPostButton();
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -152,8 +150,6 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
     expect(card.getAttribute("type")).toBe("button");
     fireEvent.click(card);
     expect(onPost).toHaveBeenCalledTimes(1);
-    fireEvent.click(postButton());
-    expect(onPost).toHaveBeenCalledTimes(2);
   });
 
   it("screen readers get a stable name, never the characters being typed", () => {

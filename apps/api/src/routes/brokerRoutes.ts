@@ -11,9 +11,21 @@ const createSchema = z.discriminatedUnion("kind", [
     jobFunction: z.enum(JOB_FUNCTIONS),
     note: noteInputSchema
   }),
+  // Hiring: from the poster's own Wall post (intentcastId), or private from Ask's Find candidates
+  // (role, no post). Exactly one of the two.
   z.object({
     kind: z.literal("hiring"),
-    intentcastId: z.string().uuid()
+    intentcastId: z.string().uuid().optional(),
+    role: z
+      .object({
+        jobFunction: z.enum(JOB_FUNCTIONS),
+        experience: z.enum(EXPERIENCE_BANDS),
+        roleTitle: z.string().trim().max(120).optional().nullable(),
+        company: z.string().trim().max(120).optional().nullable(),
+        message: z.string().trim().min(10).max(1500)
+      })
+      .strict()
+      .optional()
   })
 ]);
 
@@ -83,13 +95,25 @@ export const brokerRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const parsed = createSchema.safeParse(request.body);
       if (!parsed.success) throw new AppError(400, "BROKER_BAD_REQUEST", "Invalid request.");
+      const body = parsed.data;
+      if (body.kind === "hiring" && Boolean(body.intentcastId) === Boolean(body.role)) {
+        throw new AppError(400, "BROKER_BAD_REQUEST", "Send either the hiring post or the role.");
+      }
       const created =
-        parsed.data.kind === "referral"
+        body.kind === "referral"
           ? await app.brokerService.createReferralRequest(request.actor.personId, isDemo(request), {
-              jobFunction: parsed.data.jobFunction,
-              note: parsed.data.note
+              jobFunction: body.jobFunction,
+              note: body.note
             })
-          : await app.brokerService.createHiringRequest(request.actor.personId, isDemo(request), parsed.data.intentcastId);
+          : body.role
+            ? await app.brokerService.createPrivateHiringRequest(request.actor.personId, isDemo(request), {
+                jobFunction: body.role.jobFunction,
+                experience: body.role.experience,
+                roleTitle: body.role.roleTitle ?? null,
+                company: body.role.company ?? null,
+                message: body.role.message
+              })
+            : await app.brokerService.createHiringRequest(request.actor.personId, isDemo(request), body.intentcastId!);
       return reply.code(201).send({ request: requestDto(created) });
     }
   );

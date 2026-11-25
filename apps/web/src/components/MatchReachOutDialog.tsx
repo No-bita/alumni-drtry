@@ -21,6 +21,9 @@ import {
   NOTE_URL_MAX,
   adviceDetails,
   adviceProblems,
+  hiringNoteDetails,
+  hiringNoteProblems,
+  type HiringNoteFields,
   isWebUrl,
   lengthCounter,
   referralDetails,
@@ -45,6 +48,8 @@ type MatchReachOutDialogProps = {
   referral?: { role?: string | null; company?: string | null };
   /** Advice prefill: topic and a starting question (both editable). */
   advice?: { topic?: AdviceTopic | null; question?: string | null };
+  /** Hiring note prefill (Ask's Find candidates, purpose "hiring"): role and company. */
+  hiring?: { role?: string | null; company?: string | null };
   /** Position of this person in the results (1 = top), recorded to measure ranking quality. */
   rank?: number | null;
   /** Where the asker came from: Ask, the WhatsApp bot's "Send a note" link, Careers, a profile, directory search, or a Wall hiring post. */
@@ -99,6 +104,7 @@ export function MatchReachOutDialog({
   purpose: presetPurpose = null,
   referral,
   advice,
+  hiring,
   rank = null,
   source = "match",
   backTo,
@@ -126,14 +132,29 @@ export function MatchReachOutDialog({
     question: (advice?.question ?? "").slice(0, NOTE_QUESTION_MAX),
   });
 
+  const [hire, setHire] = useState<HiringNoteFields>({
+    role: (hiring?.role ?? "").slice(0, NOTE_SHORT_FIELD_MAX),
+    company: (hiring?.company ?? "").slice(0, NOTE_SHORT_FIELD_MAX),
+    message: "",
+    jobUrl: "",
+  });
+
   useBodyScrollLock(true);
   useDialogFocusManager({ open: true, containerRef: dialogRef, onClose: sending ? undefined : onClose });
 
   const name = firstName(recipient.fullName);
   const me = auth.status === "authenticated" ? auth.myProfile : null;
   const senderName = me?.fullName?.trim() || "You";
-  const problems = purpose === "referral" ? referralProblems(ref) : purpose === "advice" ? adviceProblems(adv) : ["topic"];
-  const details: NoteDetails | null = problems.length === 0 ? (purpose === "referral" ? referralDetails(ref) : adviceDetails(adv)) : null;
+  const problems =
+    purpose === "referral" ? referralProblems(ref) : purpose === "advice" ? adviceProblems(adv) : purpose === "hiring" ? hiringNoteProblems(hire) : ["topic"];
+  const details: NoteDetails | null =
+    problems.length === 0
+      ? purpose === "referral"
+        ? referralDetails(ref)
+        : purpose === "hiring"
+          ? hiringNoteDetails(hire)
+          : adviceDetails(adv)
+      : null;
 
   const send = async () => {
     if (!details || sending) return;
@@ -142,7 +163,9 @@ export function MatchReachOutDialog({
     const note =
       details.purpose === "referral"
         ? { purpose: "referral", jobUrl: details.jobUrl, role: details.role, company: details.company, fit: details.fit, resumeUrl: details.resumeUrl }
-        : { purpose: "advice", topic: details.topic, question: details.question };
+        : details.purpose === "hiring"
+          ? { purpose: "hiring", role: details.role, company: details.company, message: details.message, jobUrl: details.jobUrl }
+          : { purpose: "advice", topic: details.topic, question: details.question };
     const res = await api.post<unknown>("/v1/contact-requests", {
       recipientPersonId: recipient.id,
       note,
@@ -166,6 +189,8 @@ export function MatchReachOutDialog({
   const badResume = ref.resumeUrl.trim() !== "" && !isWebUrl(ref.resumeUrl);
   const fitLen = ref.fit.trim().length;
   const qLen = adv.question.trim().length;
+  const mLen = hire.message.trim().length;
+  const badHireJob = hire.jobUrl.trim() !== "" && !isWebUrl(hire.jobUrl);
 
   return (
     <div
@@ -220,123 +245,181 @@ export function MatchReachOutDialog({
             <h2 id={titleId} className="match-dialog__title">
               Reach out to {name}
             </h2>
-            <FormField label="Topic" required>
-              <select
-                id={ids.topic}
-                className="match-dialog__input"
-                value={purpose === "referral" ? "referral" : (adv.topic ?? "")}
-                required
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setError(null);
-                  if (v === "referral") {
-                    setPurpose("referral");
-                  } else {
-                    setPurpose("advice");
-                    setAdv({ ...adv, topic: (v || null) as AdviceTopic | null });
-                  }
-                }}
-              >
-                <option value="" disabled>
-                  Select a topic
-                </option>
-                <option value="referral">Referral</option>
-                {ADVICE_TOPICS.map((t) => (
-                  <option key={t} value={t}>
-                    {ADVICE_TOPIC_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            {purpose === "referral" ? (
+            {purpose === "hiring" ? (
               <>
-                <FormField
-                  label="Job link"
-                  error={badJob ? "Add the job link, starting with https://." : undefined}
-                >
-                  <input
-                    id={ids.job}
-                    className="match-dialog__input"
-                    type="url"
-                    inputMode="url"
-                    placeholder="https://careers.company.com/…"
-                    value={ref.jobUrl}
-                    maxLength={NOTE_URL_MAX}
-                    aria-invalid={badJob}
-                    onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
-                  />
-                </FormField>
                 <div className="match-dialog__pair">
                   <FormField label="Role" className="match-dialog__field">
                     <input
                       id={ids.role}
                       className="match-dialog__input"
-                      value={ref.role}
+                      value={hire.role}
                       maxLength={NOTE_SHORT_FIELD_MAX}
-                      onChange={(e) => setRef({ ...ref, role: e.target.value })}
+                      onChange={(e) => setHire({ ...hire, role: e.target.value })}
                     />
                   </FormField>
                   <FormField label="Company" className="match-dialog__field">
                     <input
                       id={ids.company}
                       className="match-dialog__input"
-                      value={ref.company}
+                      value={hire.company}
                       maxLength={NOTE_SHORT_FIELD_MAX}
-                      onChange={(e) => setRef({ ...ref, company: e.target.value })}
+                      onChange={(e) => setHire({ ...hire, company: e.target.value })}
                     />
                   </FormField>
                 </div>
-                <FormField label="Why you’re a fit">
-                  <textarea
-                    id={ids.fit}
-                    className="match-dialog__textarea"
-                    rows={5}
-                    value={ref.fit}
-                    maxLength={NOTE_FIT_MAX}
-                    placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
-                    aria-describedby={ids.fitCount}
-                    onChange={(e) => setRef({ ...ref, fit: e.target.value })}
-                  />
-                </FormField>
-                <p id={ids.fitCount} className="match-dialog__counter" aria-live="polite">
-                  {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
-                </p>
-                <FormField
-                  label="Résumé link"
-                  error={badResume ? "The résumé link must start with https:// (or leave it empty)." : undefined}
-                >
-                  <input
-                    id={ids.resume}
-                    className="match-dialog__input"
-                    type="url"
-                    inputMode="url"
-                    placeholder="Drive or Dropbox link"
-                    value={ref.resumeUrl}
-                    maxLength={NOTE_URL_MAX}
-                    aria-invalid={badResume}
-                    onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
-                  />
-                </FormField>
-              </>
-            ) : (
-              <>
-                <FormField label="Your question" controlId={ids.question}>
+                <FormField label="Your message" controlId={ids.question}>
                   <div className="match-dialog__textarea-wrap">
                     <textarea
                       id={ids.question}
                       className="match-dialog__textarea"
                       rows={6}
-                      value={adv.question}
+                      value={hire.message}
                       maxLength={NOTE_QUESTION_MAX}
-                      placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
+                      placeholder="What the role involves, and why you thought of them."
                       aria-describedby={ids.qCount}
-                      onChange={(e) => setAdv({ ...adv, question: e.target.value })}
+                      onChange={(e) => setHire({ ...hire, message: e.target.value })}
                     />
                     <p id={ids.qCount} className="match-dialog__counter match-dialog__counter--inside" aria-live="polite">
-                      {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
+                      {lengthCounter(mLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
                     </p>
                   </div>
                 </FormField>
+                <FormField label="Job link" help="Optional" error={badHireJob ? "The job link must start with https:// (or leave it empty)." : undefined}>
+                  <input
+                    id={ids.job}
+                    className="match-dialog__input"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://careers.company.com/…"
+                    value={hire.jobUrl}
+                    maxLength={NOTE_URL_MAX}
+                    aria-invalid={badHireJob}
+                    onChange={(e) => setHire({ ...hire, jobUrl: e.target.value })}
+                  />
+                </FormField>
+              </>
+            ) : null}
+            {purpose === "hiring" ? null : (
+              <>
+                <FormField label="Topic" required>
+                  <select
+                    id={ids.topic}
+                    className="match-dialog__input"
+                    value={purpose === "referral" ? "referral" : (adv.topic ?? "")}
+                    required
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setError(null);
+                      if (v === "referral") {
+                        setPurpose("referral");
+                      } else {
+                        setPurpose("advice");
+                        setAdv({ ...adv, topic: (v || null) as AdviceTopic | null });
+                      }
+                    }}
+                  >
+                    <option value="" disabled>
+                      Select a topic
+                    </option>
+                    <option value="referral">Referral</option>
+                    {ADVICE_TOPICS.map((t) => (
+                      <option key={t} value={t}>
+                        {ADVICE_TOPIC_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                {purpose === "referral" ? (
+                  <>
+                    <FormField
+                      label="Job link"
+                      error={badJob ? "Add the job link, starting with https://." : undefined}
+                    >
+                      <input
+                        id={ids.job}
+                        className="match-dialog__input"
+                        type="url"
+                        inputMode="url"
+                        placeholder="https://careers.company.com/…"
+                        value={ref.jobUrl}
+                        maxLength={NOTE_URL_MAX}
+                        aria-invalid={badJob}
+                        onChange={(e) => setRef({ ...ref, jobUrl: e.target.value })}
+                      />
+                    </FormField>
+                    <div className="match-dialog__pair">
+                      <FormField label="Role" className="match-dialog__field">
+                        <input
+                          id={ids.role}
+                          className="match-dialog__input"
+                          value={ref.role}
+                          maxLength={NOTE_SHORT_FIELD_MAX}
+                          onChange={(e) => setRef({ ...ref, role: e.target.value })}
+                        />
+                      </FormField>
+                      <FormField label="Company" className="match-dialog__field">
+                        <input
+                          id={ids.company}
+                          className="match-dialog__input"
+                          value={ref.company}
+                          maxLength={NOTE_SHORT_FIELD_MAX}
+                          onChange={(e) => setRef({ ...ref, company: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                    <FormField label="Why you’re a fit">
+                      <textarea
+                        id={ids.fit}
+                        className="match-dialog__textarea"
+                        rows={5}
+                        value={ref.fit}
+                        maxLength={NOTE_FIT_MAX}
+                        placeholder="Your relevant experience in a sentence or two, and what makes you right for this role."
+                        aria-describedby={ids.fitCount}
+                        onChange={(e) => setRef({ ...ref, fit: e.target.value })}
+                      />
+                    </FormField>
+                    <p id={ids.fitCount} className="match-dialog__counter" aria-live="polite">
+                      {lengthCounter(fitLen, NOTE_FIT_MIN, NOTE_FIT_MAX)}
+                    </p>
+                    <FormField
+                      label="Résumé link"
+                      error={badResume ? "The résumé link must start with https:// (or leave it empty)." : undefined}
+                    >
+                      <input
+                        id={ids.resume}
+                        className="match-dialog__input"
+                        type="url"
+                        inputMode="url"
+                        placeholder="Drive or Dropbox link"
+                        value={ref.resumeUrl}
+                        maxLength={NOTE_URL_MAX}
+                        aria-invalid={badResume}
+                        onChange={(e) => setRef({ ...ref, resumeUrl: e.target.value })}
+                      />
+                    </FormField>
+                  </>
+                ) : (
+                  <>
+                    <FormField label="Your question" controlId={ids.question}>
+                      <div className="match-dialog__textarea-wrap">
+                        <textarea
+                          id={ids.question}
+                          className="match-dialog__textarea"
+                          rows={6}
+                          value={adv.question}
+                          maxLength={NOTE_QUESTION_MAX}
+                          placeholder={adv.topic ? ADVICE_TOPIC_HINTS[adv.topic] : "Pick a topic, then write one specific question."}
+                          aria-describedby={ids.qCount}
+                          onChange={(e) => setAdv({ ...adv, question: e.target.value })}
+                        />
+                        <p id={ids.qCount} className="match-dialog__counter match-dialog__counter--inside" aria-live="polite">
+                          {lengthCounter(qLen, NOTE_QUESTION_MIN, NOTE_QUESTION_MAX)}
+                        </p>
+                      </div>
+                    </FormField>
+                  </>
+                )}
               </>
             )}
             <FormActions

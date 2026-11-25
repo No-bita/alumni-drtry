@@ -35,7 +35,9 @@ export type ReferralDetails = {
   resumeUrl: string | null;
 };
 export type AdviceDetails = { purpose: "advice"; topic: AdviceTopic; question: string };
-export type NoteDetails = ReferralDetails | AdviceDetails;
+/** A hirer writing to a possible candidate (Ask's Find candidates list). */
+export type HiringNoteDetails = { purpose: "hiring"; role: string; company: string; message: string; jobUrl: string | null };
+export type NoteDetails = ReferralDetails | AdviceDetails | HiringNoteDetails;
 
 /** Loose shape only: field rules are checked by {@link validateNoteDetails} so each failure gets its own code. */
 export const noteInputSchema = z.object({
@@ -46,7 +48,8 @@ export const noteInputSchema = z.object({
   fit: z.string().max(5000).optional().nullable(),
   resumeUrl: z.string().max(2000).optional().nullable(),
   topic: z.string().max(40).optional().nullable(),
-  question: z.string().max(10000).optional().nullable()
+  question: z.string().max(10000).optional().nullable(),
+  message: z.string().max(10000).optional().nullable()
 });
 export type NoteInput = z.infer<typeof noteInputSchema>;
 
@@ -68,8 +71,30 @@ export function isWebUrl(value: string): boolean {
 
 /** Checks the fields and returns them cleaned, or throws {@link NoteDetailsError}. */
 export function validateNoteDetails(input: NoteInput | null | undefined): NoteDetails {
-  if (!input || (input.purpose !== "referral" && input.purpose !== "advice")) {
+  if (!input || (input.purpose !== "referral" && input.purpose !== "advice" && input.purpose !== "hiring")) {
     throw new NoteDetailsError("CONTACT_REQUEST_PURPOSE_REQUIRED", "Choose what you need: a referral or advice.");
+  }
+  if (input.purpose === "hiring") {
+    const role = oneLine(input.role);
+    const company = oneLine(input.company);
+    if (!role || role.length > NOTE_SHORT_FIELD_MAX) {
+      throw new NoteDetailsError("CONTACT_REQUEST_ROLE_REQUIRED", `Add the role (up to ${NOTE_SHORT_FIELD_MAX} characters).`);
+    }
+    if (!company || company.length > NOTE_SHORT_FIELD_MAX) {
+      throw new NoteDetailsError("CONTACT_REQUEST_COMPANY_REQUIRED", `Add the company (up to ${NOTE_SHORT_FIELD_MAX} characters).`);
+    }
+    const message = tidy(input.message);
+    if (message.length < NOTE_QUESTION_MIN || message.length > NOTE_QUESTION_MAX) {
+      throw new NoteDetailsError(
+        "CONTACT_REQUEST_MESSAGE_LENGTH",
+        `Write your message in ${NOTE_QUESTION_MIN} to ${NOTE_QUESTION_MAX} characters.`
+      );
+    }
+    const jobUrl = tidy(input.jobUrl);
+    if (jobUrl && !isWebUrl(jobUrl)) {
+      throw new NoteDetailsError("CONTACT_REQUEST_JOB_LINK_INVALID", "The job link must start with https:// (or leave it empty).");
+    }
+    return { purpose: "hiring", role, company, message, jobUrl: jobUrl || null };
   }
   if (input.purpose === "referral") {
     const jobUrl = tidy(input.jobUrl);
@@ -115,11 +140,17 @@ export function composeNoteMessage(d: NoteDetails): string {
     if (d.resumeUrl) lines.push(`Résumé: ${d.resumeUrl}`);
     return lines.join("\n");
   }
+  if (d.purpose === "hiring") {
+    const lines = [`Hiring: ${d.role} at ${d.company}`, "", d.message];
+    if (d.jobUrl) lines.push("", `Job: ${d.jobUrl}`);
+    return lines.join("\n");
+  }
   return `Advice · ${ADVICE_TOPIC_LABELS[d.topic]}\n\n${d.question}`;
 }
 
 /** Category kept for analytics (approved mapping; "other" has none). */
 export function noteCategory(d: NoteDetails): MatchCategory | null {
   if (d.purpose === "referral") return "referral";
+  if (d.purpose === "hiring") return "hiring";
   return d.topic === "other" ? null : d.topic;
 }

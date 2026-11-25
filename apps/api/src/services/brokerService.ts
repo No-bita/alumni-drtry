@@ -49,6 +49,15 @@ export interface CreateReferralRequestInput {
   note: NoteInput;
 }
 
+/** Ask's "Ask them privately if they're interested" (no Wall post). Lengths are checked by the route. */
+export interface PrivateHiringInput {
+  jobFunction: JobFunction;
+  experience: ExperienceBand;
+  roleTitle: string | null;
+  company: string | null;
+  message: string;
+}
+
 export interface RespondResult {
   status: "connected" | "declined";
   /** Once connected: how to reach the asker. */
@@ -223,6 +232,52 @@ export class BrokerService {
     return this.requestView(askerPersonId, created.request.id);
   }
 
+  /**
+   * Hiring from Ask's Find candidates: ask matching alumni privately, with no Wall post (approved).
+   * No cap on how many are open; just not two open for the same function and experience level.
+   */
+  async createPrivateHiringRequest(askerPersonId: string, askerIsDemo: boolean, input: PrivateHiringInput): Promise<AskerRequestView> {
+    const roleTitle = input.roleTitle?.replace(/\s+/g, " ").trim() || null;
+    const message = input.message.trim();
+    const open = await this.repo.openPrivateHiringRequests(askerPersonId);
+    if (open.some((r) => r.job_function === input.jobFunction && r.experience_band === input.experience)) {
+      throw new AppError(
+        409,
+        "BROKER_DUPLICATE_OPEN",
+        `You already have a private ask open for ${JOB_FUNCTION_LABELS[input.jobFunction]} · ${EXPERIENCE_BAND_LABELS[input.experience]}.`
+      );
+    }
+    const helperIds = await this.repo.hiringHelpers(input.jobFunction, input.experience, askerPersonId, askerIsDemo);
+    if (helperIds.length === 0) {
+      throw new AppError(
+        422,
+        "BROKER_NO_MATCHES",
+        `No alumni match ${JOB_FUNCTION_LABELS[input.jobFunction]} · ${EXPERIENCE_BAND_LABELS[input.experience]} yet.`
+      );
+    }
+    const asker = await this.repo.person(askerPersonId);
+    if (!asker) throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
+    const company = input.company?.replace(/\s+/g, " ").trim() || "their company";
+    const created = await this.inTransaction((repo) =>
+      repo.createWithAsks({
+        kind: "hiring",
+        askerPersonId,
+        intentcastId: null,
+        company,
+        jobFunction: input.jobFunction,
+        experienceBand: input.experience,
+        roleTitle,
+        jobUrl: null,
+        message,
+        details: null,
+        expiresAt: new Date(Date.now() + BROKER_REQUEST_OPEN_HOURS * 3_600_000),
+        helperIds
+      })
+    );
+    await this.deliver(created.request, created.asks, asker);
+    return this.requestView(askerPersonId, created.request.id);
+  }
+
   async listMine(askerPersonId: string): Promise<AskerRequestView[]> {
     await this.expireDue();
     return this.repo.listForAsker(askerPersonId, LIST_LIMIT);
@@ -300,7 +355,7 @@ export class BrokerService {
         message: request.message,
         details: request.details,
         source: request.kind === "referral" ? "referral_request" : "hiring_request",
-        sourceCategory: request.kind === "referral" ? "referral" : null,
+        sourceCategory: request.kind === "referral" ? "referral" : "hiring",
         contactShared: helperContact
       });
       if (!(await repo.markConnected(request.id, contactRequestId))) {

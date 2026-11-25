@@ -90,7 +90,7 @@ describe("Browse row", () => {
 
 describe("The Wall", () => {
   const zero = { careers: 0, hiring: 0, relocation: 0, startups: 0, guidance: 0, replies: 0 };
-  it("stays on Home when empty, with no 'quiet' message and a way to post", () => {
+  it("stays on Home when empty, with no 'quiet' message; the example card is the way to post", () => {
     const onPost = vi.fn();
     wrap(
       <HomeOpportunityRail intentcasts={[]} activeCategory="all" onCategoryChange={() => {}} categoryCounts={zero} onPost={onPost} />,
@@ -99,7 +99,8 @@ describe("The Wall", () => {
     expect(screen.getByText("Roles, collaborations and other relevant asks from alumni.")).toBeTruthy();
     expect(screen.queryByText(/quiet out here/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Be the first to ask" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Post", exact: true }));
+    expect(screen.queryByRole("button", { name: "Post", exact: true })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Write your first post on The Wall" }));
     expect(onPost).toHaveBeenCalledTimes(1);
   });
 });

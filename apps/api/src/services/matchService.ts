@@ -15,6 +15,7 @@ import {
 import { parseQuestionWithLlm, type MatchIntentLlmProvider } from "../lib/matchIntentLlm.js";
 import { intentNeedsDetail, primarySignalsForIntent, rankMatches, type MatchReason, type SignalName } from "../lib/matchScore.js";
 import type { OpenToOptionId } from "../lib/openToPreferences.js";
+import { functionForRoleLabel } from "../lib/jobFunctions.js";
 import { MatchRepo, type MatchCandidateQuery, type MatchGateSignal } from "../repos/matchRepo.js";
 import type { ContactRequestStatus } from "../repos/contactRequestRepo.js";
 import type { ReplyStatsView } from "./contactRequestService.js";
@@ -181,6 +182,7 @@ const GATE_FOR_SIGNAL: Record<SignalName, MatchGateSignal[]> = {
   place: ["city", "country"],
   study: ["sp", "st"],
   founder: ["fd"],
+  function: ["fn"],
   keyword: []
 };
 
@@ -192,7 +194,8 @@ export function buildCandidateQuery(
   return {
     viewerPersonId: viewer.viewerPersonId,
     viewerIsDemo: viewer.viewerIsDemo,
-    companyPattern: intent.company ? escapeRegexLiteral(intent.company.trim()) : null,
+    // Hiring: the company named is the asker's own, so it neither qualifies nor boosts anyone.
+    companyPattern: intent.company && intent.category !== "hiring" ? escapeRegexLiteral(intent.company.trim()) : null,
     rolePattern: rolePatternFor(intent.role),
     fromRolePattern: intent.category === "career_switch" ? rolePatternFor(intent.fromRole) : null,
     cityNames: cityNamesFor(intent.city, lexicon),
@@ -201,6 +204,7 @@ export function buildCandidateQuery(
     studyPrograms: intent.studyPrograms,
     wantStudy: intent.category === "higher_studies" || intent.studyPrograms.length > 0,
     wantFounder: intent.category === "founder_advice",
+    jobFunction: intent.category === "hiring" ? functionForRoleLabel(intent.role) : null,
     keywords: intent.keywords.map((k) => ({ keyword: k, pattern: escapeRegexLiteral(k) })),
     candidateLimit: MATCH_CANDIDATE_LIMIT,
     requiredAnyOf: [...new Set(primarySignalsForIntent(intent).flatMap((sig) => GATE_FOR_SIGNAL[sig]))]

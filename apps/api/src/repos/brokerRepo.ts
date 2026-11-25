@@ -212,6 +212,16 @@ export class BrokerRepo {
     return r.rows;
   }
 
+  /** Private hiring asks (no Wall post) still open, for the one-per-function-and-level rule. */
+  async openPrivateHiringRequests(askerPersonId: string): Promise<Array<{ id: string; job_function: string; experience_band: string | null }>> {
+    const r = await this.db.query<{ id: string; job_function: string; experience_band: string | null }>(
+      `SELECT id, job_function, experience_band FROM broker_requests
+       WHERE asker_person_id = $1 AND kind = 'hiring' AND intentcast_id IS NULL AND status = 'open' AND expires_at > now()`,
+      [askerPersonId]
+    );
+    return r.rows;
+  }
+
   async requestForIntentcast(intentcastId: string): Promise<BrokerRequestRow | null> {
     const r = await this.db.query<BrokerRequestRow>(`SELECT * FROM broker_requests WHERE intentcast_id = $1`, [intentcastId]);
     return r.rows[0] ?? null;

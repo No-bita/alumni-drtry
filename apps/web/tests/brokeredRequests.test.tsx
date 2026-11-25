@@ -274,6 +274,21 @@ describe("Wall composer: Careers, one tap at a time", () => {
     expect(screen.queryByLabelText(/Headline/)).toBeNull();
   });
 
+  it("opened from a Home tile (category already chosen), the category row is not asked again", () => {
+    const ref = createRef<PostBulletinFlowHandle>();
+    wrap(<PostBulletinFlow ref={ref} />);
+    act(() => ref.current?.open({ category: "careers" }));
+    expect(screen.queryByRole("radiogroup", { name: "What's this about?" })).toBeNull();
+    expect(screen.getByRole("radiogroup", { name: "What do you need?" })).toBeTruthy();
+    act(() => ref.current?.close());
+    act(() => ref.current?.open({ category: "startups" }));
+    expect(screen.queryByRole("radiogroup", { name: "What's this about?" })).toBeNull();
+    // Opened without a category (the empty Wall's example card), it asks.
+    act(() => ref.current?.close());
+    act(() => ref.current?.open());
+    expect(screen.getByRole("radiogroup", { name: "What's this about?" })).toBeTruthy();
+  });
+
   it("Hiring: taps, no heading, and optionally asks matching alumni privately", async () => {
     mountComposer();
     fireEvent.click(screen.getByRole("radio", { name: "Careers" }));

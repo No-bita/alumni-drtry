@@ -4,7 +4,7 @@
  */
 import { isWebUrl as isWebLink } from "./webUrl";
 
-export type NotePurpose = "referral" | "advice";
+export type NotePurpose = "referral" | "advice" | "hiring";
 
 export const NOTE_FIT_MIN = 80;
 export const NOTE_FIT_MAX = 500;
@@ -38,11 +38,14 @@ export const ADVICE_TOPIC_HINTS: Record<AdviceTopic, string> = {
 };
 
 export type ReferralFields = { jobUrl: string; role: string; company: string; fit: string; resumeUrl: string };
+/** A hirer writing to a possible candidate (Ask's Find candidates). */
+export type HiringNoteFields = { role: string; company: string; message: string; jobUrl: string };
 export type AdviceFields = { topic: AdviceTopic | null; question: string };
 
 export type NoteDetails =
   | { purpose: "referral"; jobUrl: string; role: string; company: string; fit: string; resumeUrl: string | null }
-  | { purpose: "advice"; topic: AdviceTopic | LegacyAdviceTopic; question: string };
+  | { purpose: "advice"; topic: AdviceTopic | LegacyAdviceTopic; question: string }
+  | { purpose: "hiring"; role: string; company: string; message: string; jobUrl: string | null };
 
 export function isWebUrl(value: string): boolean {
   return isWebLink(value, NOTE_URL_MAX);
@@ -70,6 +73,20 @@ export function adviceProblems(f: AdviceFields): string[] {
   return out;
 }
 
+export function hiringNoteProblems(f: HiringNoteFields): string[] {
+  const out: string[] = [];
+  if (!oneLine(f.role) || oneLine(f.role).length > NOTE_SHORT_FIELD_MAX) out.push("role");
+  if (!oneLine(f.company) || oneLine(f.company).length > NOTE_SHORT_FIELD_MAX) out.push("company");
+  const m = f.message.trim().length;
+  if (m < NOTE_QUESTION_MIN || m > NOTE_QUESTION_MAX) out.push("message");
+  if (f.jobUrl.trim() && !isWebUrl(f.jobUrl)) out.push("job link");
+  return out;
+}
+
+export function hiringNoteDetails(f: HiringNoteFields): NoteDetails {
+  return { purpose: "hiring", role: oneLine(f.role), company: oneLine(f.company), message: f.message.trim(), jobUrl: f.jobUrl.trim() || null };
+}
+
 export function referralDetails(f: ReferralFields): NoteDetails {
   return {
     purpose: "referral",
@@ -87,7 +104,9 @@ export function adviceDetails(f: AdviceFields): NoteDetails {
 
 /** "Referral request" or the advice topic alone ("Interview prep"): the label on a note. */
 export function noteLabel(d: NoteDetails): string {
-  return d.purpose === "referral" ? "Referral request" : (ADVICE_TOPIC_LABELS[d.topic] ?? "Other");
+  if (d.purpose === "referral") return "Referral request";
+  if (d.purpose === "hiring") return "Hiring";
+  return ADVICE_TOPIC_LABELS[d.topic] ?? "Other";
 }
 
 /** Counter under a long field: "42 / 80 characters minimum", then "120 / 500". */
