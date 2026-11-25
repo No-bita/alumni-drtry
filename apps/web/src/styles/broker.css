@@ -1,0 +1,67 @@
+/* Tap-first answers (pills) and brokered requests: progress, asks for you, the referral flow. */
+.tap-pills { display: grid; gap: 8px; min-width: 0; }
+.tap-pills__label { margin: 0; font-weight: 600; color: var(--ink); font-size: 15px; }
+.tap-pills__hint { margin: -4px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
+.tap-pills__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tap-pills__pill {
+  min-height: var(--chrome-min-touch-target, 44px);
+  padding: 8px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease-out, ease), border-color 0.15s var(--ease-out, ease);
+}
+.tap-pills__pill:hover { border-color: var(--brick); }
+.tap-pills__pill:focus-visible { outline: 2px solid var(--brick); outline-offset: 2px; }
+.tap-pills__pill--on { background: var(--brick); border-color: var(--brick); color: #fff; }
+.tap-pills__error { margin: 0; color: var(--brick); font-size: 13px; }
+
+.broker-step-in { animation: broker-step-in 0.18s var(--ease-out, ease) both; }
+@keyframes broker-step-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .broker-step-in { animation: none; } }
+
+.broker-note { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 1.5; }
+.broker-note--warn { color: var(--brick); }
+.broker-header-line { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--brick); }
+
+/* Progress, like a ride booking (updated on each visit). */
+.broker-progress { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.broker-progress__stage { position: relative; display: grid; grid-template-columns: 20px 1fr; gap: 12px; padding: 0 0 14px; }
+.broker-progress__stage:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 20px; bottom: 0; width: 2px; background: var(--rule, #e6dccd); }
+.broker-progress__stage--done:not(:last-child)::after { background: var(--brick); }
+.broker-progress__dot { width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--rule, #e6dccd); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
+.broker-progress__stage--done .broker-progress__dot { background: var(--brick); border-color: var(--brick); }
+.broker-progress__stage--current .broker-progress__dot { border-color: var(--brick); box-shadow: 0 0 0 4px var(--brick-light, rgba(160, 64, 40, 0.15)); }
+.broker-progress__stage--closed .broker-progress__dot { background: var(--ink-muted); border-color: var(--ink-muted); }
+.broker-progress__label { margin: 0; line-height: 20px; font-size: 14px; color: var(--ink); }
+.broker-progress__stage--todo .broker-progress__label { color: var(--ink-muted); }
+
+/* Notifications page sections. */
+.broker-section { margin-top: 28px; display: grid; gap: 12px; }
+.broker-section__title { margin: 0; font-family: var(--font-display); font-size: 22px; }
+.broker-section__sub { margin: -6px 0 0; color: var(--ink-muted); font-size: 14px; }
+.broker-card { border: 1px solid var(--border-muted); border-radius: var(--radius-surface-md, 16px); background: var(--surface); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.broker-card__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.broker-card__title { margin: 0; font-weight: 600; font-size: 16px; color: var(--ink); overflow-wrap: anywhere; }
+.broker-card__meta { margin: 0; color: var(--ink-muted); font-size: 13px; }
+.broker-card__body { margin: 0; white-space: pre-line; color: var(--ink); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.broker-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.broker-card__actions .btn { min-height: var(--chrome-min-touch-target, 44px); }
+.broker-card__contact { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--cream); font-size: 14px; overflow-wrap: anywhere; }
+.broker-card__error { margin: 0; color: var(--brick); font-size: 13px; }
+.broker-card a { color: var(--brick); }
+
+/* Hiring composer extras. */
+.hiring-compose { display: grid; gap: 18px; min-width: 0; }
+.hiring-compose__private { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--cream); }
+.hiring-compose__private input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--brick); flex: none; }
+.hiring-compose__private label { display: grid; gap: 2px; font-size: 14px; cursor: pointer; }
+.hiring-compose__private span { color: var(--ink-muted); font-size: 13px; }
+
+/* Wall rows: structured hiring posts. */
+.career-feed-rows__header-line { margin: 6px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--brick); overflow-wrap: anywhere; }
+.career-feed-rows__reach-btn { margin-top: 10px; min-height: var(--chrome-min-touch-target, 44px); }

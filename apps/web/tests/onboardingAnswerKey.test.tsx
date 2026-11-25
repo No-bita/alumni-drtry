@@ -6,6 +6,7 @@ import { Onboarding } from "../src/pages/Onboarding";
 import { completePastRoles, pastRolesError } from "../src/lib/answerKey";
 
 const mocks = vi.hoisted(() => ({
+  put: vi.fn<(path: string, body?: unknown) => Promise<object>>(async () => ({})),
   patch: vi.fn<(path: string, body?: unknown) => Promise<object>>(async () => ({})),
   post: vi.fn<(path: string, body?: unknown) => Promise<object>>(async (path) =>
     path === "/v1/orgs/suggest" ? { data: { organization: { id: "00000000-0000-0000-0000-00000000000a" } } } : {},
@@ -26,7 +27,7 @@ const profile = {
 };
 const person = { personId: "p1", role: "alumni" };
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ status: "authenticated", person, myProfile: profile }) }));
-vi.mock("../src/api/client", () => ({ api: { patch: mocks.patch, post: mocks.post } }));
+vi.mock("../src/api/client", () => ({ api: { patch: mocks.patch, post: mocks.post, put: mocks.put } }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: mocks.get }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
@@ -58,6 +59,10 @@ async function reachResidence() {
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await screen.findByText("Please specify *");
   fireEvent.change(view.container.querySelector("input")!, { target: { value: "Consulting" } });
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  // One tap: the member's function (hiring requests reach members by function and experience).
+  await screen.findByText("Which function fits you best? *");
+  fireEvent.click(screen.getByRole("button", { name: "Product" }));
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await screen.findByText(/Where do you live/);
   return view;

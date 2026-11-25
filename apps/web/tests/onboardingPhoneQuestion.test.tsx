@@ -6,11 +6,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // import { phoneCountryForResidence } from "../src/constants/phoneCountries";
 import { Onboarding } from "../src/pages/Onboarding";
 
-const mocks = vi.hoisted(() => ({ patch: vi.fn(async () => ({})), post: vi.fn(async () => ({})), get: vi.fn(async () => ({ occupations: [] })) }));
+const mocks = vi.hoisted(() => ({
+  put: vi.fn<(path: string, body?: unknown) => Promise<object>>(async () => ({})), patch: vi.fn(async () => ({})), post: vi.fn(async () => ({})), get: vi.fn(async () => ({ occupations: [] })) }));
 const profile = { id: "p1", institutionalEmail: "asha.rao.cse20@itbhu.ac.in", fullName: "Asha Rao", departmentCode: "cse", degreeCode: "btech", batchYear: 2024, parsedJoiningYear: 2020, onboardingCompletedAt: null, mobilePhone: null as string | null };
 const person = { personId: "p1", role: "alumni" };
 vi.mock("../src/contexts/AuthContext", () => ({ useAuth: () => ({ status: "authenticated", person, myProfile: profile }) }));
-vi.mock("../src/api/client", () => ({ api: { patch: mocks.patch, post: mocks.post } }));
+vi.mock("../src/api/client", () => ({ api: { patch: mocks.patch, post: mocks.post, put: mocks.put } }));
 vi.mock("../src/lib/assertApiGet", () => ({ assertApiGet: mocks.get }));
 vi.mock("../src/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("../src/lib/betaAnalytics", () => ({ trackBetaUsageEvent: vi.fn() }));
@@ -31,6 +32,10 @@ async function reachResidence() {
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await screen.findByText("Please specify *");
   fireEvent.change(view.container.querySelector("input")!, { target: { value: "Consulting" } });
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  // One tap: the member's function (hiring requests reach members by function and experience).
+  await screen.findByText("Which function fits you best? *");
+  fireEvent.click(screen.getByRole("button", { name: "Product" }));
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await screen.findByText(/Where do you live/);
 }

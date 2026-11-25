@@ -224,6 +224,8 @@ describe("composer integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/v1/intentcasts", expect.objectContaining({ placeId: "pune-id", audience: { city: true, cityPlaceId: "pune-id" } })));
     act(() => ref.current?.open());
+    // A fresh composer asks for the category first; the audience appears with the fields.
+    fireEvent.click(screen.getByRole("radio", { name: "General" }));
     expect(screen.getByText("Everyone on Alma Mater")).toBeTruthy();
   });
 

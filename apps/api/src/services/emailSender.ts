@@ -154,7 +154,32 @@ export class EmailUnreachableError extends Error {
   }
 }
 
+/** Brokered requests (referral / hiring): one short email per event, with a link back into the app. */
+export interface BrokerEmailPayload {
+  to: string;
+  /** What happened, for logs and tests. */
+  event: "helper_asked" | "asker_sent" | "asker_seen" | "asker_connected" | "asker_expired" | "helper_connected";
+  subject: string;
+  greetingName: string;
+  /** Plain-text paragraphs. */
+  paragraphs: string[];
+  ctaLabel: string;
+  ctaUrl: string;
+}
+
+export function buildBrokerEmail(payload: BrokerEmailPayload): { subject: string; text: string; html: string } {
+  const text = [`Hi ${payload.greetingName},`, "", ...payload.paragraphs.flatMap((p) => [p, ""]), `${payload.ctaLabel}: ${payload.ctaUrl}`].join("\n");
+  const html = [
+    `<p>Hi ${escapeHtml(payload.greetingName)},</p>`,
+    ...payload.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`),
+    `<p><a href="${escapeHtml(payload.ctaUrl)}">${escapeHtml(payload.ctaLabel)}</a></p>`
+  ].join("");
+  return { subject: payload.subject, text, html };
+}
+
 export interface EmailSender {
+  /** Brokered requests (gated by BROKER_EMAILS_ENABLED at the caller). */
+  sendBrokerEmail(payload: BrokerEmailPayload): Promise<void>;
   sendAuthEmail(payload: AuthEmailPayload): Promise<void>;
   sendContactRequestReceivedEmail(payload: ContactRequestReceivedEmailPayload): Promise<void>;
   sendContactRequestAcceptedEmail(payload: ContactRequestAcceptedEmailPayload): Promise<void>;
@@ -168,6 +193,10 @@ export interface EmailSender {
 }
 
 export class ConsoleEmailSender implements EmailSender {
+  async sendBrokerEmail(payload: BrokerEmailPayload): Promise<void> {
+    process.stdout.write(`[mail] to=${payload.to} type=broker_${payload.event} subject="${payload.subject}"\n`);
+  }
+
   async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     const redactedOtp = payload.otp.replace(/\d(?=\d{2})/g, "*");
     process.stdout.write(
@@ -219,6 +248,11 @@ export class ConsoleEmailSender implements EmailSender {
  */
 export class TestCaptureEmailSender extends ConsoleEmailSender {
   readonly authEmails: AuthEmailPayload[] = [];
+  readonly brokerEmails: BrokerEmailPayload[] = [];
+
+  override async sendBrokerEmail(payload: BrokerEmailPayload): Promise<void> {
+    this.brokerEmails.push(payload);
+  }
   readonly announcementEmails: AnnouncementEmailPayload[] = [];
   /** Tests can make the next announcement sends fail (each call pops one entry; true = throw). */
   readonly announcementFailures: boolean[] = [];
@@ -286,6 +320,11 @@ function buildAuthEmailContent(payload: AuthEmailPayload, brandName: string): {
 
 export class ResendEmailSender implements EmailSender {
   constructor(private readonly options: ResendEmailSenderOptions) {}
+
+  async sendBrokerEmail(payload: BrokerEmailPayload): Promise<void> {
+    const { subject, text, html } = buildBrokerEmail(payload);
+    await this.sendEmail(payload.to, subject, text, html, 15_000);
+  }
 
   async sendAuthEmail(payload: AuthEmailPayload): Promise<void> {
     const { subject, text, html } = buildAuthEmailContent(payload, this.options.brandName);

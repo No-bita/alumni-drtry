@@ -1,4 +1,5 @@
 import { normalizeCountry } from "../lib/countries.js";
+import type { JobFunction } from "../lib/jobFunctions.js";
 import type { Pool } from "pg";
 import { AppError } from "../lib/errors.js";
 import { normalizeEmail } from "../lib/domainAllowlist.js";
@@ -132,6 +133,13 @@ export class ProfileService {
       throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
     }
     return profile;
+  }
+
+  /** The member's job function, one tap (null clears it). */
+  async setJobFunction(personId: string, jobFunction: JobFunction | null): Promise<void> {
+    if (!(await this.personRepo.setJobFunction(personId, jobFunction))) {
+      throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
+    }
   }
 
   async updateMyProfile(personId: string, input: UpdateMyProfileInput): Promise<PersonProfileView> {

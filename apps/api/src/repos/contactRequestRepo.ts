@@ -58,7 +58,17 @@ export interface ContactRequestView {
   updatedAt: Date;
 }
 
-export type ContactRequestSource = "match" | "whatsapp" | "careers" | "cities" | "profile" | "search";
+export type ContactRequestSource =
+  | "match"
+  | "whatsapp"
+  | "careers"
+  | "cities"
+  | "profile"
+  | "search"
+  | "wall"
+  /** Brokered connections (created already accepted; never sent by a client). */
+  | "referral_request"
+  | "hiring_request";
 
 export interface CreateContactRequestInput {
   senderPersonId: string;
@@ -141,6 +151,8 @@ export interface ContactRequestOutgoingResolvedView {
   recipientPersonId: string;
   recipientFullName: string | null;
   respondedAt: Date;
+  /** Where the note came from; "referral_request" / "hiring_request" are brokered connections. */
+  source: string | null;
 }
 
 interface ContactRequestOutgoingResolvedRow {
@@ -149,6 +161,7 @@ interface ContactRequestOutgoingResolvedRow {
   recipient_person_id: string;
   recipient_full_name: string | null;
   responded_at: Date;
+  source: string | null;
 }
 
 function mapInboxItem(row: ContactRequestInboxRow): ContactRequestInboxItemView {
@@ -325,7 +338,8 @@ export class ContactRequestRepo {
         c.status,
         c.recipient_person_id,
         r.full_name AS recipient_full_name,
-        c.responded_at
+        c.responded_at,
+        c.source
       FROM contact_requests c
       JOIN people r ON r.id = c.recipient_person_id
       WHERE c.sender_person_id = $1
@@ -341,7 +355,8 @@ export class ContactRequestRepo {
       status: row.status as "accepted" | "declined",
       recipientPersonId: row.recipient_person_id,
       recipientFullName: row.recipient_full_name,
-      respondedAt: row.responded_at
+      respondedAt: row.responded_at,
+      source: row.source ?? null
     }));
   }
 
@@ -436,6 +451,8 @@ export class ContactRequestRepo {
           FILTER (WHERE responded_at IS NOT NULL) AS median_reply_seconds
       FROM contact_requests
       WHERE recipient_person_id = ANY($1::uuid[])
+        -- Brokered connections are created already accepted: they say nothing about reply speed.
+        AND (source IS NULL OR source NOT IN ('referral_request', 'hiring_request'))
         AND created_at >= now() - ($2::int * interval '1 month')
         AND (status <> 'pending' OR created_at <= now() - ($3::int * interval '1 day'))
       GROUP BY recipient_person_id

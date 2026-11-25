@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import "../styles/broker.css";
 import { WallShareButton } from "./WallShareButton";
 import { wallPostAnchorId } from "../lib/wallShare";
 import { PostAudienceLabel } from "./PostAudienceField";
@@ -18,6 +19,7 @@ import { DirectoryFilterDrawer } from "./DirectoryFilterDrawer";
 // Messaging paused: unused while the career feed Message CTA is commented out.
 // import { IconChatBubble } from "./HomeIcons";
 import { ReferralIntentHeadline } from "./ReferralIntentHeadline";
+import { MatchReachOutDialog } from "./MatchReachOutDialog";
 import { queryKeys } from "../lib/queryKeys";
 import { PageStateBlock } from "./PageStateBlock";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
@@ -64,6 +66,10 @@ export type CareerFeedRowModel = {
   resumeListingUrl: string | null;
   /** "IIT (BHU) Varanasi · Bengaluru" when the post is limited; null for Everyone. */
   audienceLabel?: string | null;
+  /** Structured hiring posts: the header built from the taps ("Hiring · Product · 3–7 yrs · Bengaluru"). */
+  headerLine?: string | null;
+  /** Structured hiring posts answered by a reachout to the poster (not a link). */
+  reachOut?: { role: string | null; company: string | null } | null;
 };
 
 function rowMatchesTab(row: CareerFeedRowModel, tab: CareerFeedTabId): boolean {
@@ -147,6 +153,27 @@ export type IntentcastActivityRowsListProps = {
 };
 
 /** Shared row layout for Careers activity and Home Active Requests. */
+/** Wall hiring posts with "Reach out to me": the reachout note, prefilled with the role and company. */
+function HiringReachOutButton({ row }: { row: CareerFeedRowModel }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="btn btn--primary career-feed-rows__reach-btn" onClick={() => setOpen(true)}>
+        Reach out
+      </button>
+      {open ? (
+        <MatchReachOutDialog
+          recipient={{ id: row.authorPersonId, fullName: row.authorFullName }}
+          purpose="advice"
+          advice={{ topic: "other", question: row.reachOut?.role ? `About the ${row.reachOut.role} role${row.reachOut.company ? ` at ${row.reachOut.company}` : ""}: ` : null }}
+          source="wall"
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function IntentcastActivityRowsList({
   rows,
   viewerPersonId,
@@ -200,6 +227,7 @@ export function IntentcastActivityRowsList({
                     </div>
                     {wallPins?.has(row.id) ? <WallPinBadge /> : null}
                     {row.kindLabel ? <span className="career-feed-rows__kind">{row.kindLabel}</span> : null}
+                    {row.headerLine ? <p className="career-feed-rows__header-line">{row.headerLine}</p> : null}
                     <ReferralIntentHeadline as="h3" className="career-feed-rows__row-title" headline={row.roleHeader} />
                     {row.companySubtitle ? (
                       <p className="career-feed-rows__row-company">{row.companySubtitle}</p>
@@ -209,10 +237,11 @@ export function IntentcastActivityRowsList({
                     {row.roleListingUrl ? (
                       <p className="career-feed-rows__row-role-link">
                         <a href={row.roleListingUrl} target="_blank" rel="noopener noreferrer">
-                          Role link
+                          {row.headerLine ? "Apply" : "Role link"}
                         </a>
                       </p>
                     ) : null}
+                    {row.reachOut && !isOwn ? <HiringReachOutButton row={row} /> : null}
                     {row.resumeListingUrl ? (
                       <p className="career-feed-rows__row-role-link">
                         <a href={row.resumeListingUrl} target="_blank" rel="noopener noreferrer">

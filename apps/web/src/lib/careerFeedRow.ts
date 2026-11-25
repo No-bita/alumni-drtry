@@ -1,4 +1,5 @@
-import type { IntentcastFeedItem } from "../api/client";
+import { JOB_FUNCTION_LABELS, hiringHeaderLine } from "./jobFunctions";
+import type { HiringFields, IntentcastFeedItem } from "../api/client";
 import type { CareerFeedRowModel, CareerFeedVisualTone } from "../components/CareerIntentFeedRows";
 import {
   buildReferralIntentBulletinHeadline,
@@ -78,10 +79,41 @@ export function laneBadgeLabel(tone: CareerFeedVisualTone): string {
   }
 }
 
+/** Hiring posts from the Wall composer: the header and title come from the taps (there is no heading). */
+function mapStructuredHiringRow(item: IntentcastFeedItem, h: HiringFields): CareerFeedRowModel {
+  const parts = [item.authorCurrentRoleTitle?.trim(), item.authorCurrentOrganizationName?.trim()].filter(Boolean);
+  return {
+    id: item.id,
+    tone: "hiring",
+    headerLine: hiringHeaderLine(h),
+    roleHeader: h.roleTitle?.trim() || `${JOB_FUNCTION_LABELS[h.jobFunction]} role`,
+    companySubtitle: [h.company?.trim(), h.location?.trim()].filter(Boolean).join(" · ") || null,
+    summary: stripBulletinUiCategory(item.content).trim(),
+    chips: mergeCareerLaneChip("hiring", []),
+    kindLabel: null,
+    audienceLabel: item.audience?.label ?? null,
+    employmentType: null,
+    compensation: null,
+    experience: null,
+    authorPersonId: item.authorPersonId,
+    authorFullName: (item.authorFullName ?? "").trim() || item.authorFullName,
+    authorInstitutionName: item.authorInstitutionName ?? null,
+    authorDepartmentCode: item.authorDepartmentCode,
+    authorBatchYear: item.authorBatchYear ?? null,
+    authorRoleLine: parts.length ? parts.join(", ") : null,
+    postedRelative: item.createdAt ? formatRelativeTime(item.createdAt) : null,
+    postedAtIso: item.createdAt,
+    roleListingUrl: h.respondVia === "link" ? h.applyUrl : null,
+    resumeListingUrl: null,
+    reachOut: h.respondVia === "reachout" ? { role: h.roleTitle, company: h.company } : null,
+  };
+}
+
 export function mapIntentcastToRow(
   item: IntentcastFeedItem,
   options?: MapIntentcastToRowOptions
 ): CareerFeedRowModel | null {
+  if (item.category === "hiring" && item.hiring) return mapStructuredHiringRow(item, item.hiring);
   const allowGuidance = CAREER_FEED_INCLUDE_GUIDANCE || options?.includeGuidancePosts === true;
   if (item.category === "guidance" && !allowGuidance) {
     return null;

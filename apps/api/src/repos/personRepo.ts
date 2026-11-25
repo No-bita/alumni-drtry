@@ -1,6 +1,7 @@
 import type { DbExecutor } from "../db/types.js";
 import { isBhuInstitutionalEmail } from "../lib/domainAllowlist.js";
 import { parseOpenToPreferences, type OpenToPreferences } from "../lib/openToPreferences.js";
+import { isJobFunction, type JobFunction } from "../lib/jobFunctions.js";
 
 export type PersonRole = "alumni" | "admin" | "super_admin";
 
@@ -71,6 +72,8 @@ export interface PersonProfileView {
   residenceCountry: string | null;
   residenceCity: string | null;
   openToPreferences: OpenToPreferences | null;
+  /** Job function (Tech, Product, …): used to reach the right members for hiring. */
+  jobFunction: JobFunction | null;
   profileCompletedAt: Date | null;
   onboardingCompletedAt: Date | null;
   appLoginCount: number;
@@ -95,6 +98,7 @@ interface PersonProfileRow {
   residence_country: string | null;
   residence_city: string | null;
   open_to_preferences: unknown;
+  job_function: string | null;
   profile_completed_at: Date | null;
   onboarding_completed_at: Date | null;
   app_login_count: number;
@@ -261,6 +265,7 @@ export class PersonRepo {
         p.residence_country,
         p.residence_city,
         p.open_to_preferences,
+        p.job_function,
         p.profile_completed_at,
         p.onboarding_completed_at,
         p.app_login_count,
@@ -306,6 +311,7 @@ export class PersonRepo {
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,
       openToPreferences: parseOpenToPreferencesRow(row.open_to_preferences),
+      jobFunction: isJobFunction(row.job_function) ? row.job_function : null,
       profileCompletedAt: row.profile_completed_at,
       onboardingCompletedAt: row.onboarding_completed_at,
       appLoginCount: row.app_login_count,
@@ -438,6 +444,12 @@ export class PersonRepo {
     }));
   }
 
+  /** Sets (or clears) the member's job function. */
+  async setJobFunction(personId: string, jobFunction: JobFunction | null): Promise<boolean> {
+    const r = await this.db.query(`UPDATE people SET job_function = $2 WHERE id = $1 AND deleted_at IS NULL`, [personId, jobFunction]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
   async updateProfile(input: UpdateProfileInput): Promise<PersonProfileView | null> {
     const onboardingClause =
       input.expectedOnboardingCompleted === true
@@ -486,6 +498,7 @@ export class PersonRepo {
           residence_country,
           residence_city,
           open_to_preferences,
+          job_function,
           profile_completed_at,
           onboarding_completed_at,
           app_login_count,
@@ -556,6 +569,7 @@ export class PersonRepo {
       residenceCountry: row.residence_country,
       residenceCity: row.residence_city,
       openToPreferences: parseOpenToPreferencesRow(row.open_to_preferences),
+      jobFunction: isJobFunction(row.job_function) ? row.job_function : null,
       profileCompletedAt: row.profile_completed_at,
       onboardingCompletedAt: row.onboarding_completed_at,
       appLoginCount: row.app_login_count,

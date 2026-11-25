@@ -1,3 +1,4 @@
+import { JOB_FUNCTION_LABELS, type JobFunction } from "../../lib/jobFunctions";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { OccupationView, ProfileLinkView, ProfileResponse, PublicProfileView } from "../../api/client";
@@ -93,6 +94,8 @@ type Props = {
   ownerNotice?: ReactNode;
   /** Owner-only cards under Contact (e.g. WhatsApp notes). */
   ownerExtras?: ReactNode;
+  /** Owner only: the member's job function (undefined when the API doesn't send it). */
+  jobFunction?: JobFunction | null;
   onEdit: (section: ProfileSection) => void;
   onReachOut: () => void;
   onSignOut: () => void;
@@ -113,7 +116,7 @@ export function ProfilePageView(props: Props) {
   const institute = instituteEducation(profile, owner);
   const visibleLinks = links.filter((l) => !isXProfileLink(l) && safeWebHref(l.url));
   const openItems = openTo?.selected ?? [];
-  const steps = owner ? setupSteps({ occupations, areas, openTo }) : [];
+  const steps = owner ? setupSteps({ occupations, areas, openTo, jobFunction: props.jobFunction }) : [];
   const showSetup = owner && steps.some((s) => !s.done);
 
   const pencil = (section: ProfileSection, label: string) =>
@@ -203,6 +206,14 @@ export function ProfilePageView(props: Props) {
     career.length > 0 || owner ? (
       <section className={`pp-card pp-card--career pp-o-career${career.length > 0 && career.length <= CAREER_PHOTO_MAX_ROLES ? " pp-card--photo" : ""}`} aria-label="Career history">
         {cardHead("career", "Career history", "career", "Edit career history")}
+        {owner && props.jobFunction !== undefined ? (
+          <p className="pp-function">
+            <span>Function (only you see this): {props.jobFunction ? JOB_FUNCTION_LABELS[props.jobFunction] : "not set"}</span>
+            <button type="button" className="pp-inline-link" onClick={() => onEdit("function")}>
+              {props.jobFunction ? "Change" : "Add"}
+            </button>
+          </p>
+        ) : null}
         {career.length ? (
           <ol className="pp-timeline">
             {career.map((o) => (

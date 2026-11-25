@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMarkAllNotificationsSeen, useNotificationsList } from "../lib/notificationsQueries";
 import { NotificationsList } from "../components/NotificationsList";
 import { SentNotesSection } from "../components/SentNotesSection";
+import { BrokerAsksSection, BrokerRequestsSection } from "../components/broker/BrokerSections";
 import "../styles/sent-notes.css";
 
 /** Full-screen notifications inbox: the destination rows in the quick-view sheet open. */
@@ -55,6 +56,10 @@ export function NotificationsPage() {
         <NotificationsList items={items} />
       )}
 
+      <BrokerAsksSection enabled={authenticated} />
+      <div id="your-requests">
+        <BrokerRequestsSection enabled={authenticated} />
+      </div>
       <SentNotesSection enabled={authenticated} />
     </main>
   );

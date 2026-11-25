@@ -12,8 +12,8 @@ const createContactRequestSchema = z
     note: noteInputSchema.optional().nullable(),
     /** Cities v1 notes stay free-text; other surfaces send the note form instead. */
     message: z.string().max(3000).optional(),
-    /** Where the note was sent from (Ask, WhatsApp, Careers, a profile, directory search, or Cities v1). Outside Cities the category comes from the note. */
-    source: z.enum(["match", "whatsapp", "careers", "cities", "profile", "search"]).optional(),
+    /** Where the note was sent from (Ask, WhatsApp, Careers, a profile, directory search, a Wall hiring post, or Cities v1). Outside Cities the category comes from the note. */
+    source: z.enum(["match", "whatsapp", "careers", "cities", "profile", "search", "wall"]).optional(),
     sourceCategory: z.enum([...MATCH_CATEGORIES, ...CITIES_NOTE_CATEGORIES]).nullable().optional(),
     /** Position (1 = top) of the person in the match results, for ranking quality. */
     sourceRank: z.number().int().min(1).max(20).nullable().optional(),
