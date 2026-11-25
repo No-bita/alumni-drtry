@@ -175,6 +175,11 @@ describe("Empty Wall: example posts typing in, then a ripple on Post to The Wall
     expect(screen.getByText("No posts yet.")).toBeTruthy();
   });
 
+  it("the empty note is not shown when there are posts", () => {
+    renderRail({ intentcasts: [POST], counts: { ...EMPTY_COUNTS, startups: 1 } });
+    expect(screen.queryByText("No posts yet.")).toBeNull();
+  });
+
   it("pauses while the tab is hidden and resumes when it's visible again", () => {
     renderCard();
     act(() => void vi.advanceTimersByTime(1200));
