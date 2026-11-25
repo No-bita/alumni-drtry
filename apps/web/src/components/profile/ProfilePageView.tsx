@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom";
 import type { OccupationView, ProfileLinkView, ProfileResponse, PublicProfileView } from "../../api/client";
 import { publicAsset } from "../../lib/appBase";
-import { OPEN_TO_CATALOG, coffeeLimitOf, type OpenToPreferences } from "../../lib/openToPreferences";
+// Paused with the "Open to" card below: OPEN_TO_CATALOG, coffeeLimitOf.
+import { type OpenToPreferences } from "../../lib/openToPreferences";
 import {
   CAREER_PHOTO_MAX_ROLES,
   displayLinkText,
@@ -19,7 +20,7 @@ import { formatOccupationCompanyTypeLine, formatOccupationDatesDurationLine, res
 import { isXProfileLink } from "../../lib/profileLinkRules";
 import { linkToSocialPlatformKey } from "../../lib/socialLinks";
 import { safeWebHref } from "../../lib/webUrl";
-import { OpenToIcon } from "./OpenToIcon";
+// Paused with the "Open to" card: import { OpenToIcon } from "./OpenToIcon";
 import "../../styles/profile-page.css";
 
 const CAREER_PHOTO = publicAsset("login-hero-house-portrait.jpg");
@@ -115,7 +116,7 @@ export function ProfilePageView(props: Props) {
   const { career, education } = splitCareerAndEducation(occupations);
   const institute = instituteEducation(profile, owner);
   const visibleLinks = links.filter((l) => !isXProfileLink(l) && safeWebHref(l.url));
-  const openItems = openTo?.selected ?? [];
+  // Paused with the "Open to" card: const openItems = openTo?.selected ?? [];
   const steps = owner ? setupSteps({ occupations, areas, openTo, jobFunction: props.jobFunction }) : [];
   const showSetup = owner && steps.some((s) => !s.done);
 
@@ -234,6 +235,7 @@ export function ProfilePageView(props: Props) {
       </section>
     ) : null;
 
+  /* "Open to helping with" is paused for now; re-introduce later by uncommenting this block and its render below.
   const coffee = coffeeLimitOf(openTo);
   const openCard =
     openItems.length > 0 || owner ? (
@@ -256,6 +258,7 @@ export function ProfilePageView(props: Props) {
         )}
       </section>
     ) : null;
+  */
 
   const contactCard = owner ? (
     <section className="pp-card pp-o-contact" aria-label="Contact">
@@ -356,7 +359,7 @@ export function ProfilePageView(props: Props) {
         </div>
         <div className="pp-col pp-col--mid">{careerCard}</div>
         <div className="pp-col pp-col--right">
-          {openCard}
+          {/* "Open to helping with" is paused for now; re-enable by restoring {openCard} here. */}
           {contactCard}
           {owner && props.ownerExtras ? <div className="pp-o-extras">{props.ownerExtras}</div> : null}
         </div>

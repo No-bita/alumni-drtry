@@ -175,13 +175,14 @@ describe("what a visitor sees", () => {
     mountPage("/profiles/p2");
     await screen.findByRole("heading", { level: 1 });
     const names = Array.from(document.querySelectorAll(".pp-col > section")).map((s) => s.getAttribute("aria-label"));
-    expect(names).toEqual(["Areas of experience", "Education", "Links", "Career history", "Open to helping with"]);
+    // "Open to helping with" is paused on the page for now; it returns to this list when re-introduced.
+    expect(names).toEqual(["Areas of experience", "Education", "Links", "Career history"]);
     expect(within(region("Areas of experience")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Pricing", "Marketplace ops"]);
     expect(within(region("Education")).getByText("IIT Bombay")).toBeTruthy();
     expect(within(region("Education")).getByText("BTech, Computer Science")).toBeTruthy();
     expect(within(region("Education")).getByText("2015 – 2019")).toBeTruthy();
     expect(within(region("Links")).getByRole("link", { name: /github\.com\/sample/ }).getAttribute("href")).toBe("https://github.com/sample");
-    expect(within(region("Open to helping with")).getByText(/Coffee chats/).textContent).toContain("2 a week");
+    expect(screen.queryByRole("region", { name: "Open to helping with" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Contact" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Edit / })).toBeNull();
     expect(screen.queryByRole("region", { name: "Finish your profile" })).toBeNull();
@@ -249,7 +250,8 @@ describe("what the owner sees", () => {
   it("pencils on every section, the private Contact card, and no Reach out", async () => {
     mountPage("/profiles/me-1");
     await screen.findByRole("heading", { level: 1 });
-    for (const label of ["Edit where you live", "Edit areas of experience", "Edit education", "Edit links", "Edit career history", "Edit open to", "Edit contact details"]) {
+    // "Edit open to" is paused with the "Open to helping with" card.
+    for (const label of ["Edit where you live", "Edit areas of experience", "Edit education", "Edit links", "Edit career history", "Edit contact details"]) {
       expect(screen.getByRole("button", { name: label })).toBeTruthy();
     }
     expect(within(region("Contact")).getByText("me@example.com")).toBeTruthy();
@@ -377,8 +379,8 @@ describe("editing one section at a time", () => {
   it("open to: turning on referrals with no areas offers to add them", async () => {
     h.state.areas = [];
     h.state.profile = { ...baseProfile, openToPreferences: null };
-    mountPage("/profiles/me-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit open to" }));
+    // The card's "Edit open to" button is paused with the card; the dialog still opens via ?edit=open-to.
+    mountPage("/profiles/me-1?edit=open-to");
     const dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
     expect(within(dialog).queryByRole("button", { name: "Add areas" })).toBeNull();
     fireEvent.click(within(dialog).getByLabelText("Referrals"));
@@ -530,8 +532,8 @@ describe("editing one section at a time", () => {
   it.each(["Save", "Cancel"])("open to: ticks survive the 'Add areas' detour (areas %s)", async (how) => {
     h.state.areas = [];
     h.state.profile = { ...baseProfile, openToPreferences: null };
-    mountPage("/profiles/me-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit open to" }));
+    // The card's "Edit open to" button is paused with the card; the dialog still opens via ?edit=open-to.
+    mountPage("/profiles/me-1?edit=open-to");
     let dialog = await screen.findByRole("dialog", { name: "Open to helping with" });
     fireEvent.click(within(dialog).getByLabelText("Referrals"));
     fireEvent.click(within(dialog).getByLabelText("Mentorship"));
